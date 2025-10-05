@@ -1,0 +1,25 @@
+[
+  {
+    // ignora arquivos de configuração que quebram o parser
+    "ignores": [
+      "node_modules/**",
+      "dist/**",
+      "rsbuild.config.ts",
+      "postcss.config.cjs",
+      "tailwind.config.js"
+    ],
+    "languageOptions": {
+      "parserOptions": {
+        "project": ["./tsconfig.json"]
+      }
+    },
+    "rules": {
+      "@typescript-eslint/require-await": "off",
+      "@typescript-eslint/no-unnecessary-type-assertion": "warn",
+      "@typescript-eslint/array-type": ["warn", { "default": "array-simple" }]
+    },
+    "plugins": [
+      "@typescript-eslint"
+    ]
+  }
+]

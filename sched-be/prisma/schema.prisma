@@ -1,0 +1,181 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  ADMIN
+  MANAGER
+  GUEST
+}
+
+enum VisitDuration {
+  THREE_HOURS
+  SIX_HOURS
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  passwordHash  String
+  name          String
+  role          UserRole  @default(MANAGER)
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  sessions         Session[]
+  bookingsCreated  Booking[] @relation("CreatedBy")
+  invitationsCreated Invitation[] @relation("InvitationCreator")
+  activityLogs     ActivityLog[]
+  pushSubscriptions PushSubscription[]
+
+  @@index([email])
+  @@index([role])
+}
+
+model Session {
+  id        String   @id
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user      User     @relation(references: [id], fields: [userId], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Booking {
+  id              String         @id @default(cuid())
+  date            DateTime       @db.Date
+  startTime       String
+  duration        VisitDuration
+  status          BookingStatus  @default(PENDING)
+
+  companyName     String
+  companySector   String
+  companyVertical String
+  companySize     String?
+
+  contactName     String
+  contactEmail    String
+  contactPhone    String?
+  contactPosition String?
+
+  interestArea    String
+  expectedAttendees Int          @default(1)
+  businessGoal    String?
+  additionalNotes String?        @db.Text
+
+  invitationId    String?        @unique
+  invitation      Invitation?    @relation(fields: [invitationId], references: [id])
+  createdById     String?
+  createdBy       User?          @relation("CreatedBy", fields: [createdById], references: [id])
+
+  attendees       Attendee[]
+
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  @@index([date])
+  @@index([status])
+  @@index([createdById])
+}
+
+model Attendee {
+  id        String   @id @default(cuid())
+  name      String
+  position  String?
+  email     String?
+
+  bookingId String
+  booking   Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([bookingId])
+}
+
+model Invitation {
+  id              String    @id @default(cuid())
+  token           String    @unique
+  email           String?
+  expiresAt       DateTime
+  usedAt          DateTime?
+  isActive        Boolean   @default(true)
+
+  createdById     String
+  createdBy       User      @relation("InvitationCreator", fields: [createdById], references: [id])
+
+  booking         Booking?
+
+  createdAt       DateTime  @default(now())
+
+  @@index([token])
+  @@index([createdById])
+  @@index([expiresAt])
+}
+
+enum ActivityAction {
+  LOGIN
+  LOGOUT
+  CREATE
+  UPDATE
+  DELETE
+  VIEW
+}
+
+enum ActivityResource {
+  BOOKING
+  INVITATION
+  USER
+  SESSION
+}
+
+model ActivityLog {
+  id          String            @id @default(cuid())
+  action      ActivityAction
+  resource    ActivityResource
+  resourceId  String?
+  description String
+  metadata    Json?
+
+  userId      String?
+  user        User?             @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  ipAddress   String?
+  userAgent   String?
+
+  createdAt   DateTime          @default(now())
+
+  @@index([userId])
+  @@index([action])
+  @@index([resource])
+  @@index([createdAt])
+}
+
+model PushSubscription {
+  id        String   @id @default(cuid())
+  userId    String
+  endpoint  String   @unique
+  keys      Json
+  userAgent String?
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([endpoint])
+}
