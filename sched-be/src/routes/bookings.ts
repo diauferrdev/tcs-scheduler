@@ -3,6 +3,7 @@ import { zValidator } from '@hono/zod-validator';
 import { BookingCreateSchema, BookingGuestCreateSchema, BookingUpdateSchema } from '../types';
 import * as bookingService from '../services/booking.service';
 import * as invitationService from '../services/invitation.service';
+import * as pushService from '../services/push.service';
 import { authMiddleware } from '../middleware/auth';
 import type { AppContext } from '../lib/context';
 
@@ -36,6 +37,15 @@ app.post('/', authMiddleware, zValidator('json', BookingCreateSchema), async (c)
     const user = c.get('user');
     const data = c.req.valid('json');
     const booking = await bookingService.createBooking(data, user.id);
+
+    // Send push notification to all admins and managers
+    try {
+      await pushService.sendNewBookingNotification(booking.id);
+    } catch (pushError) {
+      console.error('Failed to send push notification:', pushError);
+      // Don't fail the request if notification fails
+    }
+
     return c.json(booking, 201);
   } catch (error: any) {
     return c.json({ error: error.message }, 400);
@@ -59,6 +69,14 @@ app.post('/guest', zValidator('json', BookingGuestCreateSchema), async (c) => {
 
     // Mark invitation as used and link to booking
     await invitationService.markInvitationUsed(token);
+
+    // Send push notification to all admins and managers
+    try {
+      await pushService.sendNewBookingNotification(booking.id);
+    } catch (pushError) {
+      console.error('Failed to send push notification:', pushError);
+      // Don't fail the request if notification fails
+    }
 
     return c.json(booking, 201);
   } catch (error: any) {
@@ -105,6 +123,15 @@ app.patch('/:id', authMiddleware, zValidator('json', BookingUpdateSchema), async
     const id = c.req.param('id');
     const data = c.req.valid('json');
     const booking = await bookingService.updateBooking(id, data);
+
+    // Send push notification about update
+    try {
+      await pushService.sendBookingUpdateNotification(booking.id);
+    } catch (pushError) {
+      console.error('Failed to send push notification:', pushError);
+      // Don't fail the request if notification fails
+    }
+
     return c.json(booking);
   } catch (error: any) {
     return c.json({ error: error.message }, 400);
@@ -115,6 +142,15 @@ app.patch('/:id', authMiddleware, zValidator('json', BookingUpdateSchema), async
 app.delete('/:id', authMiddleware, async (c) => {
   try {
     const id = c.req.param('id');
+
+    // Send cancellation notification BEFORE deleting (we need booking data)
+    try {
+      await pushService.sendBookingCancelledNotification(id);
+    } catch (pushError) {
+      console.error('Failed to send push notification:', pushError);
+      // Don't fail the request if notification fails
+    }
+
     const result = await bookingService.deleteBooking(id);
     return c.json(result);
   } catch (error: any) {

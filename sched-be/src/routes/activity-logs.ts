@@ -8,13 +8,14 @@ const app = new Hono<AppContext>();
 // Get activity logs (ADMIN only)
 app.get('/', authMiddleware, requireRole('ADMIN'), async (c) => {
   try {
-    const { userId, action, resource, limit, offset } = c.req.query();
+    const { userId, action, resource, search, limit, offset } = c.req.query();
 
     const filters: any = {};
 
     if (userId) filters.userId = userId;
     if (action) filters.action = action as any;
     if (resource) filters.resource = resource as any;
+    if (search) filters.search = search;
     if (limit) filters.limit = parseInt(limit);
     if (offset) filters.offset = parseInt(offset);
 

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { ColumnDef } from '@tanstack/react-table';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { Button } from '../components/ui/button';
@@ -6,13 +7,14 @@ import { Card } from '../components/ui/card';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
-import { Skeleton } from '../components/ui/skeleton';
 import { useTheme } from '../hooks/use-theme';
 import { toast } from 'sonner';
-import { Copy, Check, Link as LinkIcon } from 'lucide-react';
+import { Copy, Check, Link as LinkIcon, User, Mail, Calendar as CalendarIcon, AlertCircle } from 'lucide-react';
 import { format } from 'date-fns';
-import { Pagination, PaginationContent, PaginationItem, PaginationPrevious, PaginationNext } from '../components/ui/pagination';
 import { motion } from 'framer-motion';
+import { DataTable } from '../components/data-table';
+import { DataTableColumnHeader } from '../components/data-table/data-table-column-header';
+import { Badge } from '../components/ui/badge';
 
 interface Invitation {
   id: string;
@@ -32,6 +34,7 @@ interface Invitation {
 export default function Invitations() {
   const { theme } = useTheme();
   const { user } = useAuth();
+
   const [invitations, setInvitations] = useState<Invitation[]>([]);
   const [filteredInvitations, setFilteredInvitations] = useState<Invitation[]>([]);
   const [loading, setLoading] = useState(true);
@@ -108,36 +111,232 @@ export default function Invitations() {
     }
   };
 
-  const copyToClipboard = async (token: string, id: string) => {
+  const copyToClipboard = async (token: string) => {
     const link = `${window.location.origin}/book/${token}`;
     await navigator.clipboard.writeText(link);
-    setCopiedId(id);
+    setCopiedId(token);
     toast.success('Link copied to clipboard!');
     setTimeout(() => setCopiedId(null), 2000);
   };
 
-  const InvitationsSkeleton = () => (
-    <div className="space-y-3">
-      {[...Array(5)].map((_, i) => (
-        <div key={i} className={`p-4 rounded-lg border ${theme === 'dark' ? 'bg-black border-zinc-800' : 'bg-gray-50 border-gray-200'}`}>
-          <div className="space-y-3">
-            <Skeleton className={`h-5 w-full ${theme === 'dark' ? 'bg-zinc-800' : ''}`} />
-            <div className="flex flex-wrap gap-2">
-              <Skeleton className={`h-4 w-24 ${theme === 'dark' ? 'bg-zinc-800' : ''}`} />
-              <Skeleton className={`h-4 w-32 ${theme === 'dark' ? 'bg-zinc-800' : ''}`} />
+  // Column definitions
+  const invitationColumns: ColumnDef<Invitation>[] = [
+    {
+      accessorKey: 'token',
+      header: 'Link',
+      cell: ({ row }) => {
+        const token = row.getValue('token') as string;
+        const link = `${window.location.origin}/book/${token}`;
+        return (
+          <div className="font-mono text-sm max-w-xs truncate">
+            {link}
+          </div>
+        );
+      },
+    },
+    {
+      accessorKey: 'email',
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} title="Email" />
+      ),
+      cell: ({ row }) => {
+        const email = row.getValue('email') as string | undefined;
+        if (!email) return <span className="text-gray-400 text-sm">No email</span>;
+        return (
+          <div className="flex items-center gap-2">
+            <Mail className="h-4 w-4 text-gray-500" />
+            <span className="text-sm">{email}</span>
+          </div>
+        );
+      },
+    },
+    {
+      accessorKey: 'createdBy',
+      header: 'Created By',
+      cell: ({ row }) => {
+        const createdBy = row.getValue('createdBy') as Invitation['createdBy'];
+        if (!createdBy) return <span className="text-gray-400 text-sm">System</span>;
+        return (
+          <div className="flex items-center gap-2">
+            <User className="h-4 w-4 text-gray-500" />
+            <div>
+              <div className="text-sm font-medium">{createdBy.name}</div>
+              <div className="text-xs text-gray-500">{createdBy.email}</div>
             </div>
-            <Skeleton className={`h-9 w-full ${theme === 'dark' ? 'bg-zinc-800' : ''}`} />
+          </div>
+        );
+      },
+    },
+    {
+      accessorKey: 'createdAt',
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} title="Created" />
+      ),
+      cell: ({ row }) => {
+        return (
+          <span className="text-sm">
+            {format(new Date(row.getValue('createdAt')), 'MMM d, yyyy')}
+          </span>
+        );
+      },
+    },
+    {
+      accessorKey: 'expiresAt',
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} title="Expires" />
+      ),
+      cell: ({ row }) => {
+        const expiresAt = new Date(row.getValue('expiresAt'));
+        const isExpired = expiresAt < new Date();
+        return (
+          <div className="flex items-center gap-2">
+            {isExpired && <AlertCircle className="h-4 w-4 text-red-500" />}
+            <span className={`text-sm ${isExpired ? 'text-red-500' : ''}`}>
+              {format(expiresAt, 'MMM d, yyyy')}
+            </span>
+          </div>
+        );
+      },
+    },
+    {
+      accessorKey: 'usedAt',
+      header: 'Status',
+      cell: ({ row }) => {
+        const usedAt = row.getValue('usedAt') as string | undefined;
+        const isActive = row.original.isActive;
+        const expiresAt = new Date(row.original.expiresAt);
+        const isExpired = expiresAt < new Date();
+
+        if (usedAt) {
+          return (
+            <Badge variant="outline" className="text-green-600 border-green-600">
+              Used
+            </Badge>
+          );
+        }
+        if (isExpired) {
+          return (
+            <Badge variant="outline" className="text-red-500 border-red-500">
+              Expired
+            </Badge>
+          );
+        }
+        if (isActive) {
+          return (
+            <Badge variant="outline" className="text-blue-500 border-blue-500">
+              Active
+            </Badge>
+          );
+        }
+        return (
+          <Badge variant="outline" className="text-gray-500 border-gray-500">
+            Inactive
+          </Badge>
+        );
+      },
+    },
+    {
+      id: 'actions',
+      cell: ({ row }) => {
+        const invitation = row.original;
+        const isDisabled = !invitation.isActive || !!invitation.usedAt;
+
+        return (
+          <Button
+            onClick={() => copyToClipboard(invitation.token)}
+            variant="outline"
+            size="sm"
+            disabled={isDisabled}
+            className={theme === 'dark' ? 'border-zinc-800 bg-zinc-900 text-white hover:bg-zinc-800' : ''}
+          >
+            {copiedId === invitation.token ? (
+              <>
+                <Check className="h-4 w-4 mr-2" />
+                Copied!
+              </>
+            ) : (
+              <>
+                <Copy className="h-4 w-4 mr-2" />
+                Copy
+              </>
+            )}
+          </Button>
+        );
+      },
+    },
+  ];
+
+  // Mobile card render
+  const InvitationMobileCard = (invitation: Invitation) => {
+    const isExpired = new Date(invitation.expiresAt) < new Date();
+    const link = `${window.location.origin}/book/${invitation.token}`;
+
+    return (
+      <div className="space-y-3">
+        <div className="flex items-start justify-between gap-2">
+          <p className="font-mono text-xs break-all flex-1">{link}</p>
+          <Badge variant="outline" className={
+            invitation.usedAt ? 'text-green-600 border-green-600' :
+            isExpired ? 'text-red-500 border-red-500' :
+            invitation.isActive ? 'text-blue-500 border-blue-500' :
+            'text-gray-500 border-gray-500'
+          }>
+            {invitation.usedAt ? 'Used' : isExpired ? 'Expired' : invitation.isActive ? 'Active' : 'Inactive'}
+          </Badge>
+        </div>
+
+        <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs">
+          {invitation.email && (
+            <div className="flex items-center gap-1 text-gray-500">
+              <Mail className="h-3 w-3" />
+              <span>{invitation.email}</span>
+            </div>
+          )}
+          {invitation.createdBy && (
+            <div className="flex items-center gap-1 text-gray-500">
+              <User className="h-3 w-3" />
+              <span>{invitation.createdBy.name}</span>
+            </div>
+          )}
+          <div className="flex items-center gap-1 text-gray-500">
+            <CalendarIcon className="h-3 w-3" />
+            <span>Created: {format(new Date(invitation.createdAt), 'MMM d')}</span>
+          </div>
+          <div className={`flex items-center gap-1 ${isExpired ? 'text-red-500' : 'text-gray-500'}`}>
+            {isExpired && <AlertCircle className="h-3 w-3" />}
+            <span>Expires: {format(new Date(invitation.expiresAt), 'MMM d')}</span>
           </div>
         </div>
-      ))}
-    </div>
-  );
+
+        <Button
+          onClick={() => copyToClipboard(invitation.token)}
+          variant="outline"
+          size="sm"
+          disabled={!invitation.isActive || !!invitation.usedAt}
+          className={`w-full ${theme === 'dark' ? 'border-zinc-800 bg-zinc-900 text-white hover:bg-zinc-800' : ''}`}
+        >
+          {copiedId === invitation.token ? (
+            <>
+              <Check className="h-4 w-4 mr-2" />
+              Copied!
+            </>
+          ) : (
+            <>
+              <Copy className="h-4 w-4 mr-2" />
+              Copy Link
+            </>
+          )}
+        </Button>
+      </div>
+    );
+  };
 
   return (
     <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 0.5 }}
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -10 }}
+      transition={{ duration: 0.2, ease: 'easeInOut' }}
       className="max-w-[1800px] mx-auto px-4 sm:px-6 lg:px-8 py-8"
     >
       {/* Generate New Invitation Card */}
@@ -147,155 +346,60 @@ export default function Invitations() {
         </h3>
 
         <div className="space-y-3">
-          <div>
-            <Label htmlFor="email" className={`text-sm ${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>
-              Guest Email (Optional)
-            </Label>
+          <Label htmlFor="email" className={`text-sm ${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>
+            Guest Email (Optional)
+          </Label>
+          <div className="flex flex-col sm:flex-row gap-3">
             <Input
               id="email"
               type="email"
               placeholder="guest@company.com"
               value={guestEmail}
               onChange={(e) => setGuestEmail(e.target.value)}
-              className={`mt-1 ${theme === 'dark' ? 'bg-black border-zinc-800 text-white' : ''}`}
+              className={`flex-1 ${theme === 'dark' ? 'bg-black border-zinc-800 text-white' : ''}`}
             />
-            <p className={`text-xs mt-1 ${theme === 'dark' ? 'text-gray-500' : 'text-gray-400'}`}>
-              Email is optional. The link can be shared with anyone.
-            </p>
+            <Button
+              onClick={generateInvitation}
+              disabled={generating}
+              className={`w-full sm:w-auto ${theme === 'dark' ? 'bg-white text-black hover:bg-gray-200' : 'bg-black text-white hover:bg-gray-800'}`}
+            >
+              <LinkIcon className="h-4 w-4 mr-2" />
+              {generating ? 'Generating...' : 'Generate Link'}
+            </Button>
           </div>
-
-          <Button
-            onClick={generateInvitation}
-            disabled={generating}
-            className={`w-full sm:w-auto ${theme === 'dark' ? 'bg-white text-black hover:bg-gray-200' : 'bg-black text-white hover:bg-gray-800'}`}
-          >
-            <LinkIcon className="h-4 w-4 mr-2" />
-            {generating ? 'Generating...' : 'Generate Link'}
-          </Button>
+          <p className={`text-xs ${theme === 'dark' ? 'text-gray-500' : 'text-gray-400'}`}>
+            Email is optional. The link can be shared with anyone.
+          </p>
         </div>
       </Card>
 
       {/* Invitations List Card */}
       <Card className={`p-6 ${theme === 'dark' ? 'bg-zinc-900 border-zinc-800' : ''}`}>
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
-          <h3 className={`text-lg font-semibold ${theme === 'dark' ? 'text-white' : ''}`}>
-            Invitations
-          </h3>
-          <Select value={filterView} onValueChange={(val: 'mine' | 'all' | 'recent') => setFilterView(val)}>
-            <SelectTrigger className={`w-full sm:w-[180px] ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800 text-white' : ''}`}>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent className={theme === 'dark' ? 'bg-zinc-900 border-zinc-800 text-white' : ''}>
-              <SelectItem value="mine">My Invitations</SelectItem>
-              <SelectItem value="all">All Invitations</SelectItem>
-              <SelectItem value="recent">Recent (10)</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+        <DataTable
+          columns={invitationColumns}
+          data={filteredInvitations}
+          mobileCardRender={InvitationMobileCard}
+          headerActions={
+            <div className="flex flex-col sm:flex-row gap-2 w-full sm:flex-1">
+              <Input
+                type="text"
+                placeholder="Search by email or token..."
+                className={`h-10 flex-1 ${theme === 'dark' ? 'bg-black border-zinc-800 text-white placeholder:text-gray-500' : ''}`}
+              />
 
-        {loading ? (
-          <InvitationsSkeleton />
-        ) : filteredInvitations.length === 0 ? (
-          <p className={theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}>
-            No invitations found.
-          </p>
-        ) : (
-          <div className="space-y-3">
-            {filteredInvitations.map((invitation, idx) => (
-              <motion.div
-                key={invitation.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: idx * 0.05, duration: 0.3 }}
-                className={`p-4 rounded-lg border ${
-                  theme === 'dark' ? 'bg-black border-zinc-800' : 'bg-gray-50 border-gray-200'
-                }`}
-              >
-                <div className="space-y-3">
-                  {/* Link */}
-                  <div className="flex items-start gap-2">
-                    <span className={`text-sm font-mono break-all ${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>
-                      {window.location.origin}/book/{invitation.token}
-                    </span>
-                  </div>
-
-                  {/* Metadata */}
-                  <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs">
-                    {invitation.email && (
-                      <span className={theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}>
-                        Email: {invitation.email}
-                      </span>
-                    )}
-                    {invitation.createdBy && (
-                      <span className={theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}>
-                        By: {invitation.createdBy.name}
-                      </span>
-                    )}
-                    <span className={theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}>
-                      Created: {format(new Date(invitation.createdAt), 'MMM d, yyyy')}
-                    </span>
-                    <span className={theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}>
-                      Expires: {format(new Date(invitation.expiresAt), 'MMM d, yyyy')}
-                    </span>
-                    {invitation.usedAt && (
-                      <span className={theme === 'dark' ? 'text-green-400' : 'text-green-600'}>
-                        Used: {format(new Date(invitation.usedAt), 'MMM d, yyyy')}
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Copy Button */}
-                  <Button
-                    onClick={() => copyToClipboard(invitation.token, invitation.id)}
-                    variant="outline"
-                    size="sm"
-                    disabled={!invitation.isActive || !!invitation.usedAt}
-                    className={`w-full sm:w-auto ${theme === 'dark' ? 'border-zinc-800 bg-zinc-900 text-white hover:bg-zinc-800' : ''}`}
-                  >
-                    {copiedId === invitation.id ? (
-                      <>
-                        <Check className="h-4 w-4 mr-2" />
-                        Copied!
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="h-4 w-4 mr-2" />
-                        Copy Link
-                      </>
-                    )}
-                  </Button>
-                </div>
-              </motion.div>
-            ))}
-          </div>
-        )}
-
-        {/* Pagination */}
-        {!loading && filteredInvitations.length > 0 && (
-          <div className={`mt-6 pt-4 border-t ${theme === 'dark' ? 'border-zinc-800' : 'border-gray-200'}`}>
-            <Pagination>
-              <PaginationContent className={theme === 'dark' ? 'text-white' : ''}>
-                <PaginationItem>
-                  <PaginationPrevious
-                    onClick={() => setPage(p => Math.max(1, p - 1))}
-                    className={`cursor-pointer ${page === 1 ? 'pointer-events-none opacity-50' : ''} ${theme === 'dark' ? 'border-zinc-800 bg-zinc-900 text-white hover:bg-zinc-800 hover:text-white' : ''}`}
-                  />
-                </PaginationItem>
-                <PaginationItem>
-                  <span className={`text-sm px-4 ${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}`}>
-                    Page {page} of {Math.ceil(total / pageSize)}
-                  </span>
-                </PaginationItem>
-                <PaginationItem>
-                  <PaginationNext
-                    onClick={() => setPage(p => p + 1)}
-                    className={`cursor-pointer ${page >= Math.ceil(total / pageSize) ? 'pointer-events-none opacity-50' : ''} ${theme === 'dark' ? 'border-zinc-800 bg-zinc-900 text-white hover:bg-zinc-800 hover:text-white' : ''}`}
-                  />
-                </PaginationItem>
-              </PaginationContent>
-            </Pagination>
-          </div>
-        )}
+              <Select value={filterView} onValueChange={(val: 'mine' | 'all' | 'recent') => setFilterView(val)}>
+                <SelectTrigger className={`h-10 w-full sm:w-[200px] ${theme === 'dark' ? 'bg-black border-zinc-800 text-white' : ''}`}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className={theme === 'dark' ? 'bg-zinc-900 border-zinc-800 text-white' : ''}>
+                  <SelectItem value="mine">My Invitations</SelectItem>
+                  <SelectItem value="all">All Invitations</SelectItem>
+                  <SelectItem value="recent">Recent (10)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          }
+        />
       </Card>
     </motion.div>
   );

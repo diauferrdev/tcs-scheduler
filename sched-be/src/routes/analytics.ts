@@ -32,7 +32,8 @@ app.get('/bookings-by-month/:year', async (c) => {
 // Bookings by sector
 app.get('/bookings-by-sector', async (c) => {
   try {
-    const data = await analyticsService.getBookingsBySector();
+    const year = c.req.query('year') ? parseInt(c.req.query('year')!) : undefined;
+    const data = await analyticsService.getBookingsBySector(year);
     return c.json(data);
   } catch (error: any) {
     return c.json({ error: error.message }, 400);
@@ -52,7 +53,8 @@ app.get('/bookings-by-vertical', async (c) => {
 // Bookings by interest area
 app.get('/bookings-by-interest', async (c) => {
   try {
-    const data = await analyticsService.getBookingsByInterestArea();
+    const year = c.req.query('year') ? parseInt(c.req.query('year')!) : undefined;
+    const data = await analyticsService.getBookingsByInterestArea(year);
     return c.json(data);
   } catch (error: any) {
     return c.json({ error: error.message }, 400);

@@ -76,9 +76,9 @@ export default function AppLayout({ children }: AppLayoutProps) {
   );
 
   return (
-    <div className={`min-h-[100dvh] ${theme === 'dark' ? 'bg-black' : 'bg-gray-50'} ${isMobile ? 'pb-20' : ''}`}>
+    <div className={`${isMobile ? 'h-[100dvh] flex flex-col overflow-hidden' : 'min-h-[100dvh]'} ${theme === 'dark' ? 'bg-black' : 'bg-gray-50'}`}>
       {/* Header */}
-      <header className={`sticky top-0 z-40 border-b ${theme === 'dark' ? 'bg-black border-zinc-800' : 'bg-white border-gray-200'}`}>
+      <header className={`${isMobile ? 'flex-shrink-0' : 'sticky top-0'} z-40 border-b ${theme === 'dark' ? 'bg-black border-zinc-800' : 'bg-white border-gray-200'}`}>
         <div className="flex items-center justify-between h-16 px-4 lg:px-6">
           {/* Logo */}
           <div className="flex items-center gap-2">
@@ -141,7 +141,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
         </div>
       </header>
 
-      <div className="flex">
+      <div className={`flex ${isMobile ? 'flex-1 overflow-hidden' : ''}`}>
         {/* Sidebar (Desktop only) */}
         {!isMobile && (
           <aside className={`sticky top-16 h-[calc(100vh-4rem)] w-64 border-r ${theme === 'dark' ? 'bg-black border-zinc-800' : 'bg-white border-gray-200'}`}>
@@ -152,14 +152,14 @@ export default function AppLayout({ children }: AppLayoutProps) {
         )}
 
         {/* Main Content */}
-        <main className="flex-1">
+        <main className={`flex-1 ${isMobile ? 'overflow-auto overscroll-none' : ''}`} style={isMobile ? { WebkitOverflowScrolling: 'touch' } : {}}>
           {children}
         </main>
       </div>
 
       {/* Mobile Bottom Navigation */}
       {isMobile && (
-        <nav className={`fixed bottom-0 left-0 right-0 z-50 border-t ${theme === 'dark' ? 'bg-black border-zinc-800' : 'bg-white border-gray-200'}`}>
+        <nav className={`flex-shrink-0 border-t ${theme === 'dark' ? 'bg-black border-zinc-800' : 'bg-white border-gray-200'} backdrop-blur-xl`}>
           <div className="flex items-center justify-around h-20 px-2">
             {menuItems.map((item) => {
               const Icon = item.icon;

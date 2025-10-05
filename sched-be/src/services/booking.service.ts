@@ -1,5 +1,6 @@
 import { prisma } from '../lib/prisma';
 import type { BookingCreateInput, BookingUpdateInput } from '../types';
+import * as pushService from './push.service';
 
 export async function checkAvailability(date: string) {
   const bookings = await prisma.booking.findMany({
@@ -77,6 +78,11 @@ export async function createBooking(data: BookingCreateInput, createdById?: stri
       },
       attendees: true,
     },
+  });
+
+  // Send push notification to admins and managers (async, don't block)
+  pushService.sendNewBookingNotification(booking.id).catch((error) => {
+    console.error('Failed to send new booking notification:', error);
   });
 
   return booking;
@@ -193,10 +199,34 @@ export async function updateBooking(id: string, data: BookingUpdateInput) {
     },
   });
 
+  // Send push notification about booking update (async, don't block)
+  pushService.sendBookingUpdateNotification(booking.id).catch((error) => {
+    console.error('Failed to send booking update notification:', error);
+  });
+
   return booking;
 }
 
 export async function deleteBooking(id: string) {
+  // Get booking details before deletion for notification
+  const booking = await prisma.booking.findUnique({
+    where: { id },
+    include: {
+      createdBy: true,
+      attendees: true,
+    },
+  });
+
+  if (!booking) {
+    throw new Error('Booking not found');
+  }
+
+  // Send cancellation notification BEFORE deletion (async, don't wait)
+  pushService.sendBookingCancelledNotification(id).catch((error) => {
+    console.error('Failed to send booking cancelled notification:', error);
+  });
+
+  // Now delete the booking
   await prisma.booking.delete({
     where: { id },
   });

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { ColumnDef } from '@tanstack/react-table';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { Button } from '../components/ui/button';
@@ -11,9 +12,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { useTheme } from '../hooks/use-theme';
 import { toast } from 'sonner';
 import { UserPlus, Trash2, KeyRound, Shuffle } from 'lucide-react';
-import { Pagination, PaginationContent, PaginationItem, PaginationPrevious, PaginationNext } from '../components/ui/pagination';
-import { Skeleton } from '../components/ui/skeleton';
 import { motion } from 'framer-motion';
+import { DataTable } from '../components/data-table';
+import { DataTableColumnHeader } from '../components/data-table/data-table-column-header';
+import { Badge } from '../components/ui/badge';
+import { format } from 'date-fns';
 
 interface User {
   id: string;
@@ -36,9 +39,6 @@ export default function Users() {
   const [creating, setCreating] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [resettingPassword, setResettingPassword] = useState(false);
-  const [page, setPage] = useState(1);
-  const [pageSize] = useState(10);
-  const [total, setTotal] = useState(0);
 
   // Create user form state
   const [newUser, setNewUser] = useState({
@@ -51,24 +51,14 @@ export default function Users() {
   // Reset password form state
   const [newPassword, setNewPassword] = useState('');
 
-  const [allUsers, setAllUsers] = useState<User[]>([]);
-
   useEffect(() => {
     loadUsers();
   }, []);
 
-  useEffect(() => {
-    // Client-side pagination
-    const start = (page - 1) * pageSize;
-    const end = start + pageSize;
-    setUsers(allUsers.slice(start, end));
-  }, [page, pageSize, allUsers]);
-
   const loadUsers = async () => {
     try {
       const response = await api.get('/api/auth/users');
-      setAllUsers(response.data);
-      setTotal(response.data.length);
+      setUsers(response.data);
     } catch (error) {
       toast.error('Failed to load users');
     } finally {
@@ -189,152 +179,183 @@ export default function Users() {
     );
   }
 
-  const UsersSkeleton = () => (
-    <div className="space-y-3">
-      {[...Array(pageSize)].map((_, i) => (
-        <div key={i} className={`p-4 rounded-lg border ${theme === 'dark' ? 'bg-black border-zinc-800' : 'bg-gray-50 border-gray-200'}`}>
-          <div className="space-y-3">
-            <div>
-              <Skeleton className={`h-5 w-32 mb-2 ${theme === 'dark' ? 'bg-zinc-800' : ''}`} />
-              <Skeleton className={`h-4 w-48 ${theme === 'dark' ? 'bg-zinc-800' : ''}`} />
-            </div>
-            <div className="flex gap-2">
-              <Skeleton className={`h-6 w-16 ${theme === 'dark' ? 'bg-zinc-800' : ''}`} />
-              <Skeleton className={`h-6 w-16 ${theme === 'dark' ? 'bg-zinc-800' : ''}`} />
-            </div>
-            <div className="flex gap-2">
-              <Skeleton className={`h-9 w-full ${theme === 'dark' ? 'bg-zinc-800' : ''}`} />
-              <Skeleton className={`h-9 w-full ${theme === 'dark' ? 'bg-zinc-800' : ''}`} />
-            </div>
+  // Column definitions
+  const userColumns: ColumnDef<User>[] = [
+    {
+      accessorKey: 'name',
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} title="Name" />
+      ),
+      cell: ({ row }) => {
+        return (
+          <div>
+            <div className="font-medium">{row.getValue('name')}</div>
+            <div className="text-sm text-gray-500">{row.original.email}</div>
           </div>
+        );
+      },
+    },
+    {
+      accessorKey: 'role',
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} title="Role" />
+      ),
+      cell: ({ row }) => {
+        const role = row.getValue('role') as string;
+        return (
+          <Badge variant="outline" className={
+            role === 'ADMIN'
+              ? theme === 'dark' ? 'text-white border-white' : 'text-black border-black'
+              : theme === 'dark' ? 'text-gray-300 border-gray-300' : 'text-gray-600 border-gray-600'
+          }>
+            {role}
+          </Badge>
+        );
+      },
+    },
+    {
+      accessorKey: 'isActive',
+      header: 'Status',
+      cell: ({ row }) => {
+        const isActive = row.getValue('isActive') as boolean;
+        return (
+          <Badge variant="outline" className={isActive ? 'text-green-600 border-green-600' : 'text-red-600 border-red-600'}>
+            {isActive ? 'Active' : 'Inactive'}
+          </Badge>
+        );
+      },
+    },
+    {
+      accessorKey: 'createdAt',
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} title="Created" />
+      ),
+      cell: ({ row }) => {
+        return (
+          <span className="text-sm">
+            {format(new Date(row.getValue('createdAt')), 'MMM d, yyyy')}
+          </span>
+        );
+      },
+    },
+    {
+      id: 'actions',
+      cell: ({ row }) => {
+        const user = row.original;
+        return (
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => openResetPasswordDialog(user)}
+              className={theme === 'dark' ? 'border-zinc-800 bg-zinc-900 text-white hover:bg-zinc-800' : ''}
+            >
+              <KeyRound className="h-4 w-4 mr-1" />
+              Password
+            </Button>
+            {user.id !== currentUser?.id && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => openDeleteDialog(user)}
+                className={
+                  theme === 'dark'
+                    ? 'border-red-800 bg-red-950 text-red-400 hover:bg-red-900 hover:text-red-300'
+                    : 'border-red-600 text-red-600 hover:bg-red-50'
+                }
+              >
+                <Trash2 className="h-4 w-4 mr-1" />
+                Delete
+              </Button>
+            )}
+          </div>
+        );
+      },
+    },
+  ];
+
+  // Mobile card render
+  const UserMobileCard = (user: User) => {
+    return (
+      <div className="space-y-3">
+        <div>
+          <p className={`font-semibold ${theme === 'dark' ? 'text-white' : 'text-black'}`}>
+            {user.name}
+          </p>
+          <p className={`text-sm ${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}`}>
+            {user.email}
+          </p>
         </div>
-      ))}
-    </div>
-  );
+
+        <div className="flex gap-2">
+          <Badge variant="outline" className={
+            user.role === 'ADMIN'
+              ? theme === 'dark' ? 'text-white border-white' : 'text-black border-black'
+              : theme === 'dark' ? 'text-gray-300 border-gray-300' : 'text-gray-600 border-gray-600'
+          }>
+            {user.role}
+          </Badge>
+          <Badge variant="outline" className={user.isActive ? 'text-green-600 border-green-600' : 'text-red-600 border-red-600'}>
+            {user.isActive ? 'Active' : 'Inactive'}
+          </Badge>
+        </div>
+
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => openResetPasswordDialog(user)}
+            className={`flex-1 ${theme === 'dark' ? 'border-zinc-800 bg-zinc-900 text-white hover:bg-zinc-800' : ''}`}
+          >
+            <KeyRound className="h-4 w-4 mr-1" />
+            Password
+          </Button>
+          {user.id !== currentUser?.id && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => openDeleteDialog(user)}
+              className={`flex-1 ${
+                theme === 'dark'
+                  ? 'border-red-800 bg-red-950 text-red-400 hover:bg-red-900 hover:text-red-300'
+                  : 'border-red-600 text-red-600 hover:bg-red-50'
+              }`}
+            >
+              <Trash2 className="h-4 w-4 mr-1" />
+              Delete
+            </Button>
+          )}
+        </div>
+      </div>
+    );
+  };
 
   return (
     <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 0.5 }}
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -10 }}
+      transition={{ duration: 0.2, ease: 'easeInOut' }}
       className="max-w-[1800px] mx-auto px-4 sm:px-6 lg:px-8 py-8"
     >
       {/* Users List */}
       <Card className={`p-6 ${theme === 'dark' ? 'bg-zinc-900 border-zinc-800' : ''}`}>
-        <div className="mb-6">
-          <Button
-            onClick={() => setShowCreateDialog(true)}
-            className={`w-full sm:w-auto ${theme === 'dark' ? 'bg-white text-black hover:bg-gray-200' : 'bg-black text-white hover:bg-gray-800'}`}
-          >
-            <UserPlus className="h-4 w-4 mr-2" />
-            Create User
-          </Button>
-        </div>
-
-        {loading ? (
-          <UsersSkeleton />
-        ) : users.length === 0 ? (
-          <p className={theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}>
-            No users found.
-          </p>
-        ) : (
-          <div className="space-y-3">
-            {users.map((user, idx) => (
-              <motion.div
-                key={user.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: idx * 0.05, duration: 0.3 }}
-                className={`p-4 rounded-lg border ${theme === 'dark' ? 'bg-black border-zinc-800' : 'bg-gray-50 border-gray-200'}`}
-              >
-                <div className="space-y-3">
-                  {/* Name and Email */}
-                  <div>
-                    <p className={`font-semibold ${theme === 'dark' ? 'text-white' : 'text-black'}`}>
-                      {user.name}
-                    </p>
-                    <p className={`text-sm ${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}`}>
-                      {user.email}
-                    </p>
-                  </div>
-
-                  {/* Role and Status Badges */}
-                  <div className="flex gap-2">
-                    <span className={`inline-block px-2 py-1 rounded text-xs font-semibold ${
-                      user.role === 'ADMIN'
-                        ? theme === 'dark' ? 'bg-zinc-800 text-white border border-zinc-700' : 'bg-gray-200 text-black'
-                        : theme === 'dark' ? 'bg-zinc-800 text-gray-400 border border-zinc-700' : 'bg-gray-100 text-gray-700'
-                    }`}>
-                      {user.role}
-                    </span>
-                    <span className={`inline-block px-2 py-1 rounded text-xs font-semibold ${
-                      user.isActive
-                        ? theme === 'dark' ? 'bg-zinc-800 text-green-400 border border-zinc-700' : 'bg-green-100 text-green-800'
-                        : theme === 'dark' ? 'bg-zinc-800 text-red-400 border border-zinc-700' : 'bg-red-100 text-red-800'
-                    }`}>
-                      {user.isActive ? 'Active' : 'Inactive'}
-                    </span>
-                  </div>
-
-                  {/* Action Buttons */}
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => openResetPasswordDialog(user)}
-                      className={`flex-1 ${theme === 'dark' ? 'border-zinc-800 bg-zinc-900 text-white hover:bg-zinc-800' : ''}`}
-                    >
-                      <KeyRound className="h-4 w-4 mr-2" />
-                      Reset Password
-                    </Button>
-                    {user.id !== currentUser?.id && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => openDeleteDialog(user)}
-                        className={`flex-1 ${
-                          theme === 'dark'
-                            ? 'border-red-800 bg-red-950 text-red-400 hover:bg-red-900 hover:text-red-300'
-                            : 'border-red-600 text-red-600 hover:bg-red-50'
-                        }`}
-                      >
-                        <Trash2 className="h-4 w-4 mr-2" />
-                        Delete
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              </motion.div>
-            ))}
-          </div>
-        )}
-
-        {/* Pagination */}
-        {!loading && users.length > 0 && (
-          <div className={`mt-6 pt-4 border-t ${theme === 'dark' ? 'border-zinc-800' : 'border-gray-200'}`}>
-            <Pagination>
-              <PaginationContent className={theme === 'dark' ? 'text-white' : ''}>
-                <PaginationItem>
-                  <PaginationPrevious
-                    onClick={() => setPage(p => Math.max(1, p - 1))}
-                    className={`cursor-pointer ${page === 1 ? 'pointer-events-none opacity-50' : ''} ${theme === 'dark' ? 'border-zinc-800 bg-zinc-900 text-white hover:bg-zinc-800 hover:text-white' : ''}`}
-                  />
-                </PaginationItem>
-                <PaginationItem>
-                  <span className={`text-sm px-4 ${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}`}>
-                    Page {page} of {Math.ceil(total / pageSize)}
-                  </span>
-                </PaginationItem>
-                <PaginationItem>
-                  <PaginationNext
-                    onClick={() => setPage(p => p + 1)}
-                    className={`cursor-pointer ${page >= Math.ceil(total / pageSize) ? 'pointer-events-none opacity-50' : ''} ${theme === 'dark' ? 'border-zinc-800 bg-zinc-900 text-white hover:bg-zinc-800 hover:text-white' : ''}`}
-                  />
-                </PaginationItem>
-              </PaginationContent>
-            </Pagination>
-          </div>
-        )}
+        <DataTable
+          columns={userColumns}
+          data={users}
+          searchKey="name"
+          searchPlaceholder="Search by name or email..."
+          mobileCardRender={UserMobileCard}
+          headerActions={
+            <Button
+              onClick={() => setShowCreateDialog(true)}
+              className={`w-full sm:w-auto ${theme === 'dark' ? 'bg-white text-black hover:bg-gray-200' : 'bg-black text-white hover:bg-gray-800'}`}
+            >
+              <UserPlus className="h-4 w-4 mr-2" />
+              Create User
+            </Button>
+          }
+        />
       </Card>
 
       {/* Create User Dialog */}

@@ -2,6 +2,31 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Prevent overscroll bounce on mobile */
+@media (max-width: 768px) {
+  html {
+    overscroll-behavior: none;
+    -webkit-overflow-scrolling: touch;
+    position: fixed;
+    width: 100%;
+    height: 100dvh;
+  }
+
+  body {
+    overscroll-behavior: none;
+    position: fixed;
+    overflow: hidden;
+    width: 100%;
+    height: 100dvh;
+  }
+
+  #root {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+  }
+}
+
 @layer base {
   :root {
     --background: 0 0% 100%;
@@ -65,5 +90,84 @@
   }
   body {
     @apply bg-background text-foreground;
+  }
+}
+
+/* Holographic Pokemon Card Effect - Trainer Gallery V Style */
+.holo-card {
+  position: relative;
+  transform-style: preserve-3d;
+  --pointer-x: 50%;
+  --pointer-y: 50%;
+  --pointer-from-center: 0;
+}
+
+/* Ensure content is above holographic effects */
+.holo-card > *:not(.holo-overlay):not(::before):not(::after) {
+  position: relative;
+  z-index: 20;
+}
+
+/* Subtle metallic glare effect (Trainer Gallery V style) - Desktop only */
+@media (min-width: 768px) {
+  .holo-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    pointer-events: none;
+    background-image:
+      radial-gradient(
+        farthest-corner circle at var(--pointer-x) var(--pointer-y),
+        hsl(50, 30%, 90%) 0%,
+        hsl(162, 5%, 40%),
+        hsl(0, 0%, 0%) 120%
+      );
+    filter: brightness(1) contrast(1);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    mix-blend-mode: overlay;
+  }
+
+  .holo-card:hover::before {
+    opacity: calc(var(--pointer-from-center) * 0.85);
+  }
+
+  /* Subtle shimmer effect for depth */
+  .holo-card::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+    background:
+      repeating-linear-gradient(
+        0deg,
+        rgba(255, 255, 255, 0.03) 0px,
+        rgba(255, 255, 255, 0.03) 1px,
+        transparent 1px,
+        transparent 2px
+      ),
+      repeating-linear-gradient(
+        90deg,
+        rgba(255, 255, 255, 0.03) 0px,
+        rgba(255, 255, 255, 0.03) 1px,
+        transparent 1px,
+        transparent 2px
+      );
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+
+  .holo-card:hover::after {
+    opacity: 0.4;
+  }
+}
+
+/* Mobile: Disable holographic effects */
+@media (max-width: 767px) {
+  .holo-card::before,
+  .holo-card::after {
+    display: none;
   }
 }

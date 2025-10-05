@@ -10,6 +10,10 @@ import { ResponsiveBar } from '@nivo/bar';
 import { ResponsiveLine } from '@nivo/line';
 import { ResponsivePie } from '@nivo/pie';
 import { motion } from 'framer-motion';
+import { ColumnDef } from '@tanstack/react-table';
+import { DataTable } from '../components/data-table';
+import { DataTableColumnHeader } from '../components/data-table/data-table-column-header';
+import PushNotificationSettings from '../components/PushNotificationSettings';
 
 interface DashboardStats {
   totalBookings: number;
@@ -19,6 +23,53 @@ interface DashboardStats {
   uniqueCompanies: number;
   totalAttendeesThisYear: number;
 }
+
+interface TopCompany {
+  company: string;
+  visits: number;
+}
+
+const topCompaniesColumns: ColumnDef<TopCompany>[] = [
+  {
+    id: 'rank',
+    header: 'Rank',
+    cell: ({ row }) => {
+      return <span className="text-gray-600">#{row.index + 1}</span>;
+    },
+  },
+  {
+    accessorKey: 'company',
+    header: ({ column }) => (
+      <DataTableColumnHeader column={column} title="Company" />
+    ),
+    cell: ({ row }) => {
+      return <div className="font-medium">{row.getValue('company')}</div>;
+    },
+  },
+  {
+    accessorKey: 'visits',
+    header: ({ column }) => (
+      <div className="text-right">
+        <DataTableColumnHeader column={column} title="Visits" />
+      </div>
+    ),
+    cell: ({ row }) => {
+      return <div className="text-right font-medium">{row.getValue('visits')}</div>;
+    },
+  },
+];
+
+const TopCompanyMobileCard = (company: TopCompany & { index: number }) => {
+  return (
+    <div className="flex items-center justify-between">
+      <div className="flex items-center gap-3">
+        <span className="text-sm font-semibold text-gray-500">#{company.index + 1}</span>
+        <span className="font-medium">{company.company}</span>
+      </div>
+      <span className="font-semibold">{company.visits} visits</span>
+    </div>
+  );
+};
 
 export default function Dashboard() {
   const { theme } = useTheme();
@@ -33,11 +84,13 @@ export default function Dashboard() {
 
   // Interactive controls state
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const [sectorYear, setSectorYear] = useState(new Date().getFullYear());
+  const [interestYear, setInterestYear] = useState(new Date().getFullYear());
   const [trendsPeriod, setTrendsPeriod] = useState(6);
 
   useEffect(() => {
     loadDashboardData();
-  }, [selectedYear, trendsPeriod]);
+  }, [selectedYear, sectorYear, interestYear, trendsPeriod]);
 
   const loadDashboardData = async () => {
     try {
@@ -51,8 +104,8 @@ export default function Dashboard() {
       ] = await Promise.all([
         api.get('/api/analytics/dashboard'),
         api.get(`/api/analytics/bookings-by-month/${selectedYear}`),
-        api.get('/api/analytics/bookings-by-sector'),
-        api.get('/api/analytics/bookings-by-interest'),
+        api.get(`/api/analytics/bookings-by-sector?year=${sectorYear}`),
+        api.get(`/api/analytics/bookings-by-interest?year=${interestYear}`),
         api.get(`/api/analytics/trends?months=${trendsPeriod}`),
         api.get('/api/analytics/top-companies?limit=10'),
       ]);
@@ -130,10 +183,11 @@ export default function Dashboard() {
 
   return (
     <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 0.5 }}
-      className="max-w-[1800px] mx-auto px-4 sm:px-6 lg:px-8 py-8"
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -10 }}
+      transition={{ duration: 0.2, ease: 'easeInOut' }}
+      className="max-w-[1800px] mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-4"
     >
         {/* Stats Cards */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-8">
@@ -235,7 +289,7 @@ export default function Dashboard() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className={theme === 'dark' ? 'bg-zinc-900 border-zinc-800 text-white' : ''}>
-                  {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i).map((year) => (
+                  {Array.from({ length: 11 }, (_, i) => 2024 + i).map((year) => (
                     <SelectItem key={year} value={year.toString()}>
                       {year}
                     </SelectItem>
@@ -252,7 +306,7 @@ export default function Dashboard() {
                 padding={0.3}
                 valueScale={{ type: 'linear' }}
                 indexScale={{ type: 'band', round: true }}
-                colors={theme === 'dark' ? ['#6366f1', '#8b5cf6'] : ['#2563eb', '#7c3aed']}
+                colors={theme === 'dark' ? ['#818cf8', '#a78bfa'] : ['#93c5fd', '#c4b5fd']}
                 borderColor={{ from: 'color', modifiers: [['darker', 1.6]] }}
                 axisTop={null}
                 axisRight={null}
@@ -367,7 +421,7 @@ export default function Dashboard() {
                   legendOffset: -40,
                   legendPosition: 'middle'
                 }}
-                colors={theme === 'dark' ? ['#10b981', '#06b6d4'] : ['#059669', '#0891b2']}
+                colors={theme === 'dark' ? ['#34d399', '#22d3ee'] : ['#86efac', '#7dd3fc']}
                 pointSize={8}
                 pointColor={{ theme: 'background' }}
                 pointBorderWidth={2}
@@ -420,9 +474,23 @@ export default function Dashboard() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
           {/* Sector Pie Chart */}
           <Card className={`p-6 ${theme === 'dark' ? 'bg-zinc-900 border-zinc-800' : ''}`}>
-            <h3 className={`text-lg font-bold mb-4 ${theme === 'dark' ? 'text-white' : 'text-black'}`}>
-              Bookings by Sector
-            </h3>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className={`text-lg font-bold ${theme === 'dark' ? 'text-white' : 'text-black'}`}>
+                Bookings by Sector
+              </h3>
+              <Select value={sectorYear.toString()} onValueChange={(val) => setSectorYear(parseInt(val))}>
+                <SelectTrigger className={`w-[120px] ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800 text-white' : ''}`}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className={theme === 'dark' ? 'bg-zinc-900 border-zinc-800 text-white' : ''}>
+                  {Array.from({ length: 11 }, (_, i) => 2024 + i).map((year) => (
+                    <SelectItem key={year} value={year.toString()}>
+                      {year}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <div style={{ height: '300px' }}>
               <ResponsivePie
                 data={sectorData.map((d: any) => ({ id: d.sector, label: d.sector, value: d.count }))}
@@ -434,8 +502,8 @@ export default function Dashboard() {
                 borderWidth={1}
                 borderColor={{ from: 'color', modifiers: [['darker', 0.2]] }}
                 colors={theme === 'dark'
-                  ? ['#f43f5e', '#ec4899', '#d946ef', '#a855f7', '#8b5cf6', '#6366f1', '#3b82f6']
-                  : ['#dc2626', '#db2777', '#c026d3', '#9333ea', '#7c3aed', '#4f46e5', '#2563eb']
+                  ? ['#f87171', '#fb923c', '#fbbf24', '#a3e635', '#34d399', '#22d3ee', '#a78bfa']
+                  : ['#fecaca', '#fed7aa', '#fef3c7', '#d9f99d', '#a7f3d0', '#a5f3fc', '#ddd6fe']
                 }
                 enableArcLinkLabels={false}
                 arcLabelsSkipAngle={15}
@@ -460,8 +528,8 @@ export default function Dashboard() {
             <div className="flex flex-wrap justify-center gap-3 mt-2">
               {sectorData.map((d: any, index: number) => {
                 const colors = theme === 'dark'
-                  ? ['#f43f5e', '#ec4899', '#d946ef', '#a855f7', '#8b5cf6', '#6366f1', '#3b82f6']
-                  : ['#dc2626', '#db2777', '#c026d3', '#9333ea', '#7c3aed', '#4f46e5', '#2563eb'];
+                  ? ['#f87171', '#fb923c', '#fbbf24', '#a3e635', '#34d399', '#22d3ee', '#a78bfa']
+                  : ['#fecaca', '#fed7aa', '#fef3c7', '#d9f99d', '#a7f3d0', '#a5f3fc', '#ddd6fe'];
                 return (
                   <div key={d.sector} className="flex items-center gap-2">
                     <div className="w-3 h-3 rounded" style={{ backgroundColor: colors[index % colors.length] }}></div>
@@ -476,9 +544,23 @@ export default function Dashboard() {
 
           {/* Interest Area Pie Chart */}
           <Card className={`p-6 ${theme === 'dark' ? 'bg-zinc-900 border-zinc-800' : ''}`}>
-            <h3 className={`text-lg font-bold mb-4 ${theme === 'dark' ? 'text-white' : 'text-black'}`}>
-              Bookings by Interest Area
-            </h3>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className={`text-lg font-bold ${theme === 'dark' ? 'text-white' : 'text-black'}`}>
+                Bookings by Interest Area
+              </h3>
+              <Select value={interestYear.toString()} onValueChange={(val) => setInterestYear(parseInt(val))}>
+                <SelectTrigger className={`w-[120px] ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800 text-white' : ''}`}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className={theme === 'dark' ? 'bg-zinc-900 border-zinc-800 text-white' : ''}>
+                  {Array.from({ length: 11 }, (_, i) => 2024 + i).map((year) => (
+                    <SelectItem key={year} value={year.toString()}>
+                      {year}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <div style={{ height: '300px' }}>
               <ResponsivePie
                 data={interestData.map((d: any) => ({ id: d.area, label: d.area, value: d.count }))}
@@ -490,8 +572,8 @@ export default function Dashboard() {
                 borderWidth={1}
                 borderColor={{ from: 'color', modifiers: [['darker', 0.2]] }}
                 colors={theme === 'dark'
-                  ? ['#f59e0b', '#f97316', '#ef4444', '#ec4899', '#a855f7', '#6366f1', '#06b6d4']
-                  : ['#d97706', '#ea580c', '#dc2626', '#db2777', '#9333ea', '#4f46e5', '#0891b2']
+                  ? ['#f87171', '#fb923c', '#fbbf24', '#a3e635', '#34d399', '#22d3ee', '#a78bfa']
+                  : ['#fecaca', '#fed7aa', '#fef3c7', '#d9f99d', '#a7f3d0', '#a5f3fc', '#ddd6fe']
                 }
                 enableArcLinkLabels={false}
                 arcLabelsSkipAngle={15}
@@ -516,8 +598,8 @@ export default function Dashboard() {
             <div className="flex flex-wrap justify-center gap-3 mt-2">
               {interestData.map((d: any, index: number) => {
                 const colors = theme === 'dark'
-                  ? ['#f59e0b', '#f97316', '#ef4444', '#ec4899', '#a855f7', '#6366f1', '#06b6d4']
-                  : ['#d97706', '#ea580c', '#dc2626', '#db2777', '#9333ea', '#4f46e5', '#0891b2'];
+                  ? ['#f87171', '#fb923c', '#fbbf24', '#a3e635', '#34d399', '#22d3ee', '#a78bfa']
+                  : ['#fecaca', '#fed7aa', '#fef3c7', '#d9f99d', '#a7f3d0', '#a5f3fc', '#ddd6fe'];
                 return (
                   <div key={d.area} className="flex items-center gap-2">
                     <div className="w-3 h-3 rounded" style={{ backgroundColor: colors[index % colors.length] }}></div>
@@ -531,46 +613,28 @@ export default function Dashboard() {
           </Card>
         </div>
 
+        {/* Push Notification Settings */}
+        <div className="mb-6">
+          <PushNotificationSettings theme={theme} />
+        </div>
+
         {/* Top Companies Table */}
         <Card className={`p-6 ${theme === 'dark' ? 'bg-zinc-900 border-zinc-800' : ''}`}>
-          <h3 className={`text-lg font-bold mb-4 ${theme === 'dark' ? 'text-white' : 'text-black'}`}>
-            Top Companies
-          </h3>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className={`border-b ${theme === 'dark' ? 'border-zinc-800' : 'border-gray-200'}`}>
-                  <th className={`text-left py-3 px-4 ${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}`}>
-                    Rank
-                  </th>
-                  <th className={`text-left py-3 px-4 ${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}`}>
-                    Company
-                  </th>
-                  <th className={`text-right py-3 px-4 ${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}`}>
-                    Visits
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {topCompanies.map((company: any, index) => (
-                  <tr
-                    key={index}
-                    className={`border-b ${theme === 'dark' ? 'border-zinc-800' : 'border-gray-200'}`}
-                  >
-                    <td className={`py-3 px-4 ${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>
-                      #{index + 1}
-                    </td>
-                    <td className={`py-3 px-4 font-medium ${theme === 'dark' ? 'text-white' : 'text-black'}`}>
-                      {company.company}
-                    </td>
-                    <td className={`py-3 px-4 text-right ${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>
-                      {company.visits}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <DataTable
+            columns={topCompaniesColumns}
+            data={topCompanies.map((company: any, index: number) => ({
+              ...company,
+              index,
+            }))}
+            searchKey="company"
+            searchPlaceholder="Search companies..."
+            mobileCardRender={(row: any) => <TopCompanyMobileCard {...row} />}
+            headerActions={
+              <h3 className={`text-lg font-bold ${theme === 'dark' ? 'text-white' : 'text-black'}`}>
+                Top Companies
+              </h3>
+            }
+          />
         </Card>
       </motion.div>
   );

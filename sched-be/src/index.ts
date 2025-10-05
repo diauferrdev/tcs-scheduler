@@ -8,6 +8,8 @@ import bookingRoutes from './routes/bookings';
 import invitationRoutes from './routes/invitations';
 import analyticsRoutes from './routes/analytics';
 import activityLogRoutes from './routes/activity-logs';
+import pushRoutes from './routes/push';
+import ogRoutes from './routes/og';
 import { errorHandler } from './middleware/errorHandler';
 import type { AppContext } from './lib/context';
 
@@ -41,6 +43,8 @@ app.route('/api/bookings', bookingRoutes);
 app.route('/api/invitations', invitationRoutes);
 app.route('/api/analytics', analyticsRoutes);
 app.route('/api/activity-logs', activityLogRoutes);
+app.route('/api/push', pushRoutes);
+app.route('/api/og', ogRoutes);
 
 // Health check
 app.get('/health', (c) => c.json({ status: 'ok', timestamp: new Date().toISOString() }));

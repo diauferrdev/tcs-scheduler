@@ -192,8 +192,8 @@ export default function CalendarPage() {
   };
 
   const getDayGradient = (day: Date, isCurrentMonth: boolean, isPast: boolean, theme: 'light' | 'dark') => {
-    // Only gray out past dates from current month
-    if (isPast && isCurrentMonth) {
+    // Gray out ALL past dates (regardless of current month)
+    if (isPast) {
       return theme === 'dark' ? 'bg-zinc-950' : 'bg-gray-200/50';
     }
 
@@ -273,9 +273,18 @@ export default function CalendarPage() {
   const weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
   return (
-    <div className="max-w-[1800px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -10 }}
+      transition={{ duration: 0.2, ease: 'easeInOut' }}
+      className={`w-full max-w-full px-4 sm:px-6 lg:px-8 py-4 sm:py-6 flex flex-col overflow-hidden ${
+        isMobile ? 'h-full' : 'h-[calc(100vh-80px)]'
+      }`}
+    >
+      <div className="w-full max-w-full flex-1 flex flex-col overflow-hidden">
         {/* Month Navigation */}
-        <div className="flex flex-col sm:flex-row items-center justify-between mb-6 sm:mb-8 gap-4">
+        <div className="flex flex-col sm:flex-row items-center justify-between mb-3 sm:mb-4 gap-2 sm:gap-4 flex-shrink-0">
           <div className="flex items-center gap-2 sm:gap-4">
             <Button
               variant="outline"
@@ -310,6 +319,7 @@ export default function CalendarPage() {
             </Button>
           </div>
 
+          {/* Desktop Legend */}
           {!isMobile && (
             <div className="flex items-center gap-3 sm:gap-4">
               <div className="flex items-center gap-1.5 text-xs sm:text-sm">
@@ -347,11 +357,11 @@ export default function CalendarPage() {
         </div>
 
         {/* Calendar Grid */}
-        <Card className={`p-2 sm:p-4 overflow-hidden ${
+        <Card className={`p-2 sm:p-3 overflow-hidden flex-1 flex flex-col min-h-0 ${
           theme === 'dark' ? 'bg-zinc-900 border-zinc-800' : ''
         }`}>
           {/* Week days header */}
-          <div className="grid grid-cols-7 gap-2 mb-1">
+          <div className="grid grid-cols-7 gap-1 sm:gap-2 mb-1 flex-shrink-0">
             {weekDays.map(day => (
               <div key={day} className="text-center font-semibold text-xs text-gray-500 py-1">
                 {day}
@@ -360,7 +370,7 @@ export default function CalendarPage() {
           </div>
 
           {/* Calendar days */}
-          <div className="overflow-hidden">
+          <div className="overflow-hidden flex-1 flex flex-col min-h-0">
             <AnimatePresence mode="wait" initial={false}>
               <motion.div
                 key={`${format(currentMonth, 'yyyy-MM')}-${theme}`}
@@ -368,7 +378,12 @@ export default function CalendarPage() {
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.15 }}
-                className="grid grid-cols-7 gap-2"
+                className="grid grid-cols-7 gap-1 sm:gap-2 flex-1"
+                style={{
+                  display: 'grid',
+                  gridTemplateRows: 'repeat(5, 1fr)',
+                  maxHeight: '100%'
+                }}
               >
               {calendarDays.map((day, idx) => {
                 const isCurrentMonth = isSameMonth(day, currentMonth);
@@ -396,7 +411,7 @@ export default function CalendarPage() {
                     }}
                     disabled={!isClickable && isPast}
                     className={`
-                      group min-h-[70px] sm:min-h-[90px] border rounded p-1.5 text-left relative
+                      group h-full border rounded p-1.5 text-left relative
                       transition-all duration-200 ease-out
                       ${getDayGradient(day, isCurrentMonth, isPast, theme)}
                       ${isPast ? 'cursor-not-allowed opacity-40' : ''}
@@ -430,8 +445,8 @@ export default function CalendarPage() {
                     </span>
                   </div>
 
-                  {/* Bookings - only show for current month non-past days */}
-                  {isCurrentMonth && !isPast && (
+                  {/* Bookings - only show for non-past days */}
+                  {!isPast && (
                     <div className="pt-3 space-y-0.5">
                       {/* Full Day Booking */}
                       {dayBookings.fullDay && (
@@ -514,8 +529,44 @@ export default function CalendarPage() {
           </div>
         </Card>
 
-      {/* Day Bookings Drawer - Shows existing bookings and option to add new */}
-      <Drawer open={showDayBookings} onOpenChange={setShowDayBookings} direction={isMobile ? 'bottom' : 'right'}>
+        {/* Mobile Legend - Only visible on mobile */}
+        {isMobile && (
+          <div className="mt-2 flex flex-wrap items-center justify-center gap-2 flex-shrink-0">
+            <div className="flex items-center gap-1.5 text-xs">
+              <div className={`w-4 h-4 rounded ${
+                theme === 'dark'
+                  ? 'bg-gradient-to-br from-zinc-800 to-green-800 border border-green-900'
+                  : 'bg-gradient-to-br from-green-50 to-green-200 border border-green-300'
+              }`}></div>
+              <span className={theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}>Available</span>
+            </div>
+            <div className="flex items-center gap-1.5 text-xs">
+              <div className={`w-4 h-4 rounded ${
+                theme === 'dark'
+                  ? 'bg-gradient-to-br from-zinc-800 to-yellow-800 border border-yellow-900'
+                  : 'bg-gradient-to-br from-yellow-50 to-yellow-200 border border-yellow-300'
+              }`}></div>
+              <span className={theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}>Partial</span>
+            </div>
+            <div className="flex items-center gap-1.5 text-xs">
+              <div className={`w-4 h-4 rounded ${
+                theme === 'dark'
+                  ? 'bg-gradient-to-br from-zinc-800 to-red-800 border border-red-900'
+                  : 'bg-gradient-to-br from-red-50 to-red-200 border border-red-300'
+              }`}></div>
+              <span className={theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}>Full</span>
+            </div>
+            <div className="flex items-center gap-1.5 text-xs">
+              <div className={`w-4 h-4 rounded ${
+                theme === 'dark' ? 'bg-zinc-900 border border-zinc-700' : 'bg-gray-300 border border-gray-400'
+              }`}></div>
+              <span className={theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}>Past</span>
+            </div>
+          </div>
+        )}
+
+        {/* Day Bookings Drawer - Shows existing bookings and option to add new */}
+        <Drawer open={showDayBookings} onOpenChange={setShowDayBookings} direction={isMobile ? 'bottom' : 'right'}>
         <DrawerContent className={`${theme === 'dark' ? 'bg-zinc-900 border-zinc-800' : ''} ${isMobile ? 'min-h-[60vh]' : ''}`}>
           <DrawerHeader>
             <DrawerTitle className={`text-xl ${theme === 'dark' ? 'text-white' : ''}`}>
@@ -701,7 +752,7 @@ export default function CalendarPage() {
 
       {/* Booking Details Drawer */}
       <Drawer open={showBookingDetails} onOpenChange={setShowBookingDetails} direction={isMobile ? 'bottom' : 'right'}>
-        <DrawerContent className={`${theme === 'dark' ? 'bg-zinc-900 border-zinc-800' : ''} ${isMobile ? 'min-h-[70vh]' : ''}`}>
+        <DrawerContent className={`${theme === 'dark' ? 'bg-zinc-900 border-zinc-800' : ''} ${isMobile ? 'min-h-[85vh]' : ''}`}>
           <DrawerHeader>
             <DrawerTitle className={`text-xl ${theme === 'dark' ? 'text-white' : ''}`}>Booking Details</DrawerTitle>
           </DrawerHeader>
@@ -845,23 +896,25 @@ export default function CalendarPage() {
 
                   if (attendees.length === 1) {
                     return (
-                      <AccessBadge
-                        attendeeName={attendees[0].name}
-                        attendeePosition={attendees[0].position}
-                        attendeeId={attendees[0].id}
-                        companyName={selectedBooking.companyName}
-                        date={selectedBooking.date}
-                        startTime={selectedBooking.startTime}
-                        duration={selectedBooking.duration}
-                        bookingId={selectedBooking.id}
-                        theme={theme}
-                        showActions={true}
-                      />
+                      <div className="w-full overflow-x-hidden">
+                        <AccessBadge
+                          attendeeName={attendees[0].name}
+                          attendeePosition={attendees[0].position}
+                          attendeeId={attendees[0].id}
+                          companyName={selectedBooking.companyName}
+                          date={selectedBooking.date}
+                          startTime={selectedBooking.startTime}
+                          duration={selectedBooking.duration}
+                          bookingId={selectedBooking.id}
+                          theme={theme}
+                          showActions={true}
+                        />
+                      </div>
                     );
                   }
 
                   return (
-                    <Carousel className="w-full px-12">
+                    <Carousel className="w-full px-4 md:px-12">
                       <CarouselContent>
                         {(selectedBooking.attendees || []).map((attendee) => (
                           <CarouselItem key={attendee.id}>
@@ -983,5 +1036,6 @@ export default function CalendarPage() {
         </AlertDialogContent>
       </AlertDialog>
     </div>
+    </motion.div>
   );
 }

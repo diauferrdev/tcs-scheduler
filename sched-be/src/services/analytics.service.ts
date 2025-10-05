@@ -106,10 +106,19 @@ export async function getBookingsByMonth(year: number) {
   return monthlyData;
 }
 
-export async function getBookingsBySector() {
+export async function getBookingsBySector(year?: number) {
+  const where: any = { status: { not: 'CANCELLED' } };
+
+  if (year) {
+    where.date = {
+      gte: new Date(year, 0, 1),
+      lte: new Date(year, 11, 31),
+    };
+  }
+
   const bookings = await prisma.booking.groupBy({
     by: ['companySector'],
-    where: { status: { not: 'CANCELLED' } },
+    where,
     _count: {
       id: true,
     },
@@ -146,10 +155,19 @@ export async function getBookingsByVertical() {
   }));
 }
 
-export async function getBookingsByInterestArea() {
+export async function getBookingsByInterestArea(year?: number) {
+  const where: any = { status: { not: 'CANCELLED' } };
+
+  if (year) {
+    where.date = {
+      gte: new Date(year, 0, 1),
+      lte: new Date(year, 11, 31),
+    };
+  }
+
   const bookings = await prisma.booking.groupBy({
     by: ['interestArea'],
-    where: { status: { not: 'CANCELLED' } },
+    where,
     _count: {
       id: true,
     },

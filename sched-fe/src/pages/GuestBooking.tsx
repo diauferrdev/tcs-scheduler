@@ -12,6 +12,7 @@ import { format, startOfMonth, endOfMonth, eachDayOfInterval, addMonths, subMont
 import { motion, AnimatePresence } from 'framer-motion';
 import BookingForm from '../components/BookingForm';
 import AccessBadge from '../components/AccessBadge';
+import SEO from '../components/SEO';
 
 interface Booking {
   id: string;
@@ -352,6 +353,13 @@ export default function GuestBooking() {
   const daysToDisplay = getDaysToDisplay();
 
   return (
+    <>
+      <SEO
+        title="Schedule Your Visit - TCS PacePort São Paulo"
+        description="Book your visit to TCS PacePort São Paulo - Choose your preferred date and time for an exclusive experience at our innovation center"
+        keywords="TCS, PacePort, Book Visit, Schedule, São Paulo, Innovation Center"
+        noindex={true}
+      />
     <div className={`min-h-screen transition-colors duration-200 ${theme === 'dark' ? 'bg-black' : 'bg-gray-50'}`}>
       {/* Header - Always Black (same as admin/manager) */}
       <div className="bg-black border-b border-gray-800">
@@ -611,6 +619,28 @@ export default function GuestBooking() {
           </div>
         </Card>
 
+        {/* Legend - Always visible on mobile and desktop */}
+        <div className="mt-4 flex flex-wrap items-center justify-center gap-4 sm:gap-6">
+          <div className="flex items-center gap-2 text-xs sm:text-sm">
+            <div className={`w-3 h-3 sm:w-4 sm:h-4 rounded ${
+              theme === 'dark' ? 'bg-zinc-900 border border-zinc-700' : 'bg-white border border-gray-300'
+            }`}></div>
+            <span className={theme === 'dark' ? 'text-gray-500' : 'text-gray-600'}>Available</span>
+          </div>
+          <div className="flex items-center gap-2 text-xs sm:text-sm">
+            <div className={`w-3 h-3 sm:w-4 sm:h-4 rounded ${
+              theme === 'dark' ? 'bg-white' : 'bg-black'
+            }`}></div>
+            <span className={theme === 'dark' ? 'text-gray-500' : 'text-gray-600'}>Booked</span>
+          </div>
+          <div className="flex items-center gap-2 text-xs sm:text-sm">
+            <div className={`w-3 h-3 sm:w-4 sm:h-4 rounded ${
+              theme === 'dark' ? 'bg-zinc-800 border border-zinc-700' : 'bg-gray-100 border border-gray-200'
+            }`}></div>
+            <span className={theme === 'dark' ? 'text-gray-500' : 'text-gray-600'}>Past</span>
+          </div>
+        </div>
+
         <div className={`mt-8 text-center text-sm ${theme === 'dark' ? 'text-gray-500' : 'text-gray-500'}`}>
           <p>
             TCS PacePort is an innovation and experience center showcasing TCS's technology capabilities and solutions.
@@ -682,5 +712,6 @@ export default function GuestBooking() {
         </DrawerContent>
       </Drawer>
     </div>
+    </>
   );
 }

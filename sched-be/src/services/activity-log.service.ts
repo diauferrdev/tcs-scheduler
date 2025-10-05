@@ -36,6 +36,7 @@ export async function getActivityLogs(filters?: {
   userId?: string;
   action?: ActivityAction;
   resource?: ActivityResource;
+  search?: string;
   limit?: number;
   offset?: number;
 }) {
@@ -51,6 +52,34 @@ export async function getActivityLogs(filters?: {
 
   if (filters?.resource) {
     where.resource = filters.resource;
+  }
+
+  // Add search functionality
+  if (filters?.search) {
+    where.OR = [
+      {
+        description: {
+          contains: filters.search,
+          mode: 'insensitive',
+        },
+      },
+      {
+        user: {
+          name: {
+            contains: filters.search,
+            mode: 'insensitive',
+          },
+        },
+      },
+      {
+        user: {
+          email: {
+            contains: filters.search,
+            mode: 'insensitive',
+          },
+        },
+      },
+    ];
   }
 
   const logs = await prisma.activityLog.findMany({
