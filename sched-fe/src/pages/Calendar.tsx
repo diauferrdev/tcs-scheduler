@@ -192,7 +192,8 @@ export default function CalendarPage() {
   };
 
   const getDayGradient = (day: Date, isCurrentMonth: boolean, isPast: boolean, theme: 'light' | 'dark') => {
-    if (isPast || !isCurrentMonth) {
+    // Only gray out past dates from current month
+    if (isPast && isCurrentMonth) {
       return theme === 'dark' ? 'bg-zinc-950' : 'bg-gray-200/50';
     }
 
@@ -312,34 +313,34 @@ export default function CalendarPage() {
           {!isMobile && (
             <div className="flex items-center gap-3 sm:gap-4">
               <div className="flex items-center gap-1.5 text-xs sm:text-sm">
-                <div className={`w-3 h-3 sm:w-4 sm:h-4 rounded ${
+                <div className={`w-4 h-4 sm:w-5 sm:h-5 rounded ${
                   theme === 'dark'
-                    ? 'bg-gradient-to-br from-zinc-900 to-green-950/30 border border-zinc-700'
-                    : 'bg-gradient-to-br from-white to-green-100/40 border border-gray-300'
+                    ? 'bg-gradient-to-br from-zinc-800 to-green-800 border border-green-900'
+                    : 'bg-gradient-to-br from-green-50 to-green-200 border border-green-300'
                 }`}></div>
-                <span className={theme === 'dark' ? 'text-gray-500' : 'text-gray-600'}>Available</span>
+                <span className={theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}>Available</span>
               </div>
               <div className="flex items-center gap-1.5 text-xs sm:text-sm">
-                <div className={`w-3 h-3 sm:w-4 sm:h-4 rounded ${
+                <div className={`w-4 h-4 sm:w-5 sm:h-5 rounded ${
                   theme === 'dark'
-                    ? 'bg-gradient-to-br from-zinc-900 to-yellow-950/30 border border-zinc-700'
-                    : 'bg-gradient-to-br from-gray-50 to-yellow-100/40 border border-gray-300'
+                    ? 'bg-gradient-to-br from-zinc-800 to-yellow-800 border border-yellow-900'
+                    : 'bg-gradient-to-br from-yellow-50 to-yellow-200 border border-yellow-300'
                 }`}></div>
-                <span className={theme === 'dark' ? 'text-gray-500' : 'text-gray-600'}>Partial</span>
+                <span className={theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}>Partial</span>
               </div>
               <div className="flex items-center gap-1.5 text-xs sm:text-sm">
-                <div className={`w-3 h-3 sm:w-4 sm:h-4 rounded ${
+                <div className={`w-4 h-4 sm:w-5 sm:h-5 rounded ${
                   theme === 'dark'
-                    ? 'bg-gradient-to-br from-zinc-900 to-red-950/40 border border-zinc-700'
-                    : 'bg-gradient-to-br from-gray-50 to-red-100/50 border border-gray-300'
+                    ? 'bg-gradient-to-br from-zinc-800 to-red-800 border border-red-900'
+                    : 'bg-gradient-to-br from-red-50 to-red-200 border border-red-300'
                 }`}></div>
-                <span className={theme === 'dark' ? 'text-gray-500' : 'text-gray-600'}>Full</span>
+                <span className={theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}>Full</span>
               </div>
               <div className="flex items-center gap-1.5 text-xs sm:text-sm">
-                <div className={`w-3 h-3 sm:w-4 sm:h-4 rounded opacity-40 ${
-                  theme === 'dark' ? 'bg-zinc-950 border border-zinc-700' : 'bg-gray-200/50 border border-gray-200'
+                <div className={`w-4 h-4 sm:w-5 sm:h-5 rounded ${
+                  theme === 'dark' ? 'bg-zinc-900 border border-zinc-700' : 'bg-gray-300 border border-gray-400'
                 }`}></div>
-                <span className={theme === 'dark' ? 'text-gray-500' : 'text-gray-600'}>Past</span>
+                <span className={theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}>Past</span>
               </div>
             </div>
           )}
