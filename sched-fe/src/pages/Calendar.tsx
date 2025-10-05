@@ -191,6 +191,36 @@ export default function CalendarPage() {
     }
   };
 
+  const getDayGradient = (day: Date, isCurrentMonth: boolean, isPast: boolean, theme: 'light' | 'dark') => {
+    if (isPast || !isCurrentMonth) {
+      return theme === 'dark' ? 'bg-zinc-950' : 'bg-gray-200/50';
+    }
+
+    const dayBookings = getBookingsForDay(day);
+    const hasFullDay = !!dayBookings.fullDay;
+    const hasMorning = !!dayBookings.morning;
+    const hasAfternoon = !!dayBookings.afternoon;
+
+    // Fully booked - Red gradient
+    if (hasFullDay || (hasMorning && hasAfternoon)) {
+      return theme === 'dark'
+        ? 'bg-gradient-to-br from-zinc-900 via-zinc-900 to-red-950/40'
+        : 'bg-gradient-to-br from-gray-50 via-gray-100 to-red-100/50';
+    }
+
+    // Partially booked - Yellow/Orange gradient
+    if (hasMorning || hasAfternoon) {
+      return theme === 'dark'
+        ? 'bg-gradient-to-br from-zinc-900 via-zinc-900 to-yellow-950/30'
+        : 'bg-gradient-to-br from-gray-50 via-gray-100 to-yellow-100/40';
+    }
+
+    // Available - Green gradient
+    return theme === 'dark'
+      ? 'bg-gradient-to-br from-zinc-900 via-zinc-900 to-green-950/30'
+      : 'bg-gradient-to-br from-white via-gray-50 to-green-100/40';
+  };
+
   const getAvailableSlots = (date: Date): Array<'morning' | 'afternoon' | 'full-day'> => {
     const dayBookings = getBookingsForDay(date);
     const slots: Array<'morning' | 'afternoon' | 'full-day'> = [];
@@ -280,22 +310,34 @@ export default function CalendarPage() {
           </div>
 
           {!isMobile && (
-            <div className="flex items-center gap-4 sm:gap-6">
-              <div className="flex items-center gap-2 text-xs sm:text-sm">
+            <div className="flex items-center gap-3 sm:gap-4">
+              <div className="flex items-center gap-1.5 text-xs sm:text-sm">
                 <div className={`w-3 h-3 sm:w-4 sm:h-4 rounded ${
-                  theme === 'dark' ? 'bg-zinc-900 border border-zinc-700' : 'bg-white border border-gray-300'
+                  theme === 'dark'
+                    ? 'bg-gradient-to-br from-zinc-900 to-green-950/30 border border-zinc-700'
+                    : 'bg-gradient-to-br from-white to-green-100/40 border border-gray-300'
                 }`}></div>
                 <span className={theme === 'dark' ? 'text-gray-500' : 'text-gray-600'}>Available</span>
               </div>
-              <div className="flex items-center gap-2 text-xs sm:text-sm">
+              <div className="flex items-center gap-1.5 text-xs sm:text-sm">
                 <div className={`w-3 h-3 sm:w-4 sm:h-4 rounded ${
-                  theme === 'dark' ? 'bg-white' : 'bg-black'
+                  theme === 'dark'
+                    ? 'bg-gradient-to-br from-zinc-900 to-yellow-950/30 border border-zinc-700'
+                    : 'bg-gradient-to-br from-gray-50 to-yellow-100/40 border border-gray-300'
                 }`}></div>
-                <span className={theme === 'dark' ? 'text-gray-500' : 'text-gray-600'}>Booked</span>
+                <span className={theme === 'dark' ? 'text-gray-500' : 'text-gray-600'}>Partial</span>
               </div>
-              <div className="flex items-center gap-2 text-xs sm:text-sm">
+              <div className="flex items-center gap-1.5 text-xs sm:text-sm">
                 <div className={`w-3 h-3 sm:w-4 sm:h-4 rounded ${
-                  theme === 'dark' ? 'bg-zinc-800 border border-zinc-700' : 'bg-gray-100 border border-gray-200'
+                  theme === 'dark'
+                    ? 'bg-gradient-to-br from-zinc-900 to-red-950/40 border border-zinc-700'
+                    : 'bg-gradient-to-br from-gray-50 to-red-100/50 border border-gray-300'
+                }`}></div>
+                <span className={theme === 'dark' ? 'text-gray-500' : 'text-gray-600'}>Full</span>
+              </div>
+              <div className="flex items-center gap-1.5 text-xs sm:text-sm">
+                <div className={`w-3 h-3 sm:w-4 sm:h-4 rounded opacity-40 ${
+                  theme === 'dark' ? 'bg-zinc-950 border border-zinc-700' : 'bg-gray-200/50 border border-gray-200'
                 }`}></div>
                 <span className={theme === 'dark' ? 'text-gray-500' : 'text-gray-600'}>Past</span>
               </div>
@@ -355,10 +397,8 @@ export default function CalendarPage() {
                     className={`
                       group min-h-[70px] sm:min-h-[90px] border rounded p-1.5 text-left relative
                       transition-all duration-200 ease-out
-                      ${isPast
-                        ? theme === 'dark' ? 'bg-zinc-950 cursor-not-allowed opacity-40' : 'bg-gray-200/50 cursor-not-allowed'
-                        : theme === 'dark' ? 'bg-zinc-900' : 'bg-white'
-                      }
+                      ${getDayGradient(day, isCurrentMonth, isPast, theme)}
+                      ${isPast ? 'cursor-not-allowed opacity-40' : ''}
                       ${!isCurrentMonth ? 'opacity-60' : ''}
                       ${isToday
                         ? theme === 'dark' ? 'border-2 border-white shadow-md' : 'border-2 border-black shadow-md'
