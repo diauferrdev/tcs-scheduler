@@ -229,23 +229,30 @@ class LocalNotificationService {
         return;
       }
 
-      // Handle notification tap - navigate based on type
-      switch (type) {
-        case 'BOOKING_APPROVED':
-        case 'BOOKING_CONFIRMED':
-        case 'BOOKING_INVITATION':
-          navigationService?.navigateToCalendar();
-          break;
-        case 'BOOKING_PENDING_APPROVAL':
-          navigationService?.navigateToApprovals();
-          break;
-        case 'BOOKING_UPDATED':
-        case 'BOOKING_RESCHEDULED':
-        case 'BOOKING_CANCELLED':
-          navigationService?.navigateToCalendar();
-          break;
-        default:
-          navigationService?.navigateToNotifications();
+      // Handle notification tap - navigate to booking details if bookingId exists
+      if (bookingId != null) {
+        debugPrint('[LocalNotification] Navigating to booking details: $bookingId');
+        navigationService.navigateToBookingDetails(bookingId);
+      } else {
+        // Fallback to old behavior if no bookingId
+        debugPrint('[LocalNotification] No bookingId, using fallback navigation');
+        switch (type) {
+          case 'BOOKING_APPROVED':
+          case 'BOOKING_CONFIRMED':
+          case 'BOOKING_INVITATION':
+            navigationService.navigateToCalendar();
+            break;
+          case 'BOOKING_PENDING_APPROVAL':
+            navigationService.navigateToApprovals();
+            break;
+          case 'BOOKING_UPDATED':
+          case 'BOOKING_RESCHEDULED':
+          case 'BOOKING_CANCELLED':
+            navigationService.navigateToCalendar();
+            break;
+          default:
+            navigationService.navigateToNotifications();
+        }
       }
 
       debugPrint('[LocalNotification] ✅ Navigation handled for type: $type');
@@ -369,6 +376,7 @@ class LocalNotificationService {
     String? sector,
     int? expectedAttendees,
     String? eventType,
+    String? bookingId,
   }) async {
     try {
       debugPrint('[LocalNotification] 📅 showNewBookingNotification() called');
@@ -446,12 +454,26 @@ class LocalNotificationService {
       final notificationId = DateTime.now().millisecondsSinceEpoch % 100000;
       debugPrint('[LocalNotification] Calling _notifications.show() with ID: $notificationId');
 
+      // Build payload with bookingId for navigation
+      final payload = _buildPayload(
+        type: 'BOOKING_CONFIRMED',
+        bookingId: bookingId,
+        metadata: {
+          'companyName': companyName,
+          'date': date,
+          'time': time,
+          if (sector != null) 'sector': sector,
+          if (expectedAttendees != null) 'expectedAttendees': expectedAttendees,
+          if (eventType != null) 'eventType': eventType,
+        },
+      );
+
       await _notifications.show(
         notificationId,
         '🎉 New Booking Created',
         '$companyName scheduled a visit for $date at $time',
         details,
-        payload: 'new_booking',
+        payload: payload,
       );
 
       debugPrint('[LocalNotification] ✅ New booking notification shown');
@@ -469,6 +491,7 @@ class LocalNotificationService {
     String? newDate,
     String? previousTime,
     String? newTime,
+    String? bookingId,
   }) async {
     final changesList = <String>[
       if (previousDate != null && newDate != null)
@@ -535,12 +558,25 @@ class LocalNotificationService {
       linux: linuxDetails,
     );
 
+    // Build payload with bookingId for navigation
+    final payload = _buildPayload(
+      type: 'BOOKING_UPDATED',
+      bookingId: bookingId,
+      metadata: {
+        'companyName': companyName,
+        if (previousDate != null) 'previousDate': previousDate,
+        if (newDate != null) 'newDate': newDate,
+        if (previousTime != null) 'previousTime': previousTime,
+        if (newTime != null) 'newTime': newTime,
+      },
+    );
+
     await _notifications.show(
       DateTime.now().millisecondsSinceEpoch % 100000,
       '🔄 Booking Updated',
       '$companyName booking has been updated: $changes',
       details,
-      payload: 'updated_booking',
+      payload: payload,
     );
   }
 
@@ -550,7 +586,8 @@ class LocalNotificationService {
     required String date,
     String? reason,
     String? time,
-  }) async {
+    String? bookingId,
+  }) async{
     final detailsList = <String>[
       '📅 Cancelled Date: $date${time != null ? ' at $time' : ''}',
       if (reason != null) '📝 Reason: $reason',
@@ -614,12 +651,24 @@ class LocalNotificationService {
       linux: linuxDetails,
     );
 
+    // Build payload with bookingId for navigation
+    final payload = _buildPayload(
+      type: 'BOOKING_CANCELLED',
+      bookingId: bookingId,
+      metadata: {
+        'companyName': companyName,
+        'date': date,
+        if (time != null) 'time': time,
+        if (reason != null) 'reason': reason,
+      },
+    );
+
     await _notifications.show(
       DateTime.now().millisecondsSinceEpoch % 100000,
       '❌ Booking Cancelled',
       '$companyName booking for $date has been cancelled',
       details,
-      payload: 'cancelled_booking',
+      payload: payload,
     );
   }
 
@@ -629,6 +678,7 @@ class LocalNotificationService {
     required String date,
     String? time,
     String? approvedBy,
+    String? bookingId,
   }) async {
     final detailsList = <String>[
       '✅ Booking confirmed and approved',
@@ -695,9 +745,10 @@ class LocalNotificationService {
       linux: linuxDetails,
     );
 
-    // Build payload with metadata for "Add to Calendar" functionality
+    // Build payload with bookingId and metadata for "Add to Calendar" functionality
     final payload = _buildPayload(
       type: 'BOOKING_APPROVED',
+      bookingId: bookingId,
       metadata: {
         'companyName': companyName,
         'date': date,

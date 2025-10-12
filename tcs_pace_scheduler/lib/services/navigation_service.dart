@@ -50,6 +50,12 @@ class NavigationService {
     navigateTo('/agenda');
   }
 
+  /// Navigate to booking details
+  void navigateToBookingDetails(String bookingId) {
+    navigateTo('/booking/$bookingId');
+    debugPrint('[NavigationService] Navigated to booking details: $bookingId');
+  }
+
   /// Show snackbar
   void showSnackBar(String message, {bool isError = false}) {
     if (context != null) {

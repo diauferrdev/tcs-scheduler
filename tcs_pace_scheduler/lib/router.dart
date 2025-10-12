@@ -12,6 +12,7 @@ import 'screens/users_screen.dart';
 import 'screens/activity_logs_screen.dart';
 import 'screens/notifications_screen.dart';
 import 'screens/approvals_screen.dart';
+import 'screens/booking_details_screen.dart';
 import 'services/navigation_service.dart';
 
 GoRouter createRouter(AuthProvider authProvider) {
@@ -121,6 +122,20 @@ GoRouter createRouter(AuthProvider authProvider) {
               state,
               const ApprovalsScreen(),
             ),
+          ),
+          GoRoute(
+            path: '/booking/:id',
+            pageBuilder: (context, state) {
+              final bookingId = state.pathParameters['id'];
+              if (bookingId == null) {
+                throw Exception('Booking ID is required');
+              }
+              return _buildPageWithTransition(
+                context,
+                state,
+                BookingDetailsScreen(bookingId: bookingId, skipLayout: true),
+              );
+            },
           ),
         ],
       ),
