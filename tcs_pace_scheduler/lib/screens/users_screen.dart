@@ -190,6 +190,7 @@ class _UsersScreenState extends State<UsersScreen> {
                     items: const [
                       DropdownMenuItem(value: 'MANAGER', child: Text('Manager')),
                       DropdownMenuItem(value: 'ADMIN', child: Text('Admin')),
+                      DropdownMenuItem(value: 'USER', child: Text('User')),
                     ],
                     onChanged: (value) {
                       if (value != null) {
@@ -756,8 +757,8 @@ class _UsersScreenState extends State<UsersScreen> {
         return Colors.purple;
       case UserRole.MANAGER:
         return Colors.blue;
-      case UserRole.GUEST:
-        return Colors.grey;
+      case UserRole.USER:
+        return Colors.green;
     }
   }
 }
