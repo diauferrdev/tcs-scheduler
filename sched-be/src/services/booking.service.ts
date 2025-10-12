@@ -671,7 +671,7 @@ export async function updateBooking(id: string, data: BookingUpdateInput) {
 }
 
 export async function deleteBooking(id: string) {
-  // Get booking details before deletion for notification
+  // Get booking details before cancellation for notification
   const booking = await prisma.booking.findUnique({
     where: { id },
     include: {
@@ -683,6 +683,25 @@ export async function deleteBooking(id: string) {
   if (!booking) {
     throw new Error('Booking not found');
   }
+
+  // SOFT DELETE: Mark as CANCELLED instead of deleting
+  // This preserves the booking data so notifications can link to it
+  const cancelledBooking = await prisma.booking.update({
+    where: { id },
+    data: {
+      status: 'CANCELLED',
+    },
+    include: {
+      createdBy: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+        },
+      },
+      attendees: true,
+    },
+  });
 
   // Notify all managers about the cancellation/denial
   const notificationService = await import('./notification.service');
@@ -708,16 +727,11 @@ export async function deleteBooking(id: string) {
     });
   }
 
-  // Now delete the booking
-  await prisma.booking.delete({
-    where: { id },
-  });
-
   // Broadcast booking deletion to all connected clients for real-time calendar updates
   websocketService.broadcastBookingDeleted(id);
   console.log('[Booking] Broadcast booking_deleted to', websocketService.getTotalConnections(), 'connections');
 
-  return { success: true };
+  return cancelledBooking;
 }
 
 
