@@ -156,6 +156,82 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
     return !date.isBefore(minDate) && !_isWeekend(date);
   }
 
+  /// Get previous business day (skip weekends)
+  DateTime _getPreviousBusinessDay(DateTime date) {
+    DateTime prevDay = date.subtract(const Duration(days: 1));
+    while (_isWeekend(prevDay)) {
+      prevDay = prevDay.subtract(const Duration(days: 1));
+    }
+    return prevDay;
+  }
+
+  /// Get next business day (skip weekends)
+  DateTime _getNextBusinessDay(DateTime date) {
+    DateTime nextDay = date.add(const Duration(days: 1));
+    while (_isWeekend(nextDay)) {
+      nextDay = nextDay.add(const Duration(days: 1));
+    }
+    return nextDay;
+  }
+
+  /// Calculate prep/teardown blocks for Innovation Exchange events
+  /// Returns a map: {date: {morning: blocked, afternoon: blocked}}
+  Map<String, Map<String, bool>> _calculateInnovationExchangeBlocks() {
+    final blocks = <String, Map<String, bool>>{};
+
+    // Find all Innovation Exchange bookings
+    final ieBookings = _bookings.where((b) =>
+      b.visitType == VisitType.INNOVATION_EXCHANGE &&
+      (b.status == BookingStatus.CONFIRMED || b.status == BookingStatus.PENDING_APPROVAL)
+    ).toList();
+
+    for (final ie in ieBookings) {
+      final eventDate = ie.date;
+      final eventHour = int.parse(ie.startTime.split(':')[0]);
+      final isMorning = eventHour < 13;
+
+      final eventDateStr = DateFormat('yyyy-MM-dd').format(eventDate);
+
+      if (isMorning) {
+        // IE in MORNING:
+        // - Prep: previous business day AFTERNOON
+        // - Event: same day MORNING
+        // - Teardown: same day AFTERNOON
+
+        final prevDay = _getPreviousBusinessDay(eventDate);
+        final prevDayStr = DateFormat('yyyy-MM-dd').format(prevDay);
+
+        // Block previous day afternoon (prep)
+        blocks[prevDayStr] = blocks[prevDayStr] ?? {'morning': false, 'afternoon': false};
+        blocks[prevDayStr]!['afternoon'] = true;
+
+        // Block event day morning (event) and afternoon (teardown)
+        blocks[eventDateStr] = blocks[eventDateStr] ?? {'morning': false, 'afternoon': false};
+        blocks[eventDateStr]!['morning'] = true;
+        blocks[eventDateStr]!['afternoon'] = true;
+      } else {
+        // IE in AFTERNOON:
+        // - Prep: same day MORNING
+        // - Event: same day AFTERNOON
+        // - Teardown: next business day MORNING
+
+        final nextDay = _getNextBusinessDay(eventDate);
+        final nextDayStr = DateFormat('yyyy-MM-dd').format(nextDay);
+
+        // Block event day morning (prep) and afternoon (event)
+        blocks[eventDateStr] = blocks[eventDateStr] ?? {'morning': false, 'afternoon': false};
+        blocks[eventDateStr]!['morning'] = true;
+        blocks[eventDateStr]!['afternoon'] = true;
+
+        // Block next day morning (teardown)
+        blocks[nextDayStr] = blocks[nextDayStr] ?? {'morning': false, 'afternoon': false};
+        blocks[nextDayStr]!['morning'] = true;
+      }
+    }
+
+    return blocks;
+  }
+
   List<Booking> _getBookingsForDay(DateTime date) {
     final dateStr = DateFormat('yyyy-MM-dd').format(date);
     final dayBookings = _bookings.where((b) {
@@ -164,6 +240,54 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
     }).toList();
 
     return dayBookings;
+  }
+
+  /// Get prep/teardown blocks for a specific day
+  /// Returns list with period labels: 'PREP (Morning)', 'TEARDOWN (Afternoon)', etc.
+  List<Map<String, String>> _getIEBlocksForDay(DateTime date) {
+    final blocks = <Map<String, String>>[];
+    final ieBlocks = _calculateInnovationExchangeBlocks();
+    final dayStr = DateFormat('yyyy-MM-dd').format(date);
+
+    if (ieBlocks.containsKey(dayStr)) {
+      if (ieBlocks[dayStr]!['morning'] == true) {
+        // Check if this is the actual IE event or prep/teardown
+        final hasIEMorning = _bookings.any((b) {
+          final bookingDate = DateFormat('yyyy-MM-dd').format(b.date);
+          final eventHour = int.parse(b.startTime.split(':')[0]);
+          return bookingDate == dayStr &&
+                 b.visitType == VisitType.INNOVATION_EXCHANGE &&
+                 eventHour < 13 &&
+                 (b.status == BookingStatus.CONFIRMED || b.status == BookingStatus.PENDING_APPROVAL);
+        });
+
+        blocks.add({
+          'period': 'Morning',
+          'label': hasIEMorning ? 'Innovation Exchange' : 'Reserved (IE Prep/Teardown)',
+          'time': '09:00 - 13:00',
+        });
+      }
+
+      if (ieBlocks[dayStr]!['afternoon'] == true) {
+        // Check if this is the actual IE event or prep/teardown
+        final hasIEAfternoon = _bookings.any((b) {
+          final bookingDate = DateFormat('yyyy-MM-dd').format(b.date);
+          final eventHour = int.parse(b.startTime.split(':')[0]);
+          return bookingDate == dayStr &&
+                 b.visitType == VisitType.INNOVATION_EXCHANGE &&
+                 eventHour >= 13 &&
+                 (b.status == BookingStatus.CONFIRMED || b.status == BookingStatus.PENDING_APPROVAL);
+        });
+
+        blocks.add({
+          'period': 'Afternoon',
+          'label': hasIEAfternoon ? 'Innovation Exchange' : 'Reserved (IE Prep/Teardown)',
+          'time': '13:00 - 17:00',
+        });
+      }
+    }
+
+    return blocks;
   }
 
   Color _getDayGradientColor(DateTime day, bool isDark) {
@@ -476,19 +600,12 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
              (b.status == BookingStatus.CONFIRMED || b.status == BookingStatus.PENDING_APPROVAL);
     }).toList();
 
-    // If no active bookings, assume all slots available (optimistic)
-    if (activeBookings.isEmpty) {
-      return [
-        AvailableTimeSlot(time: '09:00', maxDuration: 4),
-        AvailableTimeSlot(time: '13:00', maxDuration: 4),
-      ];
-    }
-
     // Use period-based logic (MORNING: 9-13, AFTERNOON: 13-17)
     // Check which periods are occupied
     bool morningOccupied = false;
     bool afternoonOccupied = false;
 
+    // 1. Check actual bookings
     for (final booking in activeBookings) {
       final startHour = int.parse(booking.startTime.split(':')[0]);
       final durationHours = {
@@ -509,6 +626,17 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
 
       // Check if booking occupies afternoon period (13-17)
       if (startHour < 17 && endHour > 13) {
+        afternoonOccupied = true;
+      }
+    }
+
+    // 2. Check Innovation Exchange prep/teardown blocks
+    final ieBlocks = _calculateInnovationExchangeBlocks();
+    if (ieBlocks.containsKey(dateStr)) {
+      if (ieBlocks[dateStr]!['morning'] == true) {
+        morningOccupied = true;
+      }
+      if (ieBlocks[dateStr]!['afternoon'] == true) {
         afternoonOccupied = true;
       }
     }
@@ -994,6 +1122,7 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
                       bool morningOccupied = false;
                       bool afternoonOccupied = false;
 
+                      // 1. Check actual bookings
                       for (final booking in activeBookings) {
                         final startHour = int.parse(booking.startTime.split(':')[0]);
                         final durationHours = {
@@ -1010,7 +1139,16 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
                         if (startHour < 17 && endHour > 13) afternoonOccupied = true;
                       }
 
+                      // 2. Check Innovation Exchange prep/teardown blocks
+                      final ieBlocks = _calculateInnovationExchangeBlocks();
+                      final dayStr = DateFormat('yyyy-MM-dd').format(day);
+                      if (ieBlocks.containsKey(dayStr)) {
+                        if (ieBlocks[dayStr]!['morning'] == true) morningOccupied = true;
+                        if (ieBlocks[dayStr]!['afternoon'] == true) afternoonOccupied = true;
+                      }
+
                       final isFull = morningOccupied && afternoonOccupied;
+                      final hasAnyOccupation = morningOccupied || afternoonOccupied;
 
                       // Determine indicator color based on booking status and availability
                       // Only show indicators for bookable days
@@ -1020,14 +1158,14 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
                           // Only pending bookings - orange
                           indicatorColor = const Color(0xFFF59E0B); // Orange - pending approval
                         } else if (isFull) {
-                          // Both periods occupied - RED (100% full)
+                          // Both periods occupied (bookings OR IE blocks) - RED (100% full)
                           indicatorColor = const Color(0xFFEF4444); // Red - no slots available
-                        } else if (dayBookings.isEmpty) {
-                          // No bookings at all
+                        } else if (!hasAnyOccupation && dayBookings.isEmpty) {
+                          // No bookings AND no IE blocks at all
                           indicatorColor = const Color(0xFF10B981); // Green - available, no bookings
-                        } else {
-                          // Has bookings but NOT full - Yellow (partial)
-                          indicatorColor = const Color(0xFFFBBF24); // Yellow - partial (has bookings but slots available)
+                        } else if (hasAnyOccupation) {
+                          // Has bookings OR IE blocks but NOT full - Yellow (partial)
+                          indicatorColor = const Color(0xFFFBBF24); // Yellow - partial (has bookings/blocks but slots available)
                         }
                       }
 
@@ -1125,6 +1263,7 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
     }
 
     final bookingsList = _getBookingsForDay(_selectedDate!);
+    final ieBlocks = _getIEBlocksForDay(_selectedDate!);
     final today = DateTime.now();
     final isPast = _selectedDate!.isBefore(DateTime(today.year, today.month, today.day));
     final availableSlots = _getAvailableSlots(_selectedDate!);
@@ -1154,7 +1293,7 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
           const SizedBox(height: 12),
           // Events list
           Expanded(
-            child: bookingsList.isEmpty
+            child: (bookingsList.isEmpty && ieBlocks.isEmpty)
               ? Center(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -1202,12 +1341,20 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
                 )
               : ListView.builder(
                   padding: EdgeInsets.zero,
-                  itemCount: bookingsList.length + (hasAvailableSlots ? 1 : 0),
+                  itemCount: bookingsList.length + ieBlocks.length + (hasAvailableSlots ? 1 : 0),
                   itemBuilder: (context, index) {
-                    if (index < bookingsList.length) {
-                      final booking = bookingsList[index];
+                    // Show IE blocks first
+                    if (index < ieBlocks.length) {
+                      final block = ieBlocks[index];
+                      return _buildIEBlockCard(block, isDark);
+                    }
+                    // Then show regular bookings
+                    else if (index < ieBlocks.length + bookingsList.length) {
+                      final booking = bookingsList[index - ieBlocks.length];
                       return _buildColorfulEventCard(booking, isDark, isUserRole);
-                    } else {
+                    }
+                    // Finally show add button
+                    else {
                       // Add booking button
                       return Padding(
                         padding: const EdgeInsets.all(8.0),
@@ -1235,6 +1382,92 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
                     }
                   },
                 ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Build card for Innovation Exchange prep/teardown blocks
+  Widget _buildIEBlockCard(Map<String, String> block, bool isDark) {
+    final isReserved = block['label']!.contains('Reserved');
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF18181B) : const Color(0xFFF9FAFB),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isDark ? const Color(0xFF3F3F46) : const Color(0xFFD1D5DB),
+          width: 1,
+          style: BorderStyle.solid,
+        ),
+      ),
+      child: Row(
+        children: [
+          // Diagonal striped pattern for reserved slots
+          Container(
+            width: 4,
+            height: 64,
+            decoration: BoxDecoration(
+              color: const Color(0xFF6B7280).withOpacity(0.5),
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(12),
+                bottomLeft: Radius.circular(12),
+              ),
+            ),
+          ),
+          // Content
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          block['label']!,
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
+                          ),
+                        ),
+                      ),
+                      if (isReserved)
+                        Icon(
+                          Icons.lock_clock,
+                          size: 16,
+                          color: isDark ? const Color(0xFF6B7280) : const Color(0xFF9CA3AF),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    block['time']!,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: isDark ? const Color(0xFF6B7280) : const Color(0xFF9CA3AF),
+                    ),
+                  ),
+                  if (isReserved) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      'Blocked for IE preparation/teardown',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontStyle: FontStyle.italic,
+                        color: isDark ? const Color(0xFF6B7280) : const Color(0xFF9CA3AF),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
           ),
         ],
       ),
