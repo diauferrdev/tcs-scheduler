@@ -9,6 +9,7 @@ import 'package:printing/printing.dart';
 import 'package:share_plus/share_plus.dart';
 import '../widgets/app_layout.dart';
 import '../providers/theme_provider.dart';
+import '../providers/auth_provider.dart';
 import '../services/api_service.dart';
 import '../services/realtime_service.dart';
 import '../models/booking.dart';
@@ -729,8 +730,10 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
   @override
   Widget build(BuildContext context) {
     final themeProvider = context.watch<ThemeProvider>();
+    final authProvider = context.watch<AuthProvider>();
     final isDark = themeProvider.isDark;
     final isMobile = MediaQuery.of(context).size.width < 768;
+    final isUserRole = authProvider.user?.isUser ?? false;
 
     final content = Container(
       color: isDark ? Colors.black : const Color(0xFFF9FAFB),
@@ -768,7 +771,7 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
                     // Events list for selected day (55% of space)
                     Expanded(
                       flex: 55,
-                      child: _buildEventsSection(isDark, isMobile),
+                      child: _buildEventsSection(isDark, isMobile, isUserRole),
                     ),
                   ],
                 ),
@@ -794,7 +797,7 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
           child: AnimatedOpacity(
             opacity: _showDayBookings ? 1.0 : 0.0,
             duration: const Duration(milliseconds: 300),
-            child: _selectedDate != null ? _buildDayBookingsOverlay(isDark, isMobile) : const SizedBox.shrink(),
+            child: _selectedDate != null ? _buildDayBookingsOverlay(isDark, isMobile, isUserRole) : const SizedBox.shrink(),
           ),
         ),
         // Booking details drawer - always in tree
@@ -803,7 +806,7 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
           child: AnimatedOpacity(
             opacity: _showBookingDetails ? 1.0 : 0.0,
             duration: const Duration(milliseconds: 300),
-            child: _selectedBooking != null ? _buildBookingDetailsOverlay(isDark, isMobile) : const SizedBox.shrink(),
+            child: _selectedBooking != null ? _buildBookingDetailsOverlay(isDark, isMobile, isUserRole) : const SizedBox.shrink(),
           ),
         ),
         // Cancel confirmation dialog
@@ -1071,7 +1074,7 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
     );
   }
 
-  Widget _buildEventsSection(bool isDark, bool isMobile) {
+  Widget _buildEventsSection(bool isDark, bool isMobile, bool isUserRole) {
     if (_selectedDate == null) {
       return Container(
         decoration: BoxDecoration(
@@ -1175,7 +1178,7 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
                   itemBuilder: (context, index) {
                     if (index < bookingsList.length) {
                       final booking = bookingsList[index];
-                      return _buildColorfulEventCard(booking, isDark);
+                      return _buildColorfulEventCard(booking, isDark, isUserRole);
                     } else {
                       // Add booking button
                       return Padding(
@@ -1210,7 +1213,7 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
     );
   }
 
-  Widget _buildColorfulEventCard(Booking booking, bool isDark) {
+  Widget _buildColorfulEventCard(Booking booking, bool isDark, bool isUserRole) {
     // Define color categories based on interest area
     final colorSchemes = {
       'HEALTH': {'light': const Color(0xFFDCFCE7), 'dark': const Color(0xFF14532D), 'label': 'HEALTH'},
@@ -1239,14 +1242,14 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Company name and time
+          // Company name (hidden for USER) and time
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
                 child: Text(
-                  booking.companyName,
+                  isUserRole ? 'Office Visit' : booking.companyName,
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.bold,
@@ -1267,39 +1270,41 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
               ),
             ],
           ),
-          const SizedBox(height: 4),
-          // Interest area and attendees count
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  booking.interestArea ?? '',
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: isDark ? Colors.white70 : Colors.black54,
+          // ADMIN/MANAGER only: show interest area and attendees
+          if (!isUserRole) ...[
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    booking.interestArea ?? '',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: isDark ? Colors.white70 : Colors.black54,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
                 ),
-              ),
-              if (booking.expectedAttendees > 0) ...[
-                const SizedBox(width: 8),
-                Icon(
-                  Icons.people,
-                  size: 12,
-                  color: isDark ? Colors.white60 : Colors.black45,
-                ),
-                const SizedBox(width: 2),
-                Text(
-                  '${booking.expectedAttendees}',
-                  style: TextStyle(
-                    fontSize: 11,
+                if (booking.expectedAttendees > 0) ...[
+                  const SizedBox(width: 8),
+                  Icon(
+                    Icons.people,
+                    size: 12,
                     color: isDark ? Colors.white60 : Colors.black45,
                   ),
-                ),
+                  const SizedBox(width: 2),
+                  Text(
+                    '${booking.expectedAttendees}',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: isDark ? Colors.white60 : Colors.black45,
+                    ),
+                  ),
+                ],
               ],
-            ],
-          ),
+            ),
+          ],
         ],
       ),
       ),
@@ -2160,7 +2165,7 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
     );
   }
 
-  Widget _buildDayBookingsOverlay(bool isDark, bool isMobile) {
+  Widget _buildDayBookingsOverlay(bool isDark, bool isMobile, bool isUserRole) {
     final dayBookings = _getBookingsForDay(_selectedDate!);
     final hasBookings = dayBookings.isNotEmpty;
 
@@ -2233,7 +2238,7 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
                               ),
                             ),
                             const SizedBox(height: 12),
-                            ...dayBookings.map((booking) => _buildBookingCard(booking, isDark)),
+                            ...dayBookings.map((booking) => _buildBookingCard(booking, isDark, isUserRole)),
                             const SizedBox(height: 24),
                           ],
                           // Add New Booking Button
@@ -2316,7 +2321,7 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
   );
 }
 
-  Widget _buildBookingCard(Booking booking, bool isDark) {
+  Widget _buildBookingCard(Booking booking, bool isDark, bool isUserRole) {
     // Format time text based on actual start time and duration
     final timeText = _formatTimeSlot(booking.startTime, booking.duration);
 
@@ -2346,7 +2351,7 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
                     children: [
                       Expanded(
                         child: Text(
-                          booking.companyName,
+                          isUserRole ? 'Office Visit' : booking.companyName,
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
@@ -2405,7 +2410,7 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
     );
   }
 
-  Widget _buildBookingDetailsOverlay(bool isDark, bool isMobile) {
+  Widget _buildBookingDetailsOverlay(bool isDark, bool isMobile, bool isUserRole) {
     return GestureDetector(
       onTap: () => setState(() => _showBookingDetails = false),
       child: Container(
@@ -2514,45 +2519,54 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
                             ],
                           ),
                           const SizedBox(height: 24),
-                          // Company Info
-                          _buildDetailSection('Company Information', isDark, [
-                            _buildDetailItem('Account Name', _selectedBooking!.accountName, isDark),
-                            _buildDetailItem('Company Name', _selectedBooking!.companyName, isDark),
-                            if (_selectedBooking!.companySector != null)
-                              _buildDetailItem('Sector', _selectedBooking!.companySector!, isDark),
-                            if (_selectedBooking!.companyVertical != null)
-                              _buildDetailItem('Vertical', _selectedBooking!.companyVertical!, isDark),
-                            if (_selectedBooking!.companySize != null)
-                              _buildDetailItem('Size', _selectedBooking!.companySize!, isDark),
-                          ]),
-                          const SizedBox(height: 24),
-                          // Visit Details
+                          // Company Info (hidden for USER role)
+                          if (!isUserRole) ...[
+                            _buildDetailSection('Company Information', isDark, [
+                              _buildDetailItem('Account Name', _selectedBooking!.accountName, isDark),
+                              _buildDetailItem('Company Name', _selectedBooking!.companyName, isDark),
+                              if (_selectedBooking!.companySector != null)
+                                _buildDetailItem('Sector', _selectedBooking!.companySector!, isDark),
+                              if (_selectedBooking!.companyVertical != null)
+                                _buildDetailItem('Vertical', _selectedBooking!.companyVertical!, isDark),
+                              if (_selectedBooking!.companySize != null)
+                                _buildDetailItem('Size', _selectedBooking!.companySize!, isDark),
+                            ]),
+                            const SizedBox(height: 24),
+                          ],
+                          // Visit Details (simplified for USER role)
                           _buildDetailSection('Visit Details', isDark, [
                             if (_selectedBooking!.venue != null)
                               _buildDetailItem('Venue', _selectedBooking!.venue!, isDark),
-                            _buildDetailItem('Expected Attendees', '${_selectedBooking!.expectedAttendees}', isDark),
-                            if (_selectedBooking!.overallTheme != null)
-                              _buildDetailItem('Overall Theme', _selectedBooking!.overallTheme!, isDark),
-                            if (_selectedBooking!.lastInnovationDay != null)
-                              _buildDetailItem('Last Innovation Day', DateFormat('MMM d, yyyy').format(_selectedBooking!.lastInnovationDay!), isDark),
-                            if (_selectedBooking!.eventType != null)
-                              _buildDetailItem('Event Type', _selectedBooking!.eventType!.name, isDark),
-                            if (_selectedBooking!.partnerName != null)
-                              _buildDetailItem('Partner Name', _selectedBooking!.partnerName!, isDark),
-                            if (_selectedBooking!.dealStatus != null)
-                              _buildDetailItem('Deal Status', _selectedBooking!.dealStatus!.name, isDark),
-                            _buildDetailItem('Segment Head Approval', _selectedBooking!.segmentHeadApproval ? 'Yes' : 'No', isDark),
-                            // Legacy fields
-                            if (_selectedBooking!.interestArea != null)
-                              _buildDetailItem('Interest Area', _selectedBooking!.interestArea!, isDark),
-                            if (_selectedBooking!.businessGoal != null)
-                              _buildDetailItem('Business Goal', _selectedBooking!.businessGoal!, isDark),
-                            if (_selectedBooking!.additionalNotes != null)
-                              _buildDetailItem('Additional Notes', _selectedBooking!.additionalNotes!, isDark),
+                            // USER role: only show status
+                            if (isUserRole) ...[
+                              _buildDetailItem('Status', _selectedBooking!.status.name, isDark),
+                            ],
+                            // ADMIN/MANAGER: show all details
+                            if (!isUserRole) ...[
+                              _buildDetailItem('Expected Attendees', '${_selectedBooking!.expectedAttendees}', isDark),
+                              if (_selectedBooking!.overallTheme != null)
+                                _buildDetailItem('Overall Theme', _selectedBooking!.overallTheme!, isDark),
+                              if (_selectedBooking!.lastInnovationDay != null)
+                                _buildDetailItem('Last Innovation Day', DateFormat('MMM d, yyyy').format(_selectedBooking!.lastInnovationDay!), isDark),
+                              if (_selectedBooking!.eventType != null)
+                                _buildDetailItem('Event Type', _selectedBooking!.eventType!.name, isDark),
+                              if (_selectedBooking!.partnerName != null)
+                                _buildDetailItem('Partner Name', _selectedBooking!.partnerName!, isDark),
+                              if (_selectedBooking!.dealStatus != null)
+                                _buildDetailItem('Deal Status', _selectedBooking!.dealStatus!.name, isDark),
+                              _buildDetailItem('Segment Head Approval', _selectedBooking!.segmentHeadApproval ? 'Yes' : 'No', isDark),
+                              // Legacy fields
+                              if (_selectedBooking!.interestArea != null)
+                                _buildDetailItem('Interest Area', _selectedBooking!.interestArea!, isDark),
+                              if (_selectedBooking!.businessGoal != null)
+                                _buildDetailItem('Business Goal', _selectedBooking!.businessGoal!, isDark),
+                              if (_selectedBooking!.additionalNotes != null)
+                                _buildDetailItem('Additional Notes', _selectedBooking!.additionalNotes!, isDark),
+                            ],
                           ]),
                           const SizedBox(height: 24),
-                          // Attendees Carousel
-                          if (_selectedBooking!.attendees != null && _selectedBooking!.attendees!.isNotEmpty) ...[
+                          // Attendees Carousel (hidden for USER role - personal data)
+                          if (!isUserRole && _selectedBooking!.attendees != null && _selectedBooking!.attendees!.isNotEmpty) ...[
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
