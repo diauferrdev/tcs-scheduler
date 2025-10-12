@@ -53,6 +53,8 @@ build/app/outputs/flutter-apk/*-v*.apk
 
 # Firebase
 .firebaserc
+google-services.json
+GoogleService-Info.plist
 
 # Environment
 .env

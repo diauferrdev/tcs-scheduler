@@ -9,7 +9,7 @@
       "client_info": {
         "mobilesdk_app_id": "1:874457674237:android:1ed8bb845b3e949d9fa994",
         "android_client_info": {
-          "package_name": "com.example.flutter_multiplatform_app"
+          "package_name": "com.tcs.pace_scheduler"
         }
       },
       "oauth_client": [],
