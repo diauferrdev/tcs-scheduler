@@ -80,13 +80,15 @@ function timeRangesOverlap(
 }
 
 // Helper: Check if a period (morning or afternoon) is free on a given date
-async function isPeriodFree(date: Date, isMorning: boolean): Promise<boolean> {
+// Includes BOTH CONFIRMED and PENDING_APPROVAL bookings
+async function isPeriodFree(date: Date, isMorning: boolean, excludeBookingId?: string): Promise<boolean> {
   const dateStr = date.toISOString().split('T')[0];
 
   const bookings = await prisma.booking.findMany({
     where: {
       date: new Date(dateStr),
-      status: 'CONFIRMED', // Only count CONFIRMED bookings
+      status: { in: ['CONFIRMED', 'PENDING_APPROVAL'] }, // Count both confirmed and pending (intentions)
+      ...(excludeBookingId ? { id: { not: excludeBookingId } } : {}),
     },
   });
 
@@ -193,12 +195,12 @@ async function validateQuickTour(
     };
   }
 
-  // Check how many CONFIRMED Quick Tours are already booked on this date
+  // Check how many Quick Tours are already booked on this date (CONFIRMED or PENDING)
   const existingQuickTours = await prisma.booking.findMany({
     where: {
       date: new Date(date),
       visitType: 'QUICK_TOUR',
-      status: 'CONFIRMED', // Only count CONFIRMED bookings
+      status: { in: ['CONFIRMED', 'PENDING_APPROVAL'] }, // Count both confirmed and pending
     },
   });
 
@@ -215,11 +217,11 @@ async function validateQuickTour(
 export async function checkAvailability(date: string, visitType?: 'QUICK_TOUR' | 'INNOVATION_EXCHANGE') {
   const bookingDate = new Date(date);
 
-  // Get ONLY CONFIRMED bookings for this date (not PENDING_APPROVAL)
+  // Get CONFIRMED and PENDING_APPROVAL bookings (intentions count as occupied)
   const bookings = await prisma.booking.findMany({
     where: {
       date: bookingDate,
-      status: 'CONFIRMED', // Only count confirmed bookings
+      status: { in: ['CONFIRMED', 'PENDING_APPROVAL'] }, // Count both confirmed and pending
     },
   });
 
@@ -263,7 +265,7 @@ export async function checkAvailability(date: string, visitType?: 'QUICK_TOUR' |
       where: {
         date: bookingDate,
         visitType: 'QUICK_TOUR',
-        status: 'CONFIRMED', // Only count CONFIRMED bookings
+        status: { in: ['CONFIRMED', 'PENDING_APPROVAL'] }, // Count both confirmed and pending
       },
     });
 
@@ -280,7 +282,7 @@ export async function checkAvailability(date: string, visitType?: 'QUICK_TOUR' |
       where: {
         date: bookingDate,
         visitType: 'INNOVATION_EXCHANGE',
-        status: 'CONFIRMED', // Only count CONFIRMED bookings
+        status: { in: ['CONFIRMED', 'PENDING_APPROVAL'] }, // Count both confirmed and pending
       },
     });
 
