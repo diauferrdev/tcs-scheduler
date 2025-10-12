@@ -37,7 +37,7 @@ export async function getDashboardStats() {
 
   // Pending bookings
   const pendingBookings = await prisma.booking.count({
-    where: { status: 'PENDING' },
+    where: { status: 'PENDING_APPROVAL' },
   });
 
   // Total companies (unique)
@@ -107,7 +107,10 @@ export async function getBookingsByMonth(year: number) {
 }
 
 export async function getBookingsBySector(year?: number) {
-  const where: any = { status: { not: 'CANCELLED' } };
+  const where: any = {
+    status: { not: 'CANCELLED' },
+    companySector: { not: null },
+  };
 
   if (year) {
     where.date = {
@@ -129,16 +132,21 @@ export async function getBookingsBySector(year?: number) {
     },
   });
 
-  return bookings.map((b) => ({
-    sector: b.companySector,
-    count: b._count.id,
-  }));
+  return bookings
+    .filter((b) => b.companySector !== null)
+    .map((b) => ({
+      sector: b.companySector!,
+      count: b._count.id,
+    }));
 }
 
 export async function getBookingsByVertical() {
   const bookings = await prisma.booking.groupBy({
     by: ['companyVertical'],
-    where: { status: { not: 'CANCELLED' } },
+    where: {
+      status: { not: 'CANCELLED' },
+      companyVertical: { not: null },
+    },
     _count: {
       id: true,
     },
@@ -149,14 +157,19 @@ export async function getBookingsByVertical() {
     },
   });
 
-  return bookings.map((b) => ({
-    vertical: b.companyVertical,
-    count: b._count.id,
-  }));
+  return bookings
+    .filter((b) => b.companyVertical !== null)
+    .map((b) => ({
+      vertical: b.companyVertical!,
+      count: b._count.id,
+    }));
 }
 
 export async function getBookingsByInterestArea(year?: number) {
-  const where: any = { status: { not: 'CANCELLED' } };
+  const where: any = {
+    status: { not: 'CANCELLED' },
+    interestArea: { not: null },
+  };
 
   if (year) {
     where.date = {
@@ -178,10 +191,12 @@ export async function getBookingsByInterestArea(year?: number) {
     },
   });
 
-  return bookings.map((b) => ({
-    area: b.interestArea,
-    count: b._count.id,
-  }));
+  return bookings
+    .filter((b) => b.interestArea !== null)
+    .map((b) => ({
+      area: b.interestArea!,
+      count: b._count.id,
+    }));
 }
 
 export async function getTopCompanies(limit: number = 10) {

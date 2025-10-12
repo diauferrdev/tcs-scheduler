@@ -10,11 +10,30 @@ import type { AppContext } from '../lib/context';
 const app = new Hono<AppContext>();
 
 // Public endpoint - get all bookings availability (minimal data for guests)
+// NOTE: Only shows CONFIRMED bookings (not pending approvals)
 app.get('/availability', async (c) => {
   try {
     const month = c.req.query('month');
     const bookings = await bookingService.getBookingsAvailability(month);
-    return c.json(bookings);
+    return c.json({ bookings });
+  } catch (error: any) {
+    return c.json({ error: error.message }, 400);
+  }
+});
+
+// Admin/Manager endpoint - get bookings availability INCLUDING pending approvals (intentions)
+app.get('/availability-admin', authMiddleware, async (c) => {
+  try {
+    const user = c.get('user');
+
+    // Only admins and managers can see pending bookings
+    if (user.role !== 'ADMIN' && user.role !== 'MANAGER') {
+      return c.json({ error: 'Only admins and managers can access this endpoint' }, 403);
+    }
+
+    const month = c.req.query('month');
+    const bookings = await bookingService.getBookingsAvailabilityForAdmins(month);
+    return c.json({ bookings });
   } catch (error: any) {
     return c.json({ error: error.message }, 400);
   }
@@ -24,7 +43,8 @@ app.get('/availability', async (c) => {
 app.get('/availability/:date', async (c) => {
   try {
     const date = c.req.param('date');
-    const availability = await bookingService.checkAvailability(date);
+    const visitType = c.req.query('visitType'); // Optional: QUICK_TOUR or INNOVATION_EXCHANGE
+    const availability = await bookingService.checkAvailability(date, visitType as 'QUICK_TOUR' | 'INNOVATION_EXCHANGE' | undefined);
     return c.json(availability);
   } catch (error: any) {
     return c.json({ error: error.message }, 400);
@@ -100,7 +120,7 @@ app.get('/', authMiddleware, async (c) => {
     const month = c.req.query('month');
     const status = c.req.query('status');
     const bookings = await bookingService.getBookings(month, status);
-    return c.json(bookings);
+    return c.json({ bookings });
   } catch (error: any) {
     return c.json({ error: error.message }, 400);
   }
@@ -153,6 +173,42 @@ app.delete('/:id', authMiddleware, async (c) => {
 
     const result = await bookingService.deleteBooking(id);
     return c.json(result);
+  } catch (error: any) {
+    return c.json({ error: error.message }, 400);
+  }
+});
+
+// Approve booking (manager/admin only)
+app.post('/:id/approve', authMiddleware, async (c) => {
+  try {
+    const user = c.get('user');
+
+    // Check if user is manager or admin
+    if (user.role !== 'MANAGER' && user.role !== 'ADMIN') {
+      return c.json({ error: 'Only managers and admins can approve bookings' }, 403);
+    }
+
+    const id = c.req.param('id');
+    const booking = await bookingService.approveBooking(id, user.id);
+    return c.json(booking);
+  } catch (error: any) {
+    return c.json({ error: error.message }, 400);
+  }
+});
+
+// Reschedule booking (authenticated)
+app.post('/:id/reschedule', authMiddleware, async (c) => {
+  try {
+    const user = c.get('user');
+    const id = c.req.param('id');
+    const { date, startTime, duration } = await c.req.json();
+
+    if (!date || !startTime || !duration) {
+      return c.json({ error: 'Missing required fields: date, startTime, duration' }, 400);
+    }
+
+    const newBooking = await bookingService.rescheduleBooking(id, date, startTime, duration, user.id);
+    return c.json(newBooking, 201);
   } catch (error: any) {
     return c.json({ error: error.message }, 400);
   }

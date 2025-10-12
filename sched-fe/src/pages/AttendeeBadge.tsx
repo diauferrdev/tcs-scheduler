@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import { api } from '../lib/api';
+import { api } from '@/lib/api';
 import { useTheme } from '../hooks/use-theme';
 import { Skeleton } from '../components/ui/skeleton';
 import AccessBadge from '../components/AccessBadge';

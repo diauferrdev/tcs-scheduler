@@ -23,7 +23,7 @@ app.get('/bookings-by-month/:year', async (c) => {
   try {
     const year = parseInt(c.req.param('year'));
     const data = await analyticsService.getBookingsByMonth(year);
-    return c.json(data);
+    return c.json({ data });
   } catch (error: any) {
     return c.json({ error: error.message }, 400);
   }
@@ -34,7 +34,7 @@ app.get('/bookings-by-sector', async (c) => {
   try {
     const year = c.req.query('year') ? parseInt(c.req.query('year')!) : undefined;
     const data = await analyticsService.getBookingsBySector(year);
-    return c.json(data);
+    return c.json({ data });
   } catch (error: any) {
     return c.json({ error: error.message }, 400);
   }
@@ -44,7 +44,7 @@ app.get('/bookings-by-sector', async (c) => {
 app.get('/bookings-by-vertical', async (c) => {
   try {
     const data = await analyticsService.getBookingsByVertical();
-    return c.json(data);
+    return c.json({ data });
   } catch (error: any) {
     return c.json({ error: error.message }, 400);
   }
@@ -55,7 +55,7 @@ app.get('/bookings-by-interest', async (c) => {
   try {
     const year = c.req.query('year') ? parseInt(c.req.query('year')!) : undefined;
     const data = await analyticsService.getBookingsByInterestArea(year);
-    return c.json(data);
+    return c.json({ data });
   } catch (error: any) {
     return c.json({ error: error.message }, 400);
   }
@@ -66,7 +66,7 @@ app.get('/top-companies', async (c) => {
   try {
     const limit = c.req.query('limit') ? parseInt(c.req.query('limit')!) : 10;
     const data = await analyticsService.getTopCompanies(limit);
-    return c.json(data);
+    return c.json({ data });
   } catch (error: any) {
     return c.json({ error: error.message }, 400);
   }
@@ -77,7 +77,7 @@ app.get('/recent-bookings', async (c) => {
   try {
     const limit = c.req.query('limit') ? parseInt(c.req.query('limit')!) : 10;
     const data = await analyticsService.getRecentBookings(limit);
-    return c.json(data);
+    return c.json({ data });
   } catch (error: any) {
     return c.json({ error: error.message }, 400);
   }
@@ -88,7 +88,7 @@ app.get('/upcoming-bookings', async (c) => {
   try {
     const limit = c.req.query('limit') ? parseInt(c.req.query('limit')!) : 10;
     const data = await analyticsService.getUpcomingBookings(limit);
-    return c.json(data);
+    return c.json({ data });
   } catch (error: any) {
     return c.json({ error: error.message }, 400);
   }
@@ -99,7 +99,7 @@ app.get('/trends', async (c) => {
   try {
     const months = c.req.query('months') ? parseInt(c.req.query('months')!) : 6;
     const data = await analyticsService.getBookingTrends(months);
-    return c.json(data);
+    return c.json({ data });
   } catch (error: any) {
     return c.json({ error: error.message }, 400);
   }
@@ -109,7 +109,7 @@ app.get('/trends', async (c) => {
 app.get('/company-size-distribution', async (c) => {
   try {
     const data = await analyticsService.getCompanySizeDistribution();
-    return c.json(data);
+    return c.json({ data });
   } catch (error: any) {
     return c.json({ error: error.message }, 400);
   }
@@ -119,7 +119,7 @@ app.get('/company-size-distribution', async (c) => {
 app.get('/status-distribution', async (c) => {
   try {
     const data = await analyticsService.getBookingStatusDistribution();
-    return c.json(data);
+    return c.json({ data });
   } catch (error: any) {
     return c.json({ error: error.message }, 400);
   }

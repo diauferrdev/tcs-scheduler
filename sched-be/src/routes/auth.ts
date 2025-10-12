@@ -13,8 +13,21 @@ app.post('/login', zValidator('json', LoginSchema), async (c) => {
   try {
     const data = c.req.valid('json');
     const { user, sessionCookie } = await authService.login(data);
+    const userAgent = c.req.header('user-agent') || '';
+    const isIOS = /iPad|iPhone|iPod/.test(userAgent);
+    const origin = c.req.header('origin') || '';
 
     setCookie(c, sessionCookie.name, sessionCookie.value, sessionCookie.attributes);
+
+    // Debug logging
+    console.log('[Login] Login successful:', {
+      userId: user.id,
+      cookieName: sessionCookie.name,
+      cookieValue: sessionCookie.value.substring(0, 20) + '...',
+      origin,
+      isIOS,
+      userAgent: userAgent.substring(0, 50)
+    });
 
     // Log login activity
     await activityLogService.logActivity({
@@ -26,7 +39,15 @@ app.post('/login', zValidator('json', LoginSchema), async (c) => {
       userAgent: c.req.header('user-agent'),
     });
 
-    return c.json({ user });
+    // IMPORTANT: Return cookie in body as fallback for Flutter Web
+    // Some proxies (like ngrok) may strip Set-Cookie headers
+    return c.json({
+      user,
+      sessionCookie: {
+        name: sessionCookie.name,
+        value: sessionCookie.value
+      }
+    });
   } catch (error: any) {
     return c.json({ error: error.message }, 401);
   }

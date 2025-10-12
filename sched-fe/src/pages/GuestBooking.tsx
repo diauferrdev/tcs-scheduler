@@ -1,18 +1,20 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import { api } from '../lib/api';
+import { api } from '@/lib/api';
 import { Card } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from '../components/ui/drawer';
 import { useTheme } from '../hooks/use-theme';
 import { useIsMobile } from '../hooks/use-mobile';
-import { Moon, Sun, Check, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Moon, Sun, Check, ChevronLeft, ChevronRight, HelpCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, addMonths, subMonths, isSameMonth, startOfWeek, isSameDay, startOfDay } from 'date-fns';
 import { motion, AnimatePresence } from 'framer-motion';
 import BookingForm from '../components/BookingForm';
 import AccessBadge from '../components/AccessBadge';
 import SEO from '../components/SEO';
+import { useTourGuide } from '../components/TourGuide';
+import 'driver.js/dist/driver.css';
 
 interface Booking {
   id: string;
@@ -37,6 +39,7 @@ export default function GuestBooking() {
   const { token } = useParams<{ token: string }>();
   const { theme, toggleTheme } = useTheme();
   const isMobile = useIsMobile();
+  const { startTour, shouldShowTour } = useTourGuide();
   const [validating, setValidating] = useState(true);
   const [isValid, setIsValid] = useState(false);
   const [error, setError] = useState('');
@@ -58,6 +61,13 @@ export default function GuestBooking() {
   useEffect(() => {
     if (isValid) {
       loadBookings();
+      // Show tour on first visit
+      if (shouldShowTour()) {
+        // Small delay to ensure elements are rendered
+        setTimeout(() => {
+          startTour();
+        }, 1000);
+      }
     }
   }, [isValid]);
 
@@ -124,6 +134,37 @@ export default function GuestBooking() {
     }
 
     return slots;
+  };
+
+  const getDayGradient = (day: Date, isCurrentMonth: boolean, isPast: boolean, currentTheme: 'light' | 'dark') => {
+    // Gray out ALL past dates
+    if (isPast) {
+      return currentTheme === 'dark' ? 'bg-zinc-950' : 'bg-gray-200/50';
+    }
+
+    const dayBookings = getBookingsForDay(day);
+    const hasFullDay = !!dayBookings.fullDay;
+    const hasMorning = !!dayBookings.morning;
+    const hasAfternoon = !!dayBookings.afternoon;
+
+    // Fully booked - Red gradient
+    if (hasFullDay || (hasMorning && hasAfternoon)) {
+      return currentTheme === 'dark'
+        ? 'bg-gradient-to-br from-red-950/40 via-red-900/30 to-red-800/20'
+        : 'bg-gradient-to-br from-red-100 via-red-200 to-red-300';
+    }
+
+    // Partially booked - Yellow gradient
+    if (hasMorning || hasAfternoon) {
+      return currentTheme === 'dark'
+        ? 'bg-gradient-to-br from-yellow-900/60 via-yellow-800/50 to-yellow-700/40'
+        : 'bg-gradient-to-br from-yellow-100 via-yellow-200 to-yellow-300';
+    }
+
+    // Available - Green gradient
+    return currentTheme === 'dark'
+      ? 'bg-gradient-to-br from-green-950/40 via-green-900/30 to-green-800/20'
+      : 'bg-gradient-to-br from-green-100 via-green-200 to-green-300';
   };
 
   const handleDayClick = (date: Date, isCurrentMonth: boolean, hasAvailableSlots: boolean) => {
@@ -233,6 +274,11 @@ export default function GuestBooking() {
     return (
       <div className={`min-h-screen flex items-center justify-center ${theme === 'dark' ? 'bg-black' : 'bg-gray-50'}`}>
         <Card className={`w-full max-w-md p-8 text-center ${theme === 'dark' ? 'bg-zinc-900 border-zinc-800' : ''}`}>
+          <img
+            src={theme === 'dark' ? '/tcs-logo-white.svg' : 'https://www.tcs.com/content/dam/global-tcs/en/images/logo/tcs-logo-1.svg'}
+            alt="TCS Logo"
+            className="h-12 mx-auto mb-6"
+          />
           <p className={theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}>Validating invitation...</p>
         </Card>
       </div>
@@ -335,6 +381,11 @@ export default function GuestBooking() {
     return (
       <div className={`min-h-screen flex items-center justify-center ${theme === 'dark' ? 'bg-black' : 'bg-gray-50'}`}>
         <Card className={`w-full max-w-md p-8 ${theme === 'dark' ? 'bg-zinc-900 border-zinc-800' : ''}`}>
+          <img
+            src={theme === 'dark' ? '/tcs-logo-white.svg' : 'https://www.tcs.com/content/dam/global-tcs/en/images/logo/tcs-logo-1.svg'}
+            alt="TCS Logo"
+            className="h-12 mx-auto mb-6"
+          />
           <div className={`p-4 rounded-lg border ${
             theme === 'dark' ? 'bg-red-950 border-red-800' : 'bg-red-50 border-red-600'
           }`}>
@@ -377,8 +428,17 @@ export default function GuestBooking() {
               </div>
             </div>
 
-            {/* Theme Toggle */}
+            {/* Theme Toggle and Help */}
             <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
+              <Button
+                onClick={startTour}
+                variant="ghost"
+                size="icon"
+                className="text-gray-400 hover:text-white hover:bg-gray-800"
+                title="Show booking guide"
+              >
+                <HelpCircle className="h-5 w-5" />
+              </Button>
               <Button
                 onClick={toggleTheme}
                 variant="ghost"
@@ -441,9 +501,12 @@ export default function GuestBooking() {
       </AnimatePresence>
 
       {/* Main Content */}
-      <div className="max-w-[1800px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className={`w-full max-w-full px-4 sm:px-6 lg:px-8 py-4 sm:py-6 flex flex-col overflow-hidden ${
+        isMobile ? 'h-full' : 'h-[calc(100vh-80px)]'
+      }`}>
+        <div className="w-full max-w-full flex-1 flex flex-col overflow-hidden">
         {/* Month Navigation */}
-        <div className="flex flex-col sm:flex-row items-center justify-between mb-6 sm:mb-8 gap-4">
+        <div className="flex flex-col sm:flex-row items-center justify-between mb-3 sm:mb-4 gap-2 sm:gap-4 flex-shrink-0" data-tour="month-nav">
           <div className="flex items-center gap-2 sm:gap-4">
             <Button
               variant="outline"
@@ -479,35 +542,47 @@ export default function GuestBooking() {
           </div>
 
           {!isMobile && (
-            <div className="flex items-center gap-4 sm:gap-6">
-              <div className="flex items-center gap-2 text-xs sm:text-sm">
-                <div className={`w-3 h-3 sm:w-4 sm:h-4 rounded ${
-                  theme === 'dark' ? 'bg-zinc-900 border border-zinc-700' : 'bg-white border border-gray-300'
+            <div className="flex items-center gap-3 sm:gap-4" data-tour="legend">
+              <div className="flex items-center gap-1.5 text-xs sm:text-sm">
+                <div className={`w-4 h-4 sm:w-5 sm:h-5 rounded ${
+                  theme === 'dark'
+                    ? 'bg-gradient-to-br from-green-950/40 via-green-900/30 to-green-800/20 border border-green-900'
+                    : 'bg-gradient-to-br from-green-100 via-green-200 to-green-300 border border-green-400'
                 }`}></div>
-                <span className={theme === 'dark' ? 'text-gray-500' : 'text-gray-600'}>Available</span>
+                <span className={theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}>Available</span>
               </div>
-              <div className="flex items-center gap-2 text-xs sm:text-sm">
-                <div className={`w-3 h-3 sm:w-4 sm:h-4 rounded ${
-                  theme === 'dark' ? 'bg-white' : 'bg-black'
+              <div className="flex items-center gap-1.5 text-xs sm:text-sm">
+                <div className={`w-4 h-4 sm:w-5 sm:h-5 rounded ${
+                  theme === 'dark'
+                    ? 'bg-gradient-to-br from-yellow-900/60 via-yellow-800/50 to-yellow-700/40 border border-yellow-800'
+                    : 'bg-gradient-to-br from-yellow-100 via-yellow-200 to-yellow-300 border border-yellow-400'
                 }`}></div>
-                <span className={theme === 'dark' ? 'text-gray-500' : 'text-gray-600'}>Booked</span>
+                <span className={theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}>Partial</span>
               </div>
-              <div className="flex items-center gap-2 text-xs sm:text-sm">
-                <div className={`w-3 h-3 sm:w-4 sm:h-4 rounded ${
-                  theme === 'dark' ? 'bg-zinc-800 border border-zinc-700' : 'bg-gray-100 border border-gray-200'
+              <div className="flex items-center gap-1.5 text-xs sm:text-sm">
+                <div className={`w-4 h-4 sm:w-5 sm:h-5 rounded ${
+                  theme === 'dark'
+                    ? 'bg-gradient-to-br from-red-950/40 via-red-900/30 to-red-800/20 border border-red-900'
+                    : 'bg-gradient-to-br from-red-100 via-red-200 to-red-300 border border-red-400'
                 }`}></div>
-                <span className={theme === 'dark' ? 'text-gray-500' : 'text-gray-600'}>Past</span>
+                <span className={theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}>Full</span>
+              </div>
+              <div className="flex items-center gap-1.5 text-xs sm:text-sm">
+                <div className={`w-4 h-4 sm:w-5 sm:h-5 rounded ${
+                  theme === 'dark' ? 'bg-zinc-950 border border-zinc-800' : 'bg-gray-300 border border-gray-400'
+                }`}></div>
+                <span className={theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}>Past</span>
               </div>
             </div>
           )}
         </div>
 
         {/* Calendar Grid */}
-        <Card className={`p-2 sm:p-4 overflow-hidden ${
+        <Card className={`p-2 sm:p-3 overflow-hidden flex-1 flex flex-col min-h-0 ${
           theme === 'dark' ? 'bg-zinc-900 border-zinc-800' : ''
-        }`}>
+        }`} data-tour="calendar-grid">
           {/* Week days header */}
-          <div className="grid grid-cols-7 gap-2 mb-1">
+          <div className="grid grid-cols-7 gap-1 sm:gap-2 mb-1 flex-shrink-0">
             {weekDays.map(day => (
               <div key={day} className="text-center font-semibold text-xs text-gray-500 py-1">
                 {day}
@@ -516,16 +591,20 @@ export default function GuestBooking() {
           </div>
 
           {/* Calendar days */}
-          <div className="overflow-hidden">
+          <div className="overflow-hidden flex-1 flex flex-col min-h-0">
             <AnimatePresence mode="wait" initial={false} custom={direction}>
               <motion.div
-                key={currentMonth.toISOString()}
-                custom={direction}
-                initial={{ opacity: 0, x: direction > 0 ? 100 : -100 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: direction > 0 ? -100 : 100 }}
-                transition={{ duration: 0.3, ease: 'easeInOut' }}
-                className="grid grid-cols-7 gap-2"
+                key={`${format(currentMonth, 'yyyy-MM')}-${theme}`}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.15 }}
+                className="grid grid-cols-7 gap-1 sm:gap-2 flex-1"
+                style={{
+                  display: 'grid',
+                  gridTemplateRows: 'repeat(5, 1fr)',
+                  maxHeight: '100%'
+                }}
               >
                 {daysToDisplay.map((date, idx) => {
                   const isCurrentMonth = isSameMonth(date, currentMonth);
@@ -545,21 +624,19 @@ export default function GuestBooking() {
                       onClick={() => handleDayClick(date, isCurrentMonth, hasAvailableSlots)}
                       disabled={isPast}
                       className={`
-                        group min-h-[70px] sm:min-h-[90px] border rounded p-1.5 text-left relative
+                        group h-full border rounded p-1.5 text-left relative overflow-hidden
                         transition-all duration-200 ease-out
-                        ${isPast
-                          ? theme === 'dark' ? 'bg-zinc-950 cursor-not-allowed opacity-40' : 'bg-gray-200/50 cursor-not-allowed'
-                          : theme === 'dark' ? 'bg-zinc-900' : 'bg-white'
-                        }
+                        ${getDayGradient(date, isCurrentMonth, isPast, theme)}
                         ${!isCurrentMonth ? 'opacity-40 cursor-pointer' : ''}
+                        ${isPast ? 'cursor-not-allowed opacity-40' : ''}
                         ${isToday && isCurrentMonth
-                          ? theme === 'dark' ? 'border-2 border-white shadow-md' : 'border-2 border-black shadow-md'
+                          ? theme === 'dark' ? 'border-2 border-white shadow-md ring-2 ring-white/20' : 'border-2 border-black shadow-md ring-2 ring-black/10'
                           : theme === 'dark' ? 'border-zinc-800' : 'border-gray-300'
                         }
                         ${!isPast
                           ? theme === 'dark'
-                            ? 'hover:border-white hover:shadow-lg hover:-translate-y-0.5 cursor-pointer'
-                            : 'hover:border-black hover:shadow-lg hover:-translate-y-0.5 cursor-pointer'
+                            ? 'hover:border-white hover:shadow-lg hover:scale-105 cursor-pointer'
+                            : 'hover:border-black hover:shadow-lg hover:scale-105 cursor-pointer'
                           : ''
                         }
                       `}
@@ -581,34 +658,65 @@ export default function GuestBooking() {
                         </span>
                       </div>
 
-                      {/* Availability indicators - only show for current month non-past days */}
-                      {isCurrentMonth && !isPast && (
-                        <div className="mt-3 flex items-center gap-1">
+                      {/* Availability indicators - show for all future days (even other months) */}
+                      {!isPast && (
+                        <div className="mt-3 flex flex-col gap-1">
                           {isFullyBooked ? (
                             /* Full day - single box with FULL badge */
-                            <div className="flex-1 relative">
-                              <div className="h-6 rounded bg-gradient-to-br from-red-500 to-red-600"></div>
+                            <div className="relative">
+                              <div className="h-8 rounded bg-gradient-to-br from-red-500 to-red-600"></div>
                               <div className="absolute inset-0 flex items-center justify-center">
-                                <span className="text-[8px] font-bold text-white">FULL</span>
+                                <span className="text-[9px] font-bold text-white">FULL DAY</span>
                               </div>
                             </div>
                           ) : (
-                            /* Two mini slots side by side */
+                            /* Two slots stacked */
                             <>
                               {/* Morning slot */}
-                              <div className={`flex-1 h-6 rounded ${
+                              <div className={`relative h-4 rounded ${
                                 dayBookings.morning
-                                  ? 'bg-gradient-to-br from-red-500 to-red-600'
-                                  : theme === 'dark' ? 'bg-zinc-700' : 'bg-gray-300'
-                              }`}></div>
+                                  ? 'bg-gradient-to-r from-red-500 to-red-600'
+                                  : theme === 'dark' ? 'bg-green-900/40 border border-green-800/50' : 'bg-green-200 border border-green-300'
+                              }`}>
+                                <div className="absolute inset-0 flex items-center justify-center">
+                                  <span className={`text-[7px] font-semibold ${
+                                    dayBookings.morning
+                                      ? 'text-white'
+                                      : theme === 'dark' ? 'text-green-300' : 'text-green-700'
+                                  }`}>
+                                    {dayBookings.morning ? 'FULL' : 'AM'}
+                                  </span>
+                                </div>
+                              </div>
                               {/* Afternoon slot */}
-                              <div className={`flex-1 h-6 rounded ${
+                              <div className={`relative h-4 rounded ${
                                 dayBookings.afternoon
-                                  ? 'bg-gradient-to-br from-red-500 to-red-600'
-                                  : theme === 'dark' ? 'bg-zinc-700' : 'bg-gray-300'
-                              }`}></div>
+                                  ? 'bg-gradient-to-r from-red-500 to-red-600'
+                                  : theme === 'dark' ? 'bg-green-900/40 border border-green-800/50' : 'bg-green-200 border border-green-300'
+                              }`}>
+                                <div className="absolute inset-0 flex items-center justify-center">
+                                  <span className={`text-[7px] font-semibold ${
+                                    dayBookings.afternoon
+                                      ? 'text-white'
+                                      : theme === 'dark' ? 'text-green-300' : 'text-green-700'
+                                  }`}>
+                                    {dayBookings.afternoon ? 'FULL' : 'PM'}
+                                  </span>
+                                </div>
+                              </div>
                             </>
                           )}
+                        </div>
+                      )}
+
+                      {/* Past indicator - show for past days */}
+                      {isPast && (
+                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                          <span className={`text-[10px] font-bold ${
+                            theme === 'dark' ? 'text-gray-600' : 'text-gray-400'
+                          }`}>
+                            PAST
+                          </span>
                         </div>
                       )}
                     </motion.button>
@@ -711,6 +819,7 @@ export default function GuestBooking() {
           </div>
         </DrawerContent>
       </Drawer>
+      </div>
     </div>
     </>
   );

@@ -1,0 +1,122 @@
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart';
+import 'package:provider/provider.dart';
+import 'package:go_router/go_router.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'firebase_options.dart';
+import 'providers/auth_provider.dart';
+import 'providers/theme_provider.dart';
+import 'router.dart';
+import 'services/unified_notification_service.dart';
+
+/// Firebase Cloud Messaging background handler - MUST be top-level function
+/// This runs in a separate isolate when FCM push arrives with app closed/terminated
+/// The @pragma annotation ensures this function isn't tree-shaken by Dart AOT compiler
+@pragma('vm:entry-point')
+Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  // Initialize Firebase (required for background isolate)
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+
+  debugPrint('[FCM Background] Message received: ${message.notification?.title}');
+  debugPrint('[FCM Background] Data: ${message.data}');
+
+  // Note: UnifiedNotificationService handles showing the notification
+  // when the app comes back to foreground
+}
+
+/// Background notification handler - MUST be top-level function
+/// This runs in a separate isolate when notifications arrive with app closed (Android/iOS/macOS)
+/// The @pragma annotation ensures this function isn't tree-shaken by Dart AOT compiler
+@pragma('vm:entry-point')
+void notificationTapBackgroundHandler(NotificationResponse details) {
+  debugPrint('[Background] Notification tapped: ${details.payload}');
+  // Navigation will be handled when app resumes to foreground
+}
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize Firebase FIRST (required for FCM)
+  debugPrint('[Firebase] Initializing Firebase...');
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+  debugPrint('[Firebase] ✅ Firebase initialized successfully');
+
+  // Setup Firebase Cloud Messaging background handler
+  // This allows push notifications to arrive even when app is completely closed/terminated
+  FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+  debugPrint('[FCM] ✅ Background message handler registered');
+
+  // Initialize unified notification service with background handler support
+  // On mobile (Android/iOS/macOS), the background handler allows notifications to work even when app is closed
+  // On web, Service Worker handles background notifications
+  // On desktop (Windows/Linux), local_notifier handles system tray notifications
+  await UnifiedNotificationService().initialize(
+    onBackgroundNotificationResponse: notificationTapBackgroundHandler,
+  );
+
+  // Configure system UI
+  SystemChrome.setSystemUIOverlayStyle(
+    const SystemUiOverlayStyle(
+      statusBarColor: Colors.black,
+      statusBarIconBrightness: Brightness.light,
+      statusBarBrightness: Brightness.dark,
+      systemNavigationBarColor: Colors.black,
+      systemNavigationBarIconBrightness: Brightness.light,
+    ),
+  );
+
+  runApp(const MyApp());
+}
+
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => ThemeProvider()),
+        ChangeNotifierProvider(create: (_) => AuthProvider()),
+      ],
+      child: const _AppRouter(),
+    );
+  }
+}
+
+class _AppRouter extends StatefulWidget {
+  const _AppRouter();
+
+  @override
+  State<_AppRouter> createState() => _AppRouterState();
+}
+
+class _AppRouterState extends State<_AppRouter> {
+  late final GoRouter _router;
+
+  @override
+  void initState() {
+    super.initState();
+    final authProvider = context.read<AuthProvider>();
+    _router = createRouter(authProvider);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<ThemeProvider>(
+      builder: (context, themeProvider, child) {
+        return MaterialApp.router(
+          title: 'TCS PacePort Scheduler',
+          debugShowCheckedModeBanner: false,
+          theme: ThemeProvider.lightTheme,
+          darkTheme: ThemeProvider.darkTheme,
+          themeMode: themeProvider.themeMode,
+          routerConfig: _router,
+        );
+      },
+    );
+  }
+}

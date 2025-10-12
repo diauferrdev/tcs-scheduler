@@ -27,9 +27,17 @@ api.interceptors.response.use(
   },
   (error) => {
     if (error.response?.status === 401) {
-      // Redirect to login if unauthorized, but NOT for public guest booking pages
+      // Only redirect to login if NOT already on login page or public routes
       const isGuestBookingPage = window.location.pathname.startsWith('/book/');
-      if (window.location.pathname !== '/login' && !isGuestBookingPage) {
+      const isPublicBadge = window.location.pathname.startsWith('/badge/') || window.location.pathname.startsWith('/attendee/');
+      const isLoginPage = window.location.pathname === '/login';
+      const isAuthEndpoint = error.config?.url?.includes('/api/auth/');
+
+      // Don't redirect if:
+      // - Already on login page
+      // - On public routes (guest booking, badges)
+      // - Error is from auth endpoints (login/logout/me) - let component handle it
+      if (!isLoginPage && !isGuestBookingPage && !isPublicBadge && !isAuthEndpoint) {
         window.location.href = '/login';
       }
     }

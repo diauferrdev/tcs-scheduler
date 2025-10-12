@@ -14,14 +14,40 @@ enum UserRole {
 }
 
 enum VisitDuration {
+  ONE_HOUR
+  TWO_HOURS
   THREE_HOURS
+  FOUR_HOURS
+  FIVE_HOURS
   SIX_HOURS
 }
 
+enum VisitType {
+  QUICK_TOUR           // 2 hours - up to 2 per day
+  INNOVATION_EXCHANGE  // 4-6 hours - needs setup/teardown periods
+}
+
 enum BookingStatus {
-  PENDING
-  CONFIRMED
+  PENDING_APPROVAL  // Waiting for at least one manager approval
+  CONFIRMED         // Approved and scheduled
   CANCELLED
+  RESCHEDULED       // Was rescheduled to another date
+}
+
+enum EventType {
+  TCS
+  PARTNER
+}
+
+enum DealStatus {
+  SWON
+  WON
+}
+
+enum TCSSupporter {
+  SUPPORTER
+  NEUTRAL
+  DETRACTOR
 }
 
 model User {
@@ -36,9 +62,13 @@ model User {
 
   sessions         Session[]
   bookingsCreated  Booking[] @relation("CreatedBy")
+  bookingsApproved Booking[] @relation("ApprovedBy")
   invitationsCreated Invitation[] @relation("InvitationCreator")
   activityLogs     ActivityLog[]
   pushSubscriptions PushSubscription[]
+  bookingParticipations BookingParticipant[]
+  notifications    Notification[]
+  fcmTokens        FCMToken[]
 
   @@index([email])
   @@index([role])
@@ -60,20 +90,47 @@ model Booking {
   date            DateTime       @db.Date
   startTime       String
   duration        VisitDuration
-  status          BookingStatus  @default(PENDING)
+  visitType       VisitType      @default(INNOVATION_EXCHANGE) // QUICK_TOUR or INNOVATION_EXCHANGE
+  status          BookingStatus  @default(PENDING_APPROVAL)
 
+  // Account & Company Info
+  accountName     String
   companyName     String
-  companySector   String
-  companyVertical String
+  companySector   String?
+  companyVertical String?
   companySize     String?
 
-  contactName     String
-  contactEmail    String
+  // Contact Info (kept for compatibility)
+  contactName     String?
+  contactEmail    String?
   contactPhone    String?
   contactPosition String?
 
-  interestArea    String
+  // Visit Details
+  venue           String?
   expectedAttendees Int          @default(1)
+  overallTheme    String?        // Overall Theme / Focus Area
+  lastInnovationDay DateTime?    @db.Date
+
+  // Event Type
+  eventType       EventType?
+  partnerName     String?
+
+  // Deal Status
+  dealStatus      DealStatus?
+
+  // Approvals
+  segmentHeadApproval Boolean    @default(false)
+  approvedById        String?    // Manager who approved
+  approvedBy          User?      @relation("ApprovedBy", fields: [approvedById], references: [id])
+  approvedAt          DateTime?
+
+  // Reschedule tracking
+  originalBookingId   String?    // If this was rescheduled, reference to original
+  rescheduledToId     String?    // If this was rescheduled, reference to new booking
+
+  // Legacy fields (kept for compatibility)
+  interestArea    String?
   businessGoal    String?
   additionalNotes String?        @db.Text
 
@@ -83,6 +140,7 @@ model Booking {
   createdBy       User?          @relation("CreatedBy", fields: [createdById], references: [id])
 
   attendees       Attendee[]
+  participants    BookingParticipant[]
 
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
@@ -94,14 +152,32 @@ model Booking {
 
 model Attendee {
   id        String   @id @default(cuid())
+
+  // Basic Info
   name      String
-  position  String?
-  email     String?
+  email     String
+  role      String?
+
+  // TCS Relationship
+  tcsSupporter         TCSSupporter?
+  understandingOfTCS   String?        @db.Text
+  focusAreas           String?        @db.Text
+  yearsWorkingWithTCS  Int?
+
+  // Professional Info
+  position             String?
+  educationalQualification String?    @db.Text
+  careerBackground     String?        @db.Text
+  linkedinProfile      String?
+
+  // Optional
+  photoUrl             String?
 
   bookingId String
   booking   Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([bookingId])
 }
@@ -178,4 +254,114 @@ model PushSubscription {
 
   @@index([userId])
   @@index([endpoint])
+}
+
+enum ParticipantStatus {
+  PENDING
+  CONFIRMED
+  REJECTED
+}
+
+model BookingParticipant {
+  id          String             @id @default(cuid())
+  userId      String
+  bookingId   String
+  status      ParticipantStatus  @default(PENDING)
+  invitedById String?
+  invitedAt   DateTime           @default(now())
+  respondedAt DateTime?
+
+  user        User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  booking     Booking            @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  @@unique([userId, bookingId])
+  @@index([userId])
+  @@index([bookingId])
+  @@index([status])
+}
+
+enum NotificationType {
+  BOOKING_INVITATION
+  BOOKING_PENDING_APPROVAL     // New booking waiting for manager approval
+  BOOKING_CONFIRMED
+  BOOKING_APPROVED             // Manager approved the booking
+  BOOKING_UPDATED
+  BOOKING_IMPORTANT_CHANGE     // Important data changed (attendees, date, etc)
+  BOOKING_CANCELLED
+  BOOKING_RESCHEDULED
+  PARTICIPANT_CONFIRMED
+  PARTICIPANT_REJECTED
+}
+
+model Notification {
+  id        String            @id @default(cuid())
+  type      NotificationType
+  title     String
+  message   String            @db.Text
+  userId    String
+  bookingId String?
+  isRead    Boolean           @default(false)
+  readAt    DateTime?
+  actionUrl String?
+  metadata  Json?
+
+  user      User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime          @default(now())
+
+  @@index([userId])
+  @@index([bookingId])
+  @@index([isRead])
+  @@index([createdAt])
+}
+
+// Firebase Cloud Messaging Tokens (for mobile push notifications)
+model FCMToken {
+  id         String   @id @default(cuid())
+  userId     String
+  token      String   @unique
+  deviceInfo String?  @db.Text // Device model, OS version, etc
+  lastUsedAt DateTime @default(now())
+  isValid    Boolean  @default(true) // Marked false if FCM returns UNREGISTERED/INVALID
+
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([userId])
+  @@index([token])
+  @@index([isValid])
+}
+
+// FCM Push Notification Analytics
+model FCMAnalytics {
+  id              String   @id @default(cuid())
+  userId          String   // Who received the notification
+  notificationId  String?  // Reference to Notification if applicable
+  fcmTokenId      String?  // Which token was used
+
+  title           String
+  message         String   @db.Text
+
+  sentAt          DateTime @default(now())
+  delivered       Boolean  @default(false)
+  deliveredAt     DateTime?
+
+  failed          Boolean  @default(false)
+  failureReason   String?  @db.Text
+
+  clicked         Boolean  @default(false)
+  clickedAt       DateTime?
+
+  metadata        Json?
+
+  @@index([userId])
+  @@index([notificationId])
+  @@index([sentAt])
+  @@index([delivered])
+  @@index([clicked])
 }

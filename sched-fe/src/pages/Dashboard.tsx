@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { api } from '../lib/api';
+import { api } from '@/lib/api';
 import { Card } from '../components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { Skeleton } from '../components/ui/skeleton';

@@ -1,0 +1,806 @@
+import 'dart:ui';
+import 'package:flutter/foundation.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+
+// Export NotificationResponse for use in main.dart background handler
+export 'package:flutter_local_notifications/flutter_local_notifications.dart' show NotificationResponse;
+
+class LocalNotificationService {
+  static final LocalNotificationService _instance = LocalNotificationService._internal();
+  factory LocalNotificationService() => _instance;
+  LocalNotificationService._internal();
+
+  final FlutterLocalNotificationsPlugin _notifications = FlutterLocalNotificationsPlugin();
+  bool _initialized = false;
+
+  /// Initialize local notifications with background handler support
+  /// Does NOT request permissions - call requestPermissions() after login
+  Future<void> initialize({
+    void Function(NotificationResponse)? onBackgroundNotificationResponse,
+  }) async {
+    if (_initialized) {
+      debugPrint('[LocalNotification] Already initialized');
+      return;
+    }
+
+    try {
+      debugPrint('[LocalNotification] Starting initialization...');
+
+      // Android initialization settings
+      const androidSettings = AndroidInitializationSettings('@mipmap/tcs_pace_scheduler');
+
+      // iOS initialization settings - DO NOT request permissions during initialization
+      const iosSettings = DarwinInitializationSettings(
+        requestAlertPermission: false,  // Changed to false
+        requestBadgePermission: false,  // Changed to false
+        requestSoundPermission: false,  // Changed to false
+      );
+
+      // Linux initialization settings
+      const linuxSettings = LinuxInitializationSettings(
+        defaultActionName: 'Open notification',
+      );
+
+      const initSettings = InitializationSettings(
+        android: androidSettings,
+        iOS: iosSettings,
+        linux: linuxSettings,
+      );
+
+      // Initialize with both foreground and background handlers
+      debugPrint('[LocalNotification] Calling _notifications.initialize()...');
+      final initialized = await _notifications.initialize(
+        initSettings,
+        onDidReceiveNotificationResponse: _onNotificationTapped,
+        onDidReceiveBackgroundNotificationResponse: onBackgroundNotificationResponse,
+      );
+
+      debugPrint('[LocalNotification] Plugin initialized: $initialized');
+
+      // CRITICAL: Create notification channels for Android 8.0+
+      await _createNotificationChannels();
+
+      _initialized = true;
+      debugPrint('[LocalNotification] ✅ Initialized (permissions NOT requested yet)');
+    } catch (e, stackTrace) {
+      debugPrint('[LocalNotification] ❌ Initialization error: $e');
+      debugPrint('[LocalNotification] Stack trace: $stackTrace');
+
+      // CRITICAL: Set initialized to true anyway for basic functionality
+      // Even if there were errors, we want to try showing notifications
+      _initialized = true;
+      debugPrint('[LocalNotification] ⚠️ Initialized with errors (will try to show notifications anyway)');
+    }
+  }
+
+  /// Create notification channels (Android 8.0+)
+  /// WITHOUT channels, Android SILENTLY IGNORES notifications
+  Future<void> _createNotificationChannels() async {
+    debugPrint('[LocalNotification] _createNotificationChannels() called');
+
+    final androidPlugin = _notifications.resolvePlatformSpecificImplementation<
+        AndroidFlutterLocalNotificationsPlugin>();
+
+    if (androidPlugin == null) {
+      debugPrint('[LocalNotification] Not Android, skipping channel creation');
+      return;
+    }
+
+    try {
+      debugPrint('[LocalNotification] Creating notification channels...');
+
+      // Bookings channel (high importance)
+      await androidPlugin.createNotificationChannel(
+        const AndroidNotificationChannel(
+          'bookings',
+          'Bookings',
+          description: 'Notifications about new bookings, updates, and cancellations',
+          importance: Importance.high,
+          playSound: true,
+          enableVibration: true,
+          enableLights: true,
+          ledColor: Color(0xFF4CAF50),
+        ),
+      );
+
+      // Reminders channel (max importance)
+      await androidPlugin.createNotificationChannel(
+        const AndroidNotificationChannel(
+          'reminders',
+          'Reminders',
+          description: 'Booking reminder notifications',
+          importance: Importance.max,
+          playSound: true,
+          enableVibration: true,
+          enableLights: true,
+          ledColor: Color(0xFFFF9800),
+        ),
+      );
+
+      // Invitations channel (default importance)
+      await androidPlugin.createNotificationChannel(
+        const AndroidNotificationChannel(
+          'invitations',
+          'Invitations',
+          description: 'Notifications about sent invitations',
+          importance: Importance.defaultImportance,
+          playSound: true,
+          enableVibration: false,
+        ),
+      );
+
+      // Test channel (max importance)
+      await androidPlugin.createNotificationChannel(
+        const AndroidNotificationChannel(
+          'test',
+          'Test',
+          description: 'Test notifications',
+          importance: Importance.max,
+          playSound: true,
+          enableVibration: true,
+          enableLights: true,
+          ledColor: Color(0xFF673AB7),
+        ),
+      );
+
+      debugPrint('[LocalNotification] ✅ Notification channels created');
+    } catch (e) {
+      debugPrint('[LocalNotification] Error creating channels: $e');
+    }
+  }
+
+  /// Request notification permissions (Android 13+ / iOS)
+  /// CALL THIS AFTER USER LOGS IN
+  Future<bool> requestPermissions() async {
+    try {
+      debugPrint('[LocalNotification] Requesting permissions...');
+
+      // Request Android permissions (API 33+)
+      final androidPermission = await _notifications
+          .resolvePlatformSpecificImplementation<
+              AndroidFlutterLocalNotificationsPlugin>()
+          ?.requestNotificationsPermission();
+
+      debugPrint('[LocalNotification] Android permission: $androidPermission');
+
+      // Request iOS permissions
+      final iosPermission = await _notifications
+          .resolvePlatformSpecificImplementation<
+              IOSFlutterLocalNotificationsPlugin>()
+          ?.requestPermissions(
+            alert: true,
+            badge: true,
+            sound: true,
+          );
+
+      debugPrint('[LocalNotification] iOS permission: $iosPermission');
+
+      final granted = (androidPermission != false && iosPermission != false);
+
+      if (!granted) {
+        debugPrint('[LocalNotification] ⚠️ Notification permissions denied');
+      } else {
+        debugPrint('[LocalNotification] ✅ Notification permissions granted');
+      }
+
+      return granted;
+    } catch (e) {
+      debugPrint('[LocalNotification] Error requesting permissions: $e');
+      return false;
+    }
+  }
+
+  /// Handle notification tap
+  void _onNotificationTapped(NotificationResponse response) {
+    debugPrint('[LocalNotification] Notification tapped: ${response.payload}');
+    // TODO: Navigate to specific screen based on payload
+  }
+
+  /// Show notification for new booking
+  Future<void> showNewBookingNotification({
+    required String companyName,
+    required String date,
+    required String time,
+    String? sector,
+    int? expectedAttendees,
+    String? eventType,
+  }) async {
+    try {
+      debugPrint('[LocalNotification] 📅 showNewBookingNotification() called');
+      debugPrint('[LocalNotification] Company: $companyName, Date: $date, Time: $time');
+
+      if (!_initialized) {
+        debugPrint('[LocalNotification] ⚠️ Service not initialized, cannot show notification');
+        return;
+      }
+
+      final lines = <String>[
+      '📅 Date: $date at $time',
+      if (sector != null) '🏢 Sector: $sector',
+      if (expectedAttendees != null) '👥 Attendees: $expectedAttendees people',
+      if (eventType != null) '🎯 Type: $eventType',
+      '📍 Location: TCS PacePort São Paulo',
+    ];
+
+    final androidDetails = AndroidNotificationDetails(
+      'bookings',
+      'Bookings',
+      channelDescription: 'Notifications about new bookings',
+      importance: Importance.high,
+      priority: Priority.high,
+      icon: '@mipmap/tcs_pace_scheduler',
+      color: Color(0xFF4CAF50), // Green
+      largeIcon: DrawableResourceAndroidBitmap('@mipmap/tcs_pace_scheduler'),
+      styleInformation: InboxStyleInformation(
+        lines,
+        contentTitle: '🎉 New Booking - $companyName',
+        summaryText: 'Tap to view details',
+      ),
+      playSound: true,
+      enableVibration: true,
+      enableLights: true,
+      ledColor: Color(0xFF4CAF50),
+      ledOnMs: 1000,
+      ledOffMs: 500,
+      // Force heads-up display (ping no topo da tela)
+      ticker: '🎉 New Booking - $companyName',
+      setAsGroupSummary: false,
+      autoCancel: true,
+      onlyAlertOnce: false, // CRITICAL: Always alert for each notification
+      fullScreenIntent: true, // Show as heads-up even with DND
+      actions: [
+        AndroidNotificationAction(
+          'view',
+          'View Details',
+          icon: DrawableResourceAndroidBitmap('@mipmap/tcs_pace_scheduler'),
+          showsUserInterface: true,
+        ),
+        AndroidNotificationAction(
+          'calendar',
+          'Add to Calendar',
+          icon: DrawableResourceAndroidBitmap('@mipmap/tcs_pace_scheduler'),
+        ),
+      ],
+    );
+
+    const iosDetails = DarwinNotificationDetails(
+      presentAlert: true,
+      presentBadge: true,
+      presentSound: true,
+      subtitle: 'New Booking Scheduled',
+    );
+
+    const linuxDetails = LinuxNotificationDetails();
+
+    final details = NotificationDetails(
+      android: androidDetails,
+      iOS: iosDetails,
+      linux: linuxDetails,
+    );
+
+      final notificationId = DateTime.now().millisecondsSinceEpoch % 100000;
+      debugPrint('[LocalNotification] Calling _notifications.show() with ID: $notificationId');
+
+      await _notifications.show(
+        notificationId,
+        '🎉 New Booking Created',
+        '$companyName scheduled a visit for $date at $time',
+        details,
+        payload: 'new_booking',
+      );
+
+      debugPrint('[LocalNotification] ✅ New booking notification shown');
+    } catch (e, stackTrace) {
+      debugPrint('[LocalNotification] ❌ Error showing new booking notification: $e');
+      debugPrint('[LocalNotification] Stack trace: $stackTrace');
+    }
+  }
+
+  /// Show notification for booking update
+  Future<void> showBookingUpdatedNotification({
+    required String companyName,
+    required String changes,
+    String? previousDate,
+    String? newDate,
+    String? previousTime,
+    String? newTime,
+  }) async {
+    final changesList = <String>[
+      if (previousDate != null && newDate != null)
+        '📅 Date: $previousDate → $newDate',
+      if (previousTime != null && newTime != null)
+        '⏰ Time: $previousTime → $newTime',
+      '📝 Changes: $changes',
+      '✅ Update confirmed',
+    ];
+
+    final androidDetails = AndroidNotificationDetails(
+      'bookings',
+      'Bookings',
+      channelDescription: 'Notifications about booking updates',
+      importance: Importance.high,
+      priority: Priority.high,
+      icon: '@mipmap/tcs_pace_scheduler',
+      color: Color(0xFF2196F3), // Blue
+      largeIcon: DrawableResourceAndroidBitmap('@mipmap/tcs_pace_scheduler'),
+      styleInformation: InboxStyleInformation(
+        changesList,
+        contentTitle: '🔄 Booking Updated - $companyName',
+        summaryText: 'See what changed',
+      ),
+      playSound: true,
+      enableVibration: true,
+      enableLights: true,
+      ledColor: Color(0xFF2196F3),
+      ledOnMs: 1000,
+      ledOffMs: 500,
+      // Force heads-up display
+      ticker: '🔄 Booking Updated - $companyName',
+      setAsGroupSummary: false,
+      autoCancel: true,
+      onlyAlertOnce: false,
+      fullScreenIntent: true,
+      actions: [
+        AndroidNotificationAction(
+          'view',
+          'View Changes',
+          icon: DrawableResourceAndroidBitmap('@mipmap/tcs_pace_scheduler'),
+          showsUserInterface: true,
+        ),
+        AndroidNotificationAction(
+          'dismiss',
+          'Got it',
+          icon: DrawableResourceAndroidBitmap('@mipmap/tcs_pace_scheduler'),
+        ),
+      ],
+    );
+
+    const iosDetails = DarwinNotificationDetails(
+      presentAlert: true,
+      presentBadge: true,
+      presentSound: true,
+      subtitle: 'Booking Modified',
+    );
+
+    const linuxDetails = LinuxNotificationDetails();
+
+    final details = NotificationDetails(
+      android: androidDetails,
+      iOS: iosDetails,
+      linux: linuxDetails,
+    );
+
+    await _notifications.show(
+      DateTime.now().millisecondsSinceEpoch % 100000,
+      '🔄 Booking Updated',
+      '$companyName booking has been updated: $changes',
+      details,
+      payload: 'updated_booking',
+    );
+  }
+
+  /// Show notification for booking cancellation
+  Future<void> showBookingCancelledNotification({
+    required String companyName,
+    required String date,
+    String? reason,
+    String? time,
+  }) async {
+    final detailsList = <String>[
+      '📅 Cancelled Date: $date${time != null ? ' at $time' : ''}',
+      if (reason != null) '📝 Reason: $reason',
+      '⚠️ Time slot has been released',
+      '💡 You can reschedule anytime',
+    ];
+
+    final androidDetails = AndroidNotificationDetails(
+      'bookings',
+      'Bookings',
+      channelDescription: 'Notifications about booking cancellations',
+      importance: Importance.high,
+      priority: Priority.high,
+      icon: '@mipmap/tcs_pace_scheduler',
+      color: Color(0xFFF44336), // Red
+      largeIcon: DrawableResourceAndroidBitmap('@mipmap/tcs_pace_scheduler'),
+      styleInformation: InboxStyleInformation(
+        detailsList,
+        contentTitle: '❌ Booking Cancelled - $companyName',
+        summaryText: 'Reschedule whenever you want',
+      ),
+      playSound: true,
+      enableVibration: true,
+      enableLights: true,
+      ledColor: Color(0xFFF44336),
+      ledOnMs: 1000,
+      ledOffMs: 500,
+      // Force heads-up display
+      ticker: '❌ Booking Cancelled - $companyName',
+      setAsGroupSummary: false,
+      autoCancel: true,
+      onlyAlertOnce: false,
+      fullScreenIntent: true,
+      actions: [
+        AndroidNotificationAction(
+          'reschedule',
+          'Reschedule',
+          icon: DrawableResourceAndroidBitmap('@mipmap/tcs_pace_scheduler'),
+          showsUserInterface: true,
+        ),
+        AndroidNotificationAction(
+          'dismiss',
+          'Got it',
+          icon: DrawableResourceAndroidBitmap('@mipmap/tcs_pace_scheduler'),
+        ),
+      ],
+    );
+
+    const iosDetails = DarwinNotificationDetails(
+      presentAlert: true,
+      presentBadge: true,
+      presentSound: true,
+      subtitle: 'Booking Cancelled',
+    );
+
+    const linuxDetails = LinuxNotificationDetails();
+
+    final details = NotificationDetails(
+      android: androidDetails,
+      iOS: iosDetails,
+      linux: linuxDetails,
+    );
+
+    await _notifications.show(
+      DateTime.now().millisecondsSinceEpoch % 100000,
+      '❌ Booking Cancelled',
+      '$companyName booking for $date has been cancelled',
+      details,
+      payload: 'cancelled_booking',
+    );
+  }
+
+  /// Show notification for booking approval
+  Future<void> showBookingApprovedNotification({
+    required String companyName,
+    required String date,
+    String? time,
+    String? approvedBy,
+  }) async {
+    final detailsList = <String>[
+      '✅ Booking confirmed and approved',
+      '📅 Date: $date${time != null ? ' at $time' : ''}',
+      if (approvedBy != null) '👤 Approved by: $approvedBy',
+      '📍 Location: TCS PacePort São Paulo',
+      '📧 Invitations will be sent soon',
+    ];
+
+    final androidDetails = AndroidNotificationDetails(
+      'bookings',
+      'Bookings',
+      channelDescription: 'Notifications about booking approvals',
+      importance: Importance.high,
+      priority: Priority.high,
+      icon: '@mipmap/tcs_pace_scheduler',
+      color: Color(0xFF4CAF50), // Green
+      largeIcon: DrawableResourceAndroidBitmap('@mipmap/tcs_pace_scheduler'),
+      styleInformation: InboxStyleInformation(
+        detailsList,
+        contentTitle: '✅ Booking Approved - $companyName',
+        summaryText: 'All set!',
+      ),
+      playSound: true,
+      enableVibration: true,
+      enableLights: true,
+      ledColor: Color(0xFF4CAF50),
+      ledOnMs: 1000,
+      ledOffMs: 500,
+      // Force heads-up display
+      ticker: '✅ Booking Approved - $companyName',
+      setAsGroupSummary: false,
+      autoCancel: true,
+      onlyAlertOnce: false,
+      fullScreenIntent: true,
+      actions: [
+        AndroidNotificationAction(
+          'view',
+          'View Details',
+          icon: DrawableResourceAndroidBitmap('@mipmap/tcs_pace_scheduler'),
+          showsUserInterface: true,
+        ),
+        AndroidNotificationAction(
+          'share',
+          'Share',
+          icon: DrawableResourceAndroidBitmap('@mipmap/tcs_pace_scheduler'),
+        ),
+      ],
+    );
+
+    const iosDetails = DarwinNotificationDetails(
+      presentAlert: true,
+      presentBadge: true,
+      presentSound: true,
+      subtitle: 'Booking Confirmed',
+    );
+
+    const linuxDetails = LinuxNotificationDetails();
+
+    final details = NotificationDetails(
+      android: androidDetails,
+      iOS: iosDetails,
+      linux: linuxDetails,
+    );
+
+    await _notifications.show(
+      DateTime.now().millisecondsSinceEpoch % 100000,
+      '✅ Booking Approved',
+      '$companyName booking for $date has been approved!',
+      details,
+      payload: 'approved_booking',
+    );
+  }
+
+  /// Show notification for booking reminder
+  Future<void> showBookingReminderNotification({
+    required String companyName,
+    required String time,
+    int? minutesUntil,
+    String? location,
+  }) async {
+    final reminderList = <String>[
+      '⏰ Time: $time',
+      if (minutesUntil != null) '⏱️ Starts in: $minutesUntil minutes',
+      '🏢 Company: $companyName',
+      '📍 Location: ${location ?? 'TCS PacePort São Paulo'}',
+      '💼 Prepare necessary materials',
+    ];
+
+    final androidDetails = AndroidNotificationDetails(
+      'reminders',
+      'Reminders',
+      channelDescription: 'Booking reminder notifications',
+      importance: Importance.max,
+      priority: Priority.max,
+      icon: '@mipmap/tcs_pace_scheduler',
+      color: Color(0xFFFF9800), // Orange
+      largeIcon: DrawableResourceAndroidBitmap('@mipmap/tcs_pace_scheduler'),
+      styleInformation: InboxStyleInformation(
+        reminderList,
+        contentTitle: '⏰ Reminder - $companyName Visit',
+        summaryText: 'Visit is coming up!',
+      ),
+      playSound: true,
+      enableVibration: true,
+      enableLights: true,
+      ledColor: Color(0xFFFF9800),
+      ledOnMs: 1000,
+      ledOffMs: 500,
+      // Force heads-up display
+      ticker: '⏰ Reminder - $companyName Visit',
+      setAsGroupSummary: false,
+      autoCancel: true,
+      onlyAlertOnce: false,
+      fullScreenIntent: true,
+      category: AndroidNotificationCategory.reminder,
+      actions: [
+        AndroidNotificationAction(
+          'directions',
+          'Get Directions',
+          icon: DrawableResourceAndroidBitmap('@mipmap/tcs_pace_scheduler'),
+          showsUserInterface: true,
+        ),
+        AndroidNotificationAction(
+          'checklist',
+          'View Checklist',
+          icon: DrawableResourceAndroidBitmap('@mipmap/tcs_pace_scheduler'),
+          showsUserInterface: true,
+        ),
+        AndroidNotificationAction(
+          'snooze',
+          'Remind in 10min',
+          icon: DrawableResourceAndroidBitmap('@mipmap/tcs_pace_scheduler'),
+        ),
+      ],
+    );
+
+    const iosDetails = DarwinNotificationDetails(
+      presentAlert: true,
+      presentBadge: true,
+      presentSound: true,
+      subtitle: 'Visit coming up',
+      interruptionLevel: InterruptionLevel.timeSensitive,
+    );
+
+    const linuxDetails = LinuxNotificationDetails();
+
+    final details = NotificationDetails(
+      android: androidDetails,
+      iOS: iosDetails,
+      linux: linuxDetails,
+    );
+
+    await _notifications.show(
+      DateTime.now().millisecondsSinceEpoch % 100000,
+      '⏰ Visit Reminder',
+      '$companyName visit starts soon at $time!',
+      details,
+      payload: 'reminder',
+    );
+  }
+
+  /// Show notification for invitation sent
+  Future<void> showInvitationSentNotification({
+    required String email,
+    String? companyName,
+    int? totalInvitees,
+  }) async {
+    final invitationList = <String>[
+      '📧 Email: $email',
+      if (companyName != null) '🏢 Company: $companyName',
+      if (totalInvitees != null && totalInvitees > 1)
+        '👥 Total invitees: $totalInvitees',
+      '✅ Invitation sent successfully',
+      '📬 Guest will receive email shortly',
+    ];
+
+    final androidDetails = AndroidNotificationDetails(
+      'invitations',
+      'Invitations',
+      channelDescription: 'Notifications about sent invitations',
+      importance: Importance.defaultImportance,
+      priority: Priority.defaultPriority,
+      icon: '@mipmap/tcs_pace_scheduler',
+      color: Color(0xFF9C27B0), // Purple
+      largeIcon: DrawableResourceAndroidBitmap('@mipmap/tcs_pace_scheduler'),
+      styleInformation: InboxStyleInformation(
+        invitationList,
+        contentTitle: '📧 Invitation Sent',
+        summaryText: 'Email delivered',
+      ),
+      playSound: true,
+      enableVibration: false,
+      // Force individual display
+      ticker: '📧 Invitation Sent',
+      setAsGroupSummary: false,
+      autoCancel: true,
+      onlyAlertOnce: false,
+      actions: [
+        AndroidNotificationAction(
+          'view',
+          'View Guest List',
+          icon: DrawableResourceAndroidBitmap('@mipmap/tcs_pace_scheduler'),
+          showsUserInterface: true,
+        ),
+      ],
+    );
+
+    const iosDetails = DarwinNotificationDetails(
+      presentAlert: true,
+      presentBadge: true,
+      presentSound: true,
+      subtitle: 'Invitation Sent',
+    );
+
+    const linuxDetails = LinuxNotificationDetails();
+
+    final details = NotificationDetails(
+      android: androidDetails,
+      iOS: iosDetails,
+      linux: linuxDetails,
+    );
+
+    await _notifications.show(
+      DateTime.now().millisecondsSinceEpoch % 100000,
+      '📧 Invitation Sent',
+      'Invitation sent to $email successfully!',
+      details,
+      payload: 'invitation_sent',
+    );
+  }
+
+  /// Test notification (for debug button)
+  Future<void> showTestNotification() async {
+    try {
+      debugPrint('[LocalNotification] 🧪 showTestNotification() called');
+      debugPrint('[LocalNotification] Initialized: $_initialized');
+
+      if (!_initialized) {
+        debugPrint('[LocalNotification] ⚠️ Service not initialized, cannot show notification');
+        return;
+      }
+
+      final notificationId = DateTime.now().millisecondsSinceEpoch % 100000;
+      debugPrint('[LocalNotification] Notification ID: $notificationId');
+
+      final testList = <String>[
+        '✅ Notification system working',
+        '🎨 Rich design with InboxStyle',
+        '🔔 Sound and vibration configured',
+        '💡 Colored LED activated',
+        '🎯 Action buttons available',
+        '📱 Compatible with Android 14+',
+      ];
+
+      final androidDetails = AndroidNotificationDetails(
+        'test',
+        'Test',
+        channelDescription: 'Test notifications',
+        importance: Importance.max,
+        priority: Priority.max,
+        icon: '@mipmap/tcs_pace_scheduler',
+        color: Color(0xFF673AB7), // Deep Purple
+        largeIcon: DrawableResourceAndroidBitmap('@mipmap/tcs_pace_scheduler'),
+        styleInformation: InboxStyleInformation(
+          testList,
+          contentTitle: '🔔 Notification System Test',
+          summaryText: 'Everything working perfectly!',
+        ),
+        playSound: true,
+        enableVibration: true,
+        enableLights: true,
+        ledColor: Color(0xFF673AB7),
+        ledOnMs: 1000,
+        ledOffMs: 500,
+        // Force heads-up display
+        ticker: '🔔 Test Notification',
+        setAsGroupSummary: false,
+        autoCancel: true,
+        onlyAlertOnce: false,
+        fullScreenIntent: true,
+        actions: [
+          AndroidNotificationAction(
+            'test_action_1',
+            '✅ It Worked!',
+            icon: DrawableResourceAndroidBitmap('@mipmap/tcs_pace_scheduler'),
+          ),
+          AndroidNotificationAction(
+            'test_action_2',
+            '🎉 Perfect!',
+            icon: DrawableResourceAndroidBitmap('@mipmap/tcs_pace_scheduler'),
+          ),
+          AndroidNotificationAction(
+            'dismiss',
+            'Close',
+            icon: DrawableResourceAndroidBitmap('@mipmap/tcs_pace_scheduler'),
+          ),
+        ],
+      );
+
+      const iosDetails = DarwinNotificationDetails(
+        presentAlert: true,
+        presentBadge: true,
+        presentSound: true,
+        subtitle: 'System Test',
+      );
+
+      const linuxDetails = LinuxNotificationDetails();
+
+      final details = NotificationDetails(
+        android: androidDetails,
+        iOS: iosDetails,
+        linux: linuxDetails,
+      );
+
+      debugPrint('[LocalNotification] Calling _notifications.show()...');
+      await _notifications.show(
+        notificationId,
+        '🔔 Test Notification',
+        'This is a test notification from TCS PacePort Scheduler system!',
+        details,
+        payload: 'test',
+      );
+      debugPrint('[LocalNotification] ✅ Notification shown successfully');
+    } catch (e, stackTrace) {
+      debugPrint('[LocalNotification] ❌ Error showing test notification: $e');
+      debugPrint('[LocalNotification] Stack trace: $stackTrace');
+    }
+  }
+
+  /// Cancel all notifications
+  Future<void> cancelAll() async {
+    await _notifications.cancelAll();
+  }
+
+  /// Cancel specific notification
+  Future<void> cancel(int id) async {
+    await _notifications.cancel(id);
+  }
+}

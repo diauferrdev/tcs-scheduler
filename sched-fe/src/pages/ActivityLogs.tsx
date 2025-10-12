@@ -1,13 +1,12 @@
 import { useState, useEffect } from 'react';
 import { ColumnDef } from '@tanstack/react-table';
-import { api } from '../lib/api';
+import { api } from '@/lib/api';
 import { Card } from '../components/ui/card';
 import { Input } from '../components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { useTheme } from '../hooks/use-theme';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
-import { Activity, User as UserIcon, Calendar as CalendarIcon, Link as LinkIcon, Key } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { DataTable } from '../components/data-table';
 import { DataTableColumnHeader } from '../components/data-table/data-table-column-header';

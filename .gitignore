@@ -49,5 +49,18 @@ Thumbs.db
 # Prisma
 sched-be/prisma/migrations/**/migration.sql
 
-# Claude
+# Claude & AI tools
 .claude/
+**/CLAUDE*.md
+**/claude-*.log
+**/.aider*
+**/.cursor/
+
+# Backup files
+*.bak
+*.backup
+*~
+
+# APK versioned builds
+**/app-release-*.apk
+**/tcs-pace-scheduler-v*.apk

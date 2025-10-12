@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { LoginSchema } from '../types';
-import { useAuth } from '../lib/auth';
+import { useAuth } from '@/lib/auth';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Card } from '../components/ui/card';
@@ -30,10 +30,10 @@ export default function Login() {
     try {
       await login(data.email, data.password);
       toast.success('Welcome! Redirecting to calendar...');
-      setTimeout(() => navigate('/calendar'), 500);
+      // Use navigate with replace to prevent back button issues on iOS
+      setTimeout(() => navigate('/calendar', { replace: true }), 500);
     } catch (err: any) {
       toast.error(err.response?.data?.error || 'Login failed. Please check your credentials.');
-    } finally {
       setLoading(false);
     }
   };

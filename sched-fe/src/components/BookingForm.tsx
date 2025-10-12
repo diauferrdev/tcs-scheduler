@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { BookingCreateSchema } from '../types';
-import { api } from '../lib/api';
+import { api } from '@/lib/api';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
@@ -207,8 +207,39 @@ export default function BookingForm({ onSuccess, onCancel, token, initialDate, i
     setLoading(true);
 
     try {
+      // Use first attendee as contact information
+      const firstAttendee = attendees[0];
+      if (!firstAttendee || !firstAttendee.name) {
+        toast.error('Please add at least one attendee with name and email');
+        setLoading(false);
+        return;
+      }
+
+      if (!firstAttendee.email) {
+        toast.error('Email is required for the main contact (first attendee)');
+        setLoading(false);
+        return;
+      }
+
       const endpoint = token ? '/api/bookings/guest' : '/api/bookings';
-      const payload = token ? { ...data, token, attendees } : { ...data, attendees };
+      const payload = token
+        ? {
+            ...data,
+            token,
+            attendees,
+            contactName: firstAttendee.name,
+            contactEmail: firstAttendee.email,
+            contactPosition: firstAttendee.position || '',
+            contactPhone: ''
+          }
+        : {
+            ...data,
+            attendees,
+            contactName: firstAttendee.name,
+            contactEmail: firstAttendee.email,
+            contactPosition: firstAttendee.position || '',
+            contactPhone: ''
+          };
 
       const response = await api.post(endpoint, payload);
       onSuccess(response.data);
@@ -352,58 +383,6 @@ export default function BookingForm({ onSuccess, onCancel, token, initialDate, i
         </div>
       </div>
 
-      {/* Contact Information */}
-      <div className="space-y-4">
-        <h3 className={`font-semibold text-lg ${theme === 'dark' ? 'text-white' : ''}`}>Contact Information</h3>
-
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <Label htmlFor="contactName" className={theme === 'dark' ? 'text-gray-300' : ''}>Contact Name *</Label>
-            <Input
-              id="contactName"
-              {...form.register('contactName')}
-              className={`mt-1 ${theme === 'dark' ? 'bg-black border-zinc-800 text-white' : ''}`}
-            />
-            {form.formState.errors.contactName && (
-              <p className="text-sm text-red-400 mt-1">{String(form.formState.errors.contactName.message)}</p>
-            )}
-          </div>
-
-          <div>
-            <Label htmlFor="contactEmail" className={theme === 'dark' ? 'text-gray-300' : ''}>Contact Email *</Label>
-            <Input
-              id="contactEmail"
-              type="email"
-              {...form.register('contactEmail')}
-              className={`mt-1 ${theme === 'dark' ? 'bg-black border-zinc-800 text-white' : ''}`}
-            />
-            {form.formState.errors.contactEmail && (
-              <p className="text-sm text-red-400 mt-1">{String(form.formState.errors.contactEmail.message)}</p>
-            )}
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <Label htmlFor="contactPhone" className={theme === 'dark' ? 'text-gray-300' : ''}>Phone (Optional)</Label>
-            <Input
-              id="contactPhone"
-              {...form.register('contactPhone')}
-              className={`mt-1 ${theme === 'dark' ? 'bg-black border-zinc-800 text-white' : ''}`}
-            />
-          </div>
-
-          <div>
-            <Label htmlFor="contactPosition" className={theme === 'dark' ? 'text-gray-300' : ''}>Position (Optional)</Label>
-            <Input
-              id="contactPosition"
-              {...form.register('contactPosition')}
-              className={`mt-1 ${theme === 'dark' ? 'bg-black border-zinc-800 text-white' : ''}`}
-            />
-          </div>
-        </div>
-      </div>
-
       {/* Business Information */}
       <div className="space-y-4">
         <h3 className={`font-semibold text-lg ${theme === 'dark' ? 'text-white' : ''}`}>Business Information</h3>
@@ -482,7 +461,7 @@ export default function BookingForm({ onSuccess, onCancel, token, initialDate, i
                     </div>
                     <div>
                       <Label htmlFor={`attendee-email-${index}`} className={`text-sm ${theme === 'dark' ? 'text-gray-300' : ''}`}>
-                        Email (Optional)
+                        Email {index === 0 ? '*' : '(Optional)'}
                       </Label>
                       <Input
                         id={`attendee-email-${index}`}
@@ -491,7 +470,11 @@ export default function BookingForm({ onSuccess, onCancel, token, initialDate, i
                         onChange={(e) => updateAttendee(index, 'email', e.target.value)}
                         placeholder="john.doe@company.com"
                         className="mt-1"
+                        required={index === 0}
                       />
+                      {index === 0 && (
+                        <p className="text-xs text-gray-500 mt-1">Main contact for this booking</p>
+                      )}
                     </div>
                   </div>
                   {attendees.length > 1 && (

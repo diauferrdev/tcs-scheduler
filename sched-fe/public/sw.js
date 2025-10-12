@@ -51,15 +51,16 @@ self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
-  // Skip cross-origin requests
+  // CRITICAL for iOS: Don't intercept ANY cross-origin requests (API calls)
+  // iOS Safari has issues with cookies when Service Worker intercepts
   if (url.origin !== location.origin) {
     return;
   }
 
-  // Skip API requests from caching
-  if (url.pathname.startsWith('/api/')) {
-    event.respondWith(fetch(request));
-    return;
+  // CRITICAL for iOS: Don't intercept API calls at all
+  // Let the browser handle authentication cookies naturally
+  if (url.pathname.startsWith('/api/') || request.url.includes(':7777')) {
+    return; // Don't call event.respondWith - let browser handle it
   }
 
   // Network first, fallback to cache

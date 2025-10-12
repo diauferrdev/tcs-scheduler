@@ -1,5 +1,5 @@
 import { ReactNode, useState } from 'react';
-import { useAuth } from '../lib/auth';
+import { useAuth } from '@/lib/auth';
 import { useTheme } from '../hooks/use-theme';
 import { useIsMobile } from '../hooks/use-mobile';
 import { useNavigate, useLocation } from 'react-router-dom';

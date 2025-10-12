@@ -1,0 +1,112 @@
+// TCS PacePort Scheduler - Service Worker
+// Handles push notifications and background sync
+
+const CACHE_NAME = 'tcs-scheduler-v1';
+
+// Install event
+self.addEventListener('install', (event) => {
+  console.log('[SW] Service Worker installing...');
+  self.skipWaiting(); // Activate immediately
+});
+
+// Activate event
+self.addEventListener('activate', (event) => {
+  console.log('[SW] Service Worker activated');
+  event.waitUntil(clients.claim()); // Take control immediately
+});
+
+// Push event - Receives push notifications from server
+self.addEventListener('push', (event) => {
+  console.log('[SW] Push notification received:', event);
+
+  if (!event.data) {
+    console.log('[SW] Push event but no data');
+    return;
+  }
+
+  try {
+    const data = event.data.json();
+    console.log('[SW] Push data:', data);
+
+    const title = data.title || 'TCS PacePort Scheduler';
+    const notificationId = data.notificationId || data.type || Date.now().toString();
+
+    const options = {
+      body: data.message || data.body || '',
+      icon: '/icons/Icon-192.png',
+      badge: '/icons/Icon-192.png',
+      data: {
+        url: data.url || '/',
+        notificationId: notificationId,
+        type: data.type,
+        ...data.metadata
+      },
+      tag: notificationId,  // Use consistent tag to replace duplicates
+      renotify: false,      // Don't vibrate when replacing
+      requireInteraction: false,
+      silent: false,
+      vibrate: [200, 100, 200],
+    };
+
+    console.log('[SW] Showing notification with tag:', notificationId);
+
+    event.waitUntil(
+      self.registration.showNotification(title, options)
+    );
+  } catch (error) {
+    console.error('[SW] Error handling push:', error);
+    // Fallback notification
+    event.waitUntil(
+      self.registration.showNotification('TCS PacePort Scheduler', {
+        body: 'You have a new notification',
+        icon: '/icons/Icon-192.png',
+      })
+    );
+  }
+});
+
+// Notification click event
+self.addEventListener('notificationclick', (event) => {
+  console.log('[SW] Notification clicked:', event.notification.data);
+  event.notification.close();
+
+  const urlToOpen = event.notification.data?.url || '/';
+
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      // Check if there's already a window open
+      for (const client of clientList) {
+        if (client.url === urlToOpen && 'focus' in client) {
+          return client.focus();
+        }
+      }
+      // If no window is open, open a new one
+      if (clients.openWindow) {
+        return clients.openWindow(urlToOpen);
+      }
+    })
+  );
+});
+
+// Notification close event
+self.addEventListener('notificationclose', (event) => {
+  console.log('[SW] Notification closed:', event.notification.data);
+});
+
+// Message event - Communication with Flutter app
+self.addEventListener('message', (event) => {
+  console.log('[SW] Message received:', event.data);
+
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
+});
+
+// Fetch event - Optional: Add offline support
+self.addEventListener('fetch', (event) => {
+  // For now, just pass through all requests
+  // You can add caching strategies here if needed
+  event.respondWith(fetch(event.request));
+});
+
+console.log('[SW] Service Worker script loaded');

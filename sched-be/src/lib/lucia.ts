@@ -4,13 +4,18 @@ import { prisma } from './prisma';
 
 const adapter = new PrismaAdapter(prisma.session, prisma.user);
 
+const isNgrok = process.env.FRONTEND_URL?.includes('ngrok') || false;
+const isProduction = process.env.NODE_ENV === 'production';
+
 export const lucia = new Lucia(adapter, {
   sessionCookie: {
     attributes: {
-      // Enable secure cookies for production and ngrok (https)
-      secure: process.env.NODE_ENV === 'production' || process.env.FRONTEND_URL?.includes('ngrok'),
-      // SameSite None is required for cross-origin cookies (ngrok)
-      sameSite: process.env.FRONTEND_URL?.includes('ngrok') ? 'none' : 'lax',
+      // Secure must be true when sameSite is 'none' (required by iOS Safari)
+      // Also enable for production environments
+      secure: isNgrok || isProduction,
+      // SameSite 'none' required for cross-origin cookies (ngrok)
+      // iOS Safari strictly enforces secure=true when sameSite='none'
+      sameSite: isNgrok ? 'none' : 'lax',
     },
   },
   getUserAttributes: (attributes) => ({

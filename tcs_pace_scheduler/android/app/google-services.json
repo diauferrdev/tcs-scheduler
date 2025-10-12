@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "874457674237",
+    "project_id": "tcs-paceport-scheduler",
+    "storage_bucket": "tcs-paceport-scheduler.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:874457674237:android:1ed8bb845b3e949d9fa994",
+        "android_client_info": {
+          "package_name": "com.example.flutter_multiplatform_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCAdV5i4g0Pr6FUPNVwrEFzoYHPuIEqPD0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

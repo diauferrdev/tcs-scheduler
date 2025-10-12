@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { ColumnDef } from '@tanstack/react-table';
-import { api } from '../lib/api';
-import { useAuth } from '../lib/auth';
+import { api } from '@/lib/api';
+import { useAuth } from '@/lib/auth';
 import { Button } from '../components/ui/button';
 import { Card } from '../components/ui/card';
 import { Input } from '../components/ui/input';

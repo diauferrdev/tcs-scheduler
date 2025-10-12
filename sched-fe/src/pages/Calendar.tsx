@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { api } from '../lib/api';
-import { cn } from '../lib/utils';
+import { api } from '@/lib/api';
+import { cn } from '@/lib/utils';
 import { Button } from '../components/ui/button';
 import { Card } from '../components/ui/card';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from '../components/ui/drawer';
@@ -69,7 +69,7 @@ export default function CalendarPage() {
   const loadBookings = async () => {
     try {
       const response = await api.get('/api/bookings');
-      setBookings(response.data);
+      setBookings(response.data.bookings);
     } catch (error) {
       console.error('Failed to load bookings:', error);
       toast.error('Failed to load bookings');
@@ -205,21 +205,21 @@ export default function CalendarPage() {
     // Fully booked - Red gradient
     if (hasFullDay || (hasMorning && hasAfternoon)) {
       return theme === 'dark'
-        ? 'bg-gradient-to-br from-zinc-900 via-zinc-900 to-red-950/40'
-        : 'bg-gradient-to-br from-gray-50 via-gray-100 to-red-100/50';
+        ? 'bg-gradient-to-br from-red-950/40 via-red-900/30 to-red-800/20'
+        : 'bg-gradient-to-br from-red-100 via-red-200 to-red-300';
     }
 
-    // Partially booked - Yellow/Orange gradient
+    // Partially booked - Yellow gradient
     if (hasMorning || hasAfternoon) {
       return theme === 'dark'
-        ? 'bg-gradient-to-br from-zinc-900 via-zinc-900 to-yellow-950/30'
-        : 'bg-gradient-to-br from-gray-50 via-gray-100 to-yellow-100/40';
+        ? 'bg-gradient-to-br from-yellow-900/60 via-yellow-800/50 to-yellow-700/40'
+        : 'bg-gradient-to-br from-yellow-100 via-yellow-200 to-yellow-300';
     }
 
     // Available - Green gradient
     return theme === 'dark'
-      ? 'bg-gradient-to-br from-zinc-900 via-zinc-900 to-green-950/30'
-      : 'bg-gradient-to-br from-white via-gray-50 to-green-100/40';
+      ? 'bg-gradient-to-br from-green-950/40 via-green-900/30 to-green-800/20'
+      : 'bg-gradient-to-br from-green-100 via-green-200 to-green-300';
   };
 
   const getAvailableSlots = (date: Date): Array<'morning' | 'afternoon' | 'full-day'> => {
@@ -325,30 +325,30 @@ export default function CalendarPage() {
               <div className="flex items-center gap-1.5 text-xs sm:text-sm">
                 <div className={`w-4 h-4 sm:w-5 sm:h-5 rounded ${
                   theme === 'dark'
-                    ? 'bg-gradient-to-br from-zinc-800 to-green-800 border border-green-900'
-                    : 'bg-gradient-to-br from-green-50 to-green-200 border border-green-300'
+                    ? 'bg-gradient-to-br from-green-950/40 via-green-900/30 to-green-800/20 border border-green-900'
+                    : 'bg-gradient-to-br from-green-100 via-green-200 to-green-300 border border-green-400'
                 }`}></div>
                 <span className={theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}>Available</span>
               </div>
               <div className="flex items-center gap-1.5 text-xs sm:text-sm">
                 <div className={`w-4 h-4 sm:w-5 sm:h-5 rounded ${
                   theme === 'dark'
-                    ? 'bg-gradient-to-br from-zinc-800 to-yellow-800 border border-yellow-900'
-                    : 'bg-gradient-to-br from-yellow-50 to-yellow-200 border border-yellow-300'
+                    ? 'bg-gradient-to-br from-yellow-900/60 via-yellow-800/50 to-yellow-700/40 border border-yellow-800'
+                    : 'bg-gradient-to-br from-yellow-100 via-yellow-200 to-yellow-300 border border-yellow-400'
                 }`}></div>
                 <span className={theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}>Partial</span>
               </div>
               <div className="flex items-center gap-1.5 text-xs sm:text-sm">
                 <div className={`w-4 h-4 sm:w-5 sm:h-5 rounded ${
                   theme === 'dark'
-                    ? 'bg-gradient-to-br from-zinc-800 to-red-800 border border-red-900'
-                    : 'bg-gradient-to-br from-red-50 to-red-200 border border-red-300'
+                    ? 'bg-gradient-to-br from-red-950/40 via-red-900/30 to-red-800/20 border border-red-900'
+                    : 'bg-gradient-to-br from-red-100 via-red-200 to-red-300 border border-red-400'
                 }`}></div>
                 <span className={theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}>Full</span>
               </div>
               <div className="flex items-center gap-1.5 text-xs sm:text-sm">
                 <div className={`w-4 h-4 sm:w-5 sm:h-5 rounded ${
-                  theme === 'dark' ? 'bg-zinc-900 border border-zinc-700' : 'bg-gray-300 border border-gray-400'
+                  theme === 'dark' ? 'bg-zinc-950 border border-zinc-800' : 'bg-gray-300 border border-gray-400'
                 }`}></div>
                 <span className={theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}>Past</span>
               </div>
@@ -455,7 +455,7 @@ export default function CalendarPage() {
                           className={`px-1.5 py-1 rounded ${isMobile ? 'text-[8px]' : 'text-[9px]'} leading-tight cursor-pointer transition-all duration-150 hover:scale-105 ${
                             theme === 'dark'
                               ? 'bg-zinc-800 text-gray-300 hover:bg-zinc-700 border border-zinc-700'
-                              : 'bg-gray-200 text-black hover:bg-gray-300 border border-gray-300'
+                              : 'bg-white text-black hover:bg-gray-50 border border-gray-300'
                           }`}
                         >
                           <div className="font-semibold truncate">{dayBookings.fullDay.companyName}</div>
@@ -470,7 +470,7 @@ export default function CalendarPage() {
                           className={`px-1.5 py-1 rounded ${isMobile ? 'text-[8px]' : 'text-[9px]'} leading-tight cursor-pointer transition-all duration-150 hover:scale-105 ${
                             theme === 'dark'
                               ? 'bg-zinc-800 text-gray-300 hover:bg-zinc-700 border border-zinc-700'
-                              : 'bg-gray-200 text-black hover:bg-gray-300 border border-gray-300'
+                              : 'bg-white text-black hover:bg-gray-50 border border-gray-300'
                           }`}
                         >
                           <div className="font-semibold truncate">{dayBookings.morning.companyName}</div>
@@ -485,7 +485,7 @@ export default function CalendarPage() {
                           className={`px-1.5 py-1 rounded ${isMobile ? 'text-[8px]' : 'text-[9px]'} leading-tight cursor-pointer transition-all duration-150 hover:scale-105 ${
                             theme === 'dark'
                               ? 'bg-zinc-800 text-gray-300 hover:bg-zinc-700 border border-zinc-700'
-                              : 'bg-gray-200 text-black hover:bg-gray-300 border border-gray-300'
+                              : 'bg-white text-black hover:bg-gray-50 border border-gray-300'
                           }`}
                         >
                           <div className="font-semibold truncate">{dayBookings.afternoon.companyName}</div>
@@ -535,30 +535,30 @@ export default function CalendarPage() {
             <div className="flex items-center gap-1.5 text-xs">
               <div className={`w-4 h-4 rounded ${
                 theme === 'dark'
-                  ? 'bg-gradient-to-br from-zinc-800 to-green-800 border border-green-900'
-                  : 'bg-gradient-to-br from-green-50 to-green-200 border border-green-300'
+                  ? 'bg-gradient-to-br from-green-950/40 via-green-900/30 to-green-800/20 border border-green-900'
+                  : 'bg-gradient-to-br from-green-100 via-green-200 to-green-300 border border-green-400'
               }`}></div>
               <span className={theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}>Available</span>
             </div>
             <div className="flex items-center gap-1.5 text-xs">
               <div className={`w-4 h-4 rounded ${
                 theme === 'dark'
-                  ? 'bg-gradient-to-br from-zinc-800 to-yellow-800 border border-yellow-900'
-                  : 'bg-gradient-to-br from-yellow-50 to-yellow-200 border border-yellow-300'
+                  ? 'bg-gradient-to-br from-yellow-900/60 via-yellow-800/50 to-yellow-700/40 border border-yellow-800'
+                  : 'bg-gradient-to-br from-yellow-100 via-yellow-200 to-yellow-300 border border-yellow-400'
               }`}></div>
               <span className={theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}>Partial</span>
             </div>
             <div className="flex items-center gap-1.5 text-xs">
               <div className={`w-4 h-4 rounded ${
                 theme === 'dark'
-                  ? 'bg-gradient-to-br from-zinc-800 to-red-800 border border-red-900'
-                  : 'bg-gradient-to-br from-red-50 to-red-200 border border-red-300'
+                  ? 'bg-gradient-to-br from-red-950/40 via-red-900/30 to-red-800/20 border border-red-900'
+                  : 'bg-gradient-to-br from-red-100 via-red-200 to-red-300 border border-red-400'
               }`}></div>
               <span className={theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}>Full</span>
             </div>
             <div className="flex items-center gap-1.5 text-xs">
               <div className={`w-4 h-4 rounded ${
-                theme === 'dark' ? 'bg-zinc-900 border border-zinc-700' : 'bg-gray-300 border border-gray-400'
+                theme === 'dark' ? 'bg-zinc-950 border border-zinc-800' : 'bg-gray-300 border border-gray-400'
               }`}></div>
               <span className={theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}>Past</span>
             </div>
