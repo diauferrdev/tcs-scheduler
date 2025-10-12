@@ -9,48 +9,65 @@ com.example.flutter_multiplatform_app  →  com.tcs.pace_scheduler
 
 ## ⚠️ Ação Necessária no Firebase Console
 
-O arquivo `google-services.json` local foi atualizado temporariamente para permitir builds, mas você deve **adicionar o novo package name no Firebase Console** para que o FCM (notificações push) funcione corretamente em produção.
+O arquivo `google-services.json` local foi atualizado temporariamente para permitir builds, mas você **DEVE adicionar um novo app Android** no Firebase Console para que o FCM (notificações push) funcione corretamente em produção.
 
-## 🔧 Como Atualizar no Firebase Console
+## 🔧 Como Adicionar Novo App Android no Firebase
 
-### Opção 1: Adicionar Novo Package ao App Existente (Recomendado)
+⚠️ **IMPORTANTE:** O Firebase **NÃO permite editar** o package name de um app existente. Você deve criar um **novo app Android**.
+
+### Passo a Passo (5 minutos):
 
 1. **Acesse o Firebase Console:**
-   - Vá para: https://console.firebase.google.com
-   - Selecione o projeto: **tcs-paceport-scheduler**
+   ```
+   https://console.firebase.google.com/project/tcs-paceport-scheduler
+   ```
 
-2. **Adicione o novo package:**
-   - No menu lateral, clique em **⚙️ Project Settings**
-   - Vá para a aba **General**
-   - Na seção **Your apps**, encontre o app Android
-   - Clique em **Add package name**
-   - Digite: `com.tcs.pace_scheduler`
-   - Clique em **Add**
+2. **Adicione um novo app Android:**
+   - Na página inicial do projeto, clique em **"Add app"** (ou ícone **Android**)
+   - Ou vá em: **Project Settings** → **General** → Scroll down → **Add app** → **Android**
 
-3. **Baixe o novo google-services.json:**
-   - Depois de adicionar, clique em **Download google-services.json**
-   - Substitua o arquivo em: `android/app/google-services.json`
+3. **Configure o novo app:**
 
-### Opção 2: Criar Novo App Android (Alternativa)
+   **Passo 1: Register app**
+   - **Android package name:** `com.tcs.pace_scheduler` ✅
+   - **App nickname (optional):** `TCS Pace Scheduler` (recomendado)
+   - **Debug signing certificate SHA-1 (optional):** Deixe em branco por enquanto
+   - Clique em **Register app**
 
-Se preferir ter um app separado:
+   **Passo 2: Download config file**
+   - Clique em **Download google-services.json**
+   - **IMPORTANTE:** Salve este arquivo!
+   - Clique em **Next**
 
-1. **Adicione um novo app Android:**
-   - No Firebase Console, clique em **Add app** → **Android**
-   - Package name: `com.tcs.pace_scheduler`
-   - App nickname: `TCS Pace Scheduler`
-   - Debug signing certificate SHA-1: (opcional, para Google Sign-In)
+   **Passo 3: Add Firebase SDK**
+   - Pode pular esta etapa (já configurado)
+   - Clique em **Next**
 
-2. **Configure o app:**
-   - Baixe o `google-services.json`
-   - Substitua em: `android/app/google-services.json`
-   - Configure Cloud Messaging se necessário
+   **Passo 4: Run your app**
+   - Clique em **Continue to console**
 
-3. **Migre configurações:**
-   - Cloud Messaging (FCM)
-   - App Check
-   - Analytics
-   - Etc.
+4. **Substitua o arquivo local:**
+   ```bash
+   # Substitua o arquivo baixado em:
+   cp ~/Downloads/google-services.json android/app/google-services.json
+   ```
+
+5. **Configure Cloud Messaging (FCM):**
+   - No Firebase Console, vá em: **Build** → **Cloud Messaging**
+   - Se solicitado, configure o **Cloud Messaging API** (habilitado por padrão)
+
+### ✅ Pronto! Agora você pode rodar o app:
+
+```bash
+# Limpar build anterior
+flutter clean
+
+# Rodar no dispositivo
+flutter run -d 192.168.15.28:42493
+
+# Ou build release
+flutter build apk --release
+```
 
 ## 📝 Status Atual
 
