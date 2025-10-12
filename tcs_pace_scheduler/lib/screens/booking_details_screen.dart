@@ -254,13 +254,13 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
                 _buildInfoRow(
                   Icons.timer,
                   'Duration',
-                  _formatDuration(_booking!.duration),
+                  _formatDuration(_booking!.duration.name),
                   isDark,
                 ),
                 _buildInfoRow(
                   Icons.event,
                   'Visit Type',
-                  _formatVisitType(_booking!.visitType),
+                  _formatVisitType(_booking!.visitType.name),
                   isDark,
                 ),
                 _buildInfoRow(
@@ -282,16 +282,10 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
             const SizedBox(height: 16),
 
             // Approval Info (if approved)
-            if (_booking!.approvedBy != null) ...[
+            if (_booking!.approvedById != null) ...[
               _buildSection(
                 'Approval',
                 [
-                  _buildInfoRow(
-                    Icons.verified_user,
-                    'Approved By',
-                    _booking!.approvedBy!['name'] ?? 'Unknown',
-                    isDark,
-                  ),
                   if (_booking!.approvedAt != null)
                     _buildInfoRow(
                       Icons.schedule,
@@ -330,13 +324,6 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
             _buildSection(
               'Created',
               [
-                if (_booking!.createdBy != null)
-                  _buildInfoRow(
-                    Icons.person,
-                    'Created By',
-                    _booking!.createdBy!['name'] ?? 'Unknown',
-                    isDark,
-                  ),
                 _buildInfoRow(
                   Icons.access_time,
                   'Created At',
