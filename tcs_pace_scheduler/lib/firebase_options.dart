@@ -42,17 +42,17 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions web = FirebaseOptions(
     apiKey: 'AIzaSyDrGoDIT_Ea9-_Asc7VKoZ_7dEhF2YLMng',
-    appId: '1:874457674237:web:fbecdc4054e8644d9fa994',
+    appId: '1:874457674237:web:3178aef43c686e2c9fa994',
     messagingSenderId: '874457674237',
     projectId: 'tcs-paceport-scheduler',
     authDomain: 'tcs-paceport-scheduler.firebaseapp.com',
     storageBucket: 'tcs-paceport-scheduler.firebasestorage.app',
-    measurementId: 'G-NH10BHGFLJ',
+    measurementId: 'G-S5WREPYEFX',
   );
 
   static const FirebaseOptions android = FirebaseOptions(
     apiKey: 'AIzaSyCAdV5i4g0Pr6FUPNVwrEFzoYHPuIEqPD0',
-    appId: '1:874457674237:android:1ed8bb845b3e949d9fa994',
+    appId: '1:874457674237:android:81596c5009b03f9a9fa994',
     messagingSenderId: '874457674237',
     projectId: 'tcs-paceport-scheduler',
     storageBucket: 'tcs-paceport-scheduler.firebasestorage.app',
@@ -85,4 +85,5 @@ class DefaultFirebaseOptions {
     storageBucket: 'tcs-paceport-scheduler.firebasestorage.app',
     measurementId: 'G-S5WREPYEFX',
   );
+
 }
