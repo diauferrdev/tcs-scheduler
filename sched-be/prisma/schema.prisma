@@ -10,7 +10,7 @@ datasource db {
 enum UserRole {
   ADMIN
   MANAGER
-  GUEST
+  USER
 }
 
 enum VisitDuration {
