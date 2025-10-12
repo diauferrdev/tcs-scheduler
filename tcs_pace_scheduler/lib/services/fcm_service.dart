@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'api_service.dart';
 import 'local_notification_service.dart';
+import 'navigation_service.dart';
 
 /// Firebase Cloud Messaging Service
 /// Handles push notifications that work even with app closed/minimized (like WhatsApp)
@@ -150,15 +151,28 @@ class FCMService {
     debugPrint('[FCM Tap] Notification tapped: ${message.notification?.title}');
     debugPrint('[FCM Tap] Data: ${message.data}');
 
-    // TODO: Navigate to specific screen based on notification data
     final notificationId = message.data['notificationId'] as String?;
     final bookingId = message.data['bookingId'] as String?;
     final type = message.data['type'] as String?;
 
     debugPrint('[FCM Tap] NotificationId: $notificationId, BookingId: $bookingId, Type: $type');
 
-    // Navigation will be handled by the app when it comes to foreground
-    // You can use a navigation service or global navigator key here
+    // Navigate to booking details if bookingId is available
+    if (bookingId != null && bookingId.isNotEmpty) {
+      debugPrint('[FCM Tap] Navigating to booking details: $bookingId');
+
+      // Use Future.delayed to ensure navigation happens after app is fully ready
+      Future.delayed(const Duration(milliseconds: 500), () {
+        try {
+          NavigationService().navigateToBookingDetails(bookingId);
+          debugPrint('[FCM Tap] ✅ Navigation completed');
+        } catch (e) {
+          debugPrint('[FCM Tap] ❌ Navigation error: $e');
+        }
+      });
+    } else {
+      debugPrint('[FCM Tap] No bookingId - opening app without navigation');
+    }
   }
 
   /// Delete FCM token on logout
