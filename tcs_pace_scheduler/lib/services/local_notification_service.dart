@@ -1,6 +1,9 @@
 import 'dart:ui';
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'navigation_service.dart';
+import 'calendar_service.dart';
 
 // Export NotificationResponse for use in main.dart background handler
 export 'package:flutter_local_notifications/flutter_local_notifications.dart' show NotificationResponse;
@@ -192,8 +195,170 @@ class LocalNotificationService {
 
   /// Handle notification tap
   void _onNotificationTapped(NotificationResponse response) {
-    debugPrint('[LocalNotification] Notification tapped: ${response.payload}');
-    // TODO: Navigate to specific screen based on payload
+    debugPrint('[LocalNotification] Notification tapped');
+    debugPrint('[LocalNotification] Payload: ${response.payload}');
+    debugPrint('[LocalNotification] Action ID: ${response.actionId}');
+
+    _handleNotificationAction(response.payload, response.actionId);
+  }
+
+  /// Handle notification action (tap or action button)
+  Future<void> _handleNotificationAction(String? payload, String? actionId) async {
+    if (payload == null) {
+      debugPrint('[LocalNotification] No payload, navigating to notifications');
+      _navigateToNotifications();
+      return;
+    }
+
+    try {
+      // Import navigation and calendar services dynamically to avoid circular dependencies
+      final navigationService = _getNavigationService();
+      final calendarService = _getCalendarService();
+
+      // Parse JSON payload
+      final data = _parsePayload(payload);
+      final type = data['type'] as String?;
+      final bookingId = data['bookingId'] as String?;
+      final metadata = data['metadata'] as Map<String, dynamic>?;
+
+      debugPrint('[LocalNotification] Type: $type, BookingId: $bookingId, ActionId: $actionId');
+
+      // Handle action buttons
+      if (actionId != null) {
+        await _handleActionButton(actionId, metadata, calendarService, navigationService);
+        return;
+      }
+
+      // Handle notification tap - navigate based on type
+      switch (type) {
+        case 'BOOKING_APPROVED':
+        case 'BOOKING_CONFIRMED':
+        case 'BOOKING_INVITATION':
+          navigationService?.navigateToCalendar();
+          break;
+        case 'BOOKING_PENDING_APPROVAL':
+          navigationService?.navigateToApprovals();
+          break;
+        case 'BOOKING_UPDATED':
+        case 'BOOKING_RESCHEDULED':
+        case 'BOOKING_CANCELLED':
+          navigationService?.navigateToCalendar();
+          break;
+        default:
+          navigationService?.navigateToNotifications();
+      }
+
+      debugPrint('[LocalNotification] ✅ Navigation handled for type: $type');
+    } catch (e) {
+      debugPrint('[LocalNotification] Error handling notification action: $e');
+      _navigateToNotifications();
+    }
+  }
+
+  /// Handle action button press
+  Future<void> _handleActionButton(
+    String actionId,
+    Map<String, dynamic>? metadata,
+    dynamic calendarService,
+    dynamic navigationService,
+  ) async {
+    debugPrint('[LocalNotification] Handling action: $actionId');
+
+    switch (actionId) {
+      case 'calendar':
+        // Add to calendar
+        if (metadata != null && calendarService != null) {
+          final success = await calendarService.addBookingToCalendar(
+            companyName: metadata['companyName'] ?? 'Visit',
+            date: metadata['date'] ?? '',
+            time: metadata['time'] ?? '09:00',
+            sector: metadata['sector'],
+            expectedAttendees: metadata['expectedAttendees'],
+            eventType: metadata['eventType'],
+          );
+
+          if (success) {
+            navigationService?.showSnackBar('✅ Added to calendar!');
+          } else {
+            navigationService?.showSnackBar('Could not add to calendar', isError: true);
+          }
+        }
+        break;
+
+      case 'view':
+        // View details - navigate to calendar
+        navigationService?.navigateToCalendar();
+        break;
+
+      case 'reschedule':
+        // Navigate to calendar for rescheduling
+        navigationService?.navigateToCalendar();
+        navigationService?.showSnackBar('Select a new date and time');
+        break;
+
+      case 'dismiss':
+        // Just dismiss, no action
+        debugPrint('[LocalNotification] Notification dismissed');
+        break;
+
+      default:
+        debugPrint('[LocalNotification] Unknown action: $actionId');
+    }
+  }
+
+  /// Parse JSON payload safely
+  Map<String, dynamic> _parsePayload(String payload) {
+    try {
+      // Try to parse as JSON
+      return _jsonDecode(payload);
+    } catch (e) {
+      // If not JSON, return simple map with type
+      return {'type': payload};
+    }
+  }
+
+  /// JSON decode helper
+  Map<String, dynamic> _jsonDecode(String str) {
+    try {
+      final decoded = jsonDecode(str);
+      if (decoded is Map<String, dynamic>) {
+        return decoded;
+      }
+      return {'type': str};
+    } catch (e) {
+      debugPrint('[LocalNotification] Error decoding JSON: $e');
+      return {'type': str};
+    }
+  }
+
+  /// Get navigation service
+  NavigationService _getNavigationService() {
+    return NavigationService();
+  }
+
+  /// Get calendar service
+  CalendarService _getCalendarService() {
+    return CalendarService();
+  }
+
+  /// Navigate to notifications screen (fallback)
+  void _navigateToNotifications() {
+    final navigationService = NavigationService();
+    navigationService.navigateToNotifications();
+  }
+
+  /// Build JSON payload for notification
+  String _buildPayload({
+    required String type,
+    String? bookingId,
+    Map<String, dynamic>? metadata,
+  }) {
+    final payload = {
+      'type': type,
+      if (bookingId != null) 'bookingId': bookingId,
+      if (metadata != null) 'metadata': metadata,
+    };
+    return jsonEncode(payload);
   }
 
   /// Show notification for new booking
@@ -501,15 +666,16 @@ class LocalNotificationService {
       fullScreenIntent: true,
       actions: [
         AndroidNotificationAction(
-          'view',
-          'View Details',
+          'calendar',
+          'Add to Calendar',
           icon: DrawableResourceAndroidBitmap('@mipmap/tcs_pace_scheduler'),
           showsUserInterface: true,
         ),
         AndroidNotificationAction(
-          'share',
-          'Share',
+          'view',
+          'View Details',
           icon: DrawableResourceAndroidBitmap('@mipmap/tcs_pace_scheduler'),
+          showsUserInterface: true,
         ),
       ],
     );
@@ -529,12 +695,23 @@ class LocalNotificationService {
       linux: linuxDetails,
     );
 
+    // Build payload with metadata for "Add to Calendar" functionality
+    final payload = _buildPayload(
+      type: 'BOOKING_APPROVED',
+      metadata: {
+        'companyName': companyName,
+        'date': date,
+        'time': time ?? '09:00',
+        if (approvedBy != null) 'approvedBy': approvedBy,
+      },
+    );
+
     await _notifications.show(
       DateTime.now().millisecondsSinceEpoch % 100000,
       '✅ Booking Approved',
       '$companyName booking for $date has been approved!',
       details,
-      payload: 'approved_booking',
+      payload: payload,
     );
   }
 

@@ -83,6 +83,7 @@ dependencies:
   firebase_messaging: ^16.0.2
   package_info_plus: ^9.0.0
   firebase_app_check: ^0.4.1
+  add_2_calendar: ^3.0.1
 
 dev_dependencies:
   flutter_test:

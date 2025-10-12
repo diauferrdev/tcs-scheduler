@@ -12,9 +12,13 @@ import 'screens/users_screen.dart';
 import 'screens/activity_logs_screen.dart';
 import 'screens/notifications_screen.dart';
 import 'screens/approvals_screen.dart';
+import 'services/navigation_service.dart';
 
 GoRouter createRouter(AuthProvider authProvider) {
+  final navigationService = NavigationService();
+
   return GoRouter(
+    navigatorKey: navigationService.navigatorKey,
     initialLocation: '/dashboard',
     refreshListenable: authProvider,
     redirect: (context, state) {
