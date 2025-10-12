@@ -380,9 +380,10 @@ class _AppLayoutState extends State<AppLayout> {
     final items = <Map<String, dynamic>>[
       {'path': '/dashboard', 'label': 'Dashboard', 'icon': Icons.dashboard, 'roles': [UserRole.ADMIN, UserRole.MANAGER]},
       {'path': '/approvals', 'label': 'Approvals', 'icon': Icons.pending_actions, 'roles': [UserRole.ADMIN, UserRole.MANAGER]},
-      {'path': '/calendar', 'label': 'Calendar', 'icon': Icons.calendar_month, 'roles': [UserRole.ADMIN, UserRole.MANAGER]},
-      {'path': '/agenda', 'label': 'Agenda', 'icon': Icons.view_timeline, 'roles': [UserRole.ADMIN, UserRole.MANAGER, UserRole.GUEST]},
-      {'path': '/users', 'label': 'Users', 'icon': Icons.people, 'roles': [UserRole.ADMIN]},
+      {'path': '/calendar', 'label': 'Calendar', 'icon': Icons.calendar_month, 'roles': [UserRole.ADMIN]},
+      {'path': '/agenda', 'label': 'Agenda', 'icon': Icons.view_timeline, 'roles': [UserRole.ADMIN, UserRole.MANAGER]},
+      {'path': '/my-bookings', 'label': 'My Bookings', 'icon': Icons.event_note, 'roles': [UserRole.USER]},
+      {'path': '/users', 'label': 'Users', 'icon': Icons.people, 'roles': [UserRole.ADMIN, UserRole.MANAGER]},
       {'path': '/activity-logs', 'label': 'Activity', 'icon': Icons.history, 'roles': [UserRole.ADMIN]},
     ];
 

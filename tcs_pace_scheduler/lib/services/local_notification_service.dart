@@ -205,9 +205,8 @@ class LocalNotificationService {
   /// Handle notification action (tap or action button)
   Future<void> _handleNotificationAction(String? payload, String? actionId) async {
     if (payload == null) {
-      debugPrint('[LocalNotification] No payload, navigating to notifications');
-      _navigateToNotifications();
-      return;
+      debugPrint('[LocalNotification] No payload, just opening app');
+      return; // Just open app, don't navigate anywhere
     }
 
     try {
@@ -223,53 +222,43 @@ class LocalNotificationService {
 
       debugPrint('[LocalNotification] Type: $type, BookingId: $bookingId, ActionId: $actionId');
 
+      // TEST NOTIFICATIONS - Just open app, don't navigate
+      if (type == 'test' || payload == 'test') {
+        debugPrint('[LocalNotification] Test notification - opening app only');
+        return;
+      }
+
       // Handle action buttons
       if (actionId != null) {
-        await _handleActionButton(actionId, metadata, calendarService, navigationService);
+        await _handleActionButton(actionId, bookingId, metadata, calendarService, navigationService);
         return;
       }
 
       // Handle notification tap - navigate to booking details if bookingId exists
-      if (bookingId != null) {
+      if (bookingId != null && bookingId.isNotEmpty) {
         debugPrint('[LocalNotification] Navigating to booking details: $bookingId');
         navigationService.navigateToBookingDetails(bookingId);
       } else {
-        // Fallback to old behavior if no bookingId
-        debugPrint('[LocalNotification] No bookingId, using fallback navigation');
-        switch (type) {
-          case 'BOOKING_APPROVED':
-          case 'BOOKING_CONFIRMED':
-          case 'BOOKING_INVITATION':
-            navigationService.navigateToCalendar();
-            break;
-          case 'BOOKING_PENDING_APPROVAL':
-            navigationService.navigateToApprovals();
-            break;
-          case 'BOOKING_UPDATED':
-          case 'BOOKING_RESCHEDULED':
-          case 'BOOKING_CANCELLED':
-            navigationService.navigateToCalendar();
-            break;
-          default:
-            navigationService.navigateToNotifications();
-        }
+        // No bookingId - just open app without navigation
+        debugPrint('[LocalNotification] No bookingId - opening app only');
       }
 
       debugPrint('[LocalNotification] ✅ Navigation handled for type: $type');
     } catch (e) {
       debugPrint('[LocalNotification] Error handling notification action: $e');
-      _navigateToNotifications();
+      // On error, just open app without navigation
     }
   }
 
   /// Handle action button press
   Future<void> _handleActionButton(
     String actionId,
+    String? bookingId,
     Map<String, dynamic>? metadata,
     dynamic calendarService,
     dynamic navigationService,
   ) async {
-    debugPrint('[LocalNotification] Handling action: $actionId');
+    debugPrint('[LocalNotification] Handling action: $actionId with bookingId: $bookingId');
 
     switch (actionId) {
       case 'calendar':
@@ -293,19 +282,29 @@ class LocalNotificationService {
         break;
 
       case 'view':
-        // View details - navigate to calendar
-        navigationService?.navigateToCalendar();
+        // View details - navigate to booking details if bookingId exists
+        if (bookingId != null && bookingId.isNotEmpty) {
+          debugPrint('[LocalNotification] Navigating to booking details from view button: $bookingId');
+          navigationService?.navigateToBookingDetails(bookingId);
+        } else {
+          debugPrint('[LocalNotification] No bookingId for view action');
+        }
         break;
 
       case 'reschedule':
-        // Navigate to calendar for rescheduling
-        navigationService?.navigateToCalendar();
-        navigationService?.showSnackBar('Select a new date and time');
+        // Navigate to booking details if exists, otherwise calendar
+        if (bookingId != null && bookingId.isNotEmpty) {
+          navigationService?.navigateToBookingDetails(bookingId);
+        } else {
+          navigationService?.navigateToCalendar();
+        }
         break;
 
       case 'dismiss':
+      case 'test_action_1':
+      case 'test_action_2':
         // Just dismiss, no action
-        debugPrint('[LocalNotification] Notification dismissed');
+        debugPrint('[LocalNotification] Notification dismissed or test action');
         break;
 
       default:

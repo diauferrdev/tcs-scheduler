@@ -13,6 +13,7 @@ import 'screens/activity_logs_screen.dart';
 import 'screens/notifications_screen.dart';
 import 'screens/approvals_screen.dart';
 import 'screens/booking_details_screen.dart';
+import 'screens/my_bookings_screen.dart';
 import 'services/navigation_service.dart';
 
 GoRouter createRouter(AuthProvider authProvider) {
@@ -121,6 +122,14 @@ GoRouter createRouter(AuthProvider authProvider) {
               context,
               state,
               const ApprovalsScreen(),
+            ),
+          ),
+          GoRoute(
+            path: '/my-bookings',
+            pageBuilder: (context, state) => _buildPageWithTransition(
+              context,
+              state,
+              const MyBookingsScreen(skipLayout: true),
             ),
           ),
           GoRoute(

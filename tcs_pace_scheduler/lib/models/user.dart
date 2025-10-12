@@ -1,4 +1,4 @@
-enum UserRole { ADMIN, MANAGER, GUEST }
+enum UserRole { ADMIN, MANAGER, USER }
 
 class User {
   final String id;
@@ -22,7 +22,7 @@ class User {
       name: json['name'] as String,
       role: UserRole.values.firstWhere(
         (e) => e.name == json['role'],
-        orElse: () => UserRole.GUEST,
+        orElse: () => UserRole.USER,
       ),
       createdAt: json['createdAt'] != null
           ? DateTime.parse(json['createdAt'] as String)
@@ -41,5 +41,5 @@ class User {
 
   bool get isAdmin => role == UserRole.ADMIN;
   bool get isManager => role == UserRole.MANAGER;
-  bool get isGuest => role == UserRole.GUEST;
+  bool get isUser => role == UserRole.USER;
 }
