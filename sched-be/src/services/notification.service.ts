@@ -63,6 +63,7 @@ export async function createNotification(data: CreateNotificationInput) {
     data: {
       notificationId: notification.id,
       type: data.type,
+      bookingId: data.bookingId || '', // ✅ CRITICAL: Include bookingId for deep linking
       ...(data.metadata || {}),
     },
   }).catch((error: any) => {
