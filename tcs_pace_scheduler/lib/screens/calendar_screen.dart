@@ -983,9 +983,34 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
                       // Check for pending vs confirmed bookings
                       final hasPendingBookings = dayBookings.any((b) => b.status == BookingStatus.PENDING_APPROVAL);
                       final hasConfirmedBookings = dayBookings.any((b) => b.status == BookingStatus.CONFIRMED);
+                      final activeBookings = dayBookings.where((b) =>
+                        b.status == BookingStatus.CONFIRMED || b.status == BookingStatus.PENDING_APPROVAL
+                      ).toList();
 
                       // Check if day is bookable (past or before minimum 7 business days)
                       final isBookable = _isDateBookable(day);
+
+                      // Calculate period occupation for better color logic
+                      bool morningOccupied = false;
+                      bool afternoonOccupied = false;
+
+                      for (final booking in activeBookings) {
+                        final startHour = int.parse(booking.startTime.split(':')[0]);
+                        final durationHours = {
+                          VisitDuration.ONE_HOUR: 1,
+                          VisitDuration.TWO_HOURS: 2,
+                          VisitDuration.THREE_HOURS: 3,
+                          VisitDuration.FOUR_HOURS: 4,
+                          VisitDuration.FIVE_HOURS: 5,
+                          VisitDuration.SIX_HOURS: 6,
+                        }[booking.duration] ?? 2;
+                        final endHour = startHour + durationHours;
+
+                        if (startHour < 13 && endHour > 9) morningOccupied = true;
+                        if (startHour < 17 && endHour > 13) afternoonOccupied = true;
+                      }
+
+                      final isFull = morningOccupied && afternoonOccupied;
 
                       // Determine indicator color based on booking status and availability
                       // Only show indicators for bookable days
@@ -994,14 +1019,14 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
                         if (hasPendingBookings && !hasConfirmedBookings) {
                           // Only pending bookings - orange
                           indicatorColor = const Color(0xFFF59E0B); // Orange - pending approval
-                        } else if (availableSlots.isEmpty) {
-                          // No slots available (has confirmed bookings filling the day)
+                        } else if (isFull) {
+                          // Both periods occupied - RED (100% full)
                           indicatorColor = const Color(0xFFEF4444); // Red - no slots available
                         } else if (dayBookings.isEmpty) {
                           // No bookings at all
                           indicatorColor = const Color(0xFF10B981); // Green - available, no bookings
                         } else {
-                          // Has confirmed bookings but slots still available
+                          // Has bookings but NOT full - Yellow (partial)
                           indicatorColor = const Color(0xFFFBBF24); // Yellow - partial (has bookings but slots available)
                         }
                       }
@@ -1217,100 +1242,196 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
   }
 
   Widget _buildColorfulEventCard(Booking booking, bool isDark, bool isUserRole) {
-    // Define color categories based on interest area
-    final colorSchemes = {
-      'HEALTH': {'light': const Color(0xFFDCFCE7), 'dark': const Color(0xFF14532D), 'label': 'HEALTH'},
-      'TECHNOLOGY': {'light': const Color(0xFFDDD6FE), 'dark': const Color(0xFF4C1D95), 'label': 'TECH'},
-      'BUSINESS': {'light': const Color(0xFFFED7AA), 'dark': const Color(0xFF7C2D12), 'label': 'BUSINESS'},
-      'EDUCATION': {'light': const Color(0xFFBAE6FD), 'dark': const Color(0xFF075985), 'label': 'EDU'},
-    };
+    // Get status color and label
+    Color statusColor;
+    String statusLabel;
+    bool shouldPulse = false;
 
-    // Match interest area to color scheme (default to first one)
-    final colorKey = colorSchemes.keys.firstWhere(
-      (key) => booking.interestArea?.toUpperCase().contains(key) ?? false,
-      orElse: () => 'TECHNOLOGY',
-    );
-    final colorScheme = colorSchemes[colorKey]!;
+    switch (booking.status) {
+      case BookingStatus.PENDING_APPROVAL:
+        statusColor = const Color(0xFFF59E0B); // Amber/Yellow
+        statusLabel = 'PENDING';
+        shouldPulse = true; // Animate for pending
+        break;
+      case BookingStatus.CONFIRMED:
+        statusColor = const Color(0xFF10B981); // Green
+        statusLabel = 'CONFIRMED';
+        break;
+      case BookingStatus.CANCELLED:
+        statusColor = const Color(0xFFEF4444); // Red
+        statusLabel = 'CANCELLED';
+        break;
+      case BookingStatus.RESCHEDULED:
+        statusColor = const Color(0xFF6B7280); // Gray
+        statusLabel = 'RESCHEDULED';
+        break;
+    }
 
     return InkWell(
       onTap: () => _handleBookingClick(booking),
-      borderRadius: BorderRadius.circular(10),
+      borderRadius: BorderRadius.circular(12),
       child: Container(
         margin: const EdgeInsets.only(bottom: 8),
-        padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: isDark ? colorScheme['dark'] as Color : colorScheme['light'] as Color,
-          borderRadius: BorderRadius.circular(10),
+          color: isDark ? const Color(0xFF18181B) : const Color(0xFFF9FAFB),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
+            width: 1,
+          ),
         ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Company name (hidden for USER) and time
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Text(
-                  isUserRole ? 'Occupied' : booking.companyName,
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: isDark ? Colors.white : Colors.black,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+        child: Row(
+          children: [
+            // Status badge (left border with pulsing animation for PENDING)
+            _StatusBadge(color: statusColor, shouldPulse: shouldPulse),
+
+            // Content
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Header: Company name and time
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            isUserRole ? 'Occupied' : booking.companyName,
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              color: isDark ? Colors.white : Colors.black,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: statusColor.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(4),
+                            border: Border.all(color: statusColor, width: 1),
+                          ),
+                          child: Text(
+                            statusLabel,
+                            style: TextStyle(
+                              fontSize: 9,
+                              fontWeight: FontWeight.w700,
+                              color: statusColor,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    // Time
+                    Text(
+                      booking.startTime,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
+                      ),
+                    ),
+                    // ADMIN/MANAGER only: show interest area and attendees
+                    if (!isUserRole && booking.interestArea != null) ...[
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              booking.interestArea!,
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: isDark ? const Color(0xFF6B7280) : const Color(0xFF9CA3AF),
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          if (booking.expectedAttendees > 0) ...[
+                            const SizedBox(width: 8),
+                            Icon(
+                              Icons.people,
+                              size: 12,
+                              color: isDark ? const Color(0xFF6B7280) : const Color(0xFF9CA3AF),
+                            ),
+                            const SizedBox(width: 2),
+                            Text(
+                              '${booking.expectedAttendees}',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: isDark ? const Color(0xFF6B7280) : const Color(0xFF9CA3AF),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ],
+                  ],
                 ),
               ),
-              const SizedBox(width: 8),
-              Text(
-                booking.startTime,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: isDark ? Colors.white70 : Colors.black54,
-                ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _StatusBadge({required Color color, required bool shouldPulse}) {
+    if (!shouldPulse) {
+      return Container(
+        width: 4,
+        height: 64,
+        decoration: BoxDecoration(
+          color: color,
+          borderRadius: const BorderRadius.only(
+            topLeft: Radius.circular(12),
+            bottomLeft: Radius.circular(12),
+          ),
+        ),
+      );
+    }
+
+    // Pulsing animation for PENDING status
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0.3, end: 1.0),
+      duration: const Duration(milliseconds: 1000),
+      curve: Curves.easeInOut,
+      builder: (context, value, child) {
+        return Container(
+          width: 4,
+          height: 64,
+          decoration: BoxDecoration(
+            color: color.withOpacity(value),
+            borderRadius: const BorderRadius.only(
+              topLeft: Radius.circular(12),
+              bottomLeft: Radius.circular(12),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: color.withOpacity(value * 0.5),
+                blurRadius: 8 * value,
+                spreadRadius: 2 * value,
               ),
             ],
           ),
-          // ADMIN/MANAGER only: show interest area and attendees
-          if (!isUserRole) ...[
-            const SizedBox(height: 4),
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    booking.interestArea ?? '',
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: isDark ? Colors.white70 : Colors.black54,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                if (booking.expectedAttendees > 0) ...[
-                  const SizedBox(width: 8),
-                  Icon(
-                    Icons.people,
-                    size: 12,
-                    color: isDark ? Colors.white60 : Colors.black45,
-                  ),
-                  const SizedBox(width: 2),
-                  Text(
-                    '${booking.expectedAttendees}',
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: isDark ? Colors.white60 : Colors.black45,
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ],
-        ],
-      ),
-      ),
+        );
+      },
+      onEnd: () {
+        // Restart animation by forcing rebuild
+        if (mounted) {
+          Future.delayed(const Duration(milliseconds: 100), () {
+            if (mounted) setState(() {});
+          });
+        }
+      },
     );
   }
 
