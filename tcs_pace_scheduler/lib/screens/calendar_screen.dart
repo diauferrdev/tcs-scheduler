@@ -113,6 +113,9 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
         _error = null;
       });
 
+      // Use different endpoint based on user role
+      // ADMIN/MANAGER see all bookings including PENDING_APPROVAL (intentions)
+      // USER sees only CONFIRMED bookings
       final response = await _apiService.getBookings();
       final bookingsData = response['bookings'] as List;
 
@@ -464,65 +467,61 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
   }
 
   List<AvailableTimeSlot> _calculateAvailableSlotsFromBookings(DateTime date) {
-    // Get ONLY CONFIRMED bookings for availability calculation
+    // Get CONFIRMED and PENDING_APPROVAL bookings for availability calculation
+    // PENDING_APPROVAL are "intentions" that must be counted to block slots
     final dateStr = DateFormat('yyyy-MM-dd').format(date);
-    final confirmedBookings = _bookings.where((b) {
+    final activeBookings = _bookings.where((b) {
       final bookingDate = DateFormat('yyyy-MM-dd').format(b.date);
-      return bookingDate == dateStr && b.status == BookingStatus.CONFIRMED;
+      return bookingDate == dateStr &&
+             (b.status == BookingStatus.CONFIRMED || b.status == BookingStatus.PENDING_APPROVAL);
     }).toList();
 
-    // If no CONFIRMED bookings, assume all slots available (optimistic)
-    if (confirmedBookings.isEmpty) {
+    // If no active bookings, assume all slots available (optimistic)
+    if (activeBookings.isEmpty) {
       return [
         AvailableTimeSlot(time: '09:00', maxDuration: 4),
+        AvailableTimeSlot(time: '13:00', maxDuration: 4),
       ];
     }
 
-    // Calculate available slots based on CONFIRMED bookings only
-    // Work hours: 9:00 - 17:00 (8 hours)
+    // Use period-based logic (MORNING: 9-13, AFTERNOON: 13-17)
+    // Check which periods are occupied
+    bool morningOccupied = false;
+    bool afternoonOccupied = false;
+
+    for (final booking in activeBookings) {
+      final startHour = int.parse(booking.startTime.split(':')[0]);
+      final durationHours = {
+        VisitDuration.ONE_HOUR: 1,
+        VisitDuration.TWO_HOURS: 2,
+        VisitDuration.THREE_HOURS: 3,
+        VisitDuration.FOUR_HOURS: 4,
+        VisitDuration.FIVE_HOURS: 5,
+        VisitDuration.SIX_HOURS: 6,
+      }[booking.duration] ?? 2;
+
+      final endHour = startHour + durationHours;
+
+      // Check if booking occupies morning period (9-13)
+      if (startHour < 13 && endHour > 9) {
+        morningOccupied = true;
+      }
+
+      // Check if booking occupies afternoon period (13-17)
+      if (startHour < 17 && endHour > 13) {
+        afternoonOccupied = true;
+      }
+    }
+
+    // Return available periods
     final availableSlots = <AvailableTimeSlot>[];
 
-    for (int hour = 9; hour <= 16; hour++) {
-      final timeStr = '${hour.toString().padLeft(2, '0')}:00';
-      final startMinutes = (hour - 9) * 60;
+    if (!morningOccupied) {
+      availableSlots.add(AvailableTimeSlot(time: '09:00', maxDuration: 4));
+    }
 
-      // Calculate max duration from this time (up to 4 hours or until 17:00)
-      int maxDuration = (17 - hour).clamp(1, 4);
-
-      // Check conflicts with CONFIRMED bookings only
-      bool hasConflict = false;
-      for (final booking in confirmedBookings) {
-        final bookingStartParts = booking.startTime.split(':');
-        final bookingStartHour = int.parse(bookingStartParts[0]);
-        final bookingStartMinutes = (bookingStartHour - 9) * 60;
-
-        final bookingDurationHours = {
-          VisitDuration.ONE_HOUR: 1,
-          VisitDuration.TWO_HOURS: 2,
-          VisitDuration.THREE_HOURS: 3,
-          VisitDuration.FOUR_HOURS: 4,
-        }[booking.duration] ?? 1;
-
-        final bookingEndMinutes = bookingStartMinutes + (bookingDurationHours * 60);
-
-        // Check if this slot conflicts with the booking
-        // A slot conflicts if it starts before the booking ends
-        if (startMinutes < bookingEndMinutes && startMinutes >= bookingStartMinutes) {
-          hasConflict = true;
-          break;
-        }
-
-        // Reduce maxDuration if it would overlap with this booking
-        final slotEndMinutes = startMinutes + (maxDuration * 60);
-        if (startMinutes < bookingStartMinutes && slotEndMinutes > bookingStartMinutes) {
-          final availableMinutes = bookingStartMinutes - startMinutes;
-          maxDuration = (availableMinutes / 60).floor().clamp(0, maxDuration);
-        }
-      }
-
-      if (!hasConflict && maxDuration > 0) {
-        availableSlots.add(AvailableTimeSlot(time: timeStr, maxDuration: maxDuration));
-      }
+    if (!afternoonOccupied) {
+      availableSlots.add(AvailableTimeSlot(time: '13:00', maxDuration: 4));
     }
 
     return availableSlots;
@@ -985,9 +984,13 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
                       final hasPendingBookings = dayBookings.any((b) => b.status == BookingStatus.PENDING_APPROVAL);
                       final hasConfirmedBookings = dayBookings.any((b) => b.status == BookingStatus.CONFIRMED);
 
+                      // Check if day is bookable (past or before minimum 7 business days)
+                      final isBookable = _isDateBookable(day);
+
                       // Determine indicator color based on booking status and availability
+                      // Only show indicators for bookable days
                       Color? indicatorColor;
-                      if (!isPast) {
+                      if (isBookable) {
                         if (hasPendingBookings && !hasConfirmedBookings) {
                           // Only pending bookings - orange
                           indicatorColor = const Color(0xFFF59E0B); // Orange - pending approval
@@ -1005,11 +1008,11 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
 
                       return Expanded(
                         child: GestureDetector(
-                          onTap: isPast ? null : () {
+                          onTap: isBookable ? () {
                             setState(() {
                               _selectedDate = day;
                             });
-                          },
+                          } : null,
                           child: Container(
                             margin: const EdgeInsets.all(1),
                             decoration: BoxDecoration(
@@ -1030,8 +1033,8 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
                                     style: TextStyle(
                                       fontSize: 13,
                                       fontWeight: isToday || isSelected ? FontWeight.bold : FontWeight.normal,
-                                      color: isPast
-                                          ? const Color(0xFF9CA3AF)
+                                      color: !isBookable
+                                          ? const Color(0xFF9CA3AF) // Disabled (past or before 7 business days)
                                           : isSelected
                                             ? (isDark ? Colors.black : Colors.white)
                                             : isDark
@@ -1039,7 +1042,7 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
                                                 : Colors.black,
                                     ),
                                   ),
-                                  if (indicatorColor != null)
+                                  if (indicatorColor != null && isBookable)
                                     Container(
                                       width: hasPendingBookings && !hasConfirmedBookings ? 6 : 4,
                                       height: hasPendingBookings && !hasConfirmedBookings ? 6 : 4,
@@ -1249,7 +1252,7 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
             children: [
               Expanded(
                 child: Text(
-                  isUserRole ? 'Office Visit' : booking.companyName,
+                  isUserRole ? 'Occupied' : booking.companyName,
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.bold,
@@ -2351,7 +2354,7 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
                     children: [
                       Expanded(
                         child: Text(
-                          isUserRole ? 'Office Visit' : booking.companyName,
+                          isUserRole ? 'Occupied' : booking.companyName,
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w600,

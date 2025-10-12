@@ -340,6 +340,12 @@ class ApiService {
     return await get('/api/bookings/availability$query');
   }
 
+  /// Get bookings availability for Admin/Manager (includes PENDING_APPROVAL as intentions)
+  Future<dynamic> getBookingsAvailabilityForAdmins(String? month) async {
+    final query = month != null ? '?month=$month' : '';
+    return await get('/api/bookings/availability-admin$query');
+  }
+
   Future<Map<String, dynamic>> checkAvailability(String date, {String? visitType}) async {
     final query = visitType != null ? '?visitType=$visitType' : '';
     return await get('/api/bookings/availability/$date$query');
