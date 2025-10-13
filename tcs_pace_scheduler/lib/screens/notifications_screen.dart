@@ -116,23 +116,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   }
 
   Future<void> _handleNotificationTap(AppNotification notification) async {
-    // Mark as read first
+    // Just mark as read - don't navigate
     if (!notification.isRead) {
       await _markAsRead(notification);
-    }
-
-    // Navigate based on notification type and data
-    if (!mounted) return;
-
-    if (notification.bookingId != null) {
-      // Navigate to booking details (will open drawer on mobile/web, page on desktop)
-      await _navigateToBooking(notification.bookingId!);
-    } else if (notification.actionUrl != null) {
-      // Use custom action URL if provided
-      await _navigateToUrl(notification.actionUrl!);
-    } else {
-      // Default action based on type
-      await _navigateBasedOnType(notification.type);
     }
   }
 
@@ -979,23 +965,9 @@ class _NotificationsDrawerState extends State<NotificationsDrawer> {
   }
 
   Future<void> _handleNotificationTap(AppNotification notification) async {
-    // Mark as read first
+    // Just mark as read - don't navigate
     if (!notification.isRead) {
       await _markAsRead(notification);
-    }
-
-    // Navigate based on notification type and data
-    if (!mounted) return;
-
-    if (notification.bookingId != null) {
-      // Navigate to booking details (will open drawer on mobile/web, page on desktop)
-      await _navigateToBooking(notification.bookingId!);
-    } else if (notification.actionUrl != null) {
-      // Use custom action URL if provided
-      await _navigateToUrl(notification.actionUrl!);
-    } else {
-      // Default action based on type
-      await _navigateBasedOnType(notification.type);
     }
   }
 
