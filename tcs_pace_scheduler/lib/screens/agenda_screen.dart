@@ -443,48 +443,46 @@ class _AgendaScreenState extends State<AgendaScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Timeline line on the left
-          SizedBox(
-            width: 60,
-            child: Column(
-              children: [
-                // Line above badge (only if not first day)
-                if (!isFirst)
-                  Container(
-                    width: 3,
-                    height: 20,
-                    color: isDark ? const Color(0xFF27272A) : const Color(0xFFE2E8F0),
-                  ),
-                // Weekday badge
+          Column(
+            children: [
+              // Line above badge (only if not first day)
+              if (!isFirst)
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
+                  width: 3,
+                  height: 20,
+                  color: isDark ? const Color(0xFF27272A) : const Color(0xFFE2E8F0),
+                ),
+              // Weekday badge
+              Container(
+                width: 60,
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: isToday
+                      ? (isDark ? Colors.blue[700] : Colors.blue[600])
+                      : (isDark ? const Color(0xFF27272A) : const Color(0xFFF1F5F9)),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  DateFormat('EEE').format(date).toUpperCase(),
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 0.5,
                     color: isToday
-                        ? (isDark ? Colors.blue[700] : Colors.blue[600])
-                        : (isDark ? const Color(0xFF27272A) : const Color(0xFFF1F5F9)),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    DateFormat('EEE').format(date).toUpperCase(),
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 0.5,
-                      color: isToday
-                          ? Colors.white
-                          : (isDark ? Colors.white70 : Colors.black54),
-                    ),
+                        ? Colors.white
+                        : (isDark ? Colors.white70 : Colors.black54),
                   ),
                 ),
-                // Line below badge (continues to next day, only if not last)
-                if (!isLast)
-                  Expanded(
-                    child: Container(
-                      width: 3,
-                      color: isDark ? const Color(0xFF27272A) : const Color(0xFFE2E8F0),
-                    ),
-                  ),
-              ],
-            ),
+              ),
+              // Line below badge (continues to next day, only if not last)
+              if (!isLast)
+                Container(
+                  width: 3,
+                  height: 100,
+                  color: isDark ? const Color(0xFF27272A) : const Color(0xFFE2E8F0),
+                ),
+            ],
           ),
           const SizedBox(width: 16),
 
