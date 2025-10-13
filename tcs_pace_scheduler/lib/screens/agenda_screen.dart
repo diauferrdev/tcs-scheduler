@@ -677,7 +677,7 @@ class _AgendaScreenState extends State<AgendaScreen> {
       _isUpdatingState = false;
       if (mounted) {
         setState(() => _isNavigating = false);
-        ScaffoldMessenger.of(context).showSnackBar(
+        ScaffoldMessenger.of(this.context).showSnackBar(
           SnackBar(
             content: Text('Error navigating to today: $e'),
             backgroundColor: Colors.red,
