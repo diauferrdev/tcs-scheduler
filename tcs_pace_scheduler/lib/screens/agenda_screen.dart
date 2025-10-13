@@ -424,102 +424,135 @@ class _AgendaScreenState extends State<AgendaScreen> {
         itemBuilder: (context, index) {
           final day = finalDays[index];
           final dayBookings = groupedBookings[day] ?? [];
-          return _buildDayCard(day, dayBookings, isDark);
+          final isFirst = index == 0;
+          final isLast = index == finalDays.length - 1;
+          return _buildDayCard(day, dayBookings, isDark, isFirst, isLast);
         },
       ),
     );
   }
 
-  Widget _buildDayCard(DateTime date, List<Booking> bookings, bool isDark) {
+  Widget _buildDayCard(DateTime date, List<Booking> bookings, bool isDark, bool isFirst, bool isLast) {
     final today = DateTime.now();
     final isToday = _isSameDay(date, today);
     final isPast = date.isBefore(DateTime(today.year, today.month, today.day));
 
     return Container(
       margin: const EdgeInsets.only(bottom: 24),
-      child: Column(
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Date header
-          Row(
-            children: [
-              // Weekday
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: isToday
-                      ? (isDark ? Colors.blue[700] : Colors.blue[600])
-                      : (isDark ? const Color(0xFF27272A) : const Color(0xFFF1F5F9)),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  DateFormat('EEE').format(date).toUpperCase(),
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 0.5,
+          // Timeline line on the left
+          SizedBox(
+            width: 60,
+            child: Column(
+              children: [
+                // Line above badge (only if not first day)
+                if (!isFirst)
+                  Container(
+                    width: 3,
+                    height: 20,
+                    color: isDark ? const Color(0xFF27272A) : const Color(0xFFE2E8F0),
+                  ),
+                // Weekday badge
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
                     color: isToday
-                        ? Colors.white
-                        : (isDark ? Colors.white70 : Colors.black54),
+                        ? (isDark ? Colors.blue[700] : Colors.blue[600])
+                        : (isDark ? const Color(0xFF27272A) : const Color(0xFFF1F5F9)),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    DateFormat('EEE').format(date).toUpperCase(),
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 0.5,
+                      color: isToday
+                          ? Colors.white
+                          : (isDark ? Colors.white70 : Colors.black54),
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(width: 12),
-
-              // Day number
-              Text(
-                date.day.toString(),
-                style: TextStyle(
-                  fontSize: 32,
-                  fontWeight: FontWeight.bold,
-                  color: isToday
-                      ? (isDark ? Colors.blue[400] : Colors.blue[600])
-                      : (isDark ? Colors.white : Colors.black87),
-                ),
-              ),
-              const SizedBox(width: 8),
-
-              // Full date
-              Text(
-                DateFormat('MMMM yyyy').format(date),
-                style: TextStyle(
-                  fontSize: 14,
-                  color: isDark ? Colors.white60 : Colors.black45,
-                ),
-              ),
-
-              const Spacer(),
-
-              // Badge with event count
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: isToday
-                      ? (isDark ? Colors.blue[700]!.withOpacity(0.3) : Colors.blue[100])
-                      : (isDark ? const Color(0xFF27272A) : const Color(0xFFF1F5F9)),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  '${bookings.length} event${bookings.length > 1 ? 's' : ''}',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: isToday
-                        ? (isDark ? Colors.blue[300] : Colors.blue[700])
-                        : (isDark ? Colors.white60 : Colors.black54),
+                // Line below badge (continues to next day, only if not last)
+                if (!isLast)
+                  Expanded(
+                    child: Container(
+                      width: 3,
+                      color: isDark ? const Color(0xFF27272A) : const Color(0xFFE2E8F0),
+                    ),
                   ),
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
+          const SizedBox(width: 16),
 
-          const SizedBox(height: 16),
+          // Day content
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Date header
+                Row(
+                  children: [
+                    // Day number
+                    Text(
+                      date.day.toString(),
+                      style: TextStyle(
+                        fontSize: 32,
+                        fontWeight: FontWeight.bold,
+                        color: isToday
+                            ? (isDark ? Colors.blue[400] : Colors.blue[600])
+                            : (isDark ? Colors.white : Colors.black87),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
 
-          // Bookings list
-          ...bookings.asMap().entries.map((entry) {
-            final booking = entry.value;
-            return _buildBookingCard(booking, isDark, isPast);
-          }),
+                    // Full date
+                    Text(
+                      DateFormat('MMMM yyyy').format(date),
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: isDark ? Colors.white60 : Colors.black45,
+                      ),
+                    ),
+
+                    const Spacer(),
+
+                    // Badge with event count
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: isToday
+                            ? (isDark ? Colors.blue[700]!.withOpacity(0.3) : Colors.blue[100])
+                            : (isDark ? const Color(0xFF27272A) : const Color(0xFFF1F5F9)),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        '${bookings.length} event${bookings.length > 1 ? 's' : ''}',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: isToday
+                              ? (isDark ? Colors.blue[300] : Colors.blue[700])
+                              : (isDark ? Colors.white60 : Colors.black54),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 16),
+
+                // Bookings list
+                ...bookings.asMap().entries.map((entry) {
+                  final booking = entry.value;
+                  return _buildBookingCard(booking, isDark, isPast);
+                }),
+              ],
+            ),
+          ),
         ],
       ),
     );
