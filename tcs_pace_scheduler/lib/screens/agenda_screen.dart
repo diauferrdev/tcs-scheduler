@@ -496,15 +496,25 @@ class _AgendaScreenState extends State<AgendaScreen> {
                   // Date header - aligned with badge
                   Row(
                     children: [
-                      // Full date
+                      // Day number (large)
                       Text(
-                        DateFormat('d MMMM yyyy').format(date),
+                        date.day.toString(),
                         style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
+                          fontSize: 32,
+                          fontWeight: FontWeight.bold,
                           color: isToday
                               ? (isDark ? Colors.blue[400] : Colors.blue[600])
                               : (isDark ? Colors.white : Colors.black87),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+
+                      // Month and year only (without repeating day)
+                      Text(
+                        DateFormat('MMMM yyyy').format(date),
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: isDark ? Colors.white60 : Colors.black45,
                         ),
                       ),
 
