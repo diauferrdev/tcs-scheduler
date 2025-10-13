@@ -8,13 +8,13 @@ import '../models/booking.dart';
 import '../models/user.dart';
 import '../providers/auth_provider.dart';
 
-/// Professional Agenda Screen - Timeline view of confirmed bookings
+/// Modern Agenda Screen - Timeline view of confirmed bookings
 ///
-/// Architecture:
-/// - Loads 3 months at a time (previous, current, next)
-/// - Infinite scroll in both directions
-/// - Simple state management without complex debouncing
-/// - Always functional "Today" button
+/// Simple architecture:
+/// - Shows only days WITH bookings (no empty days)
+/// - Month-by-month navigation with Previous/Next buttons
+/// - "Today" button to jump to current month
+/// - No infinite scroll - full control of data display
 class AgendaScreen extends StatefulWidget {
   const AgendaScreen({super.key});
 
@@ -26,20 +26,14 @@ class _AgendaScreenState extends State<AgendaScreen> {
   final ApiService _apiService = ApiService();
   final RealtimeService _realtimeService = RealtimeService();
   final NavigationService _navigationService = NavigationService();
-  final ScrollController _scrollController = ScrollController();
 
   // State
   List<Booking> _bookings = [];
   bool _isLoading = true;
-  bool _isLoadingMore = false;
   String? _error;
 
-  // Date range currently loaded
-  DateTime _startMonth = DateTime.now();
-  DateTime _endMonth = DateTime.now();
-
-  // Current display month (for header)
-  DateTime _displayMonth = DateTime.now();
+  // Current month being displayed
+  DateTime _currentMonth = DateTime.now();
 
   // Keep listener references for cleanup
   late final Function(Map<String, dynamic>) _onBookingCreatedListener;
@@ -50,14 +44,12 @@ class _AgendaScreenState extends State<AgendaScreen> {
   @override
   void initState() {
     super.initState();
-    _scrollController.addListener(_onScroll);
     _setupRealtimeListeners();
-    _loadInitialData();
+    _loadMonth(_currentMonth);
   }
 
   @override
   void dispose() {
-    _scrollController.dispose();
     _clearRealtimeListeners();
     super.dispose();
   }
@@ -110,15 +102,19 @@ class _AgendaScreenState extends State<AgendaScreen> {
         return;
       }
 
-      setState(() {
-        final index = _bookings.indexWhere((b) => b.id == booking.id);
-        if (index >= 0) {
-          _bookings[index] = booking;
-        } else {
-          _bookings.add(booking);
-          _bookings.sort((a, b) => a.date.compareTo(b.date));
-        }
-      });
+      // Only update if booking is in current month
+      if (booking.date.year == _currentMonth.year &&
+          booking.date.month == _currentMonth.month) {
+        setState(() {
+          final index = _bookings.indexWhere((b) => b.id == booking.id);
+          if (index >= 0) {
+            _bookings[index] = booking;
+          } else {
+            _bookings.add(booking);
+            _bookings.sort((a, b) => a.date.compareTo(b.date));
+          }
+        });
+      }
     } catch (e) {
       debugPrint('[Agenda] Error handling realtime update: $e');
     }
@@ -131,44 +127,42 @@ class _AgendaScreenState extends State<AgendaScreen> {
     });
   }
 
-  /// Load initial 3 months of data
-  Future<void> _loadInitialData() async {
+  /// Load bookings for a specific month
+  Future<void> _loadMonth(DateTime month) async {
     if (!mounted) return;
 
     setState(() {
       _isLoading = true;
       _error = null;
+      _currentMonth = DateTime(month.year, month.month);
     });
 
     try {
-      final now = DateTime.now();
-      final startMonth = DateTime(now.year, now.month - 1, 1);
-      final endMonth = DateTime(now.year, now.month + 2, 0);
+      final monthStr = DateFormat('yyyy-MM').format(month);
+      debugPrint('[Agenda] Loading month: $monthStr');
 
-      final bookings = await _loadBookingsInRange(startMonth, endMonth);
+      final response = await _apiService.getConfirmedBookings(month: monthStr);
+      final bookings = (response['bookings'] as List)
+          .map((b) => Booking.fromJson(b))
+          .toList();
+
+      // Sort by date and time
+      bookings.sort((a, b) {
+        final dateCompare = a.date.compareTo(b.date);
+        if (dateCompare != 0) return dateCompare;
+        return a.startTime.compareTo(b.startTime);
+      });
 
       if (!mounted) return;
 
       setState(() {
         _bookings = bookings;
-        _startMonth = startMonth;
-        _endMonth = endMonth;
-        _displayMonth = DateTime(now.year, now.month);
         _isLoading = false;
       });
 
-      debugPrint('[Agenda] Loaded ${bookings.length} bookings. Now scrolling to today...');
-
-      // Scroll to today centered in viewport
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        Future.delayed(const Duration(milliseconds: 500), () {
-          if (mounted && _scrollController.hasClients) {
-            _scrollToTodayCentered(animated: false);
-          }
-        });
-      });
+      debugPrint('[Agenda] Loaded ${bookings.length} bookings for $monthStr');
     } catch (e) {
-      debugPrint('[Agenda] Error loading initial data: $e');
+      debugPrint('[Agenda] Error loading month: $e');
       if (mounted) {
         setState(() {
           _error = e.toString();
@@ -178,229 +172,21 @@ class _AgendaScreenState extends State<AgendaScreen> {
     }
   }
 
-  /// Load bookings in a date range
-  Future<List<Booking>> _loadBookingsInRange(DateTime start, DateTime end) async {
-    final List<Booking> allBookings = [];
-
-    // Load each month in the range
-    var current = start;
-    while (current.isBefore(end) || current.isAtSameMomentAs(end)) {
-      final monthStr = DateFormat('yyyy-MM').format(current);
-      try {
-        final response = await _apiService.getConfirmedBookings(month: monthStr);
-        final monthBookings = (response['bookings'] as List)
-            .map((b) => Booking.fromJson(b))
-            .toList();
-        allBookings.addAll(monthBookings);
-      } catch (e) {
-        debugPrint('[Agenda] Error loading month $monthStr: $e');
-      }
-
-      // Move to next month
-      current = DateTime(current.year, current.month + 1, 1);
-    }
-
-    // Sort by date
-    allBookings.sort((a, b) => a.date.compareTo(b.date));
-    return allBookings;
+  /// Navigate to previous month
+  void _goToPreviousMonth() {
+    final prevMonth = DateTime(_currentMonth.year, _currentMonth.month - 1);
+    _loadMonth(prevMonth);
   }
 
-  /// Handle scroll events
-  void _onScroll() {
-    if (!_scrollController.hasClients || _isLoadingMore) return;
-
-    final position = _scrollController.position;
-
-    // Load previous month when near top
-    if (position.pixels < 500) {
-      _loadPreviousMonth();
-    }
-
-    // Load next month when near bottom
-    if (position.pixels > position.maxScrollExtent - 500) {
-      _loadNextMonth();
-    }
-
-    // Update display month based on scroll position
-    _updateDisplayMonth();
+  /// Navigate to next month
+  void _goToNextMonth() {
+    final nextMonth = DateTime(_currentMonth.year, _currentMonth.month + 1);
+    _loadMonth(nextMonth);
   }
 
-  /// Update the displayed month in header based on scroll position
-  void _updateDisplayMonth() {
-    // Find the booking closest to the center of the viewport
-    final viewportHeight = MediaQuery.of(context).size.height;
-    final centerY = _scrollController.offset + viewportHeight / 2;
-
-    // Simple estimation: each day takes ~80px
-    final estimatedDayIndex = (centerY / 80).floor();
-
-    if (estimatedDayIndex >= 0 && estimatedDayIndex < _bookings.length) {
-      final centerDate = _bookings[estimatedDayIndex].date;
-      final newDisplayMonth = DateTime(centerDate.year, centerDate.month);
-
-      if (newDisplayMonth != _displayMonth) {
-        setState(() {
-          _displayMonth = newDisplayMonth;
-        });
-      }
-    }
-  }
-
-  /// Load previous month
-  Future<void> _loadPreviousMonth() async {
-    if (_isLoadingMore) return;
-
-    setState(() => _isLoadingMore = true);
-
-    try {
-      final prevMonth = DateTime(_startMonth.year, _startMonth.month - 1, 1);
-      final prevMonthEnd = DateTime(_startMonth.year, _startMonth.month, 0);
-
-      final bookings = await _loadBookingsInRange(prevMonth, prevMonthEnd);
-
-      if (!mounted) return;
-
-      setState(() {
-        _bookings = [...bookings, ..._bookings];
-        _startMonth = prevMonth;
-        _isLoadingMore = false;
-      });
-    } catch (e) {
-      debugPrint('[Agenda] Error loading previous month: $e');
-      if (mounted) {
-        setState(() => _isLoadingMore = false);
-      }
-    }
-  }
-
-  /// Load next month
-  Future<void> _loadNextMonth() async {
-    if (_isLoadingMore) return;
-
-    setState(() => _isLoadingMore = true);
-
-    try {
-      final nextMonth = DateTime(_endMonth.year, _endMonth.month + 1, 1);
-      final nextMonthEnd = DateTime(_endMonth.year, _endMonth.month + 2, 0);
-
-      final bookings = await _loadBookingsInRange(nextMonth, nextMonthEnd);
-
-      if (!mounted) return;
-
-      setState(() {
-        _bookings = [..._bookings, ...bookings];
-        _endMonth = nextMonthEnd;
-        _isLoadingMore = false;
-      });
-    } catch (e) {
-      debugPrint('[Agenda] Error loading next month: $e');
-      if (mounted) {
-        setState(() => _isLoadingMore = false);
-      }
-    }
-  }
-
-  /// Navigate to today
-  Future<void> _goToToday() async {
-    final today = DateTime.now();
-    final todayNormalized = DateTime(today.year, today.month, today.day);
-
-    // Check if today is in the loaded range
-    final isTodayLoaded = _bookings.any((b) => _isSameDay(b.date, todayNormalized));
-
-    if (isTodayLoaded) {
-      // Just scroll to it
-      _scrollToToday(animated: true);
-    } else {
-      // Reload centered on today
-      setState(() {
-        _isLoading = true;
-        _displayMonth = DateTime(today.year, today.month);
-      });
-
-      try {
-        final startMonth = DateTime(today.year, today.month - 1, 1);
-        final endMonth = DateTime(today.year, today.month + 2, 0);
-
-        final bookings = await _loadBookingsInRange(startMonth, endMonth);
-
-        if (!mounted) return;
-
-        setState(() {
-          _bookings = bookings;
-          _startMonth = startMonth;
-          _endMonth = endMonth;
-          _isLoading = false;
-        });
-
-        // Scroll to today
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          Future.delayed(const Duration(milliseconds: 300), () {
-            if (mounted) _scrollToToday(animated: true);
-          });
-        });
-      } catch (e) {
-        debugPrint('[Agenda] Error navigating to today: $e');
-        if (mounted) {
-          setState(() => _isLoading = false);
-        }
-      }
-    }
-  }
-
-  /// Scroll to today's position (centered in viewport)
-  void _scrollToTodayCentered({bool animated = true}) {
-    if (!_scrollController.hasClients) return;
-
-    final today = DateTime.now();
-    final todayNormalized = DateTime(today.year, today.month, today.day);
-
-    // Calculate number of days from start to today
-    final daysSinceStart = todayNormalized.difference(_startMonth).inDays;
-
-    if (daysSinceStart >= 0 && todayNormalized.isBefore(_endMonth.add(const Duration(days: 1)))) {
-      // Each day card is approximately 70px tall
-      final viewportHeight = MediaQuery.of(context).size.height;
-      final cardHeight = 70.0;
-
-      // Calculate offset to center today in viewport
-      final targetOffset = (daysSinceStart * cardHeight) - (viewportHeight / 2) + (cardHeight / 2);
-      final clampedOffset = targetOffset.clamp(0.0, _scrollController.position.maxScrollExtent);
-
-      debugPrint('[Agenda] Scrolling to today (days from start: $daysSinceStart, offset: $clampedOffset)');
-
-      if (animated) {
-        _scrollController.animateTo(
-          clampedOffset,
-          duration: const Duration(milliseconds: 500),
-          curve: Curves.easeInOutCubic,
-        );
-      } else {
-        _scrollController.jumpTo(clampedOffset);
-      }
-    } else {
-      debugPrint('[Agenda] Today not in loaded range');
-    }
-  }
-
-  /// Scroll to today's position (legacy method for button)
-  void _scrollToToday({bool animated = true}) {
-    _scrollToTodayCentered(animated: animated);
-  }
-
-  /// Pull to refresh
-  Future<void> _refresh() async {
-    try {
-      final bookings = await _loadBookingsInRange(_startMonth, _endMonth);
-
-      if (!mounted) return;
-
-      setState(() {
-        _bookings = bookings;
-      });
-    } catch (e) {
-      debugPrint('[Agenda] Error refreshing: $e');
-    }
+  /// Navigate to current month
+  void _goToToday() {
+    _loadMonth(DateTime.now());
   }
 
   /// Handle booking tap
@@ -425,40 +211,20 @@ class _AgendaScreenState extends State<AgendaScreen> {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return Stack(
+    return Column(
       children: [
-        Column(
-          children: [
-            _buildHeader(isDark),
-            Expanded(
-              child: _buildBody(isDark),
-            ),
-          ],
-        ),
-
-        // Floating Today button
-        Positioned(
-          bottom: 24,
-          right: 24,
-          child: FloatingActionButton.extended(
-            onPressed: _goToToday,
-            backgroundColor: isDark ? Colors.white : Colors.black,
-            foregroundColor: isDark ? Colors.black : Colors.white,
-            icon: const Icon(Icons.today, size: 20),
-            label: const Text(
-              'Today',
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
+        _buildHeader(isDark),
+        Expanded(
+          child: _buildBody(isDark),
         ),
       ],
     );
   }
 
   Widget _buildHeader(bool isDark) {
+    final isCurrentMonth = _currentMonth.year == DateTime.now().year &&
+        _currentMonth.month == DateTime.now().month;
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -469,24 +235,69 @@ class _AgendaScreenState extends State<AgendaScreen> {
           ),
         ),
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Title
           Text(
             'Agenda',
             style: TextStyle(
-              fontSize: 20,
+              fontSize: 24,
               fontWeight: FontWeight.bold,
               color: isDark ? Colors.white : Colors.black,
             ),
           ),
-          Text(
-            DateFormat('MMMM yyyy').format(_displayMonth),
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: isDark ? Colors.white70 : Colors.black87,
-            ),
+          const SizedBox(height: 16),
+
+          // Month navigation
+          Row(
+            children: [
+              // Previous month button
+              IconButton(
+                onPressed: _goToPreviousMonth,
+                icon: const Icon(Icons.chevron_left),
+                color: isDark ? Colors.white : Colors.black,
+                tooltip: 'Previous month',
+              ),
+
+              // Current month display
+              Expanded(
+                child: Center(
+                  child: Text(
+                    DateFormat('MMMM yyyy').format(_currentMonth),
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      color: isDark ? Colors.white : Colors.black,
+                    ),
+                  ),
+                ),
+              ),
+
+              // Next month button
+              IconButton(
+                onPressed: _goToNextMonth,
+                icon: const Icon(Icons.chevron_right),
+                color: isDark ? Colors.white : Colors.black,
+                tooltip: 'Next month',
+              ),
+
+              const SizedBox(width: 8),
+
+              // Today button
+              OutlinedButton.icon(
+                onPressed: isCurrentMonth ? null : _goToToday,
+                icon: const Icon(Icons.today, size: 16),
+                label: const Text('Today'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: isDark ? Colors.white : Colors.black,
+                  side: BorderSide(
+                    color: isDark ? Colors.white.withOpacity(0.3) : Colors.black.withOpacity(0.3),
+                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -495,7 +306,11 @@ class _AgendaScreenState extends State<AgendaScreen> {
 
   Widget _buildBody(bool isDark) {
     if (_isLoading) {
-      return const Center(child: CircularProgressIndicator());
+      return Center(
+        child: CircularProgressIndicator(
+          color: isDark ? Colors.white : Colors.black,
+        ),
+      );
     }
 
     if (_error != null) {
@@ -527,7 +342,7 @@ class _AgendaScreenState extends State<AgendaScreen> {
             ),
             const SizedBox(height: 24),
             ElevatedButton(
-              onPressed: _loadInitialData,
+              onPressed: () => _loadMonth(_currentMonth),
               style: ElevatedButton.styleFrom(
                 backgroundColor: isDark ? Colors.white : Colors.black,
                 foregroundColor: isDark ? Colors.black : Colors.white,
@@ -545,13 +360,13 @@ class _AgendaScreenState extends State<AgendaScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
-              Icons.event_note,
+              Icons.event_available,
               size: 64,
               color: isDark ? Colors.grey[600] : Colors.grey[400],
             ),
             const SizedBox(height: 16),
             Text(
-              'No appointments',
+              'No events this month',
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w600,
@@ -560,136 +375,278 @@ class _AgendaScreenState extends State<AgendaScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              'Confirmed bookings will appear here',
+              'Confirmed bookings for ${DateFormat('MMMM').format(_currentMonth)} will appear here',
               style: TextStyle(
                 color: isDark ? Colors.grey[400] : Colors.grey[600],
               ),
+              textAlign: TextAlign.center,
             ),
           ],
         ),
       );
     }
 
+    // Group bookings by day
+    final groupedBookings = <DateTime, List<Booking>>{};
+    for (final booking in _bookings) {
+      final day = DateTime(booking.date.year, booking.date.month, booking.date.day);
+      groupedBookings.putIfAbsent(day, () => []);
+      groupedBookings[day]!.add(booking);
+    }
+
+    final sortedDays = groupedBookings.keys.toList()..sort();
+
     return RefreshIndicator(
-      onRefresh: _refresh,
+      onRefresh: () => _loadMonth(_currentMonth),
       child: ListView.builder(
-        controller: _scrollController,
-        itemCount: _buildDaysList().length,
+        padding: const EdgeInsets.all(16),
+        itemCount: sortedDays.length,
         itemBuilder: (context, index) {
-          return _buildDaysList()[index];
+          final day = sortedDays[index];
+          final dayBookings = groupedBookings[day]!;
+          return _buildDayCard(day, dayBookings, isDark);
         },
       ),
     );
   }
 
-  List<Widget> _buildDaysList() {
-    // Generate ALL days in the loaded range (not just days with bookings)
-    final allDays = <DateTime>[];
-    var current = _startMonth;
-
-    while (current.isBefore(_endMonth) || current.isAtSameMomentAs(_endMonth)) {
-      allDays.add(current);
-      current = current.add(const Duration(days: 1));
-    }
-
-    // Group bookings by day
-    final dayGroups = <DateTime, List<Booking>>{};
-    for (final booking in _bookings) {
-      final day = DateTime(booking.date.year, booking.date.month, booking.date.day);
-      dayGroups.putIfAbsent(day, () => []);
-      dayGroups[day]!.add(booking);
-    }
-
-    // Build widgets for ALL days
-    final widgets = <Widget>[];
-    for (final day in allDays) {
-      final bookings = dayGroups[day] ?? [];
-      widgets.add(_buildDayCard(day, bookings));
-    }
-
-    return widgets;
-  }
-
-  Widget _buildDayCard(DateTime date, List<Booking> bookings) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+  Widget _buildDayCard(DateTime date, List<Booking> bookings, bool isDark) {
     final today = DateTime.now();
     final isToday = _isSameDay(date, today);
+    final isPast = date.isBefore(DateTime(today.year, today.month, today.day));
 
     return Container(
-      decoration: BoxDecoration(
-        color: isToday
-            ? (isDark ? const Color(0xFF1E1E1E) : const Color(0xFFF0F9FF))
-            : (isDark ? Colors.black : Colors.white),
-        border: Border(
-          bottom: BorderSide(
-            color: isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
-            width: 0.5,
+      margin: const EdgeInsets.only(bottom: 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Date header
+          Row(
+            children: [
+              // Weekday
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: isToday
+                      ? (isDark ? Colors.blue[700] : Colors.blue[600])
+                      : (isDark ? const Color(0xFF27272A) : const Color(0xFFF1F5F9)),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  DateFormat('EEE').format(date).toUpperCase(),
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 0.5,
+                    color: isToday
+                        ? Colors.white
+                        : (isDark ? Colors.white70 : Colors.black54),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+
+              // Day number
+              Text(
+                date.day.toString(),
+                style: TextStyle(
+                  fontSize: 32,
+                  fontWeight: FontWeight.bold,
+                  color: isToday
+                      ? (isDark ? Colors.blue[400] : Colors.blue[600])
+                      : (isDark ? Colors.white : Colors.black87),
+                ),
+              ),
+              const SizedBox(width: 8),
+
+              // Full date
+              Text(
+                DateFormat('MMMM yyyy').format(date),
+                style: TextStyle(
+                  fontSize: 14,
+                  color: isDark ? Colors.white60 : Colors.black45,
+                ),
+              ),
+
+              const Spacer(),
+
+              // Badge with event count
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: isToday
+                      ? (isDark ? Colors.blue[700]!.withOpacity(0.3) : Colors.blue[100])
+                      : (isDark ? const Color(0xFF27272A) : const Color(0xFFF1F5F9)),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  '${bookings.length} event${bookings.length > 1 ? 's' : ''}',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: isToday
+                        ? (isDark ? Colors.blue[300] : Colors.blue[700])
+                        : (isDark ? Colors.white60 : Colors.black54),
+                  ),
+                ),
+              ),
+            ],
           ),
-        ),
+
+          const SizedBox(height: 12),
+
+          // Bookings timeline
+          ...bookings.asMap().entries.map((entry) {
+            final idx = entry.key;
+            final booking = entry.value;
+            final isLast = idx == bookings.length - 1;
+            return _buildBookingCard(booking, isDark, isLast, isPast);
+          }),
+        ],
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
+    );
+  }
+
+  Widget _buildBookingCard(Booking booking, bool isDark, bool isLast, bool isPast) {
+    return InkWell(
+      onTap: () => _onBookingTap(booking),
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        margin: const EdgeInsets.only(left: 24),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Date column
-            SizedBox(
-              width: 60,
-              child: Column(
-                children: [
-                  Text(
-                    DateFormat('EEE').format(date).toUpperCase(),
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w600,
-                      color: isToday
-                          ? (isDark ? Colors.blue[300] : Colors.blue[700])
-                          : (isDark ? Colors.white60 : Colors.black45),
+            // Timeline indicator
+            Column(
+              children: [
+                // Dot
+                Container(
+                  width: 12,
+                  height: 12,
+                  decoration: BoxDecoration(
+                    color: isPast
+                        ? (isDark ? Colors.grey[700] : Colors.grey[400])
+                        : (isDark ? Colors.blue[400] : Colors.blue[600]),
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: isDark ? Colors.black : Colors.white,
+                      width: 2,
                     ),
                   ),
-                  const SizedBox(height: 4),
+                ),
+                // Line
+                if (!isLast)
                   Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      color: isToday
-                          ? (isDark ? Colors.blue[700] : Colors.blue[600])
-                          : Colors.transparent,
-                      shape: BoxShape.circle,
-                    ),
-                    child: Center(
-                      child: Text(
-                        date.day.toString(),
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: isToday
-                              ? Colors.white
-                              : (isDark ? Colors.white : Colors.black87),
-                        ),
-                      ),
-                    ),
+                    width: 2,
+                    height: 60,
+                    color: isDark ? const Color(0xFF27272A) : const Color(0xFFE2E8F0),
                   ),
-                ],
-              ),
+              ],
             ),
 
-            // Bookings column
+            const SizedBox(width: 16),
+
+            // Event card
             Expanded(
-              child: bookings.isEmpty
-                  ? Padding(
-                      padding: const EdgeInsets.only(top: 8),
-                      child: Text(
-                        '', // Empty - no message for days without bookings
-                        style: TextStyle(
-                          fontSize: 12,
+              child: Container(
+                margin: const EdgeInsets.only(bottom: isLast ? 0 : 12),
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF18181B) : Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(isDark ? 0.3 : 0.05),
+                      blurRadius: 10,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Time
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.access_time,
+                          size: 14,
+                          color: isDark ? Colors.white60 : Colors.black45,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          booking.startTime,
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: isDark ? Colors.white70 : Colors.black54,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          _getDurationText(booking.duration),
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: isDark ? Colors.white38 : Colors.black38,
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    const SizedBox(height: 8),
+
+                    // Company name
+                    Text(
+                      booking.companyName,
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: isDark ? Colors.white : Colors.black87,
+                      ),
+                    ),
+
+                    const SizedBox(height: 6),
+
+                    // Visit type
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: _getVisitTypeColor(booking.visitType).withOpacity(0.15),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            _getVisitTypeLabel(booking.visitType),
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: _getVisitTypeColor(booking.visitType),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Icon(
+                          Icons.people_outline,
+                          size: 14,
                           color: isDark ? Colors.white38 : Colors.black38,
                         ),
-                      ),
-                    )
-                  : Column(
-                      children: bookings.map((booking) => _buildBookingCard(booking)).toList(),
+                        const SizedBox(width: 4),
+                        Text(
+                          '${booking.expectedAttendees} attendees',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: isDark ? Colors.white60 : Colors.black45,
+                          ),
+                        ),
+                      ],
                     ),
+                  ],
+                ),
+              ),
             ),
           ],
         ),
@@ -697,64 +654,38 @@ class _AgendaScreenState extends State<AgendaScreen> {
     );
   }
 
-  Widget _buildBookingCard(Booking booking) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+  String _getDurationText(VisitDuration duration) {
+    switch (duration) {
+      case VisitDuration.ONE_HOUR:
+        return '1h';
+      case VisitDuration.TWO_HOURS:
+        return '2h';
+      case VisitDuration.THREE_HOURS:
+        return '3h';
+      case VisitDuration.FOUR_HOURS:
+        return '4h';
+      case VisitDuration.FIVE_HOURS:
+        return '5h';
+      case VisitDuration.SIX_HOURS:
+        return '6h';
+    }
+  }
 
-    return InkWell(
-      onTap: () => _onBookingTap(booking),
-      borderRadius: BorderRadius.circular(8),
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 8),
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF2A2A2A) : const Color(0xFFF8FAFC),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-            color: isDark ? const Color(0xFF3A3A3A) : const Color(0xFFE2E8F0),
-          ),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 4,
-              height: 40,
-              decoration: BoxDecoration(
-                color: isDark ? Colors.blue[400] : Colors.blue[600],
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    booking.companyName,
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: isDark ? Colors.white : Colors.black87,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    booking.startTime,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: isDark ? Colors.white70 : Colors.black54,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Icon(
-              Icons.chevron_right,
-              color: isDark ? Colors.white38 : Colors.black38,
-              size: 20,
-            ),
-          ],
-        ),
-      ),
-    );
+  String _getVisitTypeLabel(VisitType type) {
+    switch (type) {
+      case VisitType.QUICK_TOUR:
+        return 'Quick Tour';
+      case VisitType.INNOVATION_EXCHANGE:
+        return 'Innovation Exchange';
+    }
+  }
+
+  Color _getVisitTypeColor(VisitType type) {
+    switch (type) {
+      case VisitType.QUICK_TOUR:
+        return const Color(0xFF8B5CF6); // Purple
+      case VisitType.INNOVATION_EXCHANGE:
+        return const Color(0xFF06B6D4); // Cyan
+    }
   }
 }
