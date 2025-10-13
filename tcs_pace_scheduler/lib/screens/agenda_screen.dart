@@ -513,160 +513,117 @@ class _AgendaScreenState extends State<AgendaScreen> {
             ],
           ),
 
-          const SizedBox(height: 12),
+          const SizedBox(height: 16),
 
-          // Bookings timeline
+          // Bookings list
           ...bookings.asMap().entries.map((entry) {
-            final idx = entry.key;
             final booking = entry.value;
-            final isLast = idx == bookings.length - 1;
-            return _buildBookingCard(booking, isDark, isLast, isPast);
+            return _buildBookingCard(booking, isDark, isPast);
           }),
         ],
       ),
     );
   }
 
-  Widget _buildBookingCard(Booking booking, bool isDark, bool isLast, bool isPast) {
+  Widget _buildBookingCard(Booking booking, bool isDark, bool isPast) {
     return InkWell(
       onTap: () => _onBookingTap(booking),
       borderRadius: BorderRadius.circular(12),
       child: Container(
-        margin: const EdgeInsets.only(left: 24),
-        child: Row(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF18181B) : Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(isDark ? 0.3 : 0.05),
+              blurRadius: 10,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Timeline indicator
-            Column(
+            // Time
+            Row(
               children: [
-                // Dot
-                Container(
-                  width: 12,
-                  height: 12,
-                  decoration: BoxDecoration(
-                    color: isPast
-                        ? (isDark ? Colors.grey[700] : Colors.grey[400])
-                        : (isDark ? Colors.blue[400] : Colors.blue[600]),
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: isDark ? Colors.black : Colors.white,
-                      width: 2,
-                    ),
+                Icon(
+                  Icons.access_time,
+                  size: 14,
+                  color: isDark ? Colors.white60 : Colors.black45,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  booking.startTime,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: isDark ? Colors.white70 : Colors.black54,
                   ),
                 ),
-                // Line
-                if (!isLast)
-                  Container(
-                    width: 2,
-                    height: 60,
-                    color: isDark ? const Color(0xFF27272A) : const Color(0xFFE2E8F0),
+                const SizedBox(width: 8),
+                Text(
+                  _getDurationText(booking.duration),
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: isDark ? Colors.white38 : Colors.black38,
                   ),
+                ),
               ],
             ),
 
-            const SizedBox(width: 16),
+            const SizedBox(height: 8),
 
-            // Event card
-            Expanded(
-              child: Container(
-                margin: EdgeInsets.only(bottom: isLast ? 0 : 12),
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF18181B) : Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(isDark ? 0.3 : 0.05),
-                      blurRadius: 10,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Time
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.access_time,
-                          size: 14,
-                          color: isDark ? Colors.white60 : Colors.black45,
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          booking.startTime,
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: isDark ? Colors.white70 : Colors.black54,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          _getDurationText(booking.duration),
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: isDark ? Colors.white38 : Colors.black38,
-                          ),
-                        ),
-                      ],
-                    ),
-
-                    const SizedBox(height: 8),
-
-                    // Company name
-                    Text(
-                      booking.companyName,
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: isDark ? Colors.white : Colors.black87,
-                      ),
-                    ),
-
-                    const SizedBox(height: 6),
-
-                    // Visit type
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                          decoration: BoxDecoration(
-                            color: _getVisitTypeColor(booking.visitType).withOpacity(0.15),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            _getVisitTypeLabel(booking.visitType),
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                              color: _getVisitTypeColor(booking.visitType),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Icon(
-                          Icons.people_outline,
-                          size: 14,
-                          color: isDark ? Colors.white38 : Colors.black38,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          '${booking.expectedAttendees} attendees',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: isDark ? Colors.white60 : Colors.black45,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
+            // Company name
+            Text(
+              booking.companyName,
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: isDark ? Colors.white : Colors.black87,
               ),
+            ),
+
+            const SizedBox(height: 6),
+
+            // Visit type
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: _getVisitTypeColor(booking.visitType).withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    _getVisitTypeLabel(booking.visitType),
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: _getVisitTypeColor(booking.visitType),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Icon(
+                  Icons.people_outline,
+                  size: 14,
+                  color: isDark ? Colors.white38 : Colors.black38,
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  '${booking.expectedAttendees} attendees',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: isDark ? Colors.white60 : Colors.black45,
+                  ),
+                ),
+              ],
             ),
           ],
         ),
