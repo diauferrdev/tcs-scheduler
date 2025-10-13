@@ -594,26 +594,97 @@ class _AgendaScreenState extends State<AgendaScreen> {
     }
   }
 
-  void _scrollToToday({bool animated = true}) {
+  /// Navigate to today with solid algorithm - BYPASSES DEBOUNCE
+  Future<void> _scrollToToday({bool animated = true}) async {
+    debugPrint('[Agenda] TODAY BUTTON CLICKED - Starting navigation to today');
+
+    final today = DateTime.now();
+    final normalizedToday = DateTime(today.year, today.month, today.day);
+    final todayMonthStr = DateFormat('yyyy-MM').format(today);
+
+    // Check if today's month is already loaded
+    final isTodayMonthLoaded = _loadedMonths.contains(todayMonthStr);
     final context = _todayKey.currentContext;
-    if (context == null) {
-      // Today is not in the loaded range, need to reload
-      final today = DateTime.now();
-      setState(() {
-        _currentMonth = today;
-        _displayMonth = DateFormat('MMMM yyyy').format(today);
-      });
-      _loadInitialMonth();
+
+    if (context != null && isTodayMonthLoaded) {
+      // Today is already visible in the list, just scroll to it
+      debugPrint('[Agenda] Today is already loaded, scrolling to it');
+      await Scrollable.ensureVisible(
+        context,
+        duration: animated ? const Duration(milliseconds: 500) : Duration.zero,
+        curve: Curves.easeInOutCubic,
+        alignment: 0.2, // Position 20% from top of viewport
+      );
       return;
     }
 
-    // Scroll to today's card
-    Scrollable.ensureVisible(
-      context,
-      duration: animated ? const Duration(milliseconds: 500) : Duration.zero,
-      curve: Curves.easeInOutCubic,
-      alignment: 0.2, // Position 20% from top of viewport
-    );
+    // Today is not loaded or not visible, need to reload the month
+    debugPrint('[Agenda] Today not loaded, reloading current month');
+
+    // Set loading state to prevent scroll triggers
+    setState(() {
+      _isNavigating = true;
+      _currentMonth = today;
+      _displayMonth = DateFormat('MMMM yyyy').format(today);
+    });
+
+    try {
+      // Force reload today's month (ignore debounce for manual navigation)
+      final response = await _apiService.getConfirmedBookings(month: todayMonthStr);
+
+      if (!mounted) return;
+
+      final bookings = (response['bookings'] as List)
+          .map((b) => Booking.fromJson(b))
+          .toList();
+
+      // Sort by date
+      bookings.sort((a, b) => a.date.compareTo(b.date));
+
+      _isUpdatingState = true;
+      setState(() {
+        _confirmedBookings = bookings;
+        _earliestLoadedMonth = DateTime(today.year, today.month, 1);
+        _latestLoadedMonth = DateTime(today.year, today.month + 1, 0);
+        _loadedMonths.clear();
+        _loadedMonths.add(todayMonthStr);
+        _isNavigating = false;
+        _showTodayButton = false; // Hide button since we're at today
+      });
+
+      debugPrint('[Agenda] TODAY NAVIGATION - Loaded ${bookings.length} bookings for $todayMonthStr');
+
+      // Scroll to today after data loads
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _isUpdatingState = false;
+        // Add delay to ensure widget tree is built
+        Future.delayed(const Duration(milliseconds: 300), () {
+          if (mounted) {
+            final newContext = _todayKey.currentContext;
+            if (newContext != null) {
+              Scrollable.ensureVisible(
+                newContext,
+                duration: animated ? const Duration(milliseconds: 500) : Duration.zero,
+                curve: Curves.easeInOutCubic,
+                alignment: 0.2,
+              );
+            }
+          }
+        });
+      });
+    } catch (e) {
+      debugPrint('[Agenda] ERROR navigating to today: $e');
+      _isUpdatingState = false;
+      if (mounted) {
+        setState(() => _isNavigating = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error navigating to today: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   void _onBookingTap(Booking booking) {
