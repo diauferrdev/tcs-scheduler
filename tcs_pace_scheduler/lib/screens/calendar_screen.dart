@@ -523,6 +523,26 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
     });
   }
 
+  /// Navigate to today's date with solid algorithm
+  Future<void> _goToToday() async {
+    final today = DateTime.now();
+    final normalizedToday = DateTime(today.year, today.month, today.day);
+
+    setState(() {
+      // Set current month to today's month
+      _currentMonth = DateTime(today.year, today.month);
+      // Select today's date
+      _selectedDate = normalizedToday;
+      // Clear any tapped date
+      _tappedDate = null;
+    });
+
+    // Load availability for today
+    await _loadDayAvailability(normalizedToday);
+
+    debugPrint('[Calendar] Navigated to today: ${DateFormat('yyyy-MM-dd').format(normalizedToday)}');
+  }
+
   Future<void> _handleDayClick(DateTime date) async {
     // Check if date is bookable (at least 7 business days from today, not weekend)
     if (!_isDateBookable(date)) {
@@ -1457,12 +1477,43 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
               ),
-              Text(
-                DateFormat('MMMM yyyy').format(_currentMonth),
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: isDark ? Colors.white : Colors.black,
+              Expanded(
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      DateFormat('MMMM yyyy').format(_currentMonth),
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: isDark ? Colors.white : Colors.black,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    // Today button
+                    GestureDetector(
+                      onTap: _goToToday,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: (isDark ? Colors.white : Colors.black).withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(
+                            color: isDark ? Colors.white.withOpacity(0.3) : Colors.black.withOpacity(0.3),
+                            width: 1,
+                          ),
+                        ),
+                        child: Text(
+                          'Today',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: isDark ? Colors.white : Colors.black,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
               IconButton(

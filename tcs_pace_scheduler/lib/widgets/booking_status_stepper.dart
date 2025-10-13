@@ -99,6 +99,7 @@ class _BookingStatusStepperState extends State<BookingStatusStepper>
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           for (int i = 0; i < steps.length; i++) ...[
             // Step circle
