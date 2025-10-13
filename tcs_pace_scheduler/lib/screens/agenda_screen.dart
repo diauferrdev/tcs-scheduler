@@ -157,10 +157,14 @@ class _AgendaScreenState extends State<AgendaScreen> {
         _isLoading = false;
       });
 
-      // Scroll to today after a short delay
+      debugPrint('[Agenda] Loaded ${bookings.length} bookings. Now scrolling to today...');
+
+      // Scroll to today centered in viewport
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        Future.delayed(const Duration(milliseconds: 300), () {
-          if (mounted) _scrollToToday(animated: false);
+        Future.delayed(const Duration(milliseconds: 500), () {
+          if (mounted && _scrollController.hasClients) {
+            _scrollToTodayCentered(animated: false);
+          }
         });
       });
     } catch (e) {
@@ -344,28 +348,44 @@ class _AgendaScreenState extends State<AgendaScreen> {
     }
   }
 
-  /// Scroll to today's position
-  void _scrollToToday({bool animated = true}) {
+  /// Scroll to today's position (centered in viewport)
+  void _scrollToTodayCentered({bool animated = true}) {
+    if (!_scrollController.hasClients) return;
+
     final today = DateTime.now();
     final todayNormalized = DateTime(today.year, today.month, today.day);
 
-    // Find today's index
-    final todayIndex = _bookings.indexWhere((b) => _isSameDay(b.date, todayNormalized));
+    // Calculate number of days from start to today
+    final daysSinceStart = todayNormalized.difference(_startMonth).inDays;
 
-    if (todayIndex >= 0) {
-      // Each day card is approximately 80px tall
-      final targetOffset = todayIndex * 80.0;
+    if (daysSinceStart >= 0 && todayNormalized.isBefore(_endMonth.add(const Duration(days: 1)))) {
+      // Each day card is approximately 70px tall
+      final viewportHeight = MediaQuery.of(context).size.height;
+      final cardHeight = 70.0;
+
+      // Calculate offset to center today in viewport
+      final targetOffset = (daysSinceStart * cardHeight) - (viewportHeight / 2) + (cardHeight / 2);
+      final clampedOffset = targetOffset.clamp(0.0, _scrollController.position.maxScrollExtent);
+
+      debugPrint('[Agenda] Scrolling to today (days from start: $daysSinceStart, offset: $clampedOffset)');
 
       if (animated) {
         _scrollController.animateTo(
-          targetOffset,
+          clampedOffset,
           duration: const Duration(milliseconds: 500),
           curve: Curves.easeInOutCubic,
         );
       } else {
-        _scrollController.jumpTo(targetOffset);
+        _scrollController.jumpTo(clampedOffset);
       }
+    } else {
+      debugPrint('[Agenda] Today not in loaded range');
     }
+  }
+
+  /// Scroll to today's position (legacy method for button)
+  void _scrollToToday({bool animated = true}) {
+    _scrollToTodayCentered(animated: animated);
   }
 
   /// Pull to refresh
@@ -563,7 +583,14 @@ class _AgendaScreenState extends State<AgendaScreen> {
   }
 
   List<Widget> _buildDaysList() {
-    if (_bookings.isEmpty) return [];
+    // Generate ALL days in the loaded range (not just days with bookings)
+    final allDays = <DateTime>[];
+    var current = _startMonth;
+
+    while (current.isBefore(_endMonth) || current.isAtSameMomentAs(_endMonth)) {
+      allDays.add(current);
+      current = current.add(const Duration(days: 1));
+    }
 
     // Group bookings by day
     final dayGroups = <DateTime, List<Booking>>{};
@@ -573,12 +600,10 @@ class _AgendaScreenState extends State<AgendaScreen> {
       dayGroups[day]!.add(booking);
     }
 
-    // Build widgets for each day
+    // Build widgets for ALL days
     final widgets = <Widget>[];
-    final sortedDays = dayGroups.keys.toList()..sort();
-
-    for (final day in sortedDays) {
-      final bookings = dayGroups[day]!;
+    for (final day in allDays) {
+      final bookings = dayGroups[day] ?? [];
       widgets.add(_buildDayCard(day, bookings));
     }
 
@@ -651,9 +676,20 @@ class _AgendaScreenState extends State<AgendaScreen> {
 
             // Bookings column
             Expanded(
-              child: Column(
-                children: bookings.map((booking) => _buildBookingCard(booking)).toList(),
-              ),
+              child: bookings.isEmpty
+                  ? Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Text(
+                        '', // Empty - no message for days without bookings
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: isDark ? Colors.white38 : Colors.black38,
+                        ),
+                      ),
+                    )
+                  : Column(
+                      children: bookings.map((booking) => _buildBookingCard(booking)).toList(),
+                    ),
             ),
           ],
         ),
