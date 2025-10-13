@@ -932,7 +932,9 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
           const SizedBox(height: 16),
 
           // Access Badges (for APPROVED bookings with attendees)
-          if (_booking!.attendees != null && _booking!.attendees!.isNotEmpty) ...[
+          if (_booking!.status == BookingStatus.APPROVED &&
+              _booking!.attendees != null &&
+              _booking!.attendees!.isNotEmpty) ...[
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
