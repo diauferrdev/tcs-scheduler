@@ -1187,9 +1187,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
               final maxCount = hourlyData.fold<int>(0, (max, d) => d['count'] > max ? d['count'] : max);
 
-              return SizedBox(
-                height: 200,
-                child: BarChart(
+              return Center(
+                child: SizedBox(
+                  height: 240,
+                  child: BarChart(
                   BarChartData(
                     alignment: BarChartAlignment.spaceAround,
                     maxY: maxCount.toDouble() * 1.2,
@@ -1267,6 +1268,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ),
                   ),
                 ),
+                ),
               );
             }(),
     );
@@ -1289,9 +1291,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
               final maxY = tcsAvg > partnerAvg ? tcsAvg : partnerAvg;
 
-              return SizedBox(
-                height: 200,
-                child: BarChart(
+              return Center(
+                child: SizedBox(
+                  height: 240,
+                  child: BarChart(
                   BarChartData(
                     alignment: BarChartAlignment.spaceAround,
                     maxY: maxY * 1.4,
@@ -1380,6 +1383,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       ),
                     ],
                   ),
+                ),
                 ),
               );
             }(),
