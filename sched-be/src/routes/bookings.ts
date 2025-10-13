@@ -169,18 +169,15 @@ app.delete('/:id', authMiddleware, async (c) => {
 
     // Check permissions:
     // - USER can only delete their own bookings
-    // - ADMIN can delete any booking
-    // - MANAGER cannot delete bookings (they can only approve/deny)
+    // - ADMIN and MANAGER can delete/deny any booking
     if (user.role === 'USER') {
       // Verify the booking belongs to the user
       const booking = await bookingService.getBookingById(id);
       if (booking.createdById !== user.id) {
         return c.json({ error: 'You can only cancel your own bookings' }, 403);
       }
-    } else if (user.role === 'MANAGER') {
-      return c.json({ error: 'Managers cannot cancel bookings directly. Use approve/deny instead.' }, 403);
     }
-    // ADMIN can delete any booking (no check needed)
+    // ADMIN and MANAGER can delete/deny any booking (no check needed)
 
     // Send cancellation notification BEFORE deleting (we need booking data)
     try {

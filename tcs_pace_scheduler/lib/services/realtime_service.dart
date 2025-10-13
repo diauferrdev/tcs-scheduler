@@ -27,7 +27,13 @@ class RealtimeService {
   Function()? onNotificationConnected;
   Function()? onNotificationDisconnected;
 
-  // Callbacks for Calendar
+  // Multiple listeners for booking events (support multiple screens)
+  final List<Function(Map<String, dynamic>)> _onBookingCreatedListeners = [];
+  final List<Function(Map<String, dynamic>)> _onBookingUpdatedListeners = [];
+  final List<Function(String)> _onBookingDeletedListeners = [];
+  final List<Function(Map<String, dynamic>)> _onBookingApprovedListeners = [];
+
+  // Legacy single callbacks for backward compatibility
   Function(Map<String, dynamic>)? onBookingCreated;
   Function(Map<String, dynamic>)? onBookingUpdated;
   Function(String)? onBookingDeleted;
@@ -35,6 +41,55 @@ class RealtimeService {
   Function(Map<String, dynamic>)? onCalendarSync;
   Function()? onCalendarConnected;
   Function()? onCalendarDisconnected;
+
+  // Methods to add/remove listeners
+  void addBookingCreatedListener(Function(Map<String, dynamic>) listener) {
+    if (!_onBookingCreatedListeners.contains(listener)) {
+      _onBookingCreatedListeners.add(listener);
+      debugPrint('[RealtimeService] Added booking created listener (total: ${_onBookingCreatedListeners.length})');
+    }
+  }
+
+  void addBookingUpdatedListener(Function(Map<String, dynamic>) listener) {
+    if (!_onBookingUpdatedListeners.contains(listener)) {
+      _onBookingUpdatedListeners.add(listener);
+      debugPrint('[RealtimeService] Added booking updated listener (total: ${_onBookingUpdatedListeners.length})');
+    }
+  }
+
+  void addBookingDeletedListener(Function(String) listener) {
+    if (!_onBookingDeletedListeners.contains(listener)) {
+      _onBookingDeletedListeners.add(listener);
+      debugPrint('[RealtimeService] Added booking deleted listener (total: ${_onBookingDeletedListeners.length})');
+    }
+  }
+
+  void addBookingApprovedListener(Function(Map<String, dynamic>) listener) {
+    if (!_onBookingApprovedListeners.contains(listener)) {
+      _onBookingApprovedListeners.add(listener);
+      debugPrint('[RealtimeService] Added booking approved listener (total: ${_onBookingApprovedListeners.length})');
+    }
+  }
+
+  void removeBookingCreatedListener(Function(Map<String, dynamic>) listener) {
+    _onBookingCreatedListeners.remove(listener);
+    debugPrint('[RealtimeService] Removed booking created listener (total: ${_onBookingCreatedListeners.length})');
+  }
+
+  void removeBookingUpdatedListener(Function(Map<String, dynamic>) listener) {
+    _onBookingUpdatedListeners.remove(listener);
+    debugPrint('[RealtimeService] Removed booking updated listener (total: ${_onBookingUpdatedListeners.length})');
+  }
+
+  void removeBookingDeletedListener(Function(String) listener) {
+    _onBookingDeletedListeners.remove(listener);
+    debugPrint('[RealtimeService] Removed booking deleted listener (total: ${_onBookingDeletedListeners.length})');
+  }
+
+  void removeBookingApprovedListener(Function(Map<String, dynamic>) listener) {
+    _onBookingApprovedListeners.remove(listener);
+    debugPrint('[RealtimeService] Removed booking approved listener (total: ${_onBookingApprovedListeners.length})');
+  }
 
   bool get isNotificationConnected => _isConnected;
   bool get isCalendarConnected => _isConnected;
@@ -165,25 +220,49 @@ class RealtimeService {
 
         case 'booking_created':
           if (data is Map<String, dynamic> && data['booking'] != null) {
-            onBookingCreated?.call(data['booking'] as Map<String, dynamic>);
+            final booking = data['booking'] as Map<String, dynamic>;
+            // Notify all listeners
+            for (final listener in _onBookingCreatedListeners) {
+              listener(booking);
+            }
+            // Legacy single callback
+            onBookingCreated?.call(booking);
           }
           break;
 
         case 'booking_updated':
           if (data is Map<String, dynamic> && data['booking'] != null) {
-            onBookingUpdated?.call(data['booking'] as Map<String, dynamic>);
+            final booking = data['booking'] as Map<String, dynamic>;
+            // Notify all listeners
+            for (final listener in _onBookingUpdatedListeners) {
+              listener(booking);
+            }
+            // Legacy single callback
+            onBookingUpdated?.call(booking);
           }
           break;
 
         case 'booking_deleted':
           if (data is Map<String, dynamic> && data['bookingId'] != null) {
-            onBookingDeleted?.call(data['bookingId'] as String);
+            final bookingId = data['bookingId'] as String;
+            // Notify all listeners
+            for (final listener in _onBookingDeletedListeners) {
+              listener(bookingId);
+            }
+            // Legacy single callback
+            onBookingDeleted?.call(bookingId);
           }
           break;
 
         case 'booking_approved':
           if (data is Map<String, dynamic> && data['booking'] != null) {
-            onBookingApproved?.call(data['booking'] as Map<String, dynamic>);
+            final booking = data['booking'] as Map<String, dynamic>;
+            // Notify all listeners
+            for (final listener in _onBookingApprovedListeners) {
+              listener(booking);
+            }
+            // Legacy single callback
+            onBookingApproved?.call(booking);
           }
           break;
 

@@ -25,11 +25,17 @@ class MyBookingsScreen extends StatefulWidget {
 class _MyBookingsScreenState extends State<MyBookingsScreen> {
   final ApiService _apiService = ApiService();
   final RealtimeService _realtimeService = RealtimeService();
-  List<Booking> _bookings = [];
-  List<Booking> _filteredBookings = [];
+  List<Booking> _allBookings = [];
+  List<Booking> _newRequests = [];
+  List<Booking> _recentHistory = [];
   bool _isLoading = true;
   String? _error;
-  BookingStatus? _selectedStatus;
+
+  // Keep listener references for proper cleanup
+  late final Function(Map<String, dynamic>) _onBookingCreatedListener;
+  late final Function(Map<String, dynamic>) _onBookingUpdatedListener;
+  late final Function(Map<String, dynamic>) _onBookingApprovedListener;
+  late final Function(String) _onBookingDeletedListener;
 
   @override
   void initState() {
@@ -59,77 +65,47 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
   }
 
   void _setupRealtimeUpdates() {
-    // Listen for booking updates
-    _realtimeService.onBookingCreated = (bookingData) {
-      _handleBookingUpdate(bookingData);
+    // Create listener references
+    _onBookingCreatedListener = (bookingData) {
+      debugPrint('[MyBookings] New booking via WebSocket');
+      _loadBookings(); // Refresh list
     };
 
-    _realtimeService.onBookingUpdated = (bookingData) {
-      _handleBookingUpdate(bookingData);
+    _onBookingUpdatedListener = (bookingData) {
+      debugPrint('[MyBookings] Booking updated via WebSocket');
+      _loadBookings(); // Refresh list
     };
 
-    _realtimeService.onBookingApproved = (bookingData) {
-      _handleBookingUpdate(bookingData);
+    _onBookingApprovedListener = (bookingData) {
+      debugPrint('[MyBookings] Booking approved via WebSocket');
+      _loadBookings(); // Refresh list
     };
 
-    _realtimeService.onBookingDeleted = (bookingId) {
-      if (mounted) {
-        setState(() {
-          _bookings.removeWhere((b) => b.id == bookingId);
-          _filterBookings();
-        });
-      }
+    _onBookingDeletedListener = (bookingId) {
+      debugPrint('[MyBookings] Booking deleted via WebSocket: $bookingId');
+      _loadBookings(); // Refresh list
     };
-  }
 
-  void _handleBookingUpdate(Map<String, dynamic> bookingData) {
-    if (!mounted) return;
-
-    try {
-      final booking = Booking.fromJson(bookingData);
-      final currentUserId = context.read<AuthProvider>().user?.id;
-
-      // Check if booking already exists in list OR belongs to current user
-      final existingIndex = _bookings.indexWhere((b) => b.id == booking.id);
-      final belongsToUser = booking.createdById == currentUserId;
-
-      // Only process if: 1) Already in our list (needs update) OR 2) Created by current user (new booking)
-      if (existingIndex < 0 && !belongsToUser) {
-        debugPrint('[MyBookings] Ignoring booking from another user: ${booking.id}');
-        return;
-      }
-
-      setState(() {
-        if (existingIndex >= 0) {
-          // Update existing booking (even if created by another user - could be updated by admin)
-          _bookings[existingIndex] = booking;
-          debugPrint('[MyBookings] Updated existing booking: ${booking.id}');
-        } else {
-          // Add new booking (verified it belongs to current user above)
-          _bookings.add(booking);
-          debugPrint('[MyBookings] Added new booking: ${booking.id}');
-        }
-        _filterBookings();
-      });
-      debugPrint('[MyBookings] Updated booking list, total: ${_bookings.length}');
-    } catch (e) {
-      debugPrint('[MyBookings] Error handling booking update: $e');
-    }
+    // Add listeners to service
+    _realtimeService.addBookingCreatedListener(_onBookingCreatedListener);
+    _realtimeService.addBookingUpdatedListener(_onBookingUpdatedListener);
+    _realtimeService.addBookingApprovedListener(_onBookingApprovedListener);
+    _realtimeService.addBookingDeletedListener(_onBookingDeletedListener);
   }
 
   @override
   void dispose() {
-    // Clear callbacks
-    _realtimeService.onBookingCreated = null;
-    _realtimeService.onBookingUpdated = null;
-    _realtimeService.onBookingApproved = null;
-    _realtimeService.onBookingDeleted = null;
+    // Remove listeners
+    _realtimeService.removeBookingCreatedListener(_onBookingCreatedListener);
+    _realtimeService.removeBookingUpdatedListener(_onBookingUpdatedListener);
+    _realtimeService.removeBookingApprovedListener(_onBookingApprovedListener);
+    _realtimeService.removeBookingDeletedListener(_onBookingDeletedListener);
     super.dispose();
   }
 
   Future<void> _loadBookings() async {
     // Only show loading on initial load, not on auto-refresh
-    if (_bookings.isEmpty) {
+    if (_allBookings.isEmpty) {
       setState(() {
         _isLoading = true;
         _error = null;
@@ -142,13 +118,13 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
 
       if (mounted) {
         setState(() {
-          _bookings = (response['bookings'] as List)
+          _allBookings = (response['bookings'] as List)
               .map((json) => Booking.fromJson(json))
               .toList();
-          _filterBookings();
+          _categorizeBookings();
           _isLoading = false;
         });
-        debugPrint('[MyBookings] Loaded ${_bookings.length} bookings');
+        debugPrint('[MyBookings] Loaded ${_allBookings.length} bookings');
       }
     } catch (e) {
       debugPrint('[MyBookings] Error loading bookings: $e');
@@ -161,34 +137,16 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
     }
   }
 
-  void _filterBookings() {
-    if (_selectedStatus == null) {
-      _filteredBookings = _bookings;
-    } else {
-      _filteredBookings = _bookings
-          .where((booking) => booking.status == _selectedStatus)
-          .toList();
-    }
+  void _categorizeBookings() {
+    _newRequests = _allBookings
+        .where((b) => b.status == BookingStatus.PENDING_APPROVAL)
+        .toList()
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
-    // Sort: pending bookings always at top, then by createdAt (newest first)
-    _filteredBookings.sort((a, b) {
-      // If one is pending and the other isn't, pending comes first
-      if (a.status == BookingStatus.PENDING_APPROVAL && b.status != BookingStatus.PENDING_APPROVAL) {
-        return -1;
-      }
-      if (b.status == BookingStatus.PENDING_APPROVAL && a.status != BookingStatus.PENDING_APPROVAL) {
-        return 1;
-      }
-      // If both have the same status (both pending or both not pending), sort by createdAt
-      return b.createdAt.compareTo(a.createdAt);
-    });
-  }
-
-  void _changeFilter(BookingStatus? status) {
-    setState(() {
-      _selectedStatus = status;
-      _filterBookings();
-    });
+    _recentHistory = _allBookings
+        .where((b) => b.status == BookingStatus.APPROVED || b.status == BookingStatus.CANCELLED)
+        .toList()
+      ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
   }
 
   Future<void> _handleCancelBooking(Booking booking) async {
@@ -312,110 +270,13 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
 
     return Container(
       color: isDark ? Colors.black : const Color(0xFFF9FAFB),
-      child: Column(
-        children: [
-          // Filter chips
-          _buildFilterChips(isDark),
-
-          // Bookings list
-          Expanded(
-            child: _buildBody(isDark),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildFilterChips(bool isDark) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
-      decoration: BoxDecoration(
-        color: isDark ? Colors.black : const Color(0xFFF9FAFB),
-      ),
       child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(
-          children: [
-            _buildFilterChip(
-              label: 'All',
-              isSelected: _selectedStatus == null,
-              onTap: () => _changeFilter(null),
-              isDark: isDark,
-            ),
-            const SizedBox(width: 8),
-            _buildFilterChip(
-              label: 'Pending',
-              isSelected: _selectedStatus == BookingStatus.PENDING_APPROVAL,
-              onTap: () => _changeFilter(BookingStatus.PENDING_APPROVAL),
-              isDark: isDark,
-              color: const Color(0xFFF59E0B),
-            ),
-            const SizedBox(width: 8),
-            _buildFilterChip(
-              label: 'Draft',
-              isSelected: _selectedStatus == BookingStatus.DRAFT,
-              onTap: () => _changeFilter(BookingStatus.DRAFT),
-              isDark: isDark,
-              color: const Color(0xFF6B7280),
-            ),
-            const SizedBox(width: 8),
-            _buildFilterChip(
-              label: 'Approved',
-              isSelected: _selectedStatus == BookingStatus.APPROVED,
-              onTap: () => _changeFilter(BookingStatus.APPROVED),
-              isDark: isDark,
-              color: const Color(0xFF10B981),
-            ),
-            const SizedBox(width: 8),
-            _buildFilterChip(
-              label: 'Cancelled',
-              isSelected: _selectedStatus == BookingStatus.CANCELLED,
-              onTap: () => _changeFilter(BookingStatus.CANCELLED),
-              isDark: isDark,
-              color: const Color(0xFFEF4444),
-            ),
-          ],
-        ),
+        padding: const EdgeInsets.all(24),
+        child: _buildBody(isDark),
       ),
     );
   }
 
-  Widget _buildFilterChip({
-    required String label,
-    required bool isSelected,
-    required VoidCallback onTap,
-    required bool isDark,
-    Color? color,
-  }) {
-    final chipColor = color ?? (isDark ? Colors.white : Colors.black);
-
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? chipColor.withOpacity(0.1)
-              : (isDark ? const Color(0xFF27272A) : const Color(0xFFF3F4F6)),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: isSelected ? chipColor : Colors.transparent,
-            width: 1.5,
-          ),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-            color: isSelected
-                ? chipColor
-                : (isDark ? Colors.grey[400] : Colors.grey[700]),
-          ),
-        ),
-      ),
-    );
-  }
 
   Widget _buildBody(bool isDark) {
     if (_isLoading) {
@@ -467,7 +328,7 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
       );
     }
 
-    if (_filteredBookings.isEmpty) {
+    if (_newRequests.isEmpty && _recentHistory.isEmpty) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -479,7 +340,7 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
             ),
             const SizedBox(height: 16),
             Text(
-              _selectedStatus == null ? 'No Bookings Yet' : 'No ${_getStatusText(_selectedStatus!)} Bookings',
+              'No Bookings Yet',
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w600,
@@ -498,17 +359,88 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
       );
     }
 
-    return RefreshIndicator(
-      onRefresh: _loadBookings,
-      color: isDark ? Colors.white : Colors.black,
-      child: ListView.builder(
-        padding: const EdgeInsets.all(16),
-        itemCount: _filteredBookings.length,
-        itemBuilder: (context, index) {
-          final booking = _filteredBookings[index];
-          return _buildBookingCard(booking, isDark);
-        },
-      ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // NEW REQUESTS SECTION
+        if (_newRequests.isNotEmpty) ...[
+          Row(
+            children: [
+              Text(
+                'New Requests',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: isDark ? Colors.white : Colors.black,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF59E0B),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  '${_newRequests.length}',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          ..._newRequests.map((booking) {
+            return BookingCard(
+              booking: booking,
+              onTap: () => _showBookingDetailsDrawer(booking),
+            );
+          }),
+          const SizedBox(height: 32),
+        ],
+
+        // RECENT HISTORY SECTION
+        if (_recentHistory.isNotEmpty) ...[
+          Row(
+            children: [
+              Text(
+                'Recent History',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: isDark ? Colors.grey[400] : Colors.grey[600],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: isDark ? Colors.grey[700] : Colors.grey[400],
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  '${_recentHistory.length}',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          ..._recentHistory.map((booking) {
+            return BookingCard(
+              booking: booking,
+              onTap: () => _showBookingDetailsDrawer(booking),
+            );
+          }),
+        ],
+      ],
     );
   }
 
@@ -520,95 +452,5 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
       params: {'bookingId': booking.id},
       updateUrl: false, // Don't update URL from My Bookings screen
     );
-  }
-
-  Widget _buildBookingCard(Booking booking, bool isDark) {
-    return BookingCard(
-      booking: booking,
-      onTap: () => _showBookingDetailsDrawer(booking),
-    );
-  }
-
-  void _handleContinueDraft(Booking booking) {
-    // Navigate to calendar with the draft's date selected and open the form with draft data
-    context.go('/calendar?draftId=${booking.id}');
-  }
-
-  /// CRITICAL: Handle draft deletion with confirmation dialog
-  Future<void> _handleDeleteDraft(Booking booking) async {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    // Show confirmation dialog
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (BuildContext dialogContext) {
-        return AlertDialog(
-          backgroundColor: isDark ? const Color(0xFF18181B) : Colors.white,
-          title: Text(
-            'Delete Draft?',
-            style: TextStyle(
-              color: isDark ? Colors.white : Colors.black,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          content: Text(
-            'Are you sure you want to delete this draft booking for ${booking.companyName}? This action cannot be undone.',
-            style: TextStyle(
-              color: isDark ? Colors.grey[300] : Colors.grey[700],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext, false),
-              child: Text(
-                'Cancel',
-                style: TextStyle(
-                  color: isDark ? Colors.grey[400] : Colors.grey[600],
-                ),
-              ),
-            ),
-            ElevatedButton(
-              onPressed: () => Navigator.pop(dialogContext, true),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red,
-                foregroundColor: Colors.white,
-              ),
-              child: const Text('Delete'),
-            ),
-          ],
-        );
-      },
-    );
-
-    if (confirmed != true || !mounted) return;
-
-    try {
-      // Delete the draft booking
-      await _apiService.deleteBooking(booking.id);
-
-      if (!mounted) return;
-
-      // Show success message
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Draft deleted successfully'),
-          backgroundColor: Colors.green,
-          duration: Duration(seconds: 2),
-        ),
-      );
-
-      // Reload bookings to update the list
-      await _loadBookings();
-    } catch (e) {
-      if (!mounted) return;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to delete draft: $e'),
-          backgroundColor: Colors.red,
-          duration: const Duration(seconds: 3),
-        ),
-      );
-    }
   }
 }

@@ -44,7 +44,7 @@ class _BookingStatusStepperState extends State<BookingStatusStepper>
       vsync: this,
     );
 
-    _scaleAnimation = Tween<double>(begin: 1.0, end: 1.8).animate(
+    _scaleAnimation = Tween<double>(begin: 1.0, end: 1.3).animate(
       CurvedAnimation(
         parent: _pulseController,
         curve: Curves.easeInOut,
@@ -199,7 +199,7 @@ class _BookingStatusStepperState extends State<BookingStatusStepper>
                   // Fixed height container to ensure all circles are at same vertical position
                   SizedBox(
                     width: 30,
-                    height: 14, // Exact height for the circle (12.8 + 1.2 for breathing room)
+                    height: 18, // Enough height for the circle with pulse animation (12.8 * 1.3 = 16.64)
                     child: Center(child: circle),
                   ),
                   const SizedBox(height: 4),
@@ -312,8 +312,8 @@ class _BookingStatusStepperState extends State<BookingStatusStepper>
           curve: Curves.easeInOut,
           builder: (context, progress, child) {
             return Container(
-              // Align with center of circles: 7px from top = center of 14px circle container
-              margin: const EdgeInsets.only(top: 6, bottom: 20, left: 4, right: 4),
+              // Align with center of circles: 9px from top = center of 18px circle container
+              margin: const EdgeInsets.only(top: 8, bottom: 20, left: 4, right: 4),
               height: 2,
               decoration: BoxDecoration(
                 color: lineColor,

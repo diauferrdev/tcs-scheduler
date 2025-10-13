@@ -27,6 +27,12 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
   bool _loading = true;
   String? _error;
 
+  // Keep listener references for proper cleanup
+  late final Function(Map<String, dynamic>) _onBookingCreatedListener;
+  late final Function(Map<String, dynamic>) _onBookingUpdatedListener;
+  late final Function(Map<String, dynamic>) _onBookingApprovedListener;
+  late final Function(String) _onBookingDeletedListener;
+
   @override
   void initState() {
     super.initState();
@@ -54,49 +60,36 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
   }
 
   void _setupRealtimeUpdates() {
-    // Listen for booking updates
-    _realtimeService.onBookingCreated = (bookingData) {
-      _handleBookingUpdate(bookingData);
+    debugPrint('[Approvals] Setting up real-time listeners...');
+
+    // Create listener references
+    _onBookingCreatedListener = (bookingData) {
+      debugPrint('[Approvals] 🔔 NEW BOOKING via WebSocket - Reloading...');
+      _loadAllBookings(); // Refresh list
     };
 
-    _realtimeService.onBookingUpdated = (bookingData) {
-      _handleBookingUpdate(bookingData);
+    _onBookingUpdatedListener = (bookingData) {
+      debugPrint('[Approvals] 🔔 BOOKING UPDATED via WebSocket - Reloading...');
+      _loadAllBookings(); // Refresh list
     };
 
-    _realtimeService.onBookingApproved = (bookingData) {
-      _handleBookingUpdate(bookingData);
+    _onBookingApprovedListener = (bookingData) {
+      debugPrint('[Approvals] 🔔 BOOKING APPROVED via WebSocket - Reloading...');
+      _loadAllBookings(); // Refresh list
     };
 
-    _realtimeService.onBookingDeleted = (bookingId) {
-      if (mounted) {
-        setState(() {
-          _allBookings.removeWhere((b) => b.id == bookingId);
-          _categorizeBookings();
-        });
-      }
+    _onBookingDeletedListener = (bookingId) {
+      debugPrint('[Approvals] 🔔 BOOKING DELETED via WebSocket: $bookingId - Reloading...');
+      _loadAllBookings(); // Refresh list
     };
-  }
 
-  void _handleBookingUpdate(Map<String, dynamic> bookingData) {
-    if (!mounted) return;
-
-    try {
-      final booking = Booking.fromJson(bookingData);
-
-      setState(() {
-        final index = _allBookings.indexWhere((b) => b.id == booking.id);
-        if (index >= 0) {
-          // Update existing booking
-          _allBookings[index] = booking;
-        } else {
-          // Add new booking
-          _allBookings.add(booking);
-        }
-        _categorizeBookings();
-      });
-    } catch (e) {
-      debugPrint('[ApprovalsScreen] Error handling booking update: $e');
-    }
+    // Add listeners to service
+    debugPrint('[Approvals] Adding listeners to RealtimeService...');
+    _realtimeService.addBookingCreatedListener(_onBookingCreatedListener);
+    _realtimeService.addBookingUpdatedListener(_onBookingUpdatedListener);
+    _realtimeService.addBookingApprovedListener(_onBookingApprovedListener);
+    _realtimeService.addBookingDeletedListener(_onBookingDeletedListener);
+    debugPrint('[Approvals] ✅ All listeners added successfully');
   }
 
   void _categorizeBookings() {
@@ -113,35 +106,44 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
 
   @override
   void dispose() {
-    // Clear callbacks
-    _realtimeService.onBookingCreated = null;
-    _realtimeService.onBookingUpdated = null;
-    _realtimeService.onBookingApproved = null;
-    _realtimeService.onBookingDeleted = null;
+    // Remove listeners
+    _realtimeService.removeBookingCreatedListener(_onBookingCreatedListener);
+    _realtimeService.removeBookingUpdatedListener(_onBookingUpdatedListener);
+    _realtimeService.removeBookingApprovedListener(_onBookingApprovedListener);
+    _realtimeService.removeBookingDeletedListener(_onBookingDeletedListener);
     super.dispose();
   }
 
   Future<void> _loadAllBookings() async {
     try {
-      setState(() {
-        _loading = true;
-        _error = null;
-      });
+      // Only show loading on initial load, not on auto-refresh
+      if (_allBookings.isEmpty) {
+        setState(() {
+          _loading = true;
+          _error = null;
+        });
+      }
 
       // Load all bookings (no status filter)
       final response = await _apiService.getBookings();
       final bookingsData = (response['bookings'] as List?) ?? [];
 
-      setState(() {
-        _allBookings = bookingsData.map((e) => Booking.fromJson(e)).toList();
-        _categorizeBookings();
-        _loading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _allBookings = bookingsData.map((e) => Booking.fromJson(e)).toList();
+          _categorizeBookings();
+          _loading = false;
+        });
+        debugPrint('[Approvals] Loaded ${_allBookings.length} bookings');
+      }
     } catch (e) {
-      setState(() {
-        _error = e.toString();
-        _loading = false;
-      });
+      debugPrint('[Approvals] Error loading bookings: $e');
+      if (mounted) {
+        setState(() {
+          _error = e.toString();
+          _loading = false;
+        });
+      }
     }
   }
 

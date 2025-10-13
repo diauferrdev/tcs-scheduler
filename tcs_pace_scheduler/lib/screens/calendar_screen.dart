@@ -66,6 +66,12 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
   int? _selectedDuration;
   String? _selectedVisitType; // QUICK_TOUR or INNOVATION_EXCHANGE
 
+  // Keep listener references for proper cleanup
+  late final Function(Map<String, dynamic>) _onBookingCreatedListener;
+  late final Function(Map<String, dynamic>) _onBookingUpdatedListener;
+  late final Function(Map<String, dynamic>) _onBookingApprovedListener;
+  late final Function(String) _onBookingDeletedListener;
+
   @override
   void initState() {
     super.initState();
@@ -153,38 +159,41 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
 
   /// Setup real-time listeners for calendar updates
   void _setupRealtimeListeners() {
-    // Listen for new bookings
-    _realtimeService.onBookingCreated = (booking) {
-      debugPrint('[Calendar] New booking via Native WebSocket: ${booking['title']}');
+    // Create listener references
+    _onBookingCreatedListener = (booking) {
+      debugPrint('[Calendar] New booking via WebSocket: ${booking['title']}');
       _loadBookings(); // Refresh calendar
     };
 
-    // Listen for booking updates
-    _realtimeService.onBookingUpdated = (booking) {
-      debugPrint('[Calendar] Booking updated via Native WebSocket: ${booking['id']}');
+    _onBookingUpdatedListener = (booking) {
+      debugPrint('[Calendar] Booking updated via WebSocket: ${booking['id']}');
       _loadBookings(); // Refresh calendar
     };
 
-    // Listen for booking deletions
-    _realtimeService.onBookingDeleted = (bookingId) {
-      debugPrint('[Calendar] Booking deleted via Native WebSocket: $bookingId');
+    _onBookingApprovedListener = (booking) {
+      debugPrint('[Calendar] Booking approved via WebSocket: ${booking['companyName']}');
       _loadBookings(); // Refresh calendar
     };
 
-    // Listen for booking approvals
-    _realtimeService.onBookingApproved = (booking) {
-      debugPrint('[Calendar] Booking approved via Native WebSocket: ${booking['companyName']}');
+    _onBookingDeletedListener = (bookingId) {
+      debugPrint('[Calendar] Booking deleted via WebSocket: $bookingId');
       _loadBookings(); // Refresh calendar
     };
+
+    // Add listeners to service
+    _realtimeService.addBookingCreatedListener(_onBookingCreatedListener);
+    _realtimeService.addBookingUpdatedListener(_onBookingUpdatedListener);
+    _realtimeService.addBookingApprovedListener(_onBookingApprovedListener);
+    _realtimeService.addBookingDeletedListener(_onBookingDeletedListener);
   }
 
   @override
   void dispose() {
-    // Clear callbacks to prevent memory leaks
-    _realtimeService.onBookingCreated = null;
-    _realtimeService.onBookingUpdated = null;
-    _realtimeService.onBookingDeleted = null;
-    _realtimeService.onBookingApproved = null;
+    // Remove listeners to prevent memory leaks
+    _realtimeService.removeBookingCreatedListener(_onBookingCreatedListener);
+    _realtimeService.removeBookingUpdatedListener(_onBookingUpdatedListener);
+    _realtimeService.removeBookingApprovedListener(_onBookingApprovedListener);
+    _realtimeService.removeBookingDeletedListener(_onBookingDeletedListener);
     super.dispose();
   }
 

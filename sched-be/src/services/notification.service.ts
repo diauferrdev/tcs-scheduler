@@ -181,6 +181,14 @@ export async function notifyAllManagers(
     },
   });
 
+  console.log('[NotifyManagers] Found managers:', {
+    count: managers.length,
+    roles: managers.map(m => ({ email: m.email, role: m.role })),
+    type,
+    bookingId,
+    excludeUserId,
+  });
+
   const notifications = await Promise.all(
     managers.map(manager =>
       createNotification({
@@ -193,6 +201,11 @@ export async function notifyAllManagers(
       })
     )
   );
+
+  console.log('[NotifyManagers] ✅ Sent notifications:', {
+    count: notifications.length,
+    notificationIds: notifications.map(n => n.id),
+  });
 
   return notifications;
 }
