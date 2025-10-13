@@ -396,14 +396,34 @@ class _AgendaScreenState extends State<AgendaScreen> {
 
     final sortedDays = groupedBookings.keys.toList()..sort();
 
+    // Always include today at the top if it's in the current month
+    final today = DateTime.now();
+    final todayNormalized = DateTime(today.year, today.month, today.day);
+    final isCurrentMonth = _currentMonth.year == today.year && _currentMonth.month == today.month;
+
+    // Build final list with today first if applicable
+    final List<DateTime> finalDays = [];
+    if (isCurrentMonth) {
+      finalDays.add(todayNormalized);
+      // Add other days that are not today
+      for (final day in sortedDays) {
+        if (!_isSameDay(day, todayNormalized)) {
+          finalDays.add(day);
+        }
+      }
+    } else {
+      // Not current month, just show sorted days
+      finalDays.addAll(sortedDays);
+    }
+
     return RefreshIndicator(
       onRefresh: () => _loadMonth(_currentMonth),
       child: ListView.builder(
         padding: const EdgeInsets.all(16),
-        itemCount: sortedDays.length,
+        itemCount: finalDays.length,
         itemBuilder: (context, index) {
-          final day = sortedDays[index];
-          final dayBookings = groupedBookings[day]!;
+          final day = finalDays[index];
+          final dayBookings = groupedBookings[day] ?? [];
           return _buildDayCard(day, dayBookings, isDark);
         },
       ),
