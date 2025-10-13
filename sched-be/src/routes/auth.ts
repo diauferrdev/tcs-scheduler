@@ -130,9 +130,13 @@ app.get('/users', authMiddleware, async (c) => {
 
     const allUsers = await authService.getAllUsers();
 
-    // Both ADMIN and MANAGER see all users (ADMIN, MANAGER, USER)
-    // ADMIN can create any role, MANAGER can only create USER role
-    return c.json(allUsers);
+    // ADMIN sees all users (ADMIN, MANAGER, USER)
+    // MANAGER only sees USER role (cannot see other MANAGER or ADMIN accounts)
+    const filteredUsers = currentUser.role === 'ADMIN'
+      ? allUsers
+      : allUsers.filter((u: any) => u.role === 'USER');
+
+    return c.json(filteredUsers);
   } catch (error: any) {
     return c.json({ error: error.message }, 500);
   }

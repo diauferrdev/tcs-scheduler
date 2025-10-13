@@ -1494,13 +1494,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        // Responsive height: INCREASED to prevent overflow
+        // Responsive height: Mobile needs MORE height since charts stack vertically
         final screenWidth = MediaQuery.of(context).size.width;
         final containerHeight = screenWidth >= 1024
-            ? 380.0 // Desktop - increased from 350
+            ? 380.0 // Desktop - 2 columns side-by-side
             : screenWidth >= 600
-                ? 370.0 // Tablet - increased from 350
-                : 360.0; // Mobile - increased from 350
+                ? 380.0 // Tablet - 2 columns side-by-side
+                : 420.0; // Mobile - 1 column (needs more height for legends)
 
         return Container(
           height: containerHeight,
@@ -1527,7 +1527,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 overflow: TextOverflow.ellipsis,
               ),
               const SizedBox(height: 20),
-              child,
+              Expanded(
+                child: SingleChildScrollView(
+                  child: child,
+                ),
+              ),
             ],
           ),
         );
