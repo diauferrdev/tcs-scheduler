@@ -13,10 +13,10 @@ enum VisitType {
 }
 
 enum BookingStatus {
+  DRAFT,
   PENDING_APPROVAL,
-  CONFIRMED,
+  APPROVED,
   CANCELLED,
-  RESCHEDULED,
 }
 
 enum EventType {
@@ -145,7 +145,8 @@ class Booking {
   final DealStatus? dealStatus;
 
   // Approvals
-  final bool segmentHeadApproval;
+  final bool attachHeadApproval;
+  final List<String>? attachments;
   final String? approvedById;
   final DateTime? approvedAt;
 
@@ -162,6 +163,7 @@ class Booking {
   final List<Attendee>? attendees;
 
   // Metadata
+  final String? createdById;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -188,7 +190,8 @@ class Booking {
     this.eventType,
     this.partnerName,
     this.dealStatus,
-    this.segmentHeadApproval = false,
+    this.attachHeadApproval = false,
+    this.attachments,
     this.approvedById,
     this.approvedAt,
     this.originalBookingId,
@@ -197,6 +200,7 @@ class Booking {
     this.businessGoal,
     this.additionalNotes,
     this.attendees,
+    this.createdById,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -237,7 +241,10 @@ class Booking {
       dealStatus: json['dealStatus'] != null
           ? DealStatus.values.firstWhere((e) => e.name == json['dealStatus'])
           : null,
-      segmentHeadApproval: json['segmentHeadApproval'] as bool? ?? false,
+      attachHeadApproval: json['attachHeadApproval'] as bool? ?? false,
+      attachments: json['attachments'] != null
+          ? (json['attachments'] as List).map((e) => e as String).toList()
+          : null,
       approvedById: json['approvedById'] as String?,
       approvedAt: json['approvedAt'] != null
           ? DateTime.parse(json['approvedAt'] as String)
@@ -250,6 +257,7 @@ class Booking {
       attendees: json['attendees'] != null
           ? (json['attendees'] as List).map((e) => Attendee.fromJson(e)).toList()
           : null,
+      createdById: json['createdById'] as String?,
       createdAt: DateTime.parse(json['createdAt'] as String),
       updatedAt: DateTime.parse(json['updatedAt'] as String),
     );
@@ -278,7 +286,8 @@ class Booking {
       if (eventType != null) 'eventType': eventType!.name,
       if (partnerName != null) 'partnerName': partnerName,
       if (dealStatus != null) 'dealStatus': dealStatus!.name,
-      'segmentHeadApproval': segmentHeadApproval,
+      'attachHeadApproval': attachHeadApproval,
+      if (attachments != null) 'attachments': attachments,
       if (interestArea != null) 'interestArea': interestArea,
       if (businessGoal != null) 'businessGoal': businessGoal,
       if (additionalNotes != null) 'additionalNotes': additionalNotes,

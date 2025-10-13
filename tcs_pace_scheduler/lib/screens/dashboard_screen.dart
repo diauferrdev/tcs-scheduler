@@ -282,28 +282,26 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final isDark = themeProvider.isDark;
     final screenWidth = MediaQuery.of(context).size.width;
 
-    final content = Stack(
-      children: [
-        Container(
-          color: isDark ? Colors.black : const Color(0xFFF9FAFB),
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Header
-                Text(
-                  'Dashboard',
-                  style: TextStyle(
-                    fontSize: 32,
-                    fontWeight: FontWeight.bold,
-                    color: isDark ? Colors.white : Colors.black,
-                  ),
-                ),
-                const SizedBox(height: 24),
+    final content = Container(
+      color: isDark ? Colors.black : const Color(0xFFF9FAFB),
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header
+            Text(
+              'Dashboard',
+              style: TextStyle(
+                fontSize: 32,
+                fontWeight: FontWeight.bold,
+                color: isDark ? Colors.white : Colors.black,
+              ),
+            ),
+            const SizedBox(height: 24),
 
-                // Error message
-                if (_error != null)
+            // Error message
+            if (_error != null)
               Container(
                 padding: const EdgeInsets.all(16),
                 margin: const EdgeInsets.only(bottom: 24),
@@ -334,14 +332,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
             _buildStatCardsGrid(isDark, screenWidth),
             const SizedBox(height: 24),
 
-                // Advanced Charts Grid
-                _buildChartsGrid(isDark, screenWidth),
-                const SizedBox(height: 24),
-              ],
-            ),
-          ),
+            // Advanced Charts Grid
+            _buildChartsGrid(isDark, screenWidth),
+            const SizedBox(height: 24),
+          ],
         ),
-      ],
+      ),
     );
 
     return widget.skipLayout ? content : AppLayout(child: content);
@@ -409,46 +405,158 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildChartsGrid(bool isDark, double screenWidth) {
-    final isTablet = screenWidth >= 600 && screenWidth < 1024;
     final isDesktop = screenWidth >= 1024;
-
-    final columns = isDesktop ? 4 : (isTablet ? 2 : 1);
-
-    final charts = [
-      // Row 1
-      GridItem(widget: _buildDealPipelineChart(isDark), columnSpan: 2),
-      GridItem(widget: _buildEventTypeChart(isDark), columnSpan: 2),
-
-      // Row 2
-      GridItem(widget: _buildCompanySizeChart(isDark), columnSpan: 2),
-      GridItem(widget: _buildSectorPerformanceChart(isDark), columnSpan: 2),
-
-      // Row 3
-      GridItem(widget: _buildSupporterAnalysisChart(isDark), columnSpan: 2),
-      GridItem(widget: _buildFocusAreasChart(isDark), columnSpan: 2),
-
-      // Row 4
-      GridItem(widget: _buildEngagementHeatmapChart(isDark), columnSpan: 2),
-      GridItem(widget: _buildDurationByTypeChart(isDark), columnSpan: 2),
-
-      // Row 5
-      GridItem(widget: _buildTopCompaniesCard(isDark), columnSpan: 4),
-    ];
+    final isTablet = screenWidth >= 600 && screenWidth < 1024;
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        return Wrap(
-          spacing: 16,
-          runSpacing: 16,
-          children: charts.map((item) {
-            final baseWidth = (constraints.maxWidth - (16 * (columns - 1))) / columns;
-            final width = baseWidth * item.columnSpan + (16 * (item.columnSpan - 1));
-            return SizedBox(
-              width: width,
-              child: item.widget,
-            );
-          }).toList(),
-        );
+        final maxWidth = constraints.maxWidth;
+
+        if (isDesktop) {
+          // Desktop: 2 columns
+          final columnWidth = (maxWidth - 16) / 2;
+          return Column(
+            children: [
+              // Row 1: Deal Pipeline & Event Type
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SizedBox(
+                    width: columnWidth,
+                    child: _buildDealPipelineChart(isDark),
+                  ),
+                  const SizedBox(width: 16),
+                  SizedBox(
+                    width: columnWidth,
+                    child: _buildEventTypeChart(isDark),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+
+              // Row 2: Company Size & Sector Performance
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SizedBox(
+                    width: columnWidth,
+                    child: _buildCompanySizeChart(isDark),
+                  ),
+                  const SizedBox(width: 16),
+                  SizedBox(
+                    width: columnWidth,
+                    child: _buildSectorPerformanceChart(isDark),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+
+              // Row 3: Supporter Analysis & Focus Areas
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SizedBox(
+                    width: columnWidth,
+                    child: _buildSupporterAnalysisChart(isDark),
+                  ),
+                  const SizedBox(width: 16),
+                  SizedBox(
+                    width: columnWidth,
+                    child: _buildFocusAreasChart(isDark),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+
+              // Row 4: Engagement Heatmap & Duration by Type
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SizedBox(
+                    width: columnWidth,
+                    child: _buildEngagementHeatmapChart(isDark),
+                  ),
+                  const SizedBox(width: 16),
+                  SizedBox(
+                    width: columnWidth,
+                    child: _buildDurationByTypeChart(isDark),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+
+              // Row 5: Top Companies (full width)
+              _buildTopCompaniesCard(isDark),
+            ],
+          );
+        } else if (isTablet) {
+          // Tablet: 2 columns
+          final columnWidth = (maxWidth - 16) / 2;
+          return Column(
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SizedBox(width: columnWidth, child: _buildDealPipelineChart(isDark)),
+                  const SizedBox(width: 16),
+                  SizedBox(width: columnWidth, child: _buildEventTypeChart(isDark)),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SizedBox(width: columnWidth, child: _buildCompanySizeChart(isDark)),
+                  const SizedBox(width: 16),
+                  SizedBox(width: columnWidth, child: _buildSectorPerformanceChart(isDark)),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SizedBox(width: columnWidth, child: _buildSupporterAnalysisChart(isDark)),
+                  const SizedBox(width: 16),
+                  SizedBox(width: columnWidth, child: _buildFocusAreasChart(isDark)),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SizedBox(width: columnWidth, child: _buildEngagementHeatmapChart(isDark)),
+                  const SizedBox(width: 16),
+                  SizedBox(width: columnWidth, child: _buildDurationByTypeChart(isDark)),
+                ],
+              ),
+              const SizedBox(height: 16),
+              _buildTopCompaniesCard(isDark),
+            ],
+          );
+        } else {
+          // Mobile: 1 column
+          return Column(
+            children: [
+              _buildDealPipelineChart(isDark),
+              const SizedBox(height: 16),
+              _buildEventTypeChart(isDark),
+              const SizedBox(height: 16),
+              _buildCompanySizeChart(isDark),
+              const SizedBox(height: 16),
+              _buildSectorPerformanceChart(isDark),
+              const SizedBox(height: 16),
+              _buildSupporterAnalysisChart(isDark),
+              const SizedBox(height: 16),
+              _buildFocusAreasChart(isDark),
+              const SizedBox(height: 16),
+              _buildEngagementHeatmapChart(isDark),
+              const SizedBox(height: 16),
+              _buildDurationByTypeChart(isDark),
+              const SizedBox(height: 16),
+              _buildTopCompaniesCard(isDark),
+            ],
+          );
+        }
       },
     );
   }
@@ -534,13 +642,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
               return Column(
                 children: [
                   SizedBox(
-                    height: 160,
+                    height: 200,
                     child: BarChart(
                       BarChartData(
                         alignment: BarChartAlignment.spaceAround,
                         maxY: top5.first.value.toDouble() * 1.4,
                         barTouchData: BarTouchData(enabled: false),
-                        extraLinesData: ExtraLinesData(extraLinesOnTop: false),
                         titlesData: FlTitlesData(
                           show: true,
                           bottomTitles: const AxisTitles(
@@ -581,7 +688,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           top5.length,
                           (index) => BarChartGroupData(
                             x: index,
-                            showingTooltipIndicators: [],
                             barRods: [
                               BarChartRodData(
                                 toY: top5[index].value.toDouble(),
@@ -598,7 +704,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 16),
                   Wrap(
                     spacing: 12,
                     runSpacing: 8,
@@ -626,8 +732,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
       child: _loadingBookings
           ? _buildLoadingIndicator(isDark)
           : () {
+              final allEventTypes = {'TCS': 0, 'PARTNER': 0};
               final dist = _getEventTypeDistribution();
-              final total = dist['TCS']! + dist['PARTNER']!;
+              allEventTypes['TCS'] = dist['TCS']!;
+              allEventTypes['PARTNER'] = dist['PARTNER']!;
+              final total = allEventTypes['TCS']! + allEventTypes['PARTNER']!;
 
               if (total == 0) {
                 return _buildNoData(isDark);
@@ -635,47 +744,48 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
               return Column(
                 children: [
-                  const SizedBox(height: 16),
                   SizedBox(
-                    height: 140,
-                    child: PieChart(
-                      PieChartData(
-                        sectionsSpace: 2,
-                        centerSpaceRadius: 35,
-                        sections: [
-                          PieChartSectionData(
-                            color: const Color(0xFF3B82F6),
-                            value: dist['TCS']!.toDouble(),
-                            title: '${(dist['TCS']! / total * 100).toStringAsFixed(1)}%',
-                            radius: 45,
-                            titleStyle: const TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
+                    height: 200,
+                    child: Center(
+                      child: PieChart(
+                        PieChartData(
+                          sectionsSpace: 2,
+                          centerSpaceRadius: 40,
+                          sections: [
+                            PieChartSectionData(
+                              color: const Color(0xFF3B82F6),
+                              value: allEventTypes['TCS']!.toDouble(),
+                              title: '${(allEventTypes['TCS']! / total * 100).toStringAsFixed(1)}%',
+                              radius: 50,
+                              titleStyle: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
                             ),
-                          ),
-                          PieChartSectionData(
-                            color: const Color(0xFF8B5CF6),
-                            value: dist['PARTNER']!.toDouble(),
-                            title: '${(dist['PARTNER']! / total * 100).toStringAsFixed(1)}%',
-                            radius: 45,
-                            titleStyle: const TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
+                            PieChartSectionData(
+                              color: const Color(0xFF8B5CF6),
+                              value: allEventTypes['PARTNER']!.toDouble(),
+                              title: '${(allEventTypes['PARTNER']! / total * 100).toStringAsFixed(1)}%',
+                              radius: 50,
+                              titleStyle: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
                   ),
-                  const SizedBox(height: 28),
+                  const SizedBox(height: 16),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      _buildLegendItem('TCS (${dist['TCS']})', const Color(0xFF3B82F6), isDark),
+                      _buildLegendItem('TCS (${allEventTypes['TCS']})', const Color(0xFF3B82F6), isDark),
                       const SizedBox(width: 24),
-                      _buildLegendItem('PARTNER (${dist['PARTNER']})', const Color(0xFF8B5CF6), isDark),
+                      _buildLegendItem('PARTNER (${allEventTypes['PARTNER']})', const Color(0xFF8B5CF6), isDark),
                     ],
                   ),
                 ],
@@ -691,48 +801,62 @@ class _DashboardScreenState extends State<DashboardScreen> {
       child: _loadingBookings
           ? _buildLoadingIndicator(isDark)
           : () {
+              final allSizes = <String, int>{
+                'SMALL': 0,
+                'MEDIUM': 0,
+                'LARGE': 0,
+                'ENTERPRISE': 0,
+              };
+
               final dist = _getCompanySizeDistribution();
-              if (dist.isEmpty) {
+              dist.forEach((key, value) {
+                allSizes[key] = value;
+              });
+
+              final total = allSizes.values.fold<int>(0, (sum, v) => sum + v);
+
+              if (total == 0) {
                 return _buildNoData(isDark);
               }
 
-              final total = dist.values.fold<int>(0, (sum, v) => sum + v);
+              final entriesList = allSizes.entries.toList();
 
               return Column(
                 children: [
-                  const SizedBox(height: 16),
                   SizedBox(
-                    height: 120,
-                    child: PieChart(
-                      PieChartData(
-                        sectionsSpace: 2,
-                        centerSpaceRadius: 30,
-                        sections: dist.entries.toList().asMap().entries.map((entry) {
-                          final index = entry.key;
-                          final item = entry.value;
-                          final percentage = (item.value / total * 100).toStringAsFixed(1);
+                    height: 200,
+                    child: Center(
+                      child: PieChart(
+                        PieChartData(
+                          sectionsSpace: 2,
+                          centerSpaceRadius: 35,
+                          sections: entriesList.asMap().entries.map((entry) {
+                            final index = entry.key;
+                            final item = entry.value;
+                            final percentage = (item.value / total * 100).toStringAsFixed(1);
 
-                          return PieChartSectionData(
-                            color: _getChartColor(index),
-                            value: item.value.toDouble(),
-                            title: '$percentage%',
-                            radius: 42,
-                            titleStyle: const TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                            ),
-                          );
-                        }).toList(),
+                            return PieChartSectionData(
+                              color: _getChartColor(index),
+                              value: item.value.toDouble(),
+                              title: '$percentage%',
+                              radius: 45,
+                              titleStyle: const TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                            );
+                          }).toList(),
+                        ),
                       ),
                     ),
                   ),
-                  const SizedBox(height: 28),
+                  const SizedBox(height: 16),
                   Wrap(
                     spacing: 12,
                     runSpacing: 8,
                     alignment: WrapAlignment.center,
-                    children: dist.entries.toList().asMap().entries.map((entry) {
+                    children: entriesList.asMap().entries.map((entry) {
                       final index = entry.key;
                       final item = entry.value;
                       return _buildLegendItem(
@@ -762,13 +886,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   return Column(
                     children: [
                       SizedBox(
-                        height: 160,
+                        height: 200,
                         child: BarChart(
                           BarChartData(
                             alignment: BarChartAlignment.spaceAround,
                             maxY: top5.first.count.toDouble() * 1.4,
                             barTouchData: BarTouchData(enabled: false),
-                            extraLinesData: ExtraLinesData(extraLinesOnTop: false),
                             titlesData: FlTitlesData(
                               show: true,
                               bottomTitles: const AxisTitles(
@@ -809,7 +932,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               top5.length,
                               (index) => BarChartGroupData(
                                 x: index,
-                                showingTooltipIndicators: [],
                                 barRods: [
                                   BarChartRodData(
                                     toY: top5[index].count.toDouble(),
@@ -826,7 +948,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           ),
                         ),
                       ),
-                      const SizedBox(height: 24),
+                      const SizedBox(height: 16),
                       Wrap(
                         spacing: 12,
                         runSpacing: 8,
@@ -854,8 +976,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
       child: _loadingBookings
           ? _buildLoadingIndicator(isDark)
           : () {
+              final allSupporterTypes = {
+                'SUPPORTER': 0,
+                'NEUTRAL': 0,
+                'DETRACTOR': 0,
+              };
+
               final breakdown = _getSupporterBreakdown();
-              final total = breakdown.values.fold<int>(0, (sum, v) => sum + (v as int));
+              breakdown.forEach((key, value) {
+                allSupporterTypes[key] = value as int;
+              });
+
+              final total = allSupporterTypes.values.fold<int>(0, (sum, v) => sum + v);
 
               if (total == 0) {
                 return _buildNoData(isDark);
@@ -863,60 +995,61 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
               return Column(
                 children: [
-                  const SizedBox(height: 16),
                   SizedBox(
-                    height: 120,
-                    child: PieChart(
-                      PieChartData(
-                        sectionsSpace: 2,
-                        centerSpaceRadius: 30,
-                        sections: [
-                          PieChartSectionData(
-                            color: const Color(0xFF10B981),
-                            value: breakdown['SUPPORTER']!.toDouble(),
-                            title: '${(breakdown['SUPPORTER']! / total * 100).toStringAsFixed(1)}%',
-                            radius: 42,
-                            titleStyle: const TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
+                    height: 200,
+                    child: Center(
+                      child: PieChart(
+                        PieChartData(
+                          sectionsSpace: 2,
+                          centerSpaceRadius: 35,
+                          sections: [
+                            PieChartSectionData(
+                              color: const Color(0xFF10B981),
+                              value: allSupporterTypes['SUPPORTER']!.toDouble(),
+                              title: '${(allSupporterTypes['SUPPORTER']! / total * 100).toStringAsFixed(1)}%',
+                              radius: 45,
+                              titleStyle: const TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
                             ),
-                          ),
-                          PieChartSectionData(
-                            color: const Color(0xFFF59E0B),
-                            value: breakdown['NEUTRAL']!.toDouble(),
-                            title: '${(breakdown['NEUTRAL']! / total * 100).toStringAsFixed(1)}%',
-                            radius: 42,
-                            titleStyle: const TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
+                            PieChartSectionData(
+                              color: const Color(0xFFF59E0B),
+                              value: allSupporterTypes['NEUTRAL']!.toDouble(),
+                              title: '${(allSupporterTypes['NEUTRAL']! / total * 100).toStringAsFixed(1)}%',
+                              radius: 45,
+                              titleStyle: const TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
                             ),
-                          ),
-                          PieChartSectionData(
-                            color: const Color(0xFFEF4444),
-                            value: breakdown['DETRACTOR']!.toDouble(),
-                            title: '${(breakdown['DETRACTOR']! / total * 100).toStringAsFixed(1)}%',
-                            radius: 42,
-                            titleStyle: const TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
+                            PieChartSectionData(
+                              color: const Color(0xFFEF4444),
+                              value: allSupporterTypes['DETRACTOR']!.toDouble(),
+                              title: '${(allSupporterTypes['DETRACTOR']! / total * 100).toStringAsFixed(1)}%',
+                              radius: 45,
+                              titleStyle: const TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
                   ),
-                  const SizedBox(height: 28),
+                  const SizedBox(height: 16),
                   Wrap(
                     spacing: 12,
                     runSpacing: 8,
                     alignment: WrapAlignment.center,
                     children: [
-                      _buildLegendItem('Supporter (${breakdown['SUPPORTER']})', const Color(0xFF10B981), isDark),
-                      _buildLegendItem('Neutral (${breakdown['NEUTRAL']})', const Color(0xFFF59E0B), isDark),
-                      _buildLegendItem('Detractor (${breakdown['DETRACTOR']})', const Color(0xFFEF4444), isDark),
+                      _buildLegendItem('Supporter (${allSupporterTypes['SUPPORTER']})', const Color(0xFF10B981), isDark),
+                      _buildLegendItem('Neutral (${allSupporterTypes['NEUTRAL']})', const Color(0xFFF59E0B), isDark),
+                      _buildLegendItem('Detractor (${allSupporterTypes['DETRACTOR']})', const Color(0xFFEF4444), isDark),
                     ],
                   ),
                 ],
@@ -943,13 +1076,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
               return Column(
                 children: [
                   SizedBox(
-                    height: 160,
+                    height: 200,
                     child: BarChart(
                       BarChartData(
                         alignment: BarChartAlignment.spaceAround,
                         maxY: top5.first.value.toDouble() * 1.4,
                         barTouchData: BarTouchData(enabled: false),
-                        extraLinesData: ExtraLinesData(extraLinesOnTop: false),
                         titlesData: FlTitlesData(
                           show: true,
                           bottomTitles: const AxisTitles(
@@ -990,7 +1122,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           top5.length,
                           (index) => BarChartGroupData(
                             x: index,
-                            showingTooltipIndicators: [],
                             barRods: [
                               BarChartRodData(
                                 toY: top5[index].value.toDouble(),
@@ -1007,7 +1138,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 16),
                   Wrap(
                     spacing: 12,
                     runSpacing: 8,
@@ -1030,7 +1161,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Widget _buildEngagementHeatmapChart(bool isDark) {
     return _buildChartContainer(
-      title: 'Booking Frequency by Day & Hour',
+      title: 'Booking Frequency by Hour',
       isDark: isDark,
       child: _loadingBookings
           ? _buildLoadingIndicator(isDark)
@@ -1063,7 +1194,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     alignment: BarChartAlignment.spaceAround,
                     maxY: maxCount.toDouble() * 1.2,
                     barTouchData: BarTouchData(enabled: false),
-                    extraLinesData: ExtraLinesData(extraLinesOnTop: false),
                     titlesData: FlTitlesData(
                       show: true,
                       bottomTitles: AxisTitles(
@@ -1122,7 +1252,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       hourlyData.length,
                       (index) => BarChartGroupData(
                         x: index,
-                        showingTooltipIndicators: [],
                         barRods: [
                           BarChartRodData(
                             toY: hourlyData[index]['count'].toDouble(),
@@ -1167,7 +1296,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     alignment: BarChartAlignment.spaceAround,
                     maxY: maxY * 1.4,
                     barTouchData: BarTouchData(enabled: false),
-                    extraLinesData: ExtraLinesData(extraLinesOnTop: false),
                     titlesData: FlTitlesData(
                       show: true,
                       bottomTitles: AxisTitles(
@@ -1224,7 +1352,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     barGroups: [
                       BarChartGroupData(
                         x: 0,
-                        showingTooltipIndicators: [],
                         barRods: [
                           BarChartRodData(
                             toY: tcsAvg,
@@ -1239,7 +1366,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       ),
                       BarChartGroupData(
                         x: 1,
-                        showingTooltipIndicators: [],
                         barRods: [
                           BarChartRodData(
                             toY: partnerAvg,
@@ -1268,93 +1394,95 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ? _buildLoadingIndicator(isDark)
           : _topCompanies.isEmpty
               ? _buildNoData(isDark)
-              : Table(
-                  columnWidths: const {
-                    0: FixedColumnWidth(60),
-                    1: FlexColumnWidth(),
-                    2: FixedColumnWidth(80),
-                  },
-                  children: [
-                    TableRow(
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.all(12),
-                          child: Text(
-                            'Rank',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
-                            ),
-                          ),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.all(12),
-                          child: Text(
-                            'Company',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
-                            ),
-                          ),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.all(12),
-                          child: Text(
-                            'Visits',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
-                            ),
-                            textAlign: TextAlign.right,
-                          ),
-                        ),
-                      ],
-                    ),
-                    ..._topCompanies.asMap().entries.map((entry) {
-                      final index = entry.key;
-                      final company = entry.value;
-                      return TableRow(
-                        decoration: BoxDecoration(
-                          border: Border(
-                            top: BorderSide(
-                              color: isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
-                            ),
-                          ),
-                        ),
+              : SingleChildScrollView(
+                  child: Table(
+                    columnWidths: const {
+                      0: FixedColumnWidth(60),
+                      1: FlexColumnWidth(),
+                      2: FixedColumnWidth(80),
+                    },
+                    children: [
+                      TableRow(
                         children: [
                           Padding(
                             padding: const EdgeInsets.all(12),
                             child: Text(
-                              '${index + 1}',
-                              style: TextStyle(
-                                color: isDark ? Colors.white : Colors.black,
-                              ),
-                            ),
-                          ),
-                          Padding(
-                            padding: const EdgeInsets.all(12),
-                            child: Text(
-                              company.company,
-                              style: TextStyle(
-                                color: isDark ? Colors.white : Colors.black,
-                              ),
-                            ),
-                          ),
-                          Padding(
-                            padding: const EdgeInsets.all(12),
-                            child: Text(
-                              company.visits.toString(),
+                              'Rank',
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
-                                color: isDark ? Colors.white : Colors.black,
+                                color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
+                              ),
+                            ),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.all(12),
+                            child: Text(
+                              'Company',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
+                              ),
+                            ),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.all(12),
+                            child: Text(
+                              'Visits',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
                               ),
                               textAlign: TextAlign.right,
                             ),
                           ),
                         ],
-                      );
-                    }),
-                  ],
+                      ),
+                      ..._topCompanies.asMap().entries.map((entry) {
+                        final index = entry.key;
+                        final company = entry.value;
+                        return TableRow(
+                          decoration: BoxDecoration(
+                            border: Border(
+                              top: BorderSide(
+                                color: isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
+                              ),
+                            ),
+                          ),
+                          children: [
+                            Padding(
+                              padding: const EdgeInsets.all(12),
+                              child: Text(
+                                '${index + 1}',
+                                style: TextStyle(
+                                  color: isDark ? Colors.white : Colors.black,
+                                ),
+                              ),
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.all(12),
+                              child: Text(
+                                company.company,
+                                style: TextStyle(
+                                  color: isDark ? Colors.white : Colors.black,
+                                ),
+                              ),
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.all(12),
+                              child: Text(
+                                company.visits.toString(),
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: isDark ? Colors.white : Colors.black,
+                                ),
+                                textAlign: TextAlign.right,
+                              ),
+                            ),
+                          ],
+                        );
+                      }),
+                    ],
+                  ),
                 ),
     );
   }
@@ -1362,43 +1490,48 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget _buildChartContainer({
     required String title,
     required bool isDark,
-    Widget? dropdown,
     required Widget child,
   }) {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF18181B) : Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Responsive height: INCREASED to prevent overflow
+        final screenWidth = MediaQuery.of(context).size.width;
+        final containerHeight = screenWidth >= 1024
+            ? 380.0 // Desktop - increased from 350
+            : screenWidth >= 600
+                ? 370.0 // Tablet - increased from 350
+                : 360.0; // Mobile - increased from 350
+
+        return Container(
+          height: containerHeight,
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF18181B) : Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Expanded(
-                child: Text(
-                  title,
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: isDark ? Colors.white : Colors.black,
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
+              Text(
+                title,
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: isDark ? Colors.white : Colors.black,
                 ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
               ),
-              if (dropdown != null) dropdown,
+              const SizedBox(height: 20),
+              child,
             ],
           ),
-          const SizedBox(height: 24),
-          child,
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -1466,11 +1599,4 @@ class _DashboardScreenState extends State<DashboardScreen> {
     ];
     return colors[index % colors.length];
   }
-}
-
-class GridItem {
-  final Widget widget;
-  final int columnSpan;
-
-  GridItem({required this.widget, required this.columnSpan});
 }

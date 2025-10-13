@@ -12,8 +12,11 @@ import '../providers/theme_provider.dart';
 import '../providers/auth_provider.dart';
 import '../services/api_service.dart';
 import '../services/realtime_service.dart';
+import '../services/navigation_service.dart';
 import '../models/booking.dart';
+import '../models/user.dart';
 import '../widgets/access_badge.dart';
+import '../utils/time_formatter.dart';
 import 'booking_form_screen.dart';
 
 enum CalendarViewType {
@@ -24,8 +27,13 @@ enum CalendarViewType {
 
 class CalendarScreen extends StatefulWidget {
   final bool skipLayout;
+  final String? draftIdToEdit; // Optional draft ID to open for editing
 
-  const CalendarScreen({super.key, this.skipLayout = false});
+  const CalendarScreen({
+    super.key,
+    this.skipLayout = false,
+    this.draftIdToEdit,
+  });
 
   @override
   State<CalendarScreen> createState() => _CalendarScreenState();
@@ -42,9 +50,7 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
   DateTime? _selectedDate;
   String? _selectedSlot;
   Booking? _selectedBooking;
-  bool _showSlotPicker = false;
   bool _showDayBookings = false;
-  bool _showBookingDetails = false;
   bool _showBookingForm = false;
   bool _showCancelDialog = false;
   DateTime? _tappedDate;
@@ -67,6 +73,82 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
     _loadBookings();
     _loadDayAvailability(_selectedDate!); // Load availability for current day
     _setupRealtimeListeners();
+
+    // If draftIdToEdit is provided, load and open the draft for editing
+    if (widget.draftIdToEdit != null) {
+      _loadAndOpenDraft(widget.draftIdToEdit!);
+    }
+  }
+
+  /// Load draft booking and open form for editing
+  Future<void> _loadAndOpenDraft(String draftId) async {
+    try {
+      final booking = await _apiService.getBookingById(draftId);
+      final draftBooking = Booking.fromJson(booking);
+
+      // Set the selected date to the draft's date
+      setState(() {
+        _selectedDate = draftBooking.date;
+        _currentMonth = DateTime(draftBooking.date.year, draftBooking.date.month);
+      });
+
+      // Load availability for the draft's date
+      await _loadDayAvailability(draftBooking.date);
+
+      // Open booking form with draft data after a short delay to ensure UI is ready
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _showBookingFormWithDraft(draftBooking);
+        }
+      });
+    } catch (e) {
+      debugPrint('[Calendar] Error loading draft: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error loading draft: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  void _showBookingFormWithDraft(Booking draft) {
+    // Parse start time to TimeOfDay
+    final timeParts = draft.startTime.split(':');
+    final startTime = TimeOfDay(
+      hour: int.parse(timeParts[0]),
+      minute: int.parse(timeParts[1]),
+    );
+
+    // Calculate duration from the draft
+    final durationMap = {
+      'ONE_HOUR': 1,
+      'TWO_HOURS': 2,
+      'THREE_HOURS': 3,
+      'FOUR_HOURS': 4,
+      'FIVE_HOURS': 5,
+      'SIX_HOURS': 6,
+    };
+    final duration = durationMap[draft.duration] ?? 4;
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => BookingFormScreen(
+          selectedDate: draft.date,
+          startTime: startTime,
+          duration: duration,
+          existingBooking: draft, // CRITICAL: Pass draft booking to prefill form
+        ),
+        fullscreenDialog: true,
+      ),
+    ).then((result) {
+      if (result == true) {
+        _loadBookings(); // Refresh bookings after form closes
+      }
+    });
   }
 
   /// Setup real-time listeners for calendar updates
@@ -113,14 +195,21 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
         _error = null;
       });
 
-      // Use different endpoint based on user role
-      // ADMIN/MANAGER see all bookings including PENDING_APPROVAL (intentions)
-      // USER sees only CONFIRMED bookings
+      // Get all bookings from backend
+      // Note: PENDING_APPROVAL bookings are filtered out from calendar display
+      // They only appear in My Bookings (USER) and Approvals page (ADMIN/MANAGER)
       final response = await _apiService.getBookings();
       final bookingsData = response['bookings'] as List;
 
       setState(() {
         _bookings = bookingsData.map((e) => Booking.fromJson(e)).toList();
+        // Sort bookings by date, then by startTime (morning first, then afternoon)
+        _bookings.sort((a, b) {
+          final dateComparison = a.date.compareTo(b.date);
+          if (dateComparison != 0) return dateComparison;
+          // If same date, sort by startTime
+          return a.startTime.compareTo(b.startTime);
+        });
         _loading = false;
       });
     } catch (e) {
@@ -136,10 +225,17 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
   }
 
   /// Calculate the minimum bookable date (7 business days from today)
+  /// If today is a weekend, starts counting from the next Monday
   DateTime _getMinimumBookableDate() {
     DateTime date = DateTime.now();
-    int businessDaysAdded = 0;
 
+    // If today is weekend, skip to next Monday
+    while (_isWeekend(date)) {
+      date = date.add(const Duration(days: 1));
+    }
+
+    // Now count 7 business days from the first business day
+    int businessDaysAdded = 0;
     while (businessDaysAdded < 7) {
       date = date.add(const Duration(days: 1));
       if (!_isWeekend(date)) {
@@ -176,13 +272,15 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
 
   /// Calculate prep/teardown blocks for Innovation Exchange events
   /// Returns a map: {date: {morning: blocked, afternoon: blocked}}
+  /// Only APPROVED bookings block periods (PENDING do not block)
   Map<String, Map<String, bool>> _calculateInnovationExchangeBlocks() {
     final blocks = <String, Map<String, bool>>{};
 
-    // Find all Innovation Exchange bookings
+    // Find all APPROVED Innovation Exchange bookings
+    // PENDING_APPROVAL do not block periods
     final ieBookings = _bookings.where((b) =>
       b.visitType == VisitType.INNOVATION_EXCHANGE &&
-      (b.status == BookingStatus.CONFIRMED || b.status == BookingStatus.PENDING_APPROVAL)
+      b.status == BookingStatus.APPROVED
     ).toList();
 
     for (final ie in ieBookings) {
@@ -236,14 +334,31 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
     final dateStr = DateFormat('yyyy-MM-dd').format(date);
     final dayBookings = _bookings.where((b) {
       final bookingDate = DateFormat('yyyy-MM-dd').format(b.date);
-      return bookingDate == dateStr && b.status != BookingStatus.CANCELLED;
+
+      // Filter by date and not cancelled
+      if (bookingDate != dateStr || b.status == BookingStatus.CANCELLED) {
+        return false;
+      }
+
+      // HIDE pending approval bookings from calendar for ALL roles
+      // Pending bookings only appear in:
+      // - My Bookings (for USER who created)
+      // - Approvals page (for ADMIN/MANAGER to approve)
+      if (b.status == BookingStatus.PENDING_APPROVAL) {
+        return false;
+      }
+
+      return true;
     }).toList();
+
+    // ALWAYS sort by startTime to ensure morning bookings come first
+    dayBookings.sort((a, b) => a.startTime.compareTo(b.startTime));
 
     return dayBookings;
   }
 
   /// Get prep/teardown blocks for a specific day
-  /// Returns list with period labels: 'PREP (Morning)', 'TEARDOWN (Afternoon)', etc.
+  /// Only returns blocks for prep/teardown (NOT for the actual IE event)
   List<Map<String, String>> _getIEBlocksForDay(DateTime date) {
     final blocks = <Map<String, String>>[];
     final ieBlocks = _calculateInnovationExchangeBlocks();
@@ -258,14 +373,38 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
           return bookingDate == dayStr &&
                  b.visitType == VisitType.INNOVATION_EXCHANGE &&
                  eventHour < 13 &&
-                 (b.status == BookingStatus.CONFIRMED || b.status == BookingStatus.PENDING_APPROVAL);
+                 b.status == BookingStatus.APPROVED;
         });
 
-        blocks.add({
-          'period': 'Morning',
-          'label': hasIEMorning ? 'Innovation Exchange' : 'Reserved (IE Prep/Teardown)',
-          'time': '09:00 - 13:00',
-        });
+        // Only add block if it's prep/teardown (NOT the actual IE event)
+        if (!hasIEMorning) {
+          // Determine if it's prep or teardown by checking adjacent days
+          String blockType = 'Reserved';
+
+          // Check if there's an IE in the afternoon of same day (this would be prep for that IE)
+          final hasIEAfternoonSameDay = _bookings.any((b) {
+            final bookingDate = DateFormat('yyyy-MM-dd').format(b.date);
+            final eventHour = int.parse(b.startTime.split(':')[0]);
+            return bookingDate == dayStr &&
+                   b.visitType == VisitType.INNOVATION_EXCHANGE &&
+                   eventHour >= 13 &&
+                   b.status == BookingStatus.APPROVED;
+          });
+
+          if (hasIEAfternoonSameDay) {
+            blockType = 'Prep for IE (same day afternoon)';
+          } else {
+            // Must be teardown from previous day IE
+            blockType = 'Teardown from IE (previous day)';
+          }
+
+          blocks.add({
+            'period': 'Morning',
+            'label': blockType,
+            'time': '09:00 - 13:00',
+            'sortOrder': '0', // Morning first
+          });
+        }
       }
 
       if (ieBlocks[dayStr]!['afternoon'] == true) {
@@ -276,14 +415,38 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
           return bookingDate == dayStr &&
                  b.visitType == VisitType.INNOVATION_EXCHANGE &&
                  eventHour >= 13 &&
-                 (b.status == BookingStatus.CONFIRMED || b.status == BookingStatus.PENDING_APPROVAL);
+                 b.status == BookingStatus.APPROVED;
         });
 
-        blocks.add({
-          'period': 'Afternoon',
-          'label': hasIEAfternoon ? 'Innovation Exchange' : 'Reserved (IE Prep/Teardown)',
-          'time': '13:00 - 17:00',
-        });
+        // Only add block if it's prep/teardown (NOT the actual IE event)
+        if (!hasIEAfternoon) {
+          // Determine if it's prep or teardown by checking adjacent days
+          String blockType = 'Reserved';
+
+          // Check if there's an IE in the morning of same day (this would be teardown for that IE)
+          final hasIEMorningSameDay = _bookings.any((b) {
+            final bookingDate = DateFormat('yyyy-MM-dd').format(b.date);
+            final eventHour = int.parse(b.startTime.split(':')[0]);
+            return bookingDate == dayStr &&
+                   b.visitType == VisitType.INNOVATION_EXCHANGE &&
+                   eventHour < 13 &&
+                   b.status == BookingStatus.APPROVED;
+          });
+
+          if (hasIEMorningSameDay) {
+            blockType = 'Teardown from IE (same day morning)';
+          } else {
+            // Must be prep for next day IE
+            blockType = 'Prep for IE (next day)';
+          }
+
+          blocks.add({
+            'period': 'Afternoon',
+            'label': blockType,
+            'time': '13:00 - 17:00',
+            'sortOrder': '1', // Afternoon after morning
+          });
+        }
       }
     }
 
@@ -304,11 +467,11 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
       return isDark ? const Color(0xFF3F1F1F) : const Color(0xFFFEE2E2);
     }
 
-    // Get ONLY CONFIRMED bookings for this day (not PENDING_APPROVAL)
+    // Get ONLY APPROVED bookings for this day (not PENDING_APPROVAL)
     final dateStr = DateFormat('yyyy-MM-dd').format(day);
     final confirmedBookings = _bookings.where((b) {
       final bookingDate = DateFormat('yyyy-MM-dd').format(b.date);
-      return bookingDate == dateStr && b.status == BookingStatus.CONFIRMED;
+      return bookingDate == dateStr && b.status == BookingStatus.APPROVED;
     }).toList();
 
     final availability = _availabilityCache[dateStr];
@@ -318,7 +481,7 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
       return isDark ? const Color(0xFF7F1D1D) : const Color(0xFFFECDD3); // Red - Full
     }
 
-    // If there are CONFIRMED bookings, show yellow
+    // If there are APPROVED bookings, show yellow
     if (confirmedBookings.isNotEmpty) {
       return isDark ? const Color(0xFF78350F) : const Color(0xFFFEF3C7); // Yellow - Has confirmed bookings
     }
@@ -414,20 +577,131 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
   }
 
   void _showSlotPickerDrawer(DateTime date) {
-    setState(() => _showSlotPicker = true);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final availability = _selectedDayAvailability;
+    final allPeriods = availability?.allPeriods ?? [];
+    final visitTypeLabel = _selectedVisitType == 'QUICK_TOUR' ? 'Quick Tour' : 'Innovation Exchange';
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      isDismissible: true,
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.75,
+        minChildSize: 0.5,
+        maxChildSize: 0.9,
+        builder: (context, scrollController) => Container(
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF18181B) : Colors.white,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: Column(
+            children: [
+              // Handle bar
+              Container(
+                margin: const EdgeInsets.only(top: 8, bottom: 4),
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: isDark ? Colors.grey[700] : Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              // Header
+              Container(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                decoration: BoxDecoration(
+                  border: Border(
+                    bottom: BorderSide(
+                      color: isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
+                    ),
+                  ),
+                ),
+                child: Column(
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        IconButton(
+                          onPressed: () {
+                            Navigator.of(context).pop();
+                            _closeSlotPickerAndClearCache();
+                          },
+                          icon: Icon(Icons.close, color: isDark ? Colors.white : Colors.black),
+                          tooltip: 'Close',
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Select Period',
+                                style: TextStyle(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.bold,
+                                  color: isDark ? Colors.white : Colors.black,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                visitTypeLabel,
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Padding(
+                        padding: const EdgeInsets.only(left: 56),
+                        child: Text(
+                          DateFormat('MMMM d, yyyy').format(date),
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              // Content
+              Expanded(
+                child: SingleChildScrollView(
+                  controller: scrollController,
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    children: allPeriods.map((period) {
+                      return _buildPeriodCard(period, isDark);
+                    }).toList(),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    ).whenComplete(() => _closeSlotPickerAndClearCache());
   }
 
   void _closeSlotPickerAndClearCache() {
     if (_selectedDate != null) {
       final dateStr = DateFormat('yyyy-MM-dd').format(_selectedDate!);
       setState(() {
-        _showSlotPicker = false;
         _availabilityCache.remove(dateStr);
         _selectedDayAvailability = null;
         _selectedVisitType = null;
       });
-    } else {
-      setState(() => _showSlotPicker = false);
     }
   }
 
@@ -447,52 +721,214 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
     }
   }
 
-  void _showDayBookingsDrawer(DateTime date) {
-    setState(() => _showDayBookings = true);
+  Future<void> _showDayBookingsDrawer(DateTime date) async {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isMobile = MediaQuery.of(context).size.width < 768;
+    final authProvider = context.read<AuthProvider>();
+    final isUserRole = authProvider.user?.role == UserRole.USER;
+
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      isDismissible: true,
+      enableDrag: true,
+      builder: (context) => _buildDayBookingsOverlay(isDark, isMobile, isUserRole ?? false),
+    );
+  }
+
+  Future<void> _showBookingFormDrawer(DateTime selectedDate, TimeOfDay startTime, int duration) async {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    // Create a GlobalKey to access BookingFormScreen's fillWithMockData method
+    final formKey = GlobalKey<BookingFormScreenState>();
+
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      isDismissible: false, // Prevent dismissing to avoid losing form data
+      enableDrag: false, // Prevent dragging to avoid accidental closes
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.85, // Increased from 0.75 to 0.85 (85% height)
+        minChildSize: 0.6, // Increased from 0.5 to 0.6
+        maxChildSize: 0.95, // Increased from 0.9 to 0.95
+        builder: (context, scrollController) => Container(
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF18181B) : Colors.white,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: Column(
+            children: [
+              // Handle bar
+              Container(
+                margin: const EdgeInsets.only(top: 8, bottom: 4),
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: isDark ? Colors.grey[700] : Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              // Header with close button and mock data button
+              Container(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                decoration: BoxDecoration(
+                  border: Border(
+                    bottom: BorderSide(
+                      color: isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
+                    ),
+                  ),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    IconButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      icon: Icon(Icons.close, color: isDark ? Colors.white : Colors.black),
+                      tooltip: 'Close',
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'New Booking',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: isDark ? Colors.white : Colors.black,
+                        ),
+                      ),
+                    ),
+                    // Mock data button
+                    IconButton(
+                      onPressed: () {
+                        // Call fillWithMockData on the form
+                        formKey.currentState?.fillWithMockData();
+                      },
+                      icon: Icon(Icons.auto_awesome, color: isDark ? Colors.white : Colors.black),
+                      tooltip: 'Fill with Mock Data',
+                    ),
+                  ],
+                ),
+              ),
+              // Content - Full BookingFormScreen (without Scaffold wrapper)
+              Expanded(
+                child: BookingFormScreen(
+                  key: formKey,
+                  selectedDate: selectedDate,
+                  startTime: startTime,
+                  duration: duration,
+                  showScaffold: false, // Use form content only in drawer context
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   Future<void> _showVisitTypeSelectionDialog(DateTime date) async {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    final visitType = await showDialog<String>(
+    final visitType = await showModalBottomSheet<String>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Visit Type'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text('Select the type of visit you want to schedule:'),
-            const SizedBox(height: 20),
-
-            // Quick Tour Option
-            _buildVisitTypeOption(
-              context,
-              'QUICK_TOUR',
-              'Quick Tour',
-              '2 hours - Max 2 per day (1 morning + 1 afternoon)',
-              Icons.schedule,
-              isDark,
-            ),
-
-            const SizedBox(height: 12),
-
-            // Innovation Exchange Option
-            _buildVisitTypeOption(
-              context,
-              'INNOVATION_EXCHANGE',
-              'Innovation Exchange',
-              '4-6 hours - Requires prep and teardown periods',
-              Icons.auto_awesome,
-              isDark,
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.75,
+        minChildSize: 0.5,
+        maxChildSize: 0.9,
+        builder: (context, scrollController) => Container(
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF18181B) : Colors.white,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
           ),
-        ],
+          child: Column(
+            children: [
+              // Handle bar
+              Container(
+                margin: const EdgeInsets.only(top: 8, bottom: 4),
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: isDark ? Colors.grey[700] : Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              // Header
+              Container(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                decoration: BoxDecoration(
+                  border: Border(
+                    bottom: BorderSide(
+                      color: isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
+                    ),
+                  ),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    IconButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      icon: Icon(Icons.close, color: isDark ? Colors.white : Colors.black),
+                      tooltip: 'Close',
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Visit Type',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: isDark ? Colors.white : Colors.black,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              // Content
+              Expanded(
+                child: SingleChildScrollView(
+                  controller: scrollController,
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Select the type of visit you want to schedule:',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      // Quick Tour Option
+                      _buildVisitTypeOption(
+                        context,
+                        'QUICK_TOUR',
+                        'Quick Tour',
+                        '2 hours - Max 2 per day (1 morning + 1 afternoon)',
+                        Icons.schedule,
+                        isDark,
+                      ),
+                      const SizedBox(height: 12),
+                      // Innovation Exchange Option
+                      _buildVisitTypeOption(
+                        context,
+                        'INNOVATION_EXCHANGE',
+                        'Innovation Exchange',
+                        '4-6 hours - Requires prep and teardown periods',
+                        Icons.auto_awesome,
+                        isDark,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
 
@@ -500,6 +936,7 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
       setState(() => _selectedVisitType = visitType);
 
       // Load availability with selected visit type
+      // CRITICAL: This call validates IE requirements (prep/teardown) on backend
       await _loadDayAvailability(date, visitType: visitType);
 
       // Show slot picker with filtered periods
@@ -591,13 +1028,13 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
   }
 
   List<AvailableTimeSlot> _calculateAvailableSlotsFromBookings(DateTime date) {
-    // Get CONFIRMED and PENDING_APPROVAL bookings for availability calculation
-    // PENDING_APPROVAL are "intentions" that must be counted to block slots
+    // Get ONLY APPROVED bookings for availability calculation
+    // PENDING_APPROVAL do not block slots
     final dateStr = DateFormat('yyyy-MM-dd').format(date);
     final activeBookings = _bookings.where((b) {
       final bookingDate = DateFormat('yyyy-MM-dd').format(b.date);
       return bookingDate == dateStr &&
-             (b.status == BookingStatus.CONFIRMED || b.status == BookingStatus.PENDING_APPROVAL);
+             b.status == BookingStatus.APPROVED;
     }).toList();
 
     // Use period-based logic (MORNING: 9-13, AFTERNOON: 13-17)
@@ -686,28 +1123,16 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
     final minute = int.parse(timeParts[1]);
     final timeOfDay = TimeOfDay(hour: hour, minute: minute);
 
-    // Navigate to booking form
-    final result = await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => BookingFormScreen(
-          selectedDate: _selectedDate!,
-          startTime: timeOfDay,
-          duration: durationHours,
-        ),
-      ),
-    );
+    // Show booking form in drawer
+    await _showBookingFormDrawer(_selectedDate!, timeOfDay, durationHours);
 
-    // Reload bookings if form was successful
-    if (result == true) {
-      // Clear availability cache to force fresh data
-      _availabilityCache.clear();
-      // Close the day bookings drawer before reloading
-      setState(() {
-        _showDayBookings = false;
-      });
-      await _loadBookings();
-    }
+    // Clear availability cache to force fresh data
+    _availabilityCache.clear();
+    // Close the day bookings drawer before reloading
+    setState(() {
+      _showDayBookings = false;
+    });
+    await _loadBookings();
   }
 
   void _showDurationPicker(String startTime, int maxDuration, bool isDark) {
@@ -794,11 +1219,18 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
   }
 
   void _handleBookingClick(Booking booking) {
-    setState(() {
-      _selectedBooking = booking;
-      _showDayBookings = false;
-      _showBookingDetails = true;
-    });
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final userRole = authProvider.user?.role;
+    final navigationService = NavigationService();
+
+    // Navigate based on user role
+    if (userRole == UserRole.USER) {
+      // USER: Navigate to My Bookings with booking details
+      navigationService.navigateToBookingDetails(booking.id);
+    } else {
+      // ADMIN/MANAGER: Navigate to Approvals with booking details
+      navigationService.navigateToApprovalsWithBooking(booking.id);
+    }
   }
 
   Future<void> _handleCancelBooking() async {
@@ -816,7 +1248,6 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
         );
         setState(() {
           _showCancelDialog = false;
-          _showBookingDetails = false;
           _selectedBooking = null;
         });
         _loadBookings();
@@ -841,8 +1272,8 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
         setState(() {
           _showBookingForm = false;
           _selectedBooking = Booking.fromJson(newBooking);
-          _showBookingDetails = true;
         });
+        _showBookingDetailsDrawer();
         _loadBookings();
       }
     } catch (e) {
@@ -889,15 +1320,15 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
                 )
               : Column(
                   children: [
-                    // Compact calendar with indicators (45% of space)
-                    Expanded(
-                      flex: 45,
-                      child: _buildCompactCalendar(isDark, isMobile),
-                    ),
-                    const SizedBox(height: 12),
-                    // Events list for selected day (55% of space)
+                    // Compact calendar with indicators (55% of space - more room)
                     Expanded(
                       flex: 55,
+                      child: _buildCompactCalendar(isDark, isMobile, authProvider),
+                    ),
+                    const SizedBox(height: 12),
+                    // Events list for selected day (45% of space - scrollable if needed)
+                    Expanded(
+                      flex: 45,
                       child: _buildEventsSection(isDark, isMobile, isUserRole),
                     ),
                   ],
@@ -909,33 +1340,6 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
     return Stack(
       children: [
         wrapped,
-        // Slot picker drawer/bottom sheet - always in tree
-        IgnorePointer(
-          ignoring: !_showSlotPicker,
-          child: AnimatedOpacity(
-            opacity: _showSlotPicker ? 1.0 : 0.0,
-            duration: const Duration(milliseconds: 300),
-            child: _selectedDate != null ? _buildSlotPickerOverlay(isDark, isMobile) : const SizedBox.shrink(),
-          ),
-        ),
-        // Day bookings drawer - always in tree
-        IgnorePointer(
-          ignoring: !_showDayBookings,
-          child: AnimatedOpacity(
-            opacity: _showDayBookings ? 1.0 : 0.0,
-            duration: const Duration(milliseconds: 300),
-            child: _selectedDate != null ? _buildDayBookingsOverlay(isDark, isMobile, isUserRole) : const SizedBox.shrink(),
-          ),
-        ),
-        // Booking details drawer - always in tree
-        IgnorePointer(
-          ignoring: !_showBookingDetails,
-          child: AnimatedOpacity(
-            opacity: _showBookingDetails ? 1.0 : 0.0,
-            duration: const Duration(milliseconds: 300),
-            child: _selectedBooking != null ? _buildBookingDetailsOverlay(isDark, isMobile, isUserRole) : const SizedBox.shrink(),
-          ),
-        ),
         // Cancel confirmation dialog
         if (_showCancelDialog)
           _buildCancelDialog(isDark),
@@ -1013,7 +1417,7 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
     );
   }
 
-  Widget _buildCompactCalendar(bool isDark, bool isMobile) {
+  Widget _buildCompactCalendar(bool isDark, bool isMobile, AuthProvider authProvider) {
     final today = DateTime.now();
     final firstDayOfMonth = DateTime(_currentMonth.year, _currentMonth.month, 1);
     final lastDayOfMonth = DateTime(_currentMonth.year, _currentMonth.month + 1, 0);
@@ -1045,7 +1449,7 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
                 constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
               ),
               Text(
-                DateFormat('MMMM').format(_currentMonth),
+                DateFormat('MMMM yyyy').format(_currentMonth),
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
@@ -1110,20 +1514,23 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
 
                       // Check for pending vs confirmed bookings
                       final hasPendingBookings = dayBookings.any((b) => b.status == BookingStatus.PENDING_APPROVAL);
-                      final hasConfirmedBookings = dayBookings.any((b) => b.status == BookingStatus.CONFIRMED);
-                      final activeBookings = dayBookings.where((b) =>
-                        b.status == BookingStatus.CONFIRMED || b.status == BookingStatus.PENDING_APPROVAL
+                      final hasConfirmedBookings = dayBookings.any((b) => b.status == BookingStatus.APPROVED);
+
+                      // Only APPROVED bookings block periods
+                      final confirmedBookings = dayBookings.where((b) =>
+                        b.status == BookingStatus.APPROVED
                       ).toList();
 
                       // Check if day is bookable (past or before minimum 7 business days)
                       final isBookable = _isDateBookable(day);
 
                       // Calculate period occupation for better color logic
+                      // Only APPROVED bookings occupy periods
                       bool morningOccupied = false;
                       bool afternoonOccupied = false;
 
-                      // 1. Check actual bookings
-                      for (final booking in activeBookings) {
+                      // 1. Check APPROVED bookings only
+                      for (final booking in confirmedBookings) {
                         final startHour = int.parse(booking.startTime.split(':')[0]);
                         final durationHours = {
                           VisitDuration.ONE_HOUR: 1,
@@ -1150,10 +1557,17 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
                       final isFull = morningOccupied && afternoonOccupied;
                       final hasAnyOccupation = morningOccupied || afternoonOccupied;
 
+                      // Check if day is weekend (Saturday or Sunday)
+                      final isWeekend = _isWeekend(day);
+
                       // Determine indicator color based on booking status and availability
-                      // Only show indicators for bookable days
+                      // Show indicators for ALL days (even non-bookable) to visualize occupation
+                      // BUT: Never show indicators on weekends (they're not countable days)
                       Color? indicatorColor;
-                      if (isBookable) {
+
+                      // Only calculate indicator if NOT weekend
+                      if (!isWeekend) {
+                        // Calculate base color regardless of bookability
                         if (hasPendingBookings && !hasConfirmedBookings) {
                           // Only pending bookings - orange
                           indicatorColor = const Color(0xFFF59E0B); // Orange - pending approval
@@ -1167,11 +1581,21 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
                           // Has bookings OR IE blocks but NOT full - Yellow (partial)
                           indicatorColor = const Color(0xFFFBBF24); // Yellow - partial (has bookings/blocks but slots available)
                         }
+
+                        // If not bookable (disabled day), apply darker tone
+                        if (indicatorColor != null && !isBookable) {
+                          indicatorColor = indicatorColor.withOpacity(0.4);
+                        }
                       }
+
+                      // Allow ADMIN/MANAGER to click on disabled days to view events
+                      final canClickDay = isBookable ||
+                        (authProvider.user?.role == UserRole.ADMIN ||
+                         authProvider.user?.role == UserRole.MANAGER);
 
                       return Expanded(
                         child: GestureDetector(
-                          onTap: isBookable ? () {
+                          onTap: canClickDay ? () {
                             setState(() {
                               _selectedDate = day;
                             });
@@ -1205,7 +1629,7 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
                                                 : Colors.black,
                                     ),
                                   ),
-                                  if (indicatorColor != null && isBookable)
+                                  if (indicatorColor != null)
                                     Container(
                                       width: hasPendingBookings && !hasConfirmedBookings ? 6 : 4,
                                       height: hasPendingBookings && !hasConfirmedBookings ? 6 : 4,
@@ -1217,7 +1641,7 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
                                         shape: BoxShape.circle,
                                         border: hasPendingBookings && !hasConfirmedBookings
                                             ? Border.all(
-                                                color: indicatorColor,
+                                                color: indicatorColor!,
                                                 width: 1.5,
                                               )
                                             : null,
@@ -1269,6 +1693,44 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
     final availableSlots = _getAvailableSlots(_selectedDate!);
     final hasAvailableSlots = !isPast && availableSlots.isNotEmpty;
 
+    // Create combined and sorted list of events
+    final combinedEvents = <Map<String, dynamic>>[];
+
+    // Add IE blocks with sortOrder
+    for (final block in ieBlocks) {
+      combinedEvents.add({
+        'type': 'block',
+        'data': block,
+        'sortOrder': block['sortOrder'] ?? '0',
+      });
+    }
+
+    // Add bookings with sortOrder based on time
+    for (final booking in bookingsList) {
+      final startHour = int.parse(booking.startTime.split(':')[0]);
+      final sortOrder = startHour < 13 ? '0' : '1'; // Morning = 0, Afternoon = 1
+      combinedEvents.add({
+        'type': 'booking',
+        'data': booking,
+        'sortOrder': sortOrder,
+      });
+    }
+
+    // Sort by sortOrder (morning first, then afternoon), then by startTime within each period
+    combinedEvents.sort((a, b) {
+      final sortOrderComparison = a['sortOrder'].compareTo(b['sortOrder']);
+      if (sortOrderComparison != 0) return sortOrderComparison;
+
+      // If same period, sort by time (bookings have startTime, blocks don't need sub-sorting)
+      if (a['type'] == 'booking' && b['type'] == 'booking') {
+        final aBooking = a['data'] as Booking;
+        final bBooking = b['data'] as Booking;
+        return aBooking.startTime.compareTo(bBooking.startTime);
+      }
+
+      return 0;
+    });
+
     return Container(
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF18181B) : Colors.white,
@@ -1293,7 +1755,7 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
           const SizedBox(height: 12),
           // Events list
           Expanded(
-            child: (bookingsList.isEmpty && ieBlocks.isEmpty)
+            child: combinedEvents.isEmpty
               ? Center(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -1341,21 +1803,19 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
                 )
               : ListView.builder(
                   padding: EdgeInsets.zero,
-                  itemCount: bookingsList.length + ieBlocks.length + (hasAvailableSlots ? 1 : 0),
+                  itemCount: combinedEvents.length + (hasAvailableSlots ? 1 : 0),
                   itemBuilder: (context, index) {
-                    // Show IE blocks first
-                    if (index < ieBlocks.length) {
-                      final block = ieBlocks[index];
-                      return _buildIEBlockCard(block, isDark);
-                    }
-                    // Then show regular bookings
-                    else if (index < ieBlocks.length + bookingsList.length) {
-                      final booking = bookingsList[index - ieBlocks.length];
-                      return _buildColorfulEventCard(booking, isDark, isUserRole);
+                    // Show events in order
+                    if (index < combinedEvents.length) {
+                      final event = combinedEvents[index];
+                      if (event['type'] == 'block') {
+                        return _buildIEBlockCard(event['data'] as Map<String, String>, isDark, isUserRole);
+                      } else {
+                        return _buildColorfulEventCard(event['data'] as Booking, isDark, isUserRole);
+                      }
                     }
                     // Finally show add button
                     else {
-                      // Add booking button
                       return Padding(
                         padding: const EdgeInsets.all(8.0),
                         child: Center(
@@ -1389,11 +1849,19 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
   }
 
   /// Build card for Innovation Exchange prep/teardown blocks
-  Widget _buildIEBlockCard(Map<String, String> block, bool isDark) {
-    final isReserved = block['label']!.contains('Reserved');
+  Widget _buildIEBlockCard(Map<String, String> block, bool isDark, bool isUserRole) {
+    // Simplify label for normal users
+    final displayLabel = isUserRole ? 'Reserved' : block['label']!;
+
+    // Format time with AM/PM
+    final times = block['time']!.split(' - ');
+    final formattedTime = times.length == 2
+        ? TimeFormatter.formatTimeRange(times[0], times[1])
+        : block['time']!;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF18181B) : const Color(0xFFF9FAFB),
         borderRadius: BorderRadius.circular(12),
@@ -1405,68 +1873,59 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
       ),
       child: Row(
         children: [
-          // Diagonal striped pattern for reserved slots
+          // Gray dot for blocked slots - centered vertically
           Container(
-            width: 4,
-            height: 64,
+            margin: const EdgeInsets.only(right: 12),
+            width: 10,
+            height: 10,
             decoration: BoxDecoration(
-              color: const Color(0xFF6B7280).withOpacity(0.5),
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(12),
-                bottomLeft: Radius.circular(12),
-              ),
+              color: const Color(0xFF6B7280).withOpacity(0.6),
+              shape: BoxShape.circle,
             ),
           ),
           // Content
           Expanded(
-            child: Padding(
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Expanded(
-                        child: Text(
-                          block['label']!,
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
-                            color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Left column
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            displayLabel,
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
+                            ),
                           ),
-                        ),
+                          const SizedBox(height: 4),
+                          Text(
+                            formattedTime,
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                              color: isDark ? const Color(0xFF6B7280) : const Color(0xFF9CA3AF),
+                            ),
+                          ),
+                        ],
                       ),
-                      if (isReserved)
-                        Icon(
-                          Icons.lock_clock,
-                          size: 16,
-                          color: isDark ? const Color(0xFF6B7280) : const Color(0xFF9CA3AF),
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    block['time']!,
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
+                    ),
+                    // Icon
+                    Icon(
+                      Icons.lock_clock,
+                      size: 18,
                       color: isDark ? const Color(0xFF6B7280) : const Color(0xFF9CA3AF),
                     ),
-                  ),
-                  if (isReserved) ...[
-                    const SizedBox(height: 6),
-                    Text(
-                      'Blocked for IE preparation/teardown',
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontStyle: FontStyle.italic,
-                        color: isDark ? const Color(0xFF6B7280) : const Color(0xFF9CA3AF),
-                      ),
-                    ),
                   ],
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         ],
@@ -1481,30 +1940,37 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
     bool shouldPulse = false;
 
     switch (booking.status) {
+      case BookingStatus.DRAFT:
+        statusColor = const Color(0xFF6B7280); // Gray
+        statusLabel = 'DRAFT';
+        break;
       case BookingStatus.PENDING_APPROVAL:
         statusColor = const Color(0xFFF59E0B); // Amber/Yellow
         statusLabel = 'PENDING';
         shouldPulse = true; // Animate for pending
         break;
-      case BookingStatus.CONFIRMED:
+      case BookingStatus.APPROVED:
         statusColor = const Color(0xFF10B981); // Green
-        statusLabel = 'CONFIRMED';
+        statusLabel = 'APPROVED';
         break;
       case BookingStatus.CANCELLED:
         statusColor = const Color(0xFFEF4444); // Red
         statusLabel = 'CANCELLED';
         break;
-      case BookingStatus.RESCHEDULED:
-        statusColor = const Color(0xFF6B7280); // Gray
-        statusLabel = 'RESCHEDULED';
-        break;
     }
+
+    // Format time with AM/PM
+    final timeRange = TimeFormatter.formatBookingTimeSlot(
+      booking.startTime,
+      booking.duration.name,
+    );
 
     return InkWell(
       onTap: () => _handleBookingClick(booking),
       borderRadius: BorderRadius.circular(12),
       child: Container(
         margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: isDark ? const Color(0xFF18181B) : const Color(0xFFF9FAFB),
           borderRadius: BorderRadius.circular(12),
@@ -1515,34 +1981,52 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
         ),
         child: Row(
           children: [
-            // Status badge (left border with pulsing animation for PENDING)
-            _StatusBadge(color: statusColor, shouldPulse: shouldPulse),
+            // Status dot (colored circle) - centered vertically
+            Container(
+              margin: const EdgeInsets.only(right: 12),
+              child: _StatusDot(color: statusColor, shouldPulse: shouldPulse),
+            ),
 
             // Content
             Expanded(
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Header: Company name and time
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          child: Text(
-                            isUserRole ? 'Occupied' : booking.companyName,
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.bold,
-                              color: isDark ? Colors.white : Colors.black,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Row with two columns
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    crossAxisAlignment: CrossAxisAlignment.center, // Center vertically
+                    children: [
+                      // Left column: Company name / "Reserved" for users
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              isUserRole ? 'Reserved' : booking.companyName,
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                                color: isDark ? Colors.white : Colors.black,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
+                            const SizedBox(height: 4),
+                            Text(
+                              timeRange,
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                                color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
+                              ),
+                            ),
+                          ],
                         ),
-                        const SizedBox(width: 8),
+                      ),
+                      // Right column: Status badge (only show for admin/manager)
+                      if (!isUserRole) ...[
+                        const SizedBox(width: 12),
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(
@@ -1561,54 +2045,44 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
                           ),
                         ),
                       ],
-                    ),
-                    const SizedBox(height: 6),
-                    // Time
-                    Text(
-                      booking.startTime,
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
-                      ),
-                    ),
-                    // ADMIN/MANAGER only: show interest area and attendees
-                    if (!isUserRole && booking.interestArea != null) ...[
-                      const SizedBox(height: 4),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              booking.interestArea!,
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: isDark ? const Color(0xFF6B7280) : const Color(0xFF9CA3AF),
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          if (booking.expectedAttendees > 0) ...[
-                            const SizedBox(width: 8),
-                            Icon(
-                              Icons.people,
-                              size: 12,
+                    ],
+                  ),
+                  // ADMIN/MANAGER only: show interest area and attendees
+                  if (!isUserRole && booking.interestArea != null) ...[
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            booking.interestArea!,
+                            style: TextStyle(
+                              fontSize: 11,
                               color: isDark ? const Color(0xFF6B7280) : const Color(0xFF9CA3AF),
                             ),
-                            const SizedBox(width: 2),
-                            Text(
-                              '${booking.expectedAttendees}',
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: isDark ? const Color(0xFF6B7280) : const Color(0xFF9CA3AF),
-                              ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        if (booking.expectedAttendees > 0) ...[
+                          const SizedBox(width: 8),
+                          Icon(
+                            Icons.people,
+                            size: 12,
+                            color: isDark ? const Color(0xFF6B7280) : const Color(0xFF9CA3AF),
+                          ),
+                          const SizedBox(width: 2),
+                          Text(
+                            '${booking.expectedAttendees}',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: isDark ? const Color(0xFF6B7280) : const Color(0xFF9CA3AF),
                             ),
-                          ],
+                          ),
                         ],
-                      ),
-                    ],
+                      ],
+                    ),
                   ],
-                ),
+                ],
               ),
             ),
           ],
@@ -1617,6 +2091,53 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
     );
   }
 
+  // Status dot widget - replaces left border with circular indicator
+  Widget _StatusDot({required Color color, required bool shouldPulse}) {
+    if (!shouldPulse) {
+      return Container(
+        width: 10,
+        height: 10,
+        decoration: BoxDecoration(
+          color: color,
+          shape: BoxShape.circle,
+        ),
+      );
+    }
+
+    // Pulsing animation for PENDING status
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0.3, end: 1.0),
+      duration: const Duration(milliseconds: 1000),
+      curve: Curves.easeInOut,
+      builder: (context, value, child) {
+        return Container(
+          width: 10,
+          height: 10,
+          decoration: BoxDecoration(
+            color: color.withOpacity(value),
+            shape: BoxShape.circle,
+            boxShadow: [
+              BoxShadow(
+                color: color.withOpacity(value * 0.5),
+                blurRadius: 4 * value,
+                spreadRadius: 1 * value,
+              ),
+            ],
+          ),
+        );
+      },
+      onEnd: () {
+        // Restart animation by forcing rebuild
+        if (mounted) {
+          Future.delayed(const Duration(milliseconds: 100), () {
+            if (mounted) setState(() {});
+          });
+        }
+      },
+    );
+  }
+
+  // Legacy status badge widget (kept for compatibility but no longer used)
   Widget _StatusBadge({required Color color, required bool shouldPulse}) {
     if (!shouldPulse) {
       return Container(
@@ -2240,95 +2761,6 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
     );
   }
 
-  Widget _buildSlotPickerOverlay(bool isDark, bool isMobile) {
-    final availability = _selectedDayAvailability;
-    final availablePeriods = availability?.availablePeriods ?? [];
-    final allPeriods = availability?.allPeriods ?? [];
-
-    // Get visit type label
-    final visitTypeLabel = _selectedVisitType == 'QUICK_TOUR' ? 'Quick Tour' : 'Innovation Exchange';
-
-    return GestureDetector(
-      onTap: _closeSlotPickerAndClearCache,
-      child: Container(
-        color: Colors.black54,
-        child: Align(
-          alignment: Alignment.bottomCenter,
-          child: GestureDetector(
-            onTap: () {}, // Prevent dismiss when tapping content
-            child: AnimatedSlide(
-              offset: _showSlotPicker ? Offset.zero : const Offset(0, 1),
-              duration: const Duration(milliseconds: 300),
-              curve: Curves.easeOut,
-              child: Container(
-                constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height - 80),
-                decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF18181B) : Colors.white,
-                  borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-                ),
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Select Period',
-                              style: TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                                color: isDark ? Colors.white : Colors.black,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              visitTypeLabel,
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
-                              ),
-                            ),
-                          ],
-                        ),
-                        IconButton(
-                          onPressed: _closeSlotPickerAndClearCache,
-                          icon: Icon(Icons.close, color: isDark ? Colors.white : Colors.black),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      DateFormat('MMMM d, yyyy').format(_selectedDate!),
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    Expanded(
-                      child: SingleChildScrollView(
-                        child: Column(
-                          children: allPeriods.map((period) {
-                            return _buildPeriodCard(period, isDark);
-                          }).toList(),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
   Widget _buildPeriodCard(AvailablePeriod period, bool isDark) {
     final isAvailable = period.available;
     final willBlock = period.willBlock;
@@ -2349,24 +2781,12 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
               minute: int.parse(timeParts[1]),
             );
 
-            // Close slot picker
-            setState(() {
-              _showSlotPicker = false;
-            });
+            // Close drawer and show booking form drawer
+            Navigator.of(context).pop(); // Close the period picker drawer first
 
-            // Navigate to full booking form screen
-            final result = await Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => BookingFormScreen(
-                  selectedDate: _selectedDate!,
-                  startTime: startTime,
-                  duration: duration,
-                ),
-              ),
-            );
+            await _showBookingFormDrawer(_selectedDate!, startTime, duration);
 
-            // ALWAYS clear cache after returning from form (regardless of result)
+            // ALWAYS clear cache after closing form
             final dateStr = DateFormat('yyyy-MM-dd').format(_selectedDate!);
             setState(() {
               _availabilityCache.remove(dateStr);
@@ -2376,10 +2796,8 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
               _selectedDuration = null;
             });
 
-            // If booking was created successfully, reload bookings
-            if (result == true) {
-              await _loadBookings();
-            }
+            // Reload bookings
+            await _loadBookings();
           } : null,
           borderRadius: BorderRadius.circular(12),
           child: Container(
@@ -2526,87 +2944,102 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
     final dayBookings = _getBookingsForDay(_selectedDate!);
     final hasBookings = dayBookings.isNotEmpty;
 
-    return GestureDetector(
-      onTap: () => setState(() => _showDayBookings = false),
-      child: Container(
-        color: Colors.black54,
-        child: Align(
-          alignment: Alignment.bottomCenter,
-          child: GestureDetector(
-            onTap: () {},
-            child: AnimatedSlide(
-              offset: _showDayBookings ? Offset.zero : const Offset(0, 1),
-              duration: const Duration(milliseconds: 300),
-              curve: Curves.easeOut,
-              child: Container(
-                constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height - 80),
-                decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF18181B) : Colors.white,
-                  borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+    return DraggableScrollableSheet(
+      initialChildSize: 0.75, // Standard 75% height
+      minChildSize: 0.5,
+      maxChildSize: 0.9,
+      builder: (context, scrollController) => Container(
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF18181B) : Colors.white,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+            ),
+            child: Column(
+              children: [
+                // Handle bar
+                Container(
+                  margin: const EdgeInsets.only(top: 8, bottom: 4),
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: isDark ? Colors.grey[700] : Colors.grey[300],
+                    borderRadius: BorderRadius.circular(2),
+                  ),
                 ),
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
+                // Header
+                Container(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                  decoration: BoxDecoration(
+                    border: Border(
+                      bottom: BorderSide(
+                        color: isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
+                      ),
+                    ),
+                  ),
+                  child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            DateFormat('MMMM d, yyyy').format(_selectedDate!),
-                            style: TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                              color: isDark ? Colors.white : Colors.black,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            hasBookings ? 'View and manage bookings' : 'No bookings yet',
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
-                            ),
-                          ),
-                        ],
-                      ),
                       IconButton(
-                        onPressed: () => setState(() => _showDayBookings = false),
+                        onPressed: () => Navigator.of(context).pop(),
                         icon: Icon(Icons.close, color: isDark ? Colors.white : Colors.black),
+                        tooltip: 'Close',
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 24),
-                  Expanded(
-                    child: SingleChildScrollView(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          if (hasBookings) ...[
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
                             Text(
-                              'Existing Bookings',
+                              DateFormat('MMMM d, yyyy').format(_selectedDate!),
+                              style: TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                                color: isDark ? Colors.white : Colors.black,
+                              ),
+                            ),
+                            Text(
+                              hasBookings && !isUserRole ? 'View and manage bookings' : 'Schedule new visit',
                               style: TextStyle(
                                 fontSize: 14,
-                                fontWeight: FontWeight.w600,
                                 color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
                               ),
                             ),
-                            const SizedBox(height: 12),
-                            ...dayBookings.map((booking) => _buildBookingCard(booking, isDark, isUserRole)),
-                            const SizedBox(height: 24),
                           ],
-                          // Add New Booking Button
-                          Container(
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                // Content
+                Expanded(
+                  child: SingleChildScrollView(
+                    controller: scrollController,
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Only show existing bookings to ADMIN/MANAGER users
+                        if (hasBookings && !isUserRole) ...[
+                          Text(
+                            'Existing Bookings',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          ...dayBookings.map((booking) => _buildBookingCard(booking, isDark, isUserRole)),
+                          const SizedBox(height: 24),
+                        ],
+                        // Add New Booking Button
+                        Container(
                             margin: const EdgeInsets.only(bottom: 12),
                             child: Material(
                               color: Colors.transparent,
                               child: InkWell(
                                 onTap: () async {
                                   // Close the day bookings drawer first
-                                  setState(() => _showDayBookings = false);
+                                  Navigator.of(context).pop();
                                   // Wait a bit for animation
                                   await Future.delayed(const Duration(milliseconds: 300));
                                   // Show visit type selection dialog (new flow)
@@ -2669,14 +3102,10 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
                     ),
                   ),
                 ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    ),
-  );
-}
+              )
+            )
+    );
+  }
 
   Widget _buildBookingCard(Booking booking, bool isDark, bool isUserRole) {
     // Format time text based on actual start time and duration
@@ -2767,364 +3196,379 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
     );
   }
 
-  Widget _buildBookingDetailsOverlay(bool isDark, bool isMobile, bool isUserRole) {
-    return GestureDetector(
-      onTap: () => setState(() => _showBookingDetails = false),
-      child: Container(
-        color: Colors.black54,
-        child: Align(
-          alignment: Alignment.bottomCenter,
-          child: GestureDetector(
-            onTap: () {},
-            child: AnimatedSlide(
-              offset: _showBookingDetails ? Offset.zero : const Offset(0, 1),
-              duration: const Duration(milliseconds: 300),
-              curve: Curves.easeOut,
-              child: Container(
-                constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height - 80),
+  void _showBookingDetailsDrawer() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isMobile = screenWidth < 600;
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final isUserRole = authProvider.user?.role == UserRole.USER;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.75,
+        minChildSize: 0.5,
+        maxChildSize: 0.9,
+        builder: (context, scrollController) => Container(
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF18181B) : Colors.white,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: Column(
+            children: [
+              // Handle bar
+              Container(
+                margin: const EdgeInsets.only(top: 8, bottom: 4),
+                width: 40,
+                height: 4,
                 decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF18181B) : Colors.white,
-                  borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+                  color: isDark ? Colors.grey[700] : Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2),
                 ),
-                child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Header
-                  Container(
-                    padding: const EdgeInsets.all(24),
-                    decoration: BoxDecoration(
-                      border: Border(
-                        bottom: BorderSide(
-                          color: isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
+              ),
+              // Header
+              Container(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                decoration: BoxDecoration(
+                  border: Border(
+                    bottom: BorderSide(
+                      color: isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
+                    ),
+                  ),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    IconButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      icon: Icon(Icons.close, color: isDark ? Colors.white : Colors.black),
+                      tooltip: 'Close',
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Booking Details',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: isDark ? Colors.white : Colors.black,
                         ),
                       ),
                     ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'Booking Details',
-                          style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                            color: isDark ? Colors.white : Colors.black,
-                          ),
-                        ),
-                        IconButton(
-                          onPressed: () => setState(() => _showBookingDetails = false),
-                          icon: Icon(Icons.close, color: isDark ? Colors.white : Colors.black),
-                        ),
-                      ],
-                    ),
-                  ),
-                  // Content
-                  Expanded(
-                    child: SingleChildScrollView(
-                      padding: const EdgeInsets.all(24),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                  ],
+                ),
+              ),
+              // Content
+              Expanded(
+                child: SingleChildScrollView(
+                  controller: scrollController,
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Date & Time
+                      Row(
                         children: [
-                          // Date & Time
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'Date',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w600,
-                                        color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
-                                      ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      DateFormat('MMMM d, yyyy').format(_selectedBooking!.date),
-                                      style: TextStyle(
-                                        fontSize: 14,
-                                        color: isDark ? Colors.white : Colors.black,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'Time',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w600,
-                                        color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
-                                      ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      _formatTimeSlot(_selectedBooking!.startTime, _selectedBooking!.duration),
-                                      style: TextStyle(
-                                        fontSize: 14,
-                                        color: isDark ? Colors.white : Colors.black,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 24),
-                          // Company Info (hidden for USER role)
-                          if (!isUserRole) ...[
-                            _buildDetailSection('Company Information', isDark, [
-                              _buildDetailItem('Account Name', _selectedBooking!.accountName, isDark),
-                              _buildDetailItem('Company Name', _selectedBooking!.companyName, isDark),
-                              if (_selectedBooking!.companySector != null)
-                                _buildDetailItem('Sector', _selectedBooking!.companySector!, isDark),
-                              if (_selectedBooking!.companyVertical != null)
-                                _buildDetailItem('Vertical', _selectedBooking!.companyVertical!, isDark),
-                              if (_selectedBooking!.companySize != null)
-                                _buildDetailItem('Size', _selectedBooking!.companySize!, isDark),
-                            ]),
-                            const SizedBox(height: 24),
-                          ],
-                          // Visit Details (simplified for USER role)
-                          _buildDetailSection('Visit Details', isDark, [
-                            if (_selectedBooking!.venue != null)
-                              _buildDetailItem('Venue', _selectedBooking!.venue!, isDark),
-                            // USER role: only show status
-                            if (isUserRole) ...[
-                              _buildDetailItem('Status', _selectedBooking!.status.name, isDark),
-                            ],
-                            // ADMIN/MANAGER: show all details
-                            if (!isUserRole) ...[
-                              _buildDetailItem('Expected Attendees', '${_selectedBooking!.expectedAttendees}', isDark),
-                              if (_selectedBooking!.overallTheme != null)
-                                _buildDetailItem('Overall Theme', _selectedBooking!.overallTheme!, isDark),
-                              if (_selectedBooking!.lastInnovationDay != null)
-                                _buildDetailItem('Last Innovation Day', DateFormat('MMM d, yyyy').format(_selectedBooking!.lastInnovationDay!), isDark),
-                              if (_selectedBooking!.eventType != null)
-                                _buildDetailItem('Event Type', _selectedBooking!.eventType!.name, isDark),
-                              if (_selectedBooking!.partnerName != null)
-                                _buildDetailItem('Partner Name', _selectedBooking!.partnerName!, isDark),
-                              if (_selectedBooking!.dealStatus != null)
-                                _buildDetailItem('Deal Status', _selectedBooking!.dealStatus!.name, isDark),
-                              _buildDetailItem('Segment Head Approval', _selectedBooking!.segmentHeadApproval ? 'Yes' : 'No', isDark),
-                              // Legacy fields
-                              if (_selectedBooking!.interestArea != null)
-                                _buildDetailItem('Interest Area', _selectedBooking!.interestArea!, isDark),
-                              if (_selectedBooking!.businessGoal != null)
-                                _buildDetailItem('Business Goal', _selectedBooking!.businessGoal!, isDark),
-                              if (_selectedBooking!.additionalNotes != null)
-                                _buildDetailItem('Additional Notes', _selectedBooking!.additionalNotes!, isDark),
-                            ],
-                          ]),
-                          const SizedBox(height: 24),
-                          // Attendees Carousel (hidden for USER role - personal data)
-                          if (!isUserRole && _selectedBooking!.attendees != null && _selectedBooking!.attendees!.isNotEmpty) ...[
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  'Attendees (${_selectedBooking!.attendees!.length})',
+                                  'Date',
                                   style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  DateFormat('MMMM d, yyyy').format(_selectedBooking!.date),
+                                  style: TextStyle(
+                                    fontSize: 14,
                                     color: isDark ? Colors.white : Colors.black,
                                   ),
                                 ),
-                                if (_selectedBooking!.attendees!.length > 1)
-                                  Row(
-                                    children: [
-                                      Icon(
-                                        Icons.arrow_back_ios,
-                                        size: 14,
-                                        color: isDark ? const Color(0xFF6B7280) : const Color(0xFF9CA3AF),
-                                      ),
-                                      const SizedBox(width: 4),
-                                      Text(
-                                        'Swipe',
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          color: isDark ? const Color(0xFF6B7280) : const Color(0xFF9CA3AF),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 4),
-                                      Icon(
-                                        Icons.arrow_forward_ios,
-                                        size: 14,
-                                        color: isDark ? const Color(0xFF6B7280) : const Color(0xFF9CA3AF),
-                                      ),
-                                    ],
-                                  ),
                               ],
                             ),
-                            const SizedBox(height: 24),
-                            SizedBox(
-                              height: 462,
-                              child: PageView.builder(
-                                controller: PageController(viewportFraction: 0.9),
-                                itemCount: _selectedBooking!.attendees!.length,
-                                onPageChanged: (index) {
-                                  setState(() {
-                                    _currentBadgeIndex = index;
-                                  });
-                                },
-                                itemBuilder: (context, index) {
-                                  final attendee = _selectedBooking!.attendees![index];
-                                  return Center(
-                                    child: Padding(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                                      child: AccessBadge(
-                                        attendeeName: attendee.name,
-                                        attendeePosition: attendee.position,
-                                        attendeeId: attendee.id,
-                                        companyName: _selectedBooking!.companyName,
-                                        date: _selectedBooking!.date,
-                                        startTime: _selectedBooking!.startTime,
-                                        duration: _selectedBooking!.duration.name,
-                                        bookingId: _selectedBooking!.id,
-                                        isDark: isDark,
-                                        showActions: false,
-                                      ),
-                                    ),
-                                  );
-                                },
+                          ),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Time',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  _formatTimeSlot(_selectedBooking!.startTime, _selectedBooking!.duration),
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: isDark ? Colors.white : Colors.black,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 24),
+                      // Company Info (hidden for USER role)
+                      if (!isUserRole) ...[
+                        _buildDetailSection('Company Information', isDark, [
+                          _buildDetailItem('Account Name', _selectedBooking!.accountName, isDark),
+                          _buildDetailItem('Company Name', _selectedBooking!.companyName, isDark),
+                          if (_selectedBooking!.companySector != null)
+                            _buildDetailItem('Sector', _selectedBooking!.companySector!, isDark),
+                          if (_selectedBooking!.companyVertical != null)
+                            _buildDetailItem('Vertical', _selectedBooking!.companyVertical!, isDark),
+                          if (_selectedBooking!.companySize != null)
+                            _buildDetailItem('Size', _selectedBooking!.companySize!, isDark),
+                        ]),
+                        const SizedBox(height: 24),
+                      ],
+                      // Visit Details (simplified for USER role)
+                      _buildDetailSection('Visit Details', isDark, [
+                        if (_selectedBooking!.venue != null)
+                          _buildDetailItem('Venue', _selectedBooking!.venue!, isDark),
+                        // USER role: only show status
+                        if (isUserRole) ...[
+                          _buildDetailItem('Status', _selectedBooking!.status.name, isDark),
+                        ],
+                        // ADMIN/MANAGER: show all details
+                        if (!isUserRole) ...[
+                          _buildDetailItem('Expected Attendees', '${_selectedBooking!.expectedAttendees}', isDark),
+                          if (_selectedBooking!.overallTheme != null)
+                            _buildDetailItem('Overall Theme', _selectedBooking!.overallTheme!, isDark),
+                          if (_selectedBooking!.lastInnovationDay != null)
+                            _buildDetailItem('Last Innovation Day', DateFormat('MMM d, yyyy').format(_selectedBooking!.lastInnovationDay!), isDark),
+                          if (_selectedBooking!.eventType != null)
+                            _buildDetailItem('Event Type', _selectedBooking!.eventType!.name, isDark),
+                          if (_selectedBooking!.partnerName != null)
+                            _buildDetailItem('Partner Name', _selectedBooking!.partnerName!, isDark),
+                          if (_selectedBooking!.dealStatus != null)
+                            _buildDetailItem('Deal Status', _selectedBooking!.dealStatus!.name, isDark),
+                          _buildDetailItem('Attach Head Approval', _selectedBooking!.attachHeadApproval ? 'Yes' : 'No', isDark),
+                          // Legacy fields
+                          if (_selectedBooking!.interestArea != null)
+                            _buildDetailItem('Interest Area', _selectedBooking!.interestArea!, isDark),
+                          if (_selectedBooking!.businessGoal != null)
+                            _buildDetailItem('Business Goal', _selectedBooking!.businessGoal!, isDark),
+                          if (_selectedBooking!.additionalNotes != null)
+                            _buildDetailItem('Additional Notes', _selectedBooking!.additionalNotes!, isDark),
+                        ],
+                      ]),
+                      const SizedBox(height: 24),
+                      // Attendees Carousel (hidden for USER role - personal data)
+                      if (!isUserRole && _selectedBooking!.attendees != null && _selectedBooking!.attendees!.isNotEmpty) ...[
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'Attendees (${_selectedBooking!.attendees!.length})',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: isDark ? Colors.white : Colors.black,
                               ),
                             ),
-                            const SizedBox(height: 16),
-                            // Action Buttons
-                            Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                              child: Row(
+                            if (_selectedBooking!.attendees!.length > 1)
+                              Row(
                                 children: [
-                                  Expanded(
-                                    child: OutlinedButton.icon(
-                                      onPressed: () async {
-                                        final attendee = _selectedBooking!.attendees![_currentBadgeIndex];
-                                        final badgeUrl = 'https://paceportsp.com.br/attendee/${attendee.id ?? _selectedBooking!.id}';
-                                        try {
-                                          await Share.share(
-                                            'TCS PacePort Access Ticket\n${attendee.name} - ${_selectedBooking!.companyName}\n$badgeUrl',
-                                            subject: 'TCS PacePort Access Ticket',
-                                          );
-                                        } catch (e) {
-                                          if (context.mounted) {
-                                            ScaffoldMessenger.of(context).showSnackBar(
-                                              SnackBar(content: Text('Error sharing: $e')),
-                                            );
-                                          }
-                                        }
-                                      },
-                                      icon: const Icon(Icons.share, size: 16),
-                                      label: const Text('Share', style: TextStyle(fontSize: 12)),
-                                      style: OutlinedButton.styleFrom(
-                                        foregroundColor: isDark ? Colors.white : Colors.black,
-                                        side: BorderSide(
-                                          color: isDark ? Colors.white : Colors.black,
-                                        ),
-                                        padding: const EdgeInsets.symmetric(vertical: 10),
-                                      ),
+                                  Icon(
+                                    Icons.arrow_back_ios,
+                                    size: 14,
+                                    color: isDark ? const Color(0xFF6B7280) : const Color(0xFF9CA3AF),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    'Swipe',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: isDark ? const Color(0xFF6B7280) : const Color(0xFF9CA3AF),
                                     ),
                                   ),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: OutlinedButton.icon(
-                                      onPressed: () {
-                                        final attendee = _selectedBooking!.attendees![_currentBadgeIndex];
-                                        final badgeUrl = 'https://paceportsp.com.br/attendee/${attendee.id ?? _selectedBooking!.id}';
-                                        Clipboard.setData(ClipboardData(text: badgeUrl));
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          const SnackBar(
-                                            content: Text('Link copied to clipboard'),
-                                            duration: Duration(seconds: 2),
-                                          ),
-                                        );
-                                      },
-                                      icon: const Icon(Icons.link, size: 16),
-                                      label: const Text('Copy', style: TextStyle(fontSize: 12)),
-                                      style: OutlinedButton.styleFrom(
-                                        foregroundColor: isDark ? Colors.white : Colors.black,
-                                        side: BorderSide(
-                                          color: isDark ? Colors.white : Colors.black,
-                                        ),
-                                        padding: const EdgeInsets.symmetric(vertical: 10),
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: OutlinedButton.icon(
-                                      onPressed: () async {
-                                        final attendee = _selectedBooking!.attendees![_currentBadgeIndex];
-                                        final badge = AccessBadge(
-                                          attendeeName: attendee.name,
-                                          attendeePosition: attendee.position,
-                                          attendeeId: attendee.id,
-                                          companyName: _selectedBooking!.companyName,
-                                          date: _selectedBooking!.date,
-                                          startTime: _selectedBooking!.startTime,
-                                          duration: _selectedBooking!.duration.name,
-                                          bookingId: _selectedBooking!.id,
-                                          isDark: isDark,
-                                        );
-                                        await badge.showPrintPreview(context);
-                                      },
-                                      icon: const Icon(Icons.print, size: 16),
-                                      label: const Text('Print', style: TextStyle(fontSize: 12)),
-                                      style: OutlinedButton.styleFrom(
-                                        foregroundColor: isDark ? Colors.white : Colors.black,
-                                        side: BorderSide(
-                                          color: isDark ? Colors.white : Colors.black,
-                                        ),
-                                        padding: const EdgeInsets.symmetric(vertical: 10),
-                                      ),
-                                    ),
+                                  const SizedBox(width: 4),
+                                  Icon(
+                                    Icons.arrow_forward_ios,
+                                    size: 14,
+                                    color: isDark ? const Color(0xFF6B7280) : const Color(0xFF9CA3AF),
                                   ),
                                 ],
                               ),
-                            ),
                           ],
-                        ],
+                        ),
+                        const SizedBox(height: 24),
+                        SizedBox(
+                          height: 462,
+                          child: PageView.builder(
+                            controller: PageController(viewportFraction: 0.9),
+                            itemCount: _selectedBooking!.attendees!.length,
+                            onPageChanged: (index) {
+                              setState(() {
+                                _currentBadgeIndex = index;
+                              });
+                            },
+                            itemBuilder: (context, index) {
+                              final attendee = _selectedBooking!.attendees![index];
+                              return Center(
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                                  child: AccessBadge(
+                                    attendeeName: attendee.name,
+                                    attendeePosition: attendee.position,
+                                    attendeeId: attendee.id,
+                                    companyName: _selectedBooking!.companyName,
+                                    date: _selectedBooking!.date,
+                                    startTime: _selectedBooking!.startTime,
+                                    duration: _selectedBooking!.duration.name,
+                                    bookingId: _selectedBooking!.id,
+                                    isDark: isDark,
+                                    showActions: false,
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        // Action Buttons
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: OutlinedButton.icon(
+                                  onPressed: () async {
+                                    final attendee = _selectedBooking!.attendees![_currentBadgeIndex];
+                                    final badgeUrl = 'https://paceportsp.com.br/attendee/${attendee.id ?? _selectedBooking!.id}';
+                                    try {
+                                      await Share.share(
+                                        'TCS PacePort Access Ticket\n${attendee.name} - ${_selectedBooking!.companyName}\n$badgeUrl',
+                                        subject: 'TCS PacePort Access Ticket',
+                                      );
+                                    } catch (e) {
+                                      if (context.mounted) {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          SnackBar(content: Text('Error sharing: $e')),
+                                        );
+                                      }
+                                    }
+                                  },
+                                  icon: const Icon(Icons.share, size: 16),
+                                  label: const Text('Share', style: TextStyle(fontSize: 12)),
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: isDark ? Colors.white : Colors.black,
+                                    side: BorderSide(
+                                      color: isDark ? Colors.white : Colors.black,
+                                    ),
+                                    padding: const EdgeInsets.symmetric(vertical: 10),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: OutlinedButton.icon(
+                                  onPressed: () {
+                                    final attendee = _selectedBooking!.attendees![_currentBadgeIndex];
+                                    final badgeUrl = 'https://paceportsp.com.br/attendee/${attendee.id ?? _selectedBooking!.id}';
+                                    Clipboard.setData(ClipboardData(text: badgeUrl));
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text('Link copied to clipboard'),
+                                        duration: Duration(seconds: 2),
+                                      ),
+                                    );
+                                  },
+                                  icon: const Icon(Icons.link, size: 16),
+                                  label: const Text('Copy', style: TextStyle(fontSize: 12)),
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: isDark ? Colors.white : Colors.black,
+                                    side: BorderSide(
+                                      color: isDark ? Colors.white : Colors.black,
+                                    ),
+                                    padding: const EdgeInsets.symmetric(vertical: 10),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: OutlinedButton.icon(
+                                  onPressed: () async {
+                                    final attendee = _selectedBooking!.attendees![_currentBadgeIndex];
+                                    final badge = AccessBadge(
+                                      attendeeName: attendee.name,
+                                      attendeePosition: attendee.position,
+                                      attendeeId: attendee.id,
+                                      companyName: _selectedBooking!.companyName,
+                                      date: _selectedBooking!.date,
+                                      startTime: _selectedBooking!.startTime,
+                                      duration: _selectedBooking!.duration.name,
+                                      bookingId: _selectedBooking!.id,
+                                      isDark: isDark,
+                                    );
+                                    await badge.showPrintPreview(context);
+                                  },
+                                  icon: const Icon(Icons.print, size: 16),
+                                  label: const Text('Print', style: TextStyle(fontSize: 12)),
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: isDark ? Colors.white : Colors.black,
+                                    side: BorderSide(
+                                      color: isDark ? Colors.white : Colors.black,
+                                    ),
+                                    padding: const EdgeInsets.symmetric(vertical: 10),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+              // Footer with cancel button
+              if (_selectedBooking!.status != BookingStatus.CANCELLED)
+                Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    border: Border(
+                      top: BorderSide(
+                        color: isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
                       ),
                     ),
                   ),
-                  // Footer with cancel button
-                  if (_selectedBooking!.status != BookingStatus.CANCELLED)
-                    Container(
-                      padding: const EdgeInsets.all(24),
-                      decoration: BoxDecoration(
-                        border: Border(
-                          top: BorderSide(
-                            color: isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: () {
+                        Navigator.of(context).pop();
+                        setState(() => _showCancelDialog = true);
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: isDark ? const Color(0xFF450A0A) : Colors.red[50],
+                        foregroundColor: isDark ? Colors.red[400] : Colors.red[700],
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          side: BorderSide(
+                            color: isDark ? const Color(0xFF7F1D1D) : Colors.red[200]!,
                           ),
                         ),
                       ),
-                      child: SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton(
-                          onPressed: () => setState(() => _showCancelDialog = true),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: isDark ? const Color(0xFF450A0A) : Colors.red[50],
-                            foregroundColor: isDark ? Colors.red[400] : Colors.red[700],
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                              side: BorderSide(
-                                color: isDark ? const Color(0xFF7F1D1D) : Colors.red[200]!,
-                              ),
-                            ),
-                          ),
-                          child: const Text('Cancel Booking'),
-                        ),
-                      ),
+                      child: const Text('Cancel Booking'),
                     ),
-                ],
-              ),
-            ),
-            ),
+                  ),
+                ),
+            ],
           ),
         ),
       ),

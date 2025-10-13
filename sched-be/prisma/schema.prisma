@@ -28,10 +28,10 @@ enum VisitType {
 }
 
 enum BookingStatus {
+  DRAFT             // Draft booking (not yet submitted)
   PENDING_APPROVAL  // Waiting for at least one manager approval
-  CONFIRMED         // Approved and scheduled
+  APPROVED          // Approved and scheduled
   CANCELLED
-  RESCHEDULED       // Was rescheduled to another date
 }
 
 enum EventType {
@@ -57,6 +57,7 @@ model User {
   name          String
   role          UserRole  @default(MANAGER)
   isActive      Boolean   @default(true)
+  avatarUrl     String?   // Profile picture URL
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
@@ -120,10 +121,11 @@ model Booking {
   dealStatus      DealStatus?
 
   // Approvals
-  segmentHeadApproval Boolean    @default(false)
-  approvedById        String?    // Manager who approved
-  approvedBy          User?      @relation("ApprovedBy", fields: [approvedById], references: [id])
-  approvedAt          DateTime?
+  attachHeadApproval Boolean    @default(false)  // Renamed from segmentHeadApproval
+  attachments        Json?                       // Array of attachment URLs (up to 6)
+  approvedById       String?    // Manager who approved
+  approvedBy         User?      @relation("ApprovedBy", fields: [approvedById], references: [id])
+  approvedAt         DateTime?
 
   // Reschedule tracking
   originalBookingId   String?    // If this was rescheduled, reference to original

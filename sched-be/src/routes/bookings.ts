@@ -10,7 +10,7 @@ import type { AppContext } from '../lib/context';
 const app = new Hono<AppContext>();
 
 // Public endpoint - get all bookings availability (minimal data for guests)
-// NOTE: Only shows CONFIRMED bookings (not pending approvals)
+// NOTE: Only shows APPROVED bookings (not pending approvals)
 app.get('/availability', async (c) => {
   try {
     const month = c.req.query('month');
@@ -56,14 +56,17 @@ app.post('/', authMiddleware, zValidator('json', BookingCreateSchema), async (c)
   try {
     const user = c.get('user');
     const data = c.req.valid('json');
-    const booking = await bookingService.createBooking(data, user.id);
+    const isDraft = c.req.query('draft') === 'true';
+    const booking = await bookingService.createBooking(data, user.id, isDraft);
 
-    // Send push notification to all admins and managers
-    try {
-      await pushService.sendNewBookingNotification(booking.id);
-    } catch (pushError) {
-      console.error('Failed to send push notification:', pushError);
-      // Don't fail the request if notification fails
+    // Send push notification to all admins and managers (only if not draft)
+    if (!isDraft) {
+      try {
+        await pushService.sendNewBookingNotification(booking.id);
+      } catch (pushError) {
+        console.error('Failed to send push notification:', pushError);
+        // Don't fail the request if notification fails
+      }
     }
 
     return c.json(booking, 201);
@@ -161,7 +164,23 @@ app.patch('/:id', authMiddleware, zValidator('json', BookingUpdateSchema), async
 // Delete booking (authenticated)
 app.delete('/:id', authMiddleware, async (c) => {
   try {
+    const user = c.get('user');
     const id = c.req.param('id');
+
+    // Check permissions:
+    // - USER can only delete their own bookings
+    // - ADMIN can delete any booking
+    // - MANAGER cannot delete bookings (they can only approve/deny)
+    if (user.role === 'USER') {
+      // Verify the booking belongs to the user
+      const booking = await bookingService.getBookingById(id);
+      if (booking.createdById !== user.id) {
+        return c.json({ error: 'You can only cancel your own bookings' }, 403);
+      }
+    } else if (user.role === 'MANAGER') {
+      return c.json({ error: 'Managers cannot cancel bookings directly. Use approve/deny instead.' }, 403);
+    }
+    // ADMIN can delete any booking (no check needed)
 
     // Send cancellation notification BEFORE deleting (we need booking data)
     try {

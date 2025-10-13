@@ -17,6 +17,7 @@
   "dependencies": {
     "@colyseus/bun-websockets": "^0.16.5",
     "@colyseus/schema": "^3.0.62",
+    "@hono/node-server": "^1.19.5",
     "@hono/zod-validator": "^0.4.1",
     "@lucia-auth/adapter-prisma": "^4.0.1",
     "@node-rs/argon2": "^2.0.0",

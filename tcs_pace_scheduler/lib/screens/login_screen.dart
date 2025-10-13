@@ -74,7 +74,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       border: Border(top: BorderSide(color: Color(0xFF27272A))),
                     ),
                     child: const Text(
-                      'PacePort Scheduler',
+                      'Scheduler',
                       style: TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.bold,

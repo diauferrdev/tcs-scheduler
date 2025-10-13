@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { logger } from 'hono/logger';
+import { serveStatic } from 'hono/bun';
 import 'dotenv/config';
 import type { ServerWebSocket } from 'bun';
 
@@ -16,6 +17,7 @@ import notificationRoutes from './routes/notifications';
 import testNotificationRoutes from './routes/test-notifications';
 import fcmRoutes from './routes/fcm';
 import versionRoutes from './routes/version';
+import uploadRoutes from './routes/upload';
 import { errorHandler } from './middleware/errorHandler';
 import type { AppContext } from './lib/context';
 import { lucia } from './lib/lucia';
@@ -42,6 +44,9 @@ app.use('*', cors({
   maxAge: 86400,
 }));
 
+// Serve static files for uploads
+app.use('/uploads/*', serveStatic({ root: './' }));
+
 app.route('/api/auth', authRoutes);
 app.route('/api/bookings', bookingRoutes);
 app.route('/api/invitations', invitationRoutes);
@@ -54,6 +59,7 @@ app.route('/api/test-notifications', testNotificationRoutes);
 app.route('/api/notifications', notificationRoutes);
 app.route('/api/fcm', fcmRoutes);
 app.route('/api/version', versionRoutes);
+app.route('/api/upload', uploadRoutes);
 
 app.get('/health', (c) => c.json({
   status: 'ok',

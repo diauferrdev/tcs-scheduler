@@ -6,14 +6,15 @@ const prisma = new PrismaClient();
 async function main() {
   console.log('🌱 Seeding database...');
 
-  // Create default admin
-  const passwordHash = await hash('TCSPacePort2024!', {
+  // Standard password for all test users
+  const passwordHash = await hash('Tata@123', {
     memoryCost: 19456,
     timeCost: 2,
     outputLen: 32,
     parallelism: 1,
   });
 
+  // Create default admin
   const admin = await prisma.user.upsert({
     where: { email: 'admin@tcs.com' },
     update: {},
@@ -26,29 +27,37 @@ async function main() {
   });
 
   console.log('✅ Created admin user:', admin.email);
-  console.log('🔑 Password: TCSPacePort2024!');
+  console.log('🔑 Password: Tata@123');
 
   // Create a manager user for testing
-  const managerHash = await hash('Manager2024!', {
-    memoryCost: 19456,
-    timeCost: 2,
-    outputLen: 32,
-    parallelism: 1,
-  });
-
   const manager = await prisma.user.upsert({
     where: { email: 'manager@tcs.com' },
     update: {},
     create: {
       email: 'manager@tcs.com',
-      passwordHash: managerHash,
+      passwordHash,
       name: 'Test Manager',
       role: 'MANAGER',
     },
   });
 
   console.log('✅ Created manager user:', manager.email);
-  console.log('🔑 Password: Manager2024!');
+  console.log('🔑 Password: Tata@123');
+
+  // Create a regular user for testing
+  const user = await prisma.user.upsert({
+    where: { email: 'user@tcs.com' },
+    update: {},
+    create: {
+      email: 'user@tcs.com',
+      passwordHash,
+      name: 'Test User',
+      role: 'USER',
+    },
+  });
+
+  console.log('✅ Created user:', user.email);
+  console.log('🔑 Password: Tata@123');
 }
 
 main()

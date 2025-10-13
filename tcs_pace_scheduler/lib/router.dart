@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'providers/auth_provider.dart';
+import 'models/user.dart';
 import 'widgets/app_layout.dart';
 import 'widgets/permissions_wrapper.dart';
 import 'screens/login_screen.dart';
@@ -14,19 +15,23 @@ import 'screens/notifications_screen.dart';
 import 'screens/approvals_screen.dart';
 import 'screens/booking_details_screen.dart';
 import 'screens/my_bookings_screen.dart';
+import 'screens/drawer_route_screen.dart';
 import 'services/navigation_service.dart';
+import 'services/drawer_service.dart';
 
 GoRouter createRouter(AuthProvider authProvider) {
   final navigationService = NavigationService();
 
   return GoRouter(
     navigatorKey: navigationService.navigatorKey,
-    initialLocation: '/dashboard',
+    initialLocation: '/calendar',
     refreshListenable: authProvider,
     redirect: (context, state) {
       final isAuthenticated = authProvider.isAuthenticated;
       final isLoading = authProvider.loading;
+      final user = authProvider.user;
       final isLoginRoute = state.uri.path == '/login';
+      final isCalendarRoute = state.uri.path == '/calendar';
 
       // Wait for auth check to complete
       if (isLoading) {
@@ -38,9 +43,18 @@ GoRouter createRouter(AuthProvider authProvider) {
         return '/login';
       }
 
-      // Redirect to dashboard if authenticated and trying to access login
-      if (isAuthenticated && isLoginRoute) {
-        return '/dashboard';
+      // Redirect authenticated users from login to their main screen (first icon)
+      if (isAuthenticated && isLoginRoute && user != null) {
+        // Always redirect to main screen based on role
+        return _getMainScreenForRole(user.role);
+      }
+
+      // Restrict Calendar page: only ADMIN and USER can access
+      if (isAuthenticated && isCalendarRoute && user != null) {
+        if (user.role == UserRole.MANAGER) {
+          // Manager cannot access calendar, redirect to their main screen
+          return _getMainScreenForRole(user.role);
+        }
       }
 
       return null;
@@ -70,11 +84,17 @@ GoRouter createRouter(AuthProvider authProvider) {
           ),
           GoRoute(
             path: '/calendar',
-            pageBuilder: (context, state) => _buildPageWithTransition(
-              context,
-              state,
-              const CalendarScreen(skipLayout: true),
-            ),
+            pageBuilder: (context, state) {
+              final draftId = state.uri.queryParameters['draftId'];
+              return _buildPageWithTransition(
+                context,
+                state,
+                CalendarScreen(
+                  skipLayout: true,
+                  draftIdToEdit: draftId,
+                ),
+              );
+            },
           ),
           GoRoute(
             path: '/agenda',
@@ -113,24 +133,36 @@ GoRouter createRouter(AuthProvider authProvider) {
             pageBuilder: (context, state) => _buildPageWithTransition(
               context,
               state,
-              const NotificationsScreen(skipLayout: true),
+              const DrawerRouteScreen(
+                drawerType: DrawerType.notifications,
+                baseRoute: '/calendar',
+              ),
             ),
           ),
           GoRoute(
             path: '/approvals',
-            pageBuilder: (context, state) => _buildPageWithTransition(
-              context,
-              state,
-              const ApprovalsScreen(),
-            ),
+            pageBuilder: (context, state) {
+              final bookingId = state.uri.queryParameters['bookingId'];
+              return _buildPageWithTransition(
+                context,
+                state,
+                ApprovalsScreen(initialBookingId: bookingId),
+              );
+            },
           ),
           GoRoute(
             path: '/my-bookings',
-            pageBuilder: (context, state) => _buildPageWithTransition(
-              context,
-              state,
-              const MyBookingsScreen(skipLayout: true),
-            ),
+            pageBuilder: (context, state) {
+              final bookingId = state.uri.queryParameters['bookingId'];
+              return _buildPageWithTransition(
+                context,
+                state,
+                MyBookingsScreen(
+                  skipLayout: true,
+                  initialBookingId: bookingId,
+                ),
+              );
+            },
           ),
           GoRoute(
             path: '/booking/:id',
@@ -142,7 +174,11 @@ GoRouter createRouter(AuthProvider authProvider) {
               return _buildPageWithTransition(
                 context,
                 state,
-                BookingDetailsScreen(bookingId: bookingId, skipLayout: true),
+                DrawerRouteScreen(
+                  drawerType: DrawerType.bookingDetails,
+                  params: {'bookingId': bookingId},
+                  baseRoute: '/calendar',
+                ),
               );
             },
           ),
@@ -150,6 +186,18 @@ GoRouter createRouter(AuthProvider authProvider) {
       ),
     ],
   );
+}
+
+/// Get the main screen (first icon in navigation) for each role
+String _getMainScreenForRole(UserRole role) {
+  switch (role) {
+    case UserRole.ADMIN:
+      return '/dashboard'; // Admin main screen
+    case UserRole.MANAGER:
+      return '/dashboard'; // Manager main screen
+    case UserRole.USER:
+      return '/calendar'; // User main screen
+  }
 }
 
 CustomTransitionPage _buildPageWithTransition(

@@ -264,19 +264,41 @@ class LocalNotificationService {
       case 'calendar':
         // Add to calendar
         if (metadata != null && calendarService != null) {
-          final success = await calendarService.addBookingToCalendar(
-            companyName: metadata['companyName'] ?? 'Visit',
-            date: metadata['date'] ?? '',
-            time: metadata['time'] ?? '09:00',
-            sector: metadata['sector'],
-            expectedAttendees: metadata['expectedAttendees'],
-            eventType: metadata['eventType'],
-          );
+          try {
+            final success = await calendarService.addBookingToCalendar(
+              companyName: metadata['companyName'] ?? 'Visit',
+              date: metadata['date'] ?? '',
+              time: metadata['time'] ?? '09:00',
+              sector: metadata['sector'],
+              expectedAttendees: metadata['expectedAttendees'],
+              eventType: metadata['eventType'],
+            );
 
-          if (success) {
-            navigationService?.showSnackBar('✅ Added to calendar!');
-          } else {
-            navigationService?.showSnackBar('Could not add to calendar', isError: true);
+            debugPrint('[LocalNotification] Add to calendar result: $success');
+
+            // Show local notification to confirm
+            if (success) {
+              await Future.delayed(const Duration(milliseconds: 500));
+              await _notifications.show(
+                999999,
+                '✅ Added to Calendar',
+                'Event added to your calendar successfully!',
+                NotificationDetails(
+                  android: AndroidNotificationDetails(
+                    'bookings',
+                    'Bookings',
+                    importance: Importance.low,
+                    priority: Priority.low,
+                    icon: '@mipmap/tcs_pace_scheduler',
+                    color: const Color(0xFF4CAF50),
+                    playSound: false,
+                    enableVibration: false,
+                  ),
+                ),
+              );
+            }
+          } catch (e) {
+            debugPrint('[LocalNotification] Error adding to calendar: $e');
           }
         }
         break;
@@ -287,17 +309,34 @@ class LocalNotificationService {
           debugPrint('[LocalNotification] Navigating to booking details from view button: $bookingId');
           navigationService?.navigateToBookingDetails(bookingId);
         } else {
-          debugPrint('[LocalNotification] No bookingId for view action');
+          debugPrint('[LocalNotification] No bookingId for view action, navigating to calendar');
+          navigationService?.navigateToCalendar();
         }
         break;
 
       case 'reschedule':
-        // Navigate to booking details if exists, otherwise calendar
+        // Navigate to calendar for rescheduling
+        debugPrint('[LocalNotification] Opening calendar for rescheduling');
+        navigationService?.navigateToCalendar();
+        break;
+
+      case 'directions':
+        // Open Google Maps with TCS PacePort location
+        debugPrint('[LocalNotification] Opening directions to TCS PacePort');
+        // This would require url_launcher package
+        break;
+
+      case 'checklist':
+        // Navigate to booking details to see checklist
         if (bookingId != null && bookingId.isNotEmpty) {
           navigationService?.navigateToBookingDetails(bookingId);
-        } else {
-          navigationService?.navigateToCalendar();
         }
+        break;
+
+      case 'snooze':
+        // Snooze reminder for 10 minutes
+        debugPrint('[LocalNotification] Snoozing reminder for 10 minutes');
+        // Would need to reschedule notification
         break;
 
       case 'dismiss':
@@ -677,6 +716,9 @@ class LocalNotificationService {
     required String date,
     String? time,
     String? approvedBy,
+    String? sector,
+    int? expectedAttendees,
+    String? eventType,
     String? bookingId,
   }) async {
     final detailsList = <String>[
@@ -753,6 +795,9 @@ class LocalNotificationService {
         'date': date,
         'time': time ?? '09:00',
         if (approvedBy != null) 'approvedBy': approvedBy,
+        if (sector != null) 'sector': sector,
+        if (expectedAttendees != null) 'expectedAttendees': expectedAttendees,
+        if (eventType != null) 'eventType': eventType,
       },
     );
 

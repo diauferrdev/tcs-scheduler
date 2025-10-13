@@ -600,3 +600,197 @@ export async function sendPushToRole(
   const userIds = users.map(u => u.id);
   await sendPushToMultipleUsers(userIds, notification);
 }
+
+/**
+ * CRITICAL: Send push notification to admins/managers when new booking is created
+ * @param bookingId - Booking ID
+ */
+export async function sendNewBookingNotification(bookingId: string): Promise<void> {
+  try {
+    // Get booking details
+    const booking = await prisma.booking.findUnique({
+      where: { id: bookingId },
+      select: {
+        id: true,
+        companyName: true,
+        date: true,
+        startTime: true,
+        createdBy: {
+          select: {
+            name: true,
+            email: true,
+          },
+        },
+      },
+    });
+
+    if (!booking) {
+      console.warn(`[FCM] Booking ${bookingId} not found, skipping notification`);
+      return;
+    }
+
+    const formattedDate = new Date(booking.date).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    });
+
+    const notification: PushNotification = {
+      title: 'New Booking Request',
+      body: `${booking.companyName} - ${formattedDate} at ${booking.startTime} (by ${booking.createdBy?.name || 'Unknown'})`,
+      data: {
+        type: 'NEW_BOOKING',
+        bookingId: booking.id,
+        screen: 'approvals',
+      },
+    };
+
+    // Send to all admins and managers
+    const admins = await prisma.user.findMany({
+      where: {
+        role: { in: ['ADMIN', 'MANAGER'] },
+        isActive: true,
+      },
+      select: { id: true },
+    });
+
+    const adminIds = admins.map(a => a.id);
+    await sendPushToMultipleUsers(adminIds, notification);
+
+    console.log(`[FCM] ✅ New booking notification sent to ${adminIds.length} admin(s)/manager(s)`);
+  } catch (error) {
+    console.error('[FCM] Error sending new booking notification:', error);
+    throw error;
+  }
+}
+
+/**
+ * CRITICAL: Send push notification when booking is updated
+ * @param bookingId - Booking ID
+ */
+export async function sendBookingUpdateNotification(bookingId: string): Promise<void> {
+  try {
+    // Get booking details
+    const booking = await prisma.booking.findUnique({
+      where: { id: bookingId },
+      select: {
+        id: true,
+        companyName: true,
+        date: true,
+        startTime: true,
+        status: true,
+        createdById: true,
+        createdBy: {
+          select: {
+            name: true,
+          },
+        },
+      },
+    });
+
+    if (!booking) {
+      console.warn(`[FCM] Booking ${bookingId} not found, skipping notification`);
+      return;
+    }
+
+    const formattedDate = new Date(booking.date).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    });
+
+    const notification: PushNotification = {
+      title: 'Booking Updated',
+      body: `${booking.companyName} - ${formattedDate} at ${booking.startTime}`,
+      data: {
+        type: 'BOOKING_UPDATE',
+        bookingId: booking.id,
+        screen: 'booking_details',
+      },
+    };
+
+    // Send to booking creator + all admins/managers
+    const targetUsers = await prisma.user.findMany({
+      where: {
+        OR: [
+          { id: booking.createdById },
+          { role: { in: ['ADMIN', 'MANAGER'] }, isActive: true },
+        ],
+      },
+      select: { id: true },
+    });
+
+    const userIds = targetUsers.map(u => u.id);
+    await sendPushToMultipleUsers(userIds, notification);
+
+    console.log(`[FCM] ✅ Booking update notification sent to ${userIds.length} user(s)`);
+  } catch (error) {
+    console.error('[FCM] Error sending booking update notification:', error);
+    throw error;
+  }
+}
+
+/**
+ * CRITICAL: Send push notification when booking is cancelled
+ * @param bookingId - Booking ID
+ */
+export async function sendBookingCancelledNotification(bookingId: string): Promise<void> {
+  try {
+    // Get booking details BEFORE it's deleted
+    const booking = await prisma.booking.findUnique({
+      where: { id: bookingId },
+      select: {
+        id: true,
+        companyName: true,
+        date: true,
+        startTime: true,
+        createdById: true,
+        createdBy: {
+          select: {
+            name: true,
+          },
+        },
+      },
+    });
+
+    if (!booking) {
+      console.warn(`[FCM] Booking ${bookingId} not found, skipping notification`);
+      return;
+    }
+
+    const formattedDate = new Date(booking.date).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    });
+
+    const notification: PushNotification = {
+      title: 'Booking Cancelled',
+      body: `${booking.companyName} - ${formattedDate} at ${booking.startTime} has been cancelled`,
+      data: {
+        type: 'BOOKING_CANCELLED',
+        bookingId: booking.id,
+        screen: 'my_bookings',
+      },
+    };
+
+    // Send to booking creator + all admins/managers
+    const targetUsers = await prisma.user.findMany({
+      where: {
+        OR: [
+          { id: booking.createdById },
+          { role: { in: ['ADMIN', 'MANAGER'] }, isActive: true },
+        ],
+      },
+      select: { id: true },
+    });
+
+    const userIds = targetUsers.map(u => u.id);
+    await sendPushToMultipleUsers(userIds, notification);
+
+    console.log(`[FCM] ✅ Booking cancelled notification sent to ${userIds.length} user(s)`);
+  } catch (error) {
+    console.error('[FCM] Error sending booking cancelled notification:', error);
+    throw error;
+  }
+}

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'dart:async';
 import '../services/unified_notification_service.dart';
+import '../screens/notifications_screen.dart';
 
 class NotificationBell extends StatefulWidget {
   const NotificationBell({super.key});
@@ -41,7 +42,26 @@ class _NotificationBellState extends State<NotificationBell> {
   }
 
   void _navigateToNotifications() {
-    context.go('/notifications');
+    // Open notifications drawer from the bottom
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.75,
+        minChildSize: 0.5,
+        maxChildSize: 0.9,
+        builder: (context, scrollController) => Container(
+          decoration: BoxDecoration(
+            color: Theme.of(context).brightness == Brightness.dark
+                ? Colors.black
+                : const Color(0xFFF9FAFB),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: NotificationsDrawer(scrollController: scrollController),
+        ),
+      ),
+    );
   }
 
   @override

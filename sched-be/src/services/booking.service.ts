@@ -23,32 +23,43 @@ function durationToHours(duration: string): number {
 }
 
 // Helper: Check if date is weekend (Saturday or Sunday)
+// IMPORTANT: Use getUTCDay() to avoid timezone issues
 function isWeekend(date: Date): boolean {
-  const day = date.getDay();
+  const day = date.getUTCDay(); // Use UTC to avoid timezone shifting
   return day === 0 || day === 6; // 0 = Sunday, 6 = Saturday
 }
 
 // Helper: Get previous business day (skip weekends)
+// IMPORTANT: Use UTC methods to avoid timezone issues
 function getPreviousBusinessDay(date: Date): Date {
   const prevDay = new Date(date);
-  prevDay.setDate(prevDay.getDate() - 1);
+  console.log(`[getPreviousBusinessDay] Input date: ${date.toISOString()}, day of week (UTC): ${date.getUTCDay()}`);
+
+  prevDay.setUTCDate(prevDay.getUTCDate() - 1);
+  console.log(`[getPreviousBusinessDay] After -1 day: ${prevDay.toISOString()}, day of week (UTC): ${prevDay.getUTCDay()}, isWeekend: ${isWeekend(prevDay)}`);
 
   // Keep going back until we find a weekday
+  let iterations = 0;
   while (isWeekend(prevDay)) {
-    prevDay.setDate(prevDay.getDate() - 1);
+    iterations++;
+    console.log(`[getPreviousBusinessDay] Iteration ${iterations}: ${prevDay.toISOString()} is weekend, going back...`);
+    prevDay.setUTCDate(prevDay.getUTCDate() - 1);
+    console.log(`[getPreviousBusinessDay] After -1 day: ${prevDay.toISOString()}, day of week (UTC): ${prevDay.getUTCDay()}, isWeekend: ${isWeekend(prevDay)}`);
   }
 
+  console.log(`[getPreviousBusinessDay] Final result: ${prevDay.toISOString()}, day of week (UTC): ${prevDay.getUTCDay()}`);
   return prevDay;
 }
 
 // Helper: Get next business day (skip weekends)
+// IMPORTANT: Use UTC methods to avoid timezone issues
 function getNextBusinessDay(date: Date): Date {
   const nextDay = new Date(date);
-  nextDay.setDate(nextDay.getDate() + 1);
+  nextDay.setUTCDate(nextDay.getUTCDate() + 1);
 
   // Keep going forward until we find a weekday
   while (isWeekend(nextDay)) {
-    nextDay.setDate(nextDay.getDate() + 1);
+    nextDay.setUTCDate(nextDay.getUTCDate() + 1);
   }
 
   return nextDay;
@@ -80,14 +91,14 @@ function timeRangesOverlap(
 }
 
 // Helper: Check if a period (morning or afternoon) is free on a given date
-// Includes BOTH CONFIRMED and PENDING_APPROVAL bookings
+// Only considers APPROVED bookings (PENDING do not block)
 async function isPeriodFree(date: Date, isMorning: boolean, excludeBookingId?: string): Promise<boolean> {
   const dateStr = date.toISOString().split('T')[0];
 
   const bookings = await prisma.booking.findMany({
     where: {
       date: new Date(dateStr),
-      status: { in: ['CONFIRMED', 'PENDING_APPROVAL'] }, // Count both confirmed and pending (intentions)
+      status: 'APPROVED', // Only count APPROVED bookings
       ...(excludeBookingId ? { id: { not: excludeBookingId } } : {}),
     },
   });
@@ -108,6 +119,91 @@ async function isPeriodFree(date: Date, isMorning: boolean, excludeBookingId?: s
   }
 
   return true; // Period is free
+}
+
+// Helper: Check if a period is free considering BOTH direct bookings AND IE virtual blocks
+// This is crucial for Innovation Exchange validation to prevent overlapping prep/teardown periods
+async function isPeriodFreeConsideringIEBlocks(
+  date: Date,
+  isMorning: boolean,
+  excludeBookingId?: string
+): Promise<boolean> {
+  const dateStr = date.toISOString().split('T')[0];
+  const periodLabel = isMorning ? 'morning' : 'afternoon';
+
+  console.log(`[IE Block Check] Checking if ${dateStr} ${periodLabel} is free...`);
+
+  // 1. Check for direct bookings in the period
+  const periodFree = await isPeriodFree(date, isMorning, excludeBookingId);
+  console.log(`[IE Block Check] Direct bookings check: ${periodFree ? 'FREE' : 'OCCUPIED'}`);
+
+  if (!periodFree) {
+    console.log(`[IE Block Check] ❌ ${dateStr} ${periodLabel} is OCCUPIED by direct booking`);
+    return false;
+  }
+
+  // 2. Check if this period is blocked by prep/teardown of existing APPROVED IEs
+  // Get all APPROVED Innovation Exchange bookings
+  const confirmedIEs = await prisma.booking.findMany({
+    where: {
+      visitType: 'INNOVATION_EXCHANGE',
+      status: 'APPROVED',
+      ...(excludeBookingId ? { id: { not: excludeBookingId } } : {}),
+    },
+  });
+
+  console.log(`[IE Block Check] Found ${confirmedIEs.length} confirmed IEs to check against`);
+
+  for (const ie of confirmedIEs) {
+    const ieDate = ie.date;
+    const ieDateStr = ieDate.toISOString().split('T')[0];
+    const isIEInMorning = isMorningPeriod(ie.startTime);
+    const ieTimeLabel = isIEInMorning ? 'morning' : 'afternoon';
+
+    console.log(`[IE Block Check] Checking IE on ${ieDateStr} ${ieTimeLabel} (${ie.companyName})`);
+
+    // Check if this IE blocks the period we're checking
+    if (isIEInMorning) {
+      // IE morning blocks:
+      // - Previous day afternoon (prep)
+      // - Same day morning (event)
+      // - Same day afternoon (teardown)
+
+      // Check if we're checking the prep period (prev day afternoon)
+      const prevDayStr = getPreviousBusinessDay(ieDate).toISOString().split('T')[0];
+      if (dateStr === prevDayStr && !isMorning) {
+        console.log(`[IE Block Check] ❌ ${dateStr} afternoon is blocked as PREP for IE on ${ieDateStr} morning`);
+        return false; // This afternoon is blocked as prep for IE
+      }
+
+      // Check if we're checking the event or teardown period (same day)
+      if (dateStr === ieDateStr) {
+        console.log(`[IE Block Check] ❌ ${dateStr} ${periodLabel} is blocked by IE EVENT+TEARDOWN on same day`);
+        return false; // Both morning and afternoon blocked by IE
+      }
+    } else {
+      // IE afternoon blocks:
+      // - Same day morning (prep)
+      // - Same day afternoon (event)
+      // - Next day morning (teardown)
+
+      // Check if we're checking the prep or event period (same day)
+      if (dateStr === ieDateStr) {
+        console.log(`[IE Block Check] ❌ ${dateStr} ${periodLabel} is blocked by IE PREP+EVENT on same day`);
+        return false; // Both morning and afternoon blocked by IE
+      }
+
+      // Check if we're checking the teardown period (next day morning)
+      const nextDayStr = getNextBusinessDay(ieDate).toISOString().split('T')[0];
+      if (dateStr === nextDayStr && isMorning) {
+        console.log(`[IE Block Check] ❌ ${dateStr} morning is blocked as TEARDOWN for IE on ${ieDateStr} afternoon`);
+        return false; // This morning is blocked as teardown for IE
+      }
+    }
+  }
+
+  console.log(`[IE Block Check] ✅ ${dateStr} ${periodLabel} is FREE`);
+  return true; // Period is free (no direct bookings and no IE blocks)
 }
 
 // Validate Innovation Exchange booking (needs prep/teardown periods)
@@ -131,48 +227,48 @@ async function validateInnovationExchange(
 
   // Check prep period (before the event)
   if (isBookingInMorning) {
-    // Event in morning → need afternoon of previous business day free
+    // Event in morning → need afternoon of previous business day free (considering IE blocks)
     const prevDay = getPreviousBusinessDay(bookingDate);
-    const afternoonFree = await isPeriodFree(prevDay, false);
+    const afternoonFree = await isPeriodFreeConsideringIEBlocks(prevDay, false);
 
     if (!afternoonFree) {
       return {
         valid: false,
-        error: `Cannot book Innovation Exchange on ${date} morning: afternoon of ${prevDay.toISOString().split('T')[0]} must be free for preparation`,
+        error: `Cannot book Innovation Exchange on ${date} morning: afternoon of ${prevDay.toISOString().split('T')[0]} is already occupied or blocked by another event`,
       };
     }
   } else {
-    // Event in afternoon → need morning of same day free
-    const morningFree = await isPeriodFree(bookingDate, true);
+    // Event in afternoon → need morning of same day free (considering IE blocks)
+    const morningFree = await isPeriodFreeConsideringIEBlocks(bookingDate, true);
 
     if (!morningFree) {
       return {
         valid: false,
-        error: `Cannot book Innovation Exchange on ${date} afternoon: morning must be free for preparation`,
+        error: `Cannot book Innovation Exchange on ${date} afternoon: morning is already occupied or blocked by another event`,
       };
     }
   }
 
   // Check teardown period (after the event)
   if (isBookingInMorning) {
-    // Event in morning → afternoon of same day must be free
-    const afternoonFree = await isPeriodFree(bookingDate, false);
+    // Event in morning → afternoon of same day must be free (considering IE blocks)
+    const afternoonFree = await isPeriodFreeConsideringIEBlocks(bookingDate, false);
 
     if (!afternoonFree) {
       return {
         valid: false,
-        error: `Cannot book Innovation Exchange on ${date} morning: afternoon must be free for teardown`,
+        error: `Cannot book Innovation Exchange on ${date} morning: afternoon is already occupied or blocked by another event`,
       };
     }
   } else {
-    // Event in afternoon → morning of next business day must be free
+    // Event in afternoon → morning of next business day must be free (considering IE blocks)
     const nextDay = getNextBusinessDay(bookingDate);
-    const morningFree = await isPeriodFree(nextDay, true);
+    const morningFree = await isPeriodFreeConsideringIEBlocks(nextDay, true);
 
     if (!morningFree) {
       return {
         valid: false,
-        error: `Cannot book Innovation Exchange on ${date} afternoon: morning of ${nextDay.toISOString().split('T')[0]} must be free for teardown`,
+        error: `Cannot book Innovation Exchange on ${date} afternoon: morning of ${nextDay.toISOString().split('T')[0]} is already occupied or blocked by another event`,
       };
     }
   }
@@ -195,19 +291,20 @@ async function validateQuickTour(
     };
   }
 
-  // Check how many Quick Tours are already booked on this date (CONFIRMED or PENDING)
+  // Check how many APPROVED Quick Tours are already booked on this date
+  // PENDING do not block
   const existingQuickTours = await prisma.booking.findMany({
     where: {
       date: new Date(date),
       visitType: 'QUICK_TOUR',
-      status: { in: ['CONFIRMED', 'PENDING_APPROVAL'] }, // Count both confirmed and pending
+      status: 'APPROVED', // Only count APPROVED bookings
     },
   });
 
   if (existingQuickTours.length >= 2) {
     return {
       valid: false,
-      error: 'Maximum 2 Quick Tours allowed per day (already have 2 booked)',
+      error: 'Maximum 2 Quick Tours allowed per day (already have 2 confirmed)',
     };
   }
 
@@ -217,11 +314,12 @@ async function validateQuickTour(
 export async function checkAvailability(date: string, visitType?: 'QUICK_TOUR' | 'INNOVATION_EXCHANGE') {
   const bookingDate = new Date(date);
 
-  // Get CONFIRMED and PENDING_APPROVAL bookings (intentions count as occupied)
+  // Get ONLY APPROVED bookings for availability
+  // PENDING_APPROVAL do not block slots
   const bookings = await prisma.booking.findMany({
     where: {
       date: bookingDate,
-      status: { in: ['CONFIRMED', 'PENDING_APPROVAL'] }, // Count both confirmed and pending
+      status: 'APPROVED', // Only count APPROVED bookings
     },
   });
 
@@ -265,7 +363,7 @@ export async function checkAvailability(date: string, visitType?: 'QUICK_TOUR' |
       where: {
         date: bookingDate,
         visitType: 'QUICK_TOUR',
-        status: { in: ['CONFIRMED', 'PENDING_APPROVAL'] }, // Count both confirmed and pending
+        status: 'APPROVED', // Only count APPROVED bookings
       },
     });
 
@@ -274,7 +372,22 @@ export async function checkAvailability(date: string, visitType?: 'QUICK_TOUR' |
       const isMorning = isMorningPeriod(qt.startTime);
       const periodIndex = isMorning ? 0 : 1;
       periods[periodIndex].available = false;
-      periods[periodIndex].blockedBy = `Quick Tour already scheduled`;
+      periods[periodIndex].blockedBy = `Quick Tour already confirmed`;
+    }
+
+    // IMPORTANT: Quick Tours must also respect IE prep/teardown blocks
+    // Check if morning period is blocked by IE prep/teardown
+    const morningFree = await isPeriodFreeConsideringIEBlocks(bookingDate, true);
+    if (!morningFree && periods[0].available) {
+      periods[0].available = false;
+      periods[0].blockedBy = 'Period blocked by Innovation Exchange prep/teardown';
+    }
+
+    // Check if afternoon period is blocked by IE prep/teardown
+    const afternoonFree = await isPeriodFreeConsideringIEBlocks(bookingDate, false);
+    if (!afternoonFree && periods[1].available) {
+      periods[1].available = false;
+      periods[1].blockedBy = 'Period blocked by Innovation Exchange prep/teardown';
     }
   } else if (visitType === 'INNOVATION_EXCHANGE') {
     // Innovation Exchange: only 1 per day
@@ -282,29 +395,31 @@ export async function checkAvailability(date: string, visitType?: 'QUICK_TOUR' |
       where: {
         date: bookingDate,
         visitType: 'INNOVATION_EXCHANGE',
-        status: { in: ['CONFIRMED', 'PENDING_APPROVAL'] }, // Count both confirmed and pending
+        status: 'APPROVED', // Only count APPROVED bookings
       },
     });
 
     if (existingIE.length > 0) {
       // Already have an Innovation Exchange, no periods available
       periods[0].available = false;
-      periods[0].blockedBy = 'Innovation Exchange already scheduled for this day';
+      periods[0].blockedBy = 'Innovation Exchange already confirmed for this day';
       periods[1].available = false;
-      periods[1].blockedBy = 'Innovation Exchange already scheduled for this day';
+      periods[1].blockedBy = 'Innovation Exchange already confirmed for this day';
     } else {
-      // Check prep/teardown availability for each period
+      // Check prep/teardown availability for each period (considering IE blocks)
 
       // Morning period check
       const prevDay = getPreviousBusinessDay(bookingDate);
-      const morningPrepOk = await isPeriodFree(prevDay, false); // Need prev afternoon free
-      const morningTeardownOk = await isPeriodFree(bookingDate, false); // Need same afternoon free
+      const morningPrepOk = await isPeriodFreeConsideringIEBlocks(prevDay, false); // Need prev afternoon free
+      const morningTeardownOk = await isPeriodFreeConsideringIEBlocks(bookingDate, false); // Need same afternoon free
+
+      console.log(`[IE Check] ${date} morning - prep ok: ${morningPrepOk} (prev day: ${prevDay.toISOString().split('T')[0]} afternoon), teardown ok: ${morningTeardownOk} (same day afternoon)`);
 
       if (!morningPrepOk || !morningTeardownOk) {
         periods[0].available = false;
         periods[0].blockedBy = !morningPrepOk
-          ? `Requires free afternoon on ${prevDay.toISOString().split('T')[0]} (prep)`
-          : 'Requires free afternoon on same day (teardown)';
+          ? `Requires free afternoon on ${prevDay.toISOString().split('T')[0]} (prep) - already occupied or blocked`
+          : 'Requires free afternoon on same day (teardown) - already occupied or blocked';
       } else {
         // Add info about what will be blocked
         periods[0].willBlock = [
@@ -316,14 +431,14 @@ export async function checkAvailability(date: string, visitType?: 'QUICK_TOUR' |
 
       // Afternoon period check
       const nextDay = getNextBusinessDay(bookingDate);
-      const afternoonPrepOk = await isPeriodFree(bookingDate, true); // Need same morning free
-      const afternoonTeardownOk = await isPeriodFree(nextDay, true); // Need next morning free
+      const afternoonPrepOk = await isPeriodFreeConsideringIEBlocks(bookingDate, true); // Need same morning free
+      const afternoonTeardownOk = await isPeriodFreeConsideringIEBlocks(nextDay, true); // Need next morning free
 
       if (!afternoonPrepOk || !afternoonTeardownOk) {
         periods[1].available = false;
         periods[1].blockedBy = !afternoonPrepOk
-          ? 'Requires free morning on same day (prep)'
-          : `Requires free morning on ${nextDay.toISOString().split('T')[0]} (teardown)`;
+          ? 'Requires free morning on same day (prep) - already occupied or blocked'
+          : `Requires free morning on ${nextDay.toISOString().split('T')[0]} (teardown) - already occupied or blocked`;
       } else {
         // Add info about what will be blocked
         periods[1].willBlock = [
@@ -346,63 +461,66 @@ export async function checkAvailability(date: string, visitType?: 'QUICK_TOUR' |
   };
 }
 
-export async function createBooking(data: BookingCreateInput, createdById?: string) {
+export async function createBooking(data: BookingCreateInput, createdById?: string, isDraft: boolean = false) {
   const bookingDate = new Date(data.date);
 
-  // 1. Block weekends
-  if (isWeekend(bookingDate)) {
-    throw new Error('Bookings are not allowed on weekends (Saturday/Sunday)');
-  }
-
-  // 2. Validate visit type and duration match
-  if (data.visitType === 'QUICK_TOUR') {
-    // Quick Tour must be exactly 2 hours
-    if (data.duration !== 'TWO_HOURS') {
-      throw new Error('Quick Tour must be exactly 2 hours');
+  // Skip validations for drafts
+  if (!isDraft) {
+    // 1. Block weekends
+    if (isWeekend(bookingDate)) {
+      throw new Error('Bookings are not allowed on weekends (Saturday/Sunday)');
     }
 
-    // Validate Quick Tour specific rules
-    const quickTourValidation = await validateQuickTour(data.date, data.duration);
-    if (!quickTourValidation.valid) {
-      throw new Error(quickTourValidation.error);
+    // 2. Validate visit type and duration match
+    if (data.visitType === 'QUICK_TOUR') {
+      // Quick Tour must be exactly 2 hours
+      if (data.duration !== 'TWO_HOURS') {
+        throw new Error('Quick Tour must be exactly 2 hours');
+      }
+
+      // Validate Quick Tour specific rules
+      const quickTourValidation = await validateQuickTour(data.date, data.duration);
+      if (!quickTourValidation.valid) {
+        throw new Error(quickTourValidation.error);
+      }
+    } else if (data.visitType === 'INNOVATION_EXCHANGE') {
+      // Innovation Exchange must be 4-6 hours
+      const durationHours = durationToHours(data.duration);
+      if (durationHours < 4 || durationHours > 6) {
+        throw new Error('Innovation Exchange must be between 4-6 hours');
+      }
+
+      // Validate Innovation Exchange specific rules (prep/teardown)
+      const innovationValidation = await validateInnovationExchange(
+        data.date,
+        data.startTime,
+        data.duration
+      );
+      if (!innovationValidation.valid) {
+        throw new Error(innovationValidation.error);
+      }
     }
-  } else if (data.visitType === 'INNOVATION_EXCHANGE') {
-    // Innovation Exchange must be 4-6 hours
-    const durationHours = durationToHours(data.duration);
-    if (durationHours < 4 || durationHours > 6) {
-      throw new Error('Innovation Exchange must be between 4-6 hours');
-    }
 
-    // Validate Innovation Exchange specific rules (prep/teardown)
-    const innovationValidation = await validateInnovationExchange(
-      data.date,
-      data.startTime,
-      data.duration
-    );
-    if (!innovationValidation.valid) {
-      throw new Error(innovationValidation.error);
-    }
-  }
+    // 3. Validate availability (general conflict check)
+    const availability = await checkAvailability(data.date);
 
-  // 3. Validate availability (general conflict check)
-  const availability = await checkAvailability(data.date);
+    // Check if requested time and duration are available
+    const requestedStartMinutes = timeToMinutes(data.startTime);
+    const requestedDurationHours = durationToHours(data.duration);
 
-  // Check if requested time and duration are available
-  const requestedStartMinutes = timeToMinutes(data.startTime);
-  const requestedDurationHours = durationToHours(data.duration);
+    // Check for time conflicts with existing bookings
+    for (const existing of availability.existingBookings) {
+      const existingStart = timeToMinutes(existing.startTime);
+      const existingDuration = durationToHours(existing.duration);
 
-  // Check for time conflicts with existing bookings
-  for (const existing of availability.existingBookings) {
-    const existingStart = timeToMinutes(existing.startTime);
-    const existingDuration = durationToHours(existing.duration);
-
-    if (timeRangesOverlap(
-      requestedStartMinutes,
-      requestedDurationHours,
-      existingStart,
-      existingDuration
-    )) {
-      throw new Error('Booking conflicts with existing booking');
+      if (timeRangesOverlap(
+        requestedStartMinutes,
+        requestedDurationHours,
+        existingStart,
+        existingDuration
+      )) {
+        throw new Error('Booking conflicts with existing booking');
+      }
     }
   }
 
@@ -419,7 +537,7 @@ export async function createBooking(data: BookingCreateInput, createdById?: stri
       date: new Date(data.date),
       lastInnovationDay: lastInnovationDay ? new Date(lastInnovationDay) : null,
       expectedAttendees: data.expectedAttendees || 1,
-      status: 'PENDING_APPROVAL',
+      status: isDraft ? 'DRAFT' : 'PENDING_APPROVAL',
       createdById,
       attendees: attendees
         ? {
@@ -452,18 +570,21 @@ export async function createBooking(data: BookingCreateInput, createdById?: stri
     },
   });
 
-  // Notify all managers about the new booking pending approval (async, don't block)
-  const notificationService = await import('./notification.service');
-  notificationService.notifyAllManagers(
-    'BOOKING_PENDING_APPROVAL',
-    'New Booking Pending Approval',
-    `${booking.companyName} requested a visit on ${new Date(booking.date).toLocaleDateString()} at ${booking.startTime}. ${booking.expectedAttendees} attendees expected.`,
-    booking.id
-  ).catch((error: any) => {
-    console.error('Failed to send manager notifications:', error);
-  });
+  // Notify managers only if not a draft
+  if (!isDraft) {
+    // Notify all managers about the new booking pending approval (async, don't block)
+    const notificationService = await import('./notification.service');
+    notificationService.notifyAllManagers(
+      'BOOKING_PENDING_APPROVAL',
+      'New Booking Pending Approval',
+      `${booking.companyName} requested a visit on ${new Date(booking.date).toLocaleDateString()} at ${booking.startTime}. ${booking.expectedAttendees} attendees expected.`,
+      booking.id
+    ).catch((error: any) => {
+      console.error('Failed to send manager notifications:', error);
+    });
+  }
 
-  // Broadcast booking creation to all connected clients for real-time calendar updates
+  // Always broadcast booking creation (including drafts) for real-time UI updates
   websocketService.broadcastBookingCreated(booking);
   console.log('[Booking] Broadcast booking_created to', websocketService.getTotalConnections(), 'connections');
 
@@ -547,7 +668,7 @@ export async function getBookingsAvailability(month?: string) {
 // Get bookings availability for Admins/Managers (includes PENDING_APPROVAL as "intentions")
 export async function getBookingsAvailabilityForAdmins(month?: string) {
   const where: any = {
-    status: { notIn: ['CANCELLED', 'RESCHEDULED'] }, // Include PENDING_APPROVAL and CONFIRMED
+    status: { notIn: ['CANCELLED', 'DRAFT'] }, // Include PENDING_APPROVAL and APPROVED
   };
 
   if (month) {
@@ -570,7 +691,7 @@ export async function getBookingsAvailabilityForAdmins(month?: string) {
       startTime: true,
       duration: true,
       visitType: true,
-      status: true, // PENDING_APPROVAL = intention, CONFIRMED = actual booking
+      status: true, // PENDING_APPROVAL = intention, APPROVED = actual booking
       companyName: true, // Show company name for admins
     },
     orderBy: {
@@ -776,6 +897,7 @@ export async function getAttendeeById(id: string) {
 }
 
 // Approve a booking (manager only)
+// Automatically cancels all conflicting PENDING bookings
 export async function approveBooking(bookingId: string, managerId: string) {
   const booking = await prisma.booking.findUnique({
     where: { id: bookingId },
@@ -792,11 +914,35 @@ export async function approveBooking(bookingId: string, managerId: string) {
     throw new Error('Booking is not pending approval');
   }
 
-  // Update booking status to CONFIRMED
+  // Validate that the slot is still free (considering only APPROVED bookings)
+  const dateStr = booking.date.toISOString().split('T')[0];
+  const availability = await checkAvailability(dateStr, booking.visitType);
+
+  const requestedStartMinutes = timeToMinutes(booking.startTime);
+  const requestedDurationHours = durationToHours(booking.duration);
+
+  // Check for conflicts with APPROVED bookings
+  for (const existing of availability.existingBookings) {
+    if (existing.id === bookingId) continue; // Skip self
+
+    const existingStart = timeToMinutes(existing.startTime);
+    const existingDuration = durationToHours(existing.duration);
+
+    if (timeRangesOverlap(
+      requestedStartMinutes,
+      requestedDurationHours,
+      existingStart,
+      existingDuration
+    )) {
+      throw new Error('Cannot approve: slot is now occupied by another confirmed booking');
+    }
+  }
+
+  // Approve the booking
   const updatedBooking = await prisma.booking.update({
     where: { id: bookingId },
     data: {
-      status: 'CONFIRMED',
+      status: 'APPROVED',
       approvedById: managerId,
       approvedAt: new Date(),
     },
@@ -819,8 +965,151 @@ export async function approveBooking(bookingId: string, managerId: string) {
     },
   });
 
-  // Notify the booking creator
+  // Find all PENDING bookings that conflict with this approved booking
+  const conflictingBookings = await prisma.booking.findMany({
+    where: {
+      id: { not: bookingId }, // Exclude the approved booking
+      status: 'PENDING_APPROVAL',
+      OR: [
+        // Direct time conflict on same date
+        {
+          date: booking.date,
+        },
+        // For Innovation Exchange, also check prep/teardown periods
+        ...(booking.visitType === 'INNOVATION_EXCHANGE' ? [
+          // If approved IE is in morning, it blocks:
+          // - Previous day afternoon (prep)
+          // - Same day morning + afternoon (event + teardown)
+          ...(isMorningPeriod(booking.startTime) ? [
+            {
+              date: getPreviousBusinessDay(booking.date),
+            },
+          ] : []),
+          // If approved IE is in afternoon, it blocks:
+          // - Same day morning (prep)
+          // - Same day afternoon (event)
+          // - Next day morning (teardown)
+          ...(!isMorningPeriod(booking.startTime) ? [
+            {
+              date: getNextBusinessDay(booking.date),
+            },
+          ] : []),
+        ] : []),
+      ],
+    },
+    include: {
+      createdBy: true,
+    },
+  });
+
+  // Filter conflicting bookings to only those that actually conflict
+  const bookingsToCancel: typeof conflictingBookings = [];
+
+  for (const pending of conflictingBookings) {
+    const pendingDateStr = pending.date.toISOString().split('T')[0];
+    const pendingStartMinutes = timeToMinutes(pending.startTime);
+    const pendingDurationHours = durationToHours(pending.duration);
+
+    // Check direct time overlap on same date
+    if (pendingDateStr === dateStr) {
+      if (timeRangesOverlap(
+        requestedStartMinutes,
+        requestedDurationHours,
+        pendingStartMinutes,
+        pendingDurationHours
+      )) {
+        bookingsToCancel.push(pending);
+        continue;
+      }
+    }
+
+    // For Innovation Exchange approved booking, check if pending conflicts with prep/teardown
+    if (booking.visitType === 'INNOVATION_EXCHANGE') {
+      const isApprovedInMorning = isMorningPeriod(booking.startTime);
+
+      if (isApprovedInMorning) {
+        // Approved IE morning blocks: prev day afternoon + same day all day
+        const prevDayStr = getPreviousBusinessDay(booking.date).toISOString().split('T')[0];
+
+        if (pendingDateStr === prevDayStr && isAfternoonPeriod(pending.startTime)) {
+          bookingsToCancel.push(pending);
+        } else if (pendingDateStr === dateStr) {
+          bookingsToCancel.push(pending);
+        }
+      } else {
+        // Approved IE afternoon blocks: same day all day + next day morning
+        const nextDayStr = getNextBusinessDay(booking.date).toISOString().split('T')[0];
+
+        if (pendingDateStr === dateStr) {
+          bookingsToCancel.push(pending);
+        } else if (pendingDateStr === nextDayStr && isMorningPeriod(pending.startTime)) {
+          bookingsToCancel.push(pending);
+        }
+      }
+    }
+
+    // Check if pending IE prep/teardown conflicts with approved booking
+    if (pending.visitType === 'INNOVATION_EXCHANGE') {
+      const isPendingInMorning = isMorningPeriod(pending.startTime);
+      const pendingDate = pending.date;
+
+      if (isPendingInMorning) {
+        // Pending IE morning requires: prev day afternoon + same day all day
+        const prevDayStr = getPreviousBusinessDay(pendingDate).toISOString().split('T')[0];
+
+        if (dateStr === prevDayStr && isAfternoonPeriod(booking.startTime)) {
+          bookingsToCancel.push(pending);
+        } else if (dateStr === pendingDateStr) {
+          bookingsToCancel.push(pending);
+        }
+      } else {
+        // Pending IE afternoon requires: same day all day + next day morning
+        const nextDayStr = getNextBusinessDay(pendingDate).toISOString().split('T')[0];
+
+        if (dateStr === pendingDateStr) {
+          bookingsToCancel.push(pending);
+        } else if (dateStr === nextDayStr && isMorningPeriod(booking.startTime)) {
+          bookingsToCancel.push(pending);
+        }
+      }
+    }
+  }
+
+  // Cancel all conflicting PENDING bookings
   const notificationService = await import('./notification.service');
+  const cancelledCount = bookingsToCancel.length;
+
+  if (cancelledCount > 0) {
+    console.log(`[Approval] Cancelling ${cancelledCount} conflicting PENDING bookings`);
+
+    for (const pendingBooking of bookingsToCancel) {
+      // Mark as cancelled
+      await prisma.booking.update({
+        where: { id: pendingBooking.id },
+        data: { status: 'CANCELLED' },
+      });
+
+      // Notify the creator that their booking was auto-cancelled
+      if (pendingBooking.createdById) {
+        notificationService.createNotification({
+          type: 'BOOKING_CANCELLED',
+          title: 'Booking Cancelled',
+          message: `Your booking for ${pendingBooking.companyName} on ${new Date(pendingBooking.date).toLocaleDateString()} at ${pendingBooking.startTime} was automatically cancelled because another booking was approved for a conflicting time slot.`,
+          userId: pendingBooking.createdById,
+          bookingId: pendingBooking.id,
+        }).catch((error: any) => {
+          console.error('Failed to send cancellation notification:', error);
+        });
+      }
+
+      // Broadcast cancellation
+      websocketService.broadcastBookingDeleted(pendingBooking.id);
+    }
+
+    console.log(`[Approval] Successfully cancelled ${cancelledCount} conflicting bookings`);
+  }
+
+  // Notify the approved booking creator
   if (booking.createdById) {
     notificationService.createNotification({
       type: 'BOOKING_APPROVED',
@@ -828,6 +1117,15 @@ export async function approveBooking(bookingId: string, managerId: string) {
       message: `Your booking for ${booking.companyName} on ${new Date(booking.date).toLocaleDateString()} at ${booking.startTime} has been approved!`,
       userId: booking.createdById,
       bookingId: booking.id,
+      metadata: {
+        companyName: booking.companyName,
+        date: new Date(booking.date).toLocaleDateString(),
+        time: booking.startTime,
+        sector: booking.companySector || undefined,
+        expectedAttendees: booking.expectedAttendees,
+        eventType: booking.eventType || undefined,
+        approvedBy: updatedBooking.approvedBy?.name,
+      },
     }).catch((error: any) => {
       console.error('Failed to send approval notification to creator:', error);
     });
@@ -835,9 +1133,9 @@ export async function approveBooking(bookingId: string, managerId: string) {
 
   // Notify all other managers that the booking was approved
   notificationService.notifyAllManagers(
-    'BOOKING_CONFIRMED',
+    'BOOKING_APPROVED',
     'Booking Confirmed',
-    `${booking.companyName} visit on ${new Date(booking.date).toLocaleDateString()} at ${booking.startTime} has been approved by ${updatedBooking.approvedBy?.name}.`,
+    `${booking.companyName} visit on ${new Date(booking.date).toLocaleDateString()} at ${booking.startTime} has been approved by ${updatedBooking.approvedBy?.name}.${cancelledCount > 0 ? ` (${cancelledCount} conflicting bookings were automatically cancelled)` : ''}`,
     booking.id,
     managerId // Exclude the manager who approved
   ).catch((error: any) => {
@@ -930,11 +1228,11 @@ export async function rescheduleBooking(
     },
   });
 
-  // Mark original booking as rescheduled
+  // Mark original booking as cancelled (rescheduled)
   await prisma.booking.update({
     where: { id: bookingId },
     data: {
-      status: 'RESCHEDULED',
+      status: 'CANCELLED',
       rescheduledToId: newBooking.id,
     },
   });

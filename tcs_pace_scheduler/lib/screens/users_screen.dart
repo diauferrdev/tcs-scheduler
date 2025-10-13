@@ -54,7 +54,11 @@ class _UsersScreenState extends State<UsersScreen> {
     final nameController = TextEditingController();
     final emailController = TextEditingController();
     final passwordController = TextEditingController();
-    String selectedRole = 'MANAGER';
+    final currentUserRole = context.read<AuthProvider>().user?.role;
+
+    // Default role based on current user
+    // ADMIN can create any role, MANAGER can only create USER
+    String selectedRole = currentUserRole == UserRole.ADMIN ? 'MANAGER' : 'USER';
     final formKey = GlobalKey<FormState>();
     final isDark = context.read<ThemeProvider>().isDark;
 
@@ -187,10 +191,14 @@ class _UsersScreenState extends State<UsersScreen> {
                       ),
                       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                     ),
-                    items: const [
-                      DropdownMenuItem(value: 'MANAGER', child: Text('Manager')),
-                      DropdownMenuItem(value: 'ADMIN', child: Text('Admin')),
-                      DropdownMenuItem(value: 'USER', child: Text('User')),
+                    items: [
+                      // ADMIN can create all roles
+                      if (currentUserRole == UserRole.ADMIN) ...[
+                        const DropdownMenuItem(value: 'ADMIN', child: Text('Admin')),
+                        const DropdownMenuItem(value: 'MANAGER', child: Text('Manager')),
+                      ],
+                      // MANAGER and ADMIN can create USER
+                      const DropdownMenuItem(value: 'USER', child: Text('User')),
                     ],
                     onChanged: (value) {
                       if (value != null) {

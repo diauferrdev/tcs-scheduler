@@ -1,9 +1,9 @@
 import { z } from 'zod';
 
 // Enums
-export const UserRoleSchema = z.enum(['ADMIN', 'MANAGER', 'GUEST']);
+export const UserRoleSchema = z.enum(['ADMIN', 'MANAGER', 'USER']);
 export const VisitDurationSchema = z.enum(['ONE_HOUR', 'TWO_HOURS', 'THREE_HOURS', 'FOUR_HOURS', 'FIVE_HOURS', 'SIX_HOURS']);
-export const BookingStatusSchema = z.enum(['PENDING_APPROVAL', 'CONFIRMED', 'CANCELLED', 'RESCHEDULED']);
+export const BookingStatusSchema = z.enum(['DRAFT', 'PENDING_APPROVAL', 'APPROVED', 'CANCELLED']);
 export const EventTypeSchema = z.enum(['TCS', 'PARTNER']);
 export const DealStatusSchema = z.enum(['SWON', 'WON']);
 export const TCSSupporterSchema = z.enum(['SUPPORTER', 'NEUTRAL', 'DETRACTOR']);
@@ -77,7 +77,8 @@ export const BookingCreateSchema = z.object({
   dealStatus: DealStatusSchema.optional(),
 
   // Approvals
-  segmentHeadApproval: z.boolean().default(false),
+  attachHeadApproval: z.boolean().default(false),
+  attachments: z.array(z.string().url()).max(6, 'Maximum 6 attachments allowed').optional(),
 
   // Attendees (máximo 3)
   attendees: z.array(AttendeeSchema).min(1, 'At least one attendee is required').max(3, 'Maximum 3 attendees allowed').optional(),
@@ -115,7 +116,7 @@ export const UserCreateSchema = z.object({
   email: z.string().email('Invalid email format'),
   password: z.string().min(8, 'Password must be at least 8 characters'),
   name: z.string().min(2, 'Name must be at least 2 characters'),
-  role: z.enum(['ADMIN', 'MANAGER']).default('MANAGER'),
+  role: UserRoleSchema.default('USER'),
 });
 
 export const UserUpdateSchema = z.object({
@@ -123,6 +124,21 @@ export const UserUpdateSchema = z.object({
   name: z.string().min(2).optional(),
   role: UserRoleSchema.optional(),
   isActive: z.boolean().optional(),
+});
+
+// Password change schema
+export const PasswordChangeSchema = z.object({
+  currentPassword: z.string().min(1, 'Current password is required'),
+  newPassword: z.string().min(8, 'New password must be at least 8 characters')
+    .regex(/[A-Z]/, 'Password must contain at least one uppercase letter')
+    .regex(/[a-z]/, 'Password must contain at least one lowercase letter')
+    .regex(/[0-9]/, 'Password must contain at least one number')
+    .regex(/[@$!%*?&#]/, 'Password must contain at least one special character'),
+});
+
+// Profile update schema (user can update their own info - email cannot be changed)
+export const ProfileUpdateSchema = z.object({
+  name: z.string().min(2, 'Name must be at least 2 characters').optional(),
 });
 
 // Type inference
@@ -134,3 +150,5 @@ export type InvitationCreateInput = z.infer<typeof InvitationCreateSchema>;
 export type InvitationSendEmailInput = z.infer<typeof InvitationSendEmailSchema>;
 export type UserCreateInput = z.infer<typeof UserCreateSchema>;
 export type UserUpdateInput = z.infer<typeof UserUpdateSchema>;
+export type PasswordChangeInput = z.infer<typeof PasswordChangeSchema>;
+export type ProfileUpdateInput = z.infer<typeof ProfileUpdateSchema>;

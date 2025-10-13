@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
 import { setCookie, deleteCookie } from 'hono/cookie';
-import { LoginSchema, UserCreateSchema } from '../types';
+import { LoginSchema, UserCreateSchema, PasswordChangeSchema, ProfileUpdateSchema } from '../types';
 import * as authService from '../services/auth.service';
 import * as activityLogService from '../services/activity-log.service';
 import { authMiddleware, requireRole } from '../middleware/auth';
@@ -82,11 +82,23 @@ app.get('/me', authMiddleware, async (c) => {
   return c.json({ user });
 });
 
-app.post('/users', authMiddleware, requireRole('ADMIN'), zValidator('json', UserCreateSchema), async (c) => {
+app.post('/users', authMiddleware, zValidator('json', UserCreateSchema), async (c) => {
   try {
     const currentUser = c.get('user');
     const data = c.req.valid('json');
-    const role: 'ADMIN' | 'MANAGER' = data.role === 'ADMIN' ? 'ADMIN' : 'MANAGER';
+    const role: 'ADMIN' | 'MANAGER' | 'USER' = data.role;
+
+    // Only ADMIN and MANAGER can create users
+    if (currentUser.role !== 'ADMIN' && currentUser.role !== 'MANAGER') {
+      return c.json({ error: 'Unauthorized' }, 403);
+    }
+
+    // MANAGER can only create USER role
+    if (currentUser.role === 'MANAGER' && role !== 'USER') {
+      return c.json({ error: 'Managers can only create users with USER role' }, 403);
+    }
+
+    // ADMIN can create any role (ADMIN, MANAGER, USER)
     const user = await authService.createUser(data.email, data.password, data.name, role);
 
     // Log user creation
@@ -107,10 +119,20 @@ app.post('/users', authMiddleware, requireRole('ADMIN'), zValidator('json', User
   }
 });
 
-app.get('/users', authMiddleware, requireRole('ADMIN'), async (c) => {
+app.get('/users', authMiddleware, async (c) => {
   try {
-    const users = await authService.getAllUsers();
-    return c.json(users);
+    const currentUser = c.get('user');
+
+    // Only ADMIN and MANAGER can view users
+    if (currentUser.role !== 'ADMIN' && currentUser.role !== 'MANAGER') {
+      return c.json({ error: 'Unauthorized' }, 403);
+    }
+
+    const allUsers = await authService.getAllUsers();
+
+    // Both ADMIN and MANAGER see all users (ADMIN, MANAGER, USER)
+    // ADMIN can create any role, MANAGER can only create USER role
+    return c.json(allUsers);
   } catch (error: any) {
     return c.json({ error: error.message }, 500);
   }
@@ -158,6 +180,57 @@ app.patch('/users/:id/password', authMiddleware, requireRole('ADMIN'), async (c)
 
     await authService.resetUserPassword(id, password);
     return c.json({ success: true });
+  } catch (error: any) {
+    return c.json({ error: error.message }, 400);
+  }
+});
+
+// User self-service: Change own password
+app.post('/me/change-password', authMiddleware, zValidator('json', PasswordChangeSchema), async (c) => {
+  try {
+    const user = c.get('user');
+    const data = c.req.valid('json');
+
+    await authService.changePassword(user.id, data);
+
+    // Log password change
+    await activityLogService.logActivity({
+      action: 'UPDATE',
+      resource: 'USER',
+      resourceId: user.id,
+      description: `${user.name} changed their password`,
+      userId: user.id,
+      ipAddress: c.req.header('x-forwarded-for') || c.req.header('x-real-ip'),
+      userAgent: c.req.header('user-agent'),
+    });
+
+    return c.json({ success: true, message: 'Password changed successfully' });
+  } catch (error: any) {
+    return c.json({ error: error.message }, 400);
+  }
+});
+
+// User self-service: Update own profile
+app.patch('/me/profile', authMiddleware, zValidator('json', ProfileUpdateSchema), async (c) => {
+  try {
+    const user = c.get('user');
+    const data = c.req.valid('json');
+
+    const updatedUser = await authService.updateProfile(user.id, data);
+
+    // Log profile update
+    await activityLogService.logActivity({
+      action: 'UPDATE',
+      resource: 'USER',
+      resourceId: user.id,
+      description: `${user.name} updated their profile`,
+      userId: user.id,
+      metadata: data,
+      ipAddress: c.req.header('x-forwarded-for') || c.req.header('x-real-ip'),
+      userAgent: c.req.header('user-agent'),
+    });
+
+    return c.json({ user: updatedUser });
   } catch (error: any) {
     return c.json({ error: error.message }, 400);
   }

@@ -1,27 +1,35 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'dart:convert';
 import 'dart:math';
 import '../services/api_service.dart';
+import '../services/attachment_service.dart';
+import '../widgets/attachment_manager.dart';
+import '../models/booking.dart';
 
 class BookingFormScreen extends StatefulWidget {
   final DateTime selectedDate;
   final TimeOfDay startTime;
   final int duration;
+  final bool showScaffold; // Whether to show Scaffold wrapper (false when used in drawer)
+  final Booking? existingBooking; // CRITICAL: Draft booking to prefill form with
 
   const BookingFormScreen({
     Key? key,
     required this.selectedDate,
     required this.startTime,
     required this.duration,
+    this.showScaffold = true,
+    this.existingBooking, // Optional draft booking
   }) : super(key: key);
 
   @override
-  State<BookingFormScreen> createState() => _BookingFormScreenState();
+  State<BookingFormScreen> createState() => BookingFormScreenState();
 }
 
-class _BookingFormScreenState extends State<BookingFormScreen> {
+class BookingFormScreenState extends State<BookingFormScreen> {
   final _formKey = GlobalKey<FormState>();
   bool _isSubmitting = false;
 
@@ -45,7 +53,7 @@ class _BookingFormScreenState extends State<BookingFormScreen> {
   String _eventType = 'TCS';
   final _partnerNameController = TextEditingController();
   String _dealStatus = 'SWON';
-  bool _segmentHeadApproval = false;
+  bool _attachHeadApproval = false;
 
   // Section 4: Attendees
   List<AttendeeData> _attendees = [AttendeeData()];
@@ -53,19 +61,113 @@ class _BookingFormScreenState extends State<BookingFormScreen> {
   // Section 5: Additional Notes
   final _additionalNotesController = TextEditingController();
 
+  // Attachments
+  List<File> _localAttachments = [];
+  List<String> _uploadedAttachmentUrls = [];
+  bool _isUploadingAttachments = false;
+
   @override
   void initState() {
     super.initState();
-    // Initialize duration based on widget.duration
-    if (widget.duration == 2) {
-      _visitType = 'QUICK_TOUR';
-    } else if (widget.duration >= 4 && widget.duration <= 6) {
-      _visitType = 'INNOVATION_EXCHANGE';
-      _selectedDuration = widget.duration;
+
+    // CRITICAL: Prefill form if editing an existing booking (draft)
+    if (widget.existingBooking != null) {
+      _prefillFromExistingBooking(widget.existingBooking!);
     } else {
-      // Default to Innovation Exchange with 4 hours
+      // Initialize duration based on widget.duration
+      if (widget.duration == 2) {
+        _visitType = 'QUICK_TOUR';
+      } else if (widget.duration >= 4 && widget.duration <= 6) {
+        _visitType = 'INNOVATION_EXCHANGE';
+        _selectedDuration = widget.duration;
+      } else {
+        // Default to Innovation Exchange with 4 hours
+        _visitType = 'INNOVATION_EXCHANGE';
+        _selectedDuration = 4;
+      }
+    }
+  }
+
+  /// CRITICAL: Prefill all form fields from an existing booking (for draft editing)
+  void _prefillFromExistingBooking(Booking booking) {
+    // Section 1: Account & Company Information
+    _accountNameController.text = booking.accountName ?? '';
+    _companyNameController.text = booking.companyName;
+    _companySector = booking.companySector;
+    _companyVertical = booking.companyVertical;
+    _companySize = booking.companySize;
+
+    // Visit Type & Duration
+    _visitType = booking.visitType.toString().split('.').last;
+    final durationHours = _durationEnumToInt(booking.duration);
+    if (durationHours == 2) {
+      _visitType = 'QUICK_TOUR';
+    } else {
       _visitType = 'INNOVATION_EXCHANGE';
-      _selectedDuration = 4;
+      _selectedDuration = durationHours;
+    }
+
+    // Section 2: Visit Details
+    _venueController.text = booking.venue ?? '';
+    _overallThemeController.text = booking.overallTheme ?? '';
+    _lastInnovationDay = booking.lastInnovationDay;
+
+    // Section 3: Event Type & Deal Information
+    _eventType = booking.eventType.toString().split('.').last;
+    _partnerNameController.text = booking.partnerName ?? '';
+    _dealStatus = booking.dealStatus.toString().split('.').last;
+    _attachHeadApproval = booking.attachHeadApproval ?? false;
+
+    // Section 4: Attendees
+    if (booking.attendees != null && booking.attendees!.isNotEmpty) {
+      // Clear default attendee
+      for (var attendee in _attendees) {
+        attendee.dispose();
+      }
+      _attendees.clear();
+
+      // Create attendees from booking
+      for (var bookingAttendee in booking.attendees!) {
+        final attendeeData = AttendeeData();
+        attendeeData.nameController.text = bookingAttendee.name;
+        attendeeData.emailController.text = bookingAttendee.email;
+        attendeeData.roleController.text = bookingAttendee.role ?? '';
+        attendeeData.positionController.text = bookingAttendee.position ?? '';
+        attendeeData.tcsSupporter = bookingAttendee.tcsSupporter.toString().split('.').last;
+        attendeeData.understandingController.text = bookingAttendee.understandingOfTCS ?? '';
+        attendeeData.focusAreasController.text = bookingAttendee.focusAreas ?? '';
+        attendeeData.yearsWithTcsController.text = bookingAttendee.yearsWorkingWithTCS?.toString() ?? '';
+        attendeeData.educationController.text = bookingAttendee.educationalQualification ?? '';
+        attendeeData.careerBackgroundController.text = bookingAttendee.careerBackground ?? '';
+        attendeeData.linkedinController.text = bookingAttendee.linkedinProfile ?? '';
+        _attendees.add(attendeeData);
+      }
+    }
+
+    // Section 5: Additional Notes
+    _additionalNotesController.text = booking.additionalNotes ?? '';
+
+    // Attachments
+    if (booking.attachments != null && booking.attachments!.isNotEmpty) {
+      _uploadedAttachmentUrls = List<String>.from(booking.attachments!);
+    }
+  }
+
+  /// Convert duration enum to integer hours
+  int _durationEnumToInt(VisitDuration duration) {
+    switch (duration) {
+      case VisitDuration.ONE_HOUR:
+        return 1;
+      case VisitDuration.TWO_HOURS:
+        return 2;
+      case VisitDuration.THREE_HOURS:
+        return 3;
+      case VisitDuration.FOUR_HOURS:
+        return 4;
+      case VisitDuration.FIVE_HOURS:
+        return 5;
+      case VisitDuration.SIX_HOURS:
+        return 6;
     }
   }
 
@@ -111,6 +213,169 @@ class _BookingFormScreenState extends State<BookingFormScreen> {
     }
   }
 
+  Map<String, dynamic> _buildBookingData() {
+    final finalDuration = _getFinalDuration();
+
+    return {
+      'accountName': _accountNameController.text.trim(),
+      'companyName': _companyNameController.text.trim(),
+      'companySector': _companySector,
+      'companyVertical': _companyVertical,
+      'companySize': _companySize,
+      'date': DateFormat('yyyy-MM-dd').format(widget.selectedDate),
+      'startTime': '${widget.startTime.hour.toString().padLeft(2, '0')}:${widget.startTime.minute.toString().padLeft(2, '0')}',
+      'duration': _durationToEnum(finalDuration),
+      'visitType': _visitType,
+      'venue': _venueController.text.trim().isNotEmpty
+          ? _venueController.text.trim()
+          : null,
+      'expectedAttendees': _attendees.length,
+      'overallTheme': _overallThemeController.text.trim().isNotEmpty
+          ? _overallThemeController.text.trim()
+          : null,
+      'lastInnovationDay': _lastInnovationDay != null
+          ? DateFormat('yyyy-MM-dd').format(_lastInnovationDay!)
+          : null,
+      'eventType': _eventType,
+      if (_eventType == 'PARTNER' && _partnerNameController.text.trim().isNotEmpty)
+        'partnerName': _partnerNameController.text.trim(),
+      'dealStatus': _dealStatus,
+      'attachHeadApproval': _attachHeadApproval,
+      'attendees': _attendees
+          .map((a) => {
+                'name': a.nameController.text.trim(),
+                'email': a.emailController.text.trim(),
+                'role': a.roleController.text.trim().isNotEmpty
+                    ? a.roleController.text.trim()
+                    : null,
+                'position': a.positionController.text.trim().isNotEmpty
+                    ? a.positionController.text.trim()
+                    : null,
+                'tcsSupporter': a.tcsSupporter,
+                'understandingOfTCS':
+                    a.understandingController.text.trim().isNotEmpty
+                        ? a.understandingController.text.trim()
+                        : null,
+                'focusAreas': a.focusAreasController.text.trim().isNotEmpty
+                    ? a.focusAreasController.text.trim()
+                    : null,
+                'yearsWorkingWithTCS': a.yearsWithTcsController.text.trim().isNotEmpty
+                    ? int.parse(a.yearsWithTcsController.text.trim())
+                    : null,
+                'educationalQualification':
+                    a.educationController.text.trim().isNotEmpty
+                        ? a.educationController.text.trim()
+                        : null,
+                'careerBackground':
+                    a.careerBackgroundController.text.trim().isNotEmpty
+                        ? a.careerBackgroundController.text.trim()
+                        : null,
+                'linkedinProfile':
+                    a.linkedinController.text.trim().isNotEmpty
+                        ? a.linkedinController.text.trim()
+                        : null,
+              })
+          .toList(),
+      'additionalNotes': _additionalNotesController.text.trim().isNotEmpty
+          ? _additionalNotesController.text.trim()
+          : null,
+      if (_uploadedAttachmentUrls.isNotEmpty)
+        'attachments': _uploadedAttachmentUrls,
+    };
+  }
+
+  Future<void> _uploadAttachments() async {
+    if (_localAttachments.isEmpty) return;
+
+    setState(() {
+      _isUploadingAttachments = true;
+    });
+
+    try {
+      final attachmentService = AttachmentService();
+      final uploadedFiles = await attachmentService.uploadMultipleAttachments(_localAttachments);
+
+      // Add uploaded URLs to the list
+      for (final fileInfo in uploadedFiles) {
+        _uploadedAttachmentUrls.add(fileInfo['url'] as String);
+      }
+
+      // Clear local files after successful upload
+      _localAttachments.clear();
+
+      setState(() {
+        _isUploadingAttachments = false;
+      });
+    } catch (e) {
+      setState(() {
+        _isUploadingAttachments = false;
+      });
+      rethrow;
+    }
+  }
+
+  Future<void> _saveDraft() async {
+    setState(() {
+      _isSubmitting = true;
+    });
+
+    try {
+      // Upload attachments if any
+      if (_localAttachments.isNotEmpty) {
+        try {
+          await _uploadAttachments();
+        } catch (e) {
+          if (!mounted) return;
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Failed to upload attachments: $e'),
+              backgroundColor: Colors.red,
+              duration: const Duration(seconds: 5),
+            ),
+          );
+          return;
+        }
+      }
+
+      final bookingData = _buildBookingData();
+
+      // Debug: Print booking data
+      print('[BOOKING] Saving draft: ${json.encode(bookingData)}');
+
+      // Use ApiService to create booking as draft
+      final apiService = ApiService();
+      await apiService.createBooking(bookingData, isDraft: true);
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Draft saved successfully! You can continue editing later.'),
+          backgroundColor: Colors.green,
+          duration: Duration(seconds: 3),
+        ),
+      );
+      Navigator.pop(context, true);
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error saving draft: ${e.toString()}'),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 5),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSubmitting = false;
+        });
+      }
+    }
+  }
+
   Future<void> _submitForm() async {
     if (!_formKey.currentState!.validate()) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -127,73 +392,25 @@ class _BookingFormScreenState extends State<BookingFormScreen> {
     });
 
     try {
-      final finalDuration = _getFinalDuration();
+      // Upload attachments if any
+      if (_localAttachments.isNotEmpty) {
+        try {
+          await _uploadAttachments();
+        } catch (e) {
+          if (!mounted) return;
 
-      // Build the booking data
-      final bookingData = {
-        'accountName': _accountNameController.text.trim(),
-        'companyName': _companyNameController.text.trim(),
-        'companySector': _companySector,
-        'companyVertical': _companyVertical,
-        'companySize': _companySize,
-        'date': DateFormat('yyyy-MM-dd').format(widget.selectedDate),
-        'startTime': '${widget.startTime.hour.toString().padLeft(2, '0')}:${widget.startTime.minute.toString().padLeft(2, '0')}',
-        'duration': _durationToEnum(finalDuration),
-        'visitType': _visitType,
-        'venue': _venueController.text.trim().isNotEmpty
-            ? _venueController.text.trim()
-            : null,
-        'expectedAttendees': _attendees.length,
-        'overallTheme': _overallThemeController.text.trim().isNotEmpty
-            ? _overallThemeController.text.trim()
-            : null,
-        'lastInnovationDay': _lastInnovationDay != null
-            ? DateFormat('yyyy-MM-dd').format(_lastInnovationDay!)
-            : null,
-        'eventType': _eventType,
-        if (_eventType == 'PARTNER' && _partnerNameController.text.trim().isNotEmpty)
-          'partnerName': _partnerNameController.text.trim(),
-        'dealStatus': _dealStatus,
-        'segmentHeadApproval': _segmentHeadApproval,
-        'attendees': _attendees
-            .map((a) => {
-                  'name': a.nameController.text.trim(),
-                  'email': a.emailController.text.trim(),
-                  'role': a.roleController.text.trim().isNotEmpty
-                      ? a.roleController.text.trim()
-                      : null,
-                  'position': a.positionController.text.trim().isNotEmpty
-                      ? a.positionController.text.trim()
-                      : null,
-                  'tcsSupporter': a.tcsSupporter,
-                  'understandingOfTCS':
-                      a.understandingController.text.trim().isNotEmpty
-                          ? a.understandingController.text.trim()
-                          : null,
-                  'focusAreas': a.focusAreasController.text.trim().isNotEmpty
-                      ? a.focusAreasController.text.trim()
-                      : null,
-                  'yearsWorkingWithTCS': a.yearsWithTcsController.text.trim().isNotEmpty
-                      ? int.parse(a.yearsWithTcsController.text.trim())
-                      : null,
-                  'educationalQualification':
-                      a.educationController.text.trim().isNotEmpty
-                          ? a.educationController.text.trim()
-                          : null,
-                  'careerBackground':
-                      a.careerBackgroundController.text.trim().isNotEmpty
-                          ? a.careerBackgroundController.text.trim()
-                          : null,
-                  'linkedinProfile':
-                      a.linkedinController.text.trim().isNotEmpty
-                          ? a.linkedinController.text.trim()
-                          : null,
-                })
-            .toList(),
-        'additionalNotes': _additionalNotesController.text.trim().isNotEmpty
-            ? _additionalNotesController.text.trim()
-            : null,
-      };
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Failed to upload attachments: $e'),
+              backgroundColor: Colors.red,
+              duration: const Duration(seconds: 5),
+            ),
+          );
+          return;
+        }
+      }
+
+      final bookingData = _buildBookingData();
 
       // Debug: Print booking data
       print('[BOOKING] Sending booking data: ${json.encode(bookingData)}');
@@ -247,7 +464,8 @@ class _BookingFormScreenState extends State<BookingFormScreen> {
     }
   }
 
-  void _fillWithMockData() {
+  // Make fillWithMockData public so it can be called from drawer
+  void fillWithMockData() {
     final random = Random();
     final mockVariations = [
       // Variation 1: Itaú Unibanco - Banking
@@ -261,7 +479,7 @@ class _BookingFormScreenState extends State<BookingFormScreen> {
         'overallTheme': 'Accelerate digital transformation with AI and Cloud solutions',
         'eventType': 'TCS',
         'dealStatus': 'WON',
-        'segmentHeadApproval': true,
+        'attachHeadApproval': true,
         'attendeeName': 'Carlos Eduardo Santos',
         'attendeeEmail': 'carlos.santos@itau.com.br',
         'attendeeRole': 'Decision Maker',
@@ -286,7 +504,7 @@ class _BookingFormScreenState extends State<BookingFormScreen> {
         'overallTheme': 'Modernize legacy infrastructure and migrate to cloud',
         'eventType': 'TCS',
         'dealStatus': 'SWON',
-        'segmentHeadApproval': true,
+        'attachHeadApproval': true,
         'attendeeName': 'Maria Fernanda Oliveira',
         'attendeeEmail': 'maria.oliveira@petrobras.com.br',
         'attendeeRole': 'Decision Maker',
@@ -312,7 +530,7 @@ class _BookingFormScreenState extends State<BookingFormScreen> {
         'eventType': 'PARTNER',
         'partnerName': 'Insper',
         'dealStatus': 'WON',
-        'segmentHeadApproval': true,
+        'attachHeadApproval': true,
         'attendeeName': 'Roberto Silva Mendes',
         'attendeeEmail': 'roberto.mendes@magazineluiza.com.br',
         'attendeeRole': 'Decision Maker',
@@ -337,7 +555,7 @@ class _BookingFormScreenState extends State<BookingFormScreen> {
         'overallTheme': 'Implement data strategy and advanced analytics',
         'eventType': 'TCS',
         'dealStatus': 'WON',
-        'segmentHeadApproval': true,
+        'attachHeadApproval': true,
         'attendeeName': 'Ana Paula Costa',
         'attendeeEmail': 'ana.costa@vale.com',
         'attendeeRole': 'Influencer',
@@ -362,7 +580,7 @@ class _BookingFormScreenState extends State<BookingFormScreen> {
         'overallTheme': 'Strengthen cybersecurity posture and compliance',
         'eventType': 'TCS',
         'dealStatus': 'SWON',
-        'segmentHeadApproval': false,
+        'attachHeadApproval': false,
         'attendeeName': 'João Pedro Lima',
         'attendeeEmail': 'joao.lima@telefonica.com.br',
         'attendeeRole': 'Decision Maker',
@@ -399,7 +617,7 @@ class _BookingFormScreenState extends State<BookingFormScreen> {
         _partnerNameController.text = selectedMock['partnerName'] as String? ?? 'Insper';
       }
       _dealStatus = selectedMock['dealStatus'] as String;
-      _segmentHeadApproval = selectedMock['segmentHeadApproval'] as bool;
+      _attachHeadApproval = selectedMock['attachHeadApproval'] as bool;
 
       // Section 4: Attendees - Generate random number of attendees (1-3)
       final numAttendees = random.nextInt(3) + 1; // 1, 2, or 3
@@ -503,6 +721,100 @@ class _BookingFormScreenState extends State<BookingFormScreen> {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
+    // Build the form content
+    final formContent = Form(
+      key: _formKey,
+      child: Column(
+        children: [
+          // Selected Date/Time Display
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            color: isDark ? Colors.grey[850] : Colors.grey[100],
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Selected Schedule',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: isDark ? Colors.grey[400] : Colors.grey[600],
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Icon(Icons.calendar_today,
+                      size: 16,
+                      color: isDark ? Colors.grey[400] : Colors.grey[700]
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      DateFormat('EEEE, MMMM d, yyyy').format(widget.selectedDate),
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: isDark ? Colors.white : Colors.black,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    Icon(Icons.access_time,
+                      size: 16,
+                      color: isDark ? Colors.grey[400] : Colors.grey[700]
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      '${widget.startTime.format(context)} (${_getFinalDuration()} ${_getFinalDuration() == 1 ? 'hour' : 'hours'})',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: isDark ? Colors.white : Colors.black,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildSection1(),
+                  const SizedBox(height: 24),
+                  _buildSection2(),
+                  const SizedBox(height: 24),
+                  _buildSection3(),
+                  const SizedBox(height: 24),
+                  _buildSection4(),
+                  const SizedBox(height: 24),
+                  _buildSection5(),
+                  if (_attachHeadApproval) ...[
+                    const SizedBox(height: 24),
+                    _buildSection6(),
+                  ],
+                  const SizedBox(height: 32),
+                ],
+              ),
+            ),
+          ),
+          _buildSubmitButton(),
+        ],
+      ),
+    );
+
+    // If used in drawer, return just the form content without Scaffold
+    if (!widget.showScaffold) {
+      return formContent;
+    }
+
+    // If used standalone, wrap with Scaffold and AppBar
     return Scaffold(
       backgroundColor: isDark ? Colors.grey[900] : Colors.white,
       appBar: AppBar(
@@ -514,92 +826,11 @@ class _BookingFormScreenState extends State<BookingFormScreen> {
           IconButton(
             icon: const Icon(Icons.auto_awesome),
             tooltip: 'Fill with Mock Data',
-            onPressed: _fillWithMockData,
+            onPressed: fillWithMockData,
           ),
         ],
       ),
-      body: Form(
-        key: _formKey,
-        child: Column(
-          children: [
-            // Selected Date/Time Display
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(16),
-              color: isDark ? Colors.grey[850] : Colors.grey[100],
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Selected Schedule',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: isDark ? Colors.grey[400] : Colors.grey[600],
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Icon(Icons.calendar_today,
-                        size: 16,
-                        color: isDark ? Colors.grey[400] : Colors.grey[700]
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        DateFormat('EEEE, MMMM d, yyyy').format(widget.selectedDate),
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: isDark ? Colors.white : Colors.black,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      Icon(Icons.access_time,
-                        size: 16,
-                        color: isDark ? Colors.grey[400] : Colors.grey[700]
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        '${widget.startTime.format(context)} (${_getFinalDuration()} ${_getFinalDuration() == 1 ? 'hour' : 'hours'})',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: isDark ? Colors.white : Colors.black,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildSection1(),
-                    const SizedBox(height: 24),
-                    _buildSection2(),
-                    const SizedBox(height: 24),
-                    _buildSection3(),
-                    const SizedBox(height: 24),
-                    _buildSection4(),
-                    const SizedBox(height: 24),
-                    _buildSection5(),
-                    const SizedBox(height: 32),
-                  ],
-                ),
-              ),
-            ),
-            _buildSubmitButton(),
-          ],
-        ),
-      ),
+      body: formContent,
     );
   }
 
@@ -1003,14 +1234,15 @@ class _BookingFormScreenState extends State<BookingFormScreen> {
         ),
         const SizedBox(height: 16),
         CheckboxListTile(
-          title: const Text('Segment Head Approval'),
-          value: _segmentHeadApproval,
+          title: const Text('Attaching Head Approval'),
+          subtitle: const Text('Check this if you\'re adding approval documents'),
+          value: _attachHeadApproval,
           activeColor: Colors.black,
           contentPadding: EdgeInsets.zero,
           controlAffinity: ListTileControlAffinity.leading,
           onChanged: (value) {
             setState(() {
-              _segmentHeadApproval = value ?? false;
+              _attachHeadApproval = value ?? false;
             });
           },
         ),
@@ -1276,6 +1508,41 @@ class _BookingFormScreenState extends State<BookingFormScreen> {
     );
   }
 
+  Widget _buildSection6() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionTitle('6. Attachments'),
+        AttachmentManager(
+          attachmentUrls: _uploadedAttachmentUrls,
+          localFiles: _localAttachments,
+          onFilesAdded: (files) {
+            setState(() {
+              _localAttachments.addAll(files);
+            });
+          },
+          onFileRemoved: (index, isUrl) {
+            setState(() {
+              if (isUrl) {
+                _uploadedAttachmentUrls.removeAt(index);
+              } else {
+                _localAttachments.removeAt(index);
+              }
+            });
+          },
+          onClearAll: () {
+            setState(() {
+              _localAttachments.clear();
+              _uploadedAttachmentUrls.clear();
+            });
+          },
+          maxFiles: 6,
+          readOnly: false,
+        ),
+      ],
+    );
+  }
+
   Widget _buildSubmitButton() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
@@ -1292,33 +1559,82 @@ class _BookingFormScreenState extends State<BookingFormScreen> {
           ),
         ],
       ),
-      child: ElevatedButton(
-        onPressed: _isSubmitting ? null : _submitForm,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.black,
-          foregroundColor: Colors.white,
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
-          disabledBackgroundColor: Colors.grey,
-        ),
-        child: _isSubmitting
-            ? const SizedBox(
-                height: 20,
-                width: 20,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+      child: Row(
+        children: [
+          // Save Draft button
+          Expanded(
+            flex: 2,
+            child: OutlinedButton(
+              onPressed: _isSubmitting ? null : _saveDraft,
+              style: OutlinedButton.styleFrom(
+                foregroundColor: isDark ? Colors.white : Colors.black,
+                side: BorderSide(
+                  color: isDark ? Colors.white : Colors.black,
+                  width: 2,
                 ),
-              )
-            : const Text(
-                'Create Booking',
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              child: const Text(
+                'Save Draft',
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
                 ),
               ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          // Create Booking button
+          Expanded(
+            flex: 3,
+            child: ElevatedButton(
+              onPressed: _isSubmitting ? null : _submitForm,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.black,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                disabledBackgroundColor: Colors.grey,
+              ),
+              child: _isSubmitting
+                  ? Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Text(
+                          _isUploadingAttachments
+                              ? 'Uploading...'
+                              : 'Creating...',
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    )
+                  : const Text(
+                      'Create Booking',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+            ),
+          ),
+        ],
       ),
     );
   }

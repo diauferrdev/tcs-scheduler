@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
@@ -8,6 +7,7 @@ import '../providers/theme_provider.dart';
 import '../models/user.dart';
 import '../services/unified_notification_service.dart';
 import 'notification_bell.dart';
+import 'profile_drawer.dart';
 
 class AppLayout extends StatefulWidget {
   final Widget child;
@@ -115,20 +115,11 @@ class _AppLayoutState extends State<AppLayout> {
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Row(
         children: [
-          // Logo - Use text on web as SVG may have rendering issues
-          kIsWeb
-              ? Text(
-                  'TCS',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: isDark ? Colors.white : Colors.black,
-                  ),
-                )
-              : SvgPicture.asset(
-                  isDark ? 'assets/logos/tcs-logo-w.svg' : 'assets/logos/tcs-logo-b.svg',
-                  height: 24,
-                ),
+          // Logo - Use SVG on all platforms
+          SvgPicture.asset(
+            isDark ? 'assets/logos/tcs-logo-w.svg' : 'assets/logos/tcs-logo-b.svg',
+            height: 24,
+          ),
           if (!isMobile) ...[
             const SizedBox(width: 16),
             Container(
@@ -165,63 +156,23 @@ class _AppLayoutState extends State<AppLayout> {
 
           const SizedBox(width: 8),
 
-          // User Menu
-          PopupMenuButton<void>(
+          // User Profile Button
+          IconButton(
+            onPressed: () {
+              showModalBottomSheet(
+                context: context,
+                isScrollControlled: true,
+                backgroundColor: Colors.transparent,
+                isDismissible: true,
+                enableDrag: true,
+                builder: (context) => const ProfileDrawer(),
+              );
+            },
             icon: Icon(
               Icons.person,
               color: isDark ? Colors.white : Colors.black,
             ),
-            color: isDark ? const Color(0xFF18181B) : Colors.white,
-            itemBuilder: (context) => <PopupMenuEntry<void>>[
-              PopupMenuItem<void>(
-                enabled: false,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      user.name,
-                      style: TextStyle(
-                        color: isDark ? Colors.white : Colors.black,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      user.email,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const PopupMenuDivider(),
-              PopupMenuItem<void>(
-                onTap: () async {
-                  await context.read<AuthProvider>().logout();
-                  if (context.mounted) {
-                    context.go('/login');
-                  }
-                },
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.logout,
-                      size: 16,
-                      color: isDark ? const Color(0xFFD1D5DB) : const Color(0xFF4B5563),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Logout',
-                      style: TextStyle(
-                        color: isDark ? const Color(0xFFD1D5DB) : const Color(0xFF4B5563),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+            tooltip: 'Profile',
           ),
         ],
       ),
@@ -379,7 +330,7 @@ class _AppLayoutState extends State<AppLayout> {
   List<Map<String, dynamic>> _getMenuItems(User user) {
     final items = <Map<String, dynamic>>[
       {'path': '/dashboard', 'label': 'Dashboard', 'icon': Icons.dashboard, 'roles': [UserRole.ADMIN, UserRole.MANAGER]},
-      {'path': '/approvals', 'label': 'Approvals', 'icon': Icons.pending_actions, 'roles': [UserRole.ADMIN, UserRole.MANAGER]},
+      {'path': '/approvals', 'label': 'Bookings', 'icon': Icons.pending_actions, 'roles': [UserRole.ADMIN, UserRole.MANAGER]},
       {'path': '/calendar', 'label': 'Calendar', 'icon': Icons.calendar_month, 'roles': [UserRole.ADMIN, UserRole.USER]},
       {'path': '/agenda', 'label': 'Agenda', 'icon': Icons.view_timeline, 'roles': [UserRole.ADMIN, UserRole.MANAGER]},
       {'path': '/my-bookings', 'label': 'My Bookings', 'icon': Icons.event_note, 'roles': [UserRole.USER]},

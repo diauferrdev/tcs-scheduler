@@ -1,10 +1,19 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 import '../services/api_service.dart';
 import '../services/realtime_service.dart';
+import '../services/navigation_service.dart';
 import '../models/booking.dart';
+import '../models/user.dart';
+import '../providers/auth_provider.dart';
 
+/// AgendaScreen - Timeline view of confirmed/approved bookings
+///
+/// CRITICAL: This screen implements a strict no-infinite-loop architecture:
+/// 1. API calls ONLY happen on: initial load, pull-to-refresh, lazy loading (prev/next month)
+/// 2. WebSocket events update local state directly WITHOUT triggering API calls
+/// 3. All state updates use proper mounted checks to prevent memory leaks
 class AgendaScreen extends StatefulWidget {
   const AgendaScreen({super.key});
 
@@ -15,426 +24,611 @@ class AgendaScreen extends StatefulWidget {
 class _AgendaScreenState extends State<AgendaScreen> {
   final ApiService _apiService = ApiService();
   final RealtimeService _realtimeService = RealtimeService();
-  late final ScrollController _scrollController;
+  final NavigationService _navigationService = NavigationService();
+  final ScrollController _scrollController = ScrollController();
+  final GlobalKey _todayKey = GlobalKey();
 
   List<Booking> _confirmedBookings = [];
   bool _isLoading = true;
+  bool _isLoadingMore = false;
+  bool _isNavigating = false;
+  bool _isUpdatingState = false; // Prevents scroll triggers during state updates
+
+  // Current month state
+  DateTime _currentMonth = DateTime.now();
+  String _displayMonth = '';
+
+  // Date range for loaded data
+  DateTime? _earliestLoadedMonth;
+  DateTime? _latestLoadedMonth;
+
+  // Show today button
   bool _showTodayButton = false;
 
-  // Date range for scroll (1 year back and forward)
-  DateTime _earliestDate = DateTime.now().subtract(const Duration(days: 365));
-  DateTime _latestDate = DateTime.now().add(const Duration(days: 365));
+  // Debouncing for scroll-triggered loads
+  DateTime? _lastScrollLoad;
+  final Duration _scrollLoadDebounce = const Duration(seconds: 2);
 
-  // Current visible month for sticky header
-  String _currentMonth = DateFormat('MMMM yyyy').format(DateTime.now());
-
-  // Track scroll position for color animation
-  double _scrollOffset = 0.0;
-
-  // Flag to prevent multiple simultaneous scroll operations
-  bool _isScrollingToToday = false;
-
-  // Constants for height calculations (measured from actual UI)
-  // Day card: 16px padding all sides (32px) + ~56px content (text+gap+circle) = 88px
-  static const double dayCardHeight = 88.0;
-  // Month separator: 8px vertical padding (16px) + 16px content = 32px
-  static const double monthSeparatorHeight = 32.0;
-  // Week separator: 4px margin vertical (8px) + 1px line = 9px
-  static const double weekSeparatorHeight = 9.0;
+  // Track loaded months to prevent duplicate loads
+  final Set<String> _loadedMonths = {};
 
   @override
   void initState() {
     super.initState();
-
-    // Calculate initial scroll position to center on today
-    final initialOffset = _calculateInitialScrollOffset();
-    _scrollController = ScrollController(initialScrollOffset: initialOffset);
+    _displayMonth = DateFormat('MMMM yyyy').format(_currentMonth);
     _scrollController.addListener(_onScroll);
-
-    _loadBookings();
-
-    // Setup Colyseus real-time listeners for booking updates
-    _realtimeService.onBookingCreated = (booking) {
-      debugPrint('[Agenda] New booking via Colyseus: ${booking['title']}');
-      _loadBookings();
-    };
-
-    _realtimeService.onBookingUpdated = (booking) {
-      debugPrint('[Agenda] Booking updated via Colyseus: ${booking['id']}');
-      _loadBookings();
-    };
-
-    _realtimeService.onBookingDeleted = (bookingId) {
-      debugPrint('[Agenda] Booking deleted via Colyseus: $bookingId');
-      _loadBookings();
-    };
-  }
-
-  double _calculateInitialScrollOffset() {
-    final today = DateUtils.dateOnly(DateTime.now());
-    final daysSinceStart = today.difference(_earliestDate).inDays;
-
-    // Calculate height up to the START of today's card
-    double heightBeforeToday = 0.0;
-    DateTime currentDate = _earliestDate;
-
-    for (int i = 0; i < daysSinceStart; i++) {
-      // Add separator height BEFORE this day
-      if (currentDate.day == 1) {
-        heightBeforeToday += monthSeparatorHeight;
-      } else if (currentDate.weekday == DateTime.monday) {
-        heightBeforeToday += weekSeparatorHeight;
-      }
-
-      // Add this day's card height
-      heightBeforeToday += dayCardHeight;
-
-      currentDate = currentDate.add(const Duration(days: 1));
-    }
-
-    // Add today's separator (if any) BEFORE today's card
-    if (today.day == 1) {
-      heightBeforeToday += monthSeparatorHeight;
-    } else if (today.weekday == DateTime.monday) {
-      heightBeforeToday += weekSeparatorHeight;
-    }
-
-    // In a CustomScrollView, all slivers are part of the scroll,
-    // so we don't need to add anything "before" the list
-    // The heightBeforeToday already represents the scroll position
-    final todayTopPosition = heightBeforeToday;
-
-    // We want today's card CENTER to be at the viewport CENTER
-    final estimatedViewport = 700.0;
-
-    // Center position: top position + half of card height
-    final todayCenterPosition = todayTopPosition + (dayCardHeight / 2);
-
-    // Scroll offset to center: center position - half viewport
-    final centeredOffset = todayCenterPosition - (estimatedViewport / 2);
-
-    return centeredOffset.clamp(0.0, double.infinity);
+    _loadInitialMonth();
+    _setupWebSocketCallbacks();
   }
 
   @override
   void dispose() {
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
-    // Clear Colyseus callbacks
-    _realtimeService.onBookingCreated = null;
-    _realtimeService.onBookingUpdated = null;
-    _realtimeService.onBookingDeleted = null;
+    _clearWebSocketCallbacks();
     super.dispose();
   }
 
-  void _onScroll() {
-    final currentScroll = _scrollController.position.pixels;
+  /// Setup WebSocket callbacks - CRITICAL: These only update local state
+  void _setupWebSocketCallbacks() {
+    _realtimeService.onBookingCreated = (bookingData) {
+      if (!mounted) return;
+      debugPrint('[Agenda] WebSocket: booking_created received');
+      _handleWebSocketBookingUpdate(bookingData);
+    };
 
-    // Update scroll offset for color animation
-    setState(() {
-      _scrollOffset = currentScroll;
-    });
+    _realtimeService.onBookingUpdated = (bookingData) {
+      if (!mounted) return;
+      debugPrint('[Agenda] WebSocket: booking_updated received');
+      _handleWebSocketBookingUpdate(bookingData);
+    };
 
-    // Update current month based on scroll position
-    _updateCurrentMonth();
+    _realtimeService.onBookingDeleted = (bookingId) {
+      if (!mounted) return;
+      debugPrint('[Agenda] WebSocket: booking_deleted received - ID: $bookingId');
+      _handleWebSocketBookingDelete(bookingId);
+    };
 
-    // Show "Today" button when scrolled away from today
-    _checkShowTodayButton();
+    _realtimeService.onBookingApproved = (bookingData) {
+      if (!mounted) return;
+      debugPrint('[Agenda] WebSocket: booking_approved received');
+      _handleWebSocketBookingUpdate(bookingData);
+    };
   }
 
-  void _updateCurrentMonth() {
-    if (!_scrollController.hasClients || !mounted) return;
+  /// Clear WebSocket callbacks on dispose
+  void _clearWebSocketCallbacks() {
+    _realtimeService.onBookingCreated = null;
+    _realtimeService.onBookingUpdated = null;
+    _realtimeService.onBookingDeleted = null;
+    _realtimeService.onBookingApproved = null;
+  }
 
-    final scrollPosition = _scrollController.position.pixels;
+  /// CRITICAL: Handle WebSocket booking create/update - ONLY updates local state
+  /// This method NEVER calls any API - it directly modifies the _confirmedBookings list
+  void _handleWebSocketBookingUpdate(Map<String, dynamic> bookingData) {
+    if (!mounted) return;
 
-    // Estimate which day is visible based on scroll position
-    double heightAccumulator = 0.0;
-    DateTime currentDate = _earliestDate;
-    final totalDays = _latestDate.difference(_earliestDate).inDays;
+    try {
+      final booking = Booking.fromJson(bookingData);
+      debugPrint('[Agenda] WEBSOCKET UPDATE - Processing booking: ${booking.id}, status: ${booking.status.name}');
 
-    for (int i = 0; i <= totalDays; i++) {
-      // Add separators height
-      if (currentDate.day == 1) {
-        heightAccumulator += monthSeparatorHeight;
-      } else if (currentDate.weekday == DateTime.monday) {
-        heightAccumulator += weekSeparatorHeight;
-      }
-
-      // Check if scroll position is within this day's range
-      if (scrollPosition >= heightAccumulator && scrollPosition < heightAccumulator + dayCardHeight) {
-        final newMonth = DateFormat('MMMM yyyy').format(currentDate);
-        if (newMonth != _currentMonth) {
-          setState(() {
-            _currentMonth = newMonth;
-          });
+      _isUpdatingState = true; // Prevent scroll listener from triggering during update
+      setState(() {
+        // Only show APPROVED bookings in agenda
+        if (booking.status == BookingStatus.APPROVED) {
+          final index = _confirmedBookings.indexWhere((b) => b.id == booking.id);
+          if (index >= 0) {
+            // Update existing booking
+            _confirmedBookings[index] = booking;
+            debugPrint('[Agenda] WEBSOCKET UPDATE - Updated existing booking in local state');
+          } else {
+            // Add new booking
+            _confirmedBookings.add(booking);
+            // Sort by date to maintain order
+            _confirmedBookings.sort((a, b) => a.date.compareTo(b.date));
+            debugPrint('[Agenda] WEBSOCKET UPDATE - Added new booking to local state');
+          }
+        } else {
+          // If booking is not approved anymore, remove it
+          _confirmedBookings.removeWhere((b) => b.id == booking.id);
+          debugPrint('[Agenda] WEBSOCKET UPDATE - Removed non-approved booking from local state');
         }
-        break;
-      }
+      });
 
-      heightAccumulator += dayCardHeight;
-      currentDate = currentDate.add(const Duration(days: 1));
+      // Reset flag after setState completes
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _isUpdatingState = false;
+      });
+    } catch (e) {
+      debugPrint('[Agenda] ERROR parsing WebSocket booking data: $e');
+      _isUpdatingState = false;
     }
   }
 
-  Future<void> _loadBookings() async {
-    setState(() => _isLoading = true);
+  /// CRITICAL: Handle WebSocket booking deletion - ONLY updates local state
+  /// This method NEVER calls any API - it directly modifies the _confirmedBookings list
+  void _handleWebSocketBookingDelete(String bookingId) {
+    if (!mounted) return;
 
-    try {
-      final response = await _apiService.getConfirmedBookings();
-      final bookings = (response['bookings'] as List)
-          .map((b) => Booking.fromJson(b))
-          .toList();
+    _isUpdatingState = true; // Prevent scroll listener from triggering during update
+    setState(() {
+      final removedCount = _confirmedBookings.length;
+      _confirmedBookings.removeWhere((b) => b.id == bookingId);
+      final newCount = _confirmedBookings.length;
 
-      setState(() {
-        _confirmedBookings = bookings;
-        _isLoading = false;
-      });
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading schedule: $e')),
-        );
+      if (removedCount != newCount) {
+        debugPrint('[Agenda] WEBSOCKET DELETE - Removed booking $bookingId from local state');
+      } else {
+        debugPrint('[Agenda] WEBSOCKET DELETE - Booking $bookingId not found in local state');
       }
-      setState(() => _isLoading = false);
+    });
+
+    // Reset flag after setState completes
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _isUpdatingState = false;
+    });
+  }
+
+  void _onScroll() {
+    // Check if we should show the "Today" button
+    _checkShowTodayButton();
+
+    // Check if we need to load more data (lazy loading)
+    // CRITICAL: Don't trigger lazy loading during manual navigation OR state updates
+    if (!_isLoadingMore && !_isNavigating && !_isUpdatingState && _scrollController.hasClients) {
+      // DEBOUNCING: Check if enough time has passed since last scroll load
+      final now = DateTime.now();
+      if (_lastScrollLoad != null && now.difference(_lastScrollLoad!) < _scrollLoadDebounce) {
+        debugPrint('[Agenda] SCROLL LOAD DEBOUNCED - too soon since last load');
+        return;
+      }
+
+      final position = _scrollController.position;
+
+      // Load previous month when scrolling near top
+      if (position.pixels < 300 && _earliestLoadedMonth != null) {
+        debugPrint('[Agenda] SCROLL LOAD TRIGGERED - Near top, loading previous month');
+        _lastScrollLoad = now; // Update timestamp BEFORE calling load
+        _loadPreviousMonth();
+      }
+
+      // Load next month when scrolling near bottom
+      if (position.pixels > position.maxScrollExtent - 300 && _latestLoadedMonth != null) {
+        debugPrint('[Agenda] SCROLL LOAD TRIGGERED - Near bottom, loading next month');
+        _lastScrollLoad = now; // Update timestamp BEFORE calling load
+        _loadNextMonth();
+      }
     }
   }
 
   void _checkShowTodayButton() {
-    if (!_scrollController.hasClients || !mounted) return;
-
-    final today = DateUtils.dateOnly(DateTime.now());
-    final daysSinceStart = today.difference(_earliestDate).inDays;
-
-    // Calculate where today's card is positioned
-    double heightBeforeToday = 0.0;
-    DateTime currentDate = _earliestDate;
-
-    for (int i = 0; i < daysSinceStart; i++) {
-      if (currentDate.day == 1) {
-        heightBeforeToday += monthSeparatorHeight;
-      } else if (currentDate.weekday == DateTime.monday) {
-        heightBeforeToday += weekSeparatorHeight;
+    // Check if today's date is visible in viewport
+    final context = _todayKey.currentContext;
+    if (context == null) {
+      // Today is not rendered, show button
+      if (!_showTodayButton && mounted) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            setState(() => _showTodayButton = true);
+          }
+        });
       }
-      heightBeforeToday += dayCardHeight;
-      currentDate = currentDate.add(const Duration(days: 1));
+      return;
     }
 
-    if (today.day == 1) {
-      heightBeforeToday += monthSeparatorHeight;
-    } else if (today.weekday == DateTime.monday) {
-      heightBeforeToday += weekSeparatorHeight;
+    final renderBox = context.findRenderObject() as RenderBox?;
+    if (renderBox == null || !renderBox.hasSize) {
+      if (!_showTodayButton && mounted) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            setState(() => _showTodayButton = true);
+          }
+        });
+      }
+      return;
     }
 
-    // Calculate if today's card is visible in viewport
-    final scrollPosition = _scrollController.position.pixels;
-    final viewportHeight = _scrollController.position.viewportDimension;
+    final position = renderBox.localToGlobal(Offset.zero);
+    final viewportHeight = MediaQuery.of(this.context).size.height;
 
-    final todayTop = heightBeforeToday;
-    final todayBottom = heightBeforeToday + dayCardHeight;
-    final viewportTop = scrollPosition;
-    final viewportBottom = scrollPosition + viewportHeight;
+    // Check if today card is at least 30% visible in viewport
+    final isVisible = position.dy > -renderBox.size.height * 0.7 &&
+                      position.dy < viewportHeight * 0.7;
 
-    // Check if today's card is at least 50% visible
-    final isVisible = todayBottom > viewportTop && todayTop < viewportBottom;
-    final visibleHeight = isVisible
-        ? (todayBottom.clamp(viewportTop, viewportBottom) - todayTop.clamp(viewportTop, viewportBottom))
-        : 0.0;
-    final visibilityRatio = visibleHeight / dayCardHeight;
-
-    final shouldShow = visibilityRatio < 0.5; // Show button if less than 50% visible
-
-    if (_showTodayButton != shouldShow) {
-      setState(() {
-        _showTodayButton = shouldShow;
+    // Only update if the state actually changed AND use post-frame callback
+    final shouldShowButton = !isVisible;
+    if (_showTodayButton != shouldShowButton && mounted) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _showTodayButton != shouldShowButton) {
+          setState(() => _showTodayButton = shouldShowButton);
+        }
       });
+    }
+  }
+
+  /// Load initial month on screen open - THIS IS AN API CALL
+  Future<void> _loadInitialMonth() async {
+    if (!mounted) return;
+
+    setState(() => _isLoading = true);
+
+    try {
+      final monthStr = DateFormat('yyyy-MM').format(_currentMonth);
+      debugPrint('[Agenda] API CALL - Loading initial month: $monthStr');
+
+      // Check if already loaded
+      if (_loadedMonths.contains(monthStr)) {
+        debugPrint('[Agenda] Month $monthStr already loaded, skipping API call');
+        setState(() => _isLoading = false);
+        return;
+      }
+
+      final response = await _apiService.getConfirmedBookings(month: monthStr);
+
+      if (!mounted) return;
+
+      final bookings = (response['bookings'] as List)
+          .map((b) => Booking.fromJson(b))
+          .toList();
+
+      // Sort by date
+      bookings.sort((a, b) => a.date.compareTo(b.date));
+
+      _isUpdatingState = true; // Prevent scroll listener during update
+      setState(() {
+        _confirmedBookings = bookings;
+        _earliestLoadedMonth = DateTime(_currentMonth.year, _currentMonth.month, 1);
+        _latestLoadedMonth = DateTime(_currentMonth.year, _currentMonth.month + 1, 0);
+        _loadedMonths.add(monthStr); // Track loaded month
+        _isLoading = false;
+      });
+
+      debugPrint('[Agenda] Loaded ${bookings.length} bookings for $monthStr');
+
+      // Scroll to today after initial load - with extra frame delay to ensure widget tree is built
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _isUpdatingState = false;
+        // Add an additional frame delay to ensure the widget tree is fully rendered
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          // Small delay to ensure render is complete
+          Future.delayed(const Duration(milliseconds: 300), () {
+            if (mounted) {
+              _scrollToToday(animated: false);
+            }
+          });
+        });
+      });
+    } catch (e) {
+      debugPrint('[Agenda] ERROR loading initial month: $e');
+      _isUpdatingState = false;
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error loading schedule: $e')),
+        );
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  /// Pull-to-refresh - THIS IS AN API CALL (manual refresh only)
+  Future<void> _reloadCurrentMonth() async {
+    if (!mounted) return;
+
+    try {
+      final monthStr = DateFormat('yyyy-MM').format(_currentMonth);
+      debugPrint('[Agenda] Pull-to-refresh: reloading month $monthStr');
+
+      final response = await _apiService.getConfirmedBookings(month: monthStr);
+
+      if (!mounted) return;
+
+      final newBookings = (response['bookings'] as List)
+          .map((b) => Booking.fromJson(b))
+          .toList();
+
+      // Merge with existing bookings from other months
+      final otherMonthBookings = _confirmedBookings.where((b) {
+        return b.date.year != _currentMonth.year || b.date.month != _currentMonth.month;
+      }).toList();
+
+      final allBookings = [...otherMonthBookings, ...newBookings];
+      allBookings.sort((a, b) => a.date.compareTo(b.date));
+
+      if (mounted) {
+        setState(() {
+          _confirmedBookings = allBookings;
+        });
+      }
+
+      debugPrint('[Agenda] Pull-to-refresh completed: loaded ${newBookings.length} bookings');
+    } catch (e) {
+      debugPrint('[Agenda] ERROR during pull-to-refresh: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error refreshing: $e')),
+        );
+      }
+    }
+  }
+
+  /// Load previous month (lazy loading) - THIS IS AN API CALL
+  Future<void> _loadPreviousMonth() async {
+    if (_isLoadingMore || _earliestLoadedMonth == null || !mounted) return;
+
+    setState(() => _isLoadingMore = true);
+
+    try {
+      final prevMonth = DateTime(
+        _earliestLoadedMonth!.year,
+        _earliestLoadedMonth!.month - 1,
+        1,
+      );
+      final monthStr = DateFormat('yyyy-MM').format(prevMonth);
+      debugPrint('[Agenda] API CALL - Lazy loading previous month: $monthStr');
+
+      // Check if already loaded
+      if (_loadedMonths.contains(monthStr)) {
+        debugPrint('[Agenda] Month $monthStr already loaded, skipping API call');
+        setState(() => _isLoadingMore = false);
+        return;
+      }
+
+      final response = await _apiService.getConfirmedBookings(month: monthStr);
+
+      if (!mounted) return;
+
+      final bookings = (response['bookings'] as List)
+          .map((b) => Booking.fromJson(b))
+          .toList();
+
+      if (mounted) {
+        _isUpdatingState = true; // Prevent scroll listener during update
+        setState(() {
+          _confirmedBookings = [...bookings, ..._confirmedBookings];
+          _earliestLoadedMonth = prevMonth;
+          _loadedMonths.add(monthStr); // Track loaded month
+          _isLoadingMore = false;
+        });
+
+        // Reset flag after setState completes
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _isUpdatingState = false;
+        });
+      }
+
+      debugPrint('[Agenda] Loaded ${bookings.length} bookings for previous month $monthStr');
+    } catch (e) {
+      debugPrint('[Agenda] ERROR loading previous month: $e');
+      _isUpdatingState = false;
+      if (mounted) {
+        setState(() => _isLoadingMore = false);
+      }
+    }
+  }
+
+  /// Load next month (lazy loading) - THIS IS AN API CALL
+  Future<void> _loadNextMonth() async {
+    if (_isLoadingMore || _latestLoadedMonth == null || !mounted) return;
+
+    setState(() => _isLoadingMore = true);
+
+    try {
+      final nextMonth = DateTime(
+        _latestLoadedMonth!.year,
+        _latestLoadedMonth!.month + 1,
+        1,
+      );
+      final monthStr = DateFormat('yyyy-MM').format(nextMonth);
+      debugPrint('[Agenda] API CALL - Lazy loading next month: $monthStr');
+
+      // Check if already loaded
+      if (_loadedMonths.contains(monthStr)) {
+        debugPrint('[Agenda] Month $monthStr already loaded, skipping API call');
+        setState(() => _isLoadingMore = false);
+        return;
+      }
+
+      final response = await _apiService.getConfirmedBookings(month: monthStr);
+
+      if (!mounted) return;
+
+      final bookings = (response['bookings'] as List)
+          .map((b) => Booking.fromJson(b))
+          .toList();
+
+      if (mounted) {
+        _isUpdatingState = true; // Prevent scroll listener during update
+        setState(() {
+          _confirmedBookings = [..._confirmedBookings, ...bookings];
+          _latestLoadedMonth = DateTime(nextMonth.year, nextMonth.month + 1, 0);
+          _loadedMonths.add(monthStr); // Track loaded month
+          _isLoadingMore = false;
+        });
+
+        // Reset flag after setState completes
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _isUpdatingState = false;
+        });
+      }
+
+      debugPrint('[Agenda] Loaded ${bookings.length} bookings for next month $monthStr');
+    } catch (e) {
+      debugPrint('[Agenda] ERROR loading next month: $e');
+      _isUpdatingState = false;
+      if (mounted) {
+        setState(() => _isLoadingMore = false);
+      }
+    }
+  }
+
+  /// Navigate to previous month (manual button click) - THIS IS AN API CALL
+  /// CRITICAL: This REPLACES the current view, does NOT append
+  Future<void> _navigateToPreviousMonth() async {
+    if (_isNavigating || !mounted) return;
+
+    setState(() {
+      _isNavigating = true;
+      _currentMonth = DateTime(_currentMonth.year, _currentMonth.month - 1);
+      _displayMonth = DateFormat('MMMM yyyy').format(_currentMonth);
+    });
+
+    try {
+      final monthStr = DateFormat('yyyy-MM').format(_currentMonth);
+      debugPrint('[Agenda] MANUAL NAV TRIGGERED - Previous month: $monthStr');
+
+      // Check if already loaded
+      if (_loadedMonths.contains(monthStr)) {
+        debugPrint('[Agenda] Month $monthStr already loaded, skipping API call');
+        setState(() => _isNavigating = false);
+        return;
+      }
+
+      final response = await _apiService.getConfirmedBookings(month: monthStr);
+
+      if (!mounted) return;
+
+      final bookings = (response['bookings'] as List)
+          .map((b) => Booking.fromJson(b))
+          .toList();
+
+      // Sort by date
+      bookings.sort((a, b) => a.date.compareTo(b.date));
+
+      if (mounted) {
+        _isUpdatingState = true; // Prevent scroll listener during update
+        setState(() {
+          _confirmedBookings = bookings;
+          _earliestLoadedMonth = DateTime(_currentMonth.year, _currentMonth.month, 1);
+          _latestLoadedMonth = DateTime(_currentMonth.year, _currentMonth.month + 1, 0);
+          _loadedMonths.clear(); // Clear on manual navigation (replaces view)
+          _loadedMonths.add(monthStr); // Track loaded month
+          _isNavigating = false;
+        });
+
+        // Scroll to top after navigation
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _isUpdatingState = false;
+          if (_scrollController.hasClients) {
+            _scrollController.jumpTo(0);
+          }
+        });
+      }
+
+      debugPrint('[Agenda] Navigated to previous month: loaded ${bookings.length} bookings');
+    } catch (e) {
+      debugPrint('[Agenda] ERROR navigating to previous month: $e');
+      _isUpdatingState = false;
+      if (mounted) {
+        setState(() => _isNavigating = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error loading month: $e')),
+        );
+      }
+    }
+  }
+
+  /// Navigate to next month (manual button click) - THIS IS AN API CALL
+  /// CRITICAL: This REPLACES the current view, does NOT append
+  Future<void> _navigateToNextMonth() async {
+    if (_isNavigating || !mounted) return;
+
+    setState(() {
+      _isNavigating = true;
+      _currentMonth = DateTime(_currentMonth.year, _currentMonth.month + 1);
+      _displayMonth = DateFormat('MMMM yyyy').format(_currentMonth);
+    });
+
+    try {
+      final monthStr = DateFormat('yyyy-MM').format(_currentMonth);
+      debugPrint('[Agenda] MANUAL NAV TRIGGERED - Next month: $monthStr');
+
+      // Check if already loaded
+      if (_loadedMonths.contains(monthStr)) {
+        debugPrint('[Agenda] Month $monthStr already loaded, skipping API call');
+        setState(() => _isNavigating = false);
+        return;
+      }
+
+      final response = await _apiService.getConfirmedBookings(month: monthStr);
+
+      if (!mounted) return;
+
+      final bookings = (response['bookings'] as List)
+          .map((b) => Booking.fromJson(b))
+          .toList();
+
+      // Sort by date
+      bookings.sort((a, b) => a.date.compareTo(b.date));
+
+      if (mounted) {
+        _isUpdatingState = true; // Prevent scroll listener during update
+        setState(() {
+          _confirmedBookings = bookings;
+          _earliestLoadedMonth = DateTime(_currentMonth.year, _currentMonth.month, 1);
+          _latestLoadedMonth = DateTime(_currentMonth.year, _currentMonth.month + 1, 0);
+          _loadedMonths.clear(); // Clear on manual navigation (replaces view)
+          _loadedMonths.add(monthStr); // Track loaded month
+          _isNavigating = false;
+        });
+
+        // Scroll to top after navigation
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _isUpdatingState = false;
+          if (_scrollController.hasClients) {
+            _scrollController.jumpTo(0);
+          }
+        });
+      }
+
+      debugPrint('[Agenda] Navigated to next month: loaded ${bookings.length} bookings');
+    } catch (e) {
+      debugPrint('[Agenda] ERROR navigating to next month: $e');
+      _isUpdatingState = false;
+      if (mounted) {
+        setState(() => _isNavigating = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error loading month: $e')),
+        );
+      }
     }
   }
 
   void _scrollToToday({bool animated = true}) {
-    if (_isScrollingToToday || !_scrollController.hasClients) return;
-
-    _isScrollingToToday = true;
-
-    final today = DateUtils.dateOnly(DateTime.now());
-    final daysSinceStart = today.difference(_earliestDate).inDays;
-
-    // Calculate height up to the START of today's card
-    double heightBeforeToday = 0.0;
-    DateTime currentDate = _earliestDate;
-
-    for (int i = 0; i < daysSinceStart; i++) {
-      // Add separator height BEFORE this day
-      if (currentDate.day == 1) {
-        heightBeforeToday += monthSeparatorHeight;
-      } else if (currentDate.weekday == DateTime.monday) {
-        heightBeforeToday += weekSeparatorHeight;
-      }
-
-      // Add this day's card height
-      heightBeforeToday += dayCardHeight;
-
-      currentDate = currentDate.add(const Duration(days: 1));
-    }
-
-    // Now add today's separator (if any) BEFORE today's card
-    if (today.day == 1) {
-      heightBeforeToday += monthSeparatorHeight;
-    } else if (today.weekday == DateTime.monday) {
-      heightBeforeToday += weekSeparatorHeight;
-    }
-
-    // In a CustomScrollView, all slivers are part of the scroll,
-    // so we don't need to add anything "before" the list
-    // The heightBeforeToday already represents the scroll position
-    final todayTopPosition = heightBeforeToday;
-
-    // We want today's card CENTER to be at the viewport CENTER
-    final viewportHeight = _scrollController.position.viewportDimension;
-
-    // Center position: top position + half of card height
-    final todayCenterPosition = todayTopPosition + (dayCardHeight / 2);
-
-    // Scroll offset to center: center position - half viewport
-    final centeredOffset = todayCenterPosition - (viewportHeight / 2);
-
-    final finalOffset = centeredOffset.clamp(
-      0.0,
-      _scrollController.position.maxScrollExtent,
-    );
-
-    if (animated) {
-      _scrollController.animateTo(
-        finalOffset,
-        duration: const Duration(milliseconds: 500),
-        curve: Curves.easeInOutCubic,
-      ).then((_) {
-        _isScrollingToToday = false;
-      }).catchError((error) {
-        debugPrint('[ScrollToToday] Error: $error');
-        _isScrollingToToday = false;
+    final context = _todayKey.currentContext;
+    if (context == null) {
+      // Today is not in the loaded range, need to reload
+      final today = DateTime.now();
+      setState(() {
+        _currentMonth = today;
+        _displayMonth = DateFormat('MMMM yyyy').format(today);
       });
-    } else {
-      _scrollController.jumpTo(finalOffset);
-      _isScrollingToToday = false;
+      _loadInitialMonth();
+      return;
     }
-  }
 
-
-  // Helper to calculate gradient color based on scroll position
-  Color _getGradientColor(DateTime date, bool isDark) {
-    final today = DateTime.now();
-    final daysDiff = date.difference(today).inDays;
-
-    if (isDark) {
-      // Dark mode: subtle gradient from black to dark gray
-      if (daysDiff < 0) {
-        // Past: fade to darker
-        final opacity = (daysDiff.abs() / 30).clamp(0.0, 0.4);
-        return Color.lerp(Colors.black, const Color(0xFF0A0A0A), opacity)!;
-      } else if (daysDiff > 0) {
-        // Future: fade to slightly lighter
-        final opacity = (daysDiff / 30).clamp(0.0, 0.3);
-        return Color.lerp(Colors.black, const Color(0xFF1A1A1A), opacity)!;
-      }
-      return Colors.black;
-    } else {
-      // Light mode: subtle gradient from white to light gray
-      if (daysDiff < 0) {
-        // Past: fade to warmer tone
-        final opacity = (daysDiff.abs() / 30).clamp(0.0, 0.3);
-        return Color.lerp(Colors.white, const Color(0xFFF5F5F5), opacity)!;
-      } else if (daysDiff > 0) {
-        // Future: fade to cooler tone
-        final opacity = (daysDiff / 30).clamp(0.0, 0.25);
-        return Color.lerp(Colors.white, const Color(0xFFFAFAFA), opacity)!;
-      }
-      return Colors.white;
-    }
-  }
-
-  // Build all days with visual separators
-  Widget _buildAllDaysList(bool isDark) {
-    final totalDays = _latestDate.difference(_earliestDate).inDays + 1;
-    final today = DateTime.now();
-
-    return SliverList(
-      delegate: SliverChildBuilderDelegate(
-        (context, index) {
-          // Ensure we don't build more than we have
-          if (index >= totalDays) return null;
-          final date = _earliestDate.add(Duration(days: index));
-          final dayBookings = _confirmedBookings
-              .where((b) => isSameDay(b.date, date))
-              .toList();
-
-          final isFirstDayOfMonth = date.day == 1;
-          final isMonday = date.weekday == DateTime.monday;
-          final isToday = isSameDay(date, today);
-
-          return Column(
-            children: [
-              // Month separator (visual only, not sticky)
-              if (isFirstDayOfMonth)
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-                  decoration: BoxDecoration(
-                    color: isDark ? const Color(0xFF141414) : const Color(0xFFF0F0F0),
-                    border: Border(
-                      top: BorderSide(
-                        color: isDark ? const Color(0xFF2A2A2A) : const Color(0xFFDDDDDD),
-                        width: 1,
-                      ),
-                      bottom: BorderSide(
-                        color: isDark ? const Color(0xFF2A2A2A) : const Color(0xFFDDDDDD),
-                        width: 1,
-                      ),
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.calendar_month,
-                        size: 14,
-                        color: isDark ? Colors.white60 : Colors.black45,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        DateFormat('MMMM yyyy').format(date).toUpperCase(),
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 1.0,
-                          color: isDark ? Colors.white60 : Colors.black45,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              // Week separator (on Mondays, except first day of month)
-              if (isMonday && !isFirstDayOfMonth)
-                Container(
-                  height: 1,
-                  margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        (isDark ? Colors.white : Colors.black).withOpacity(0.0),
-                        (isDark ? Colors.white : Colors.black).withOpacity(0.1),
-                        (isDark ? Colors.white : Colors.black).withOpacity(0.0),
-                      ],
-                    ),
-                  ),
-                ),
-              _buildDayCard(date, dayBookings, isDark),
-            ],
-          );
-        },
-        childCount: totalDays,
-        addAutomaticKeepAlives: true,
-        addRepaintBoundaries: true,
-      ),
+    // Scroll to today's card
+    Scrollable.ensureVisible(
+      context,
+      duration: animated ? const Duration(milliseconds: 500) : Duration.zero,
+      curve: Curves.easeInOutCubic,
+      alignment: 0.2, // Position 20% from top of viewport
     );
+  }
+
+  void _onBookingTap(Booking booking) {
+    final authProvider = context.read<AuthProvider>();
+    final user = authProvider.user;
+
+    if (user == null) return;
+
+    // Navigate based on user role
+    if (user.role == UserRole.USER) {
+      _navigationService.navigateToBookingDetails(booking.id);
+    } else {
+      // ADMIN or MANAGER
+      _navigationService.navigateToApprovalsWithBooking(booking.id);
+    }
   }
 
   @override
@@ -445,10 +639,17 @@ class _AgendaScreenState extends State<AgendaScreen> {
       return const Center(child: CircularProgressIndicator());
     }
 
-    return Stack(
+    return PopScope(
+      canPop: true,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) {
+          debugPrint('[Agenda] Back button pressed - navigating back');
+        }
+      },
+      child: Stack(
       children: [
         RefreshIndicator(
-          onRefresh: _loadBookings,
+          onRefresh: _reloadCurrentMonth,
           child: CustomScrollView(
             controller: _scrollController,
             slivers: [
@@ -466,29 +667,58 @@ class _AgendaScreenState extends State<AgendaScreen> {
                       ),
                     ),
                   ),
-                  child: Text(
-                    'My Schedule',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: isDark ? Colors.white : Colors.black,
-                    ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Agenda',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: isDark ? Colors.white : Colors.black,
+                        ),
+                      ),
+                      Row(
+                        children: [
+                          // Previous Month Button
+                          IconButton(
+                            onPressed: _isNavigating ? null : _navigateToPreviousMonth,
+                            icon: Icon(
+                              Icons.chevron_left,
+                              color: _isNavigating
+                                  ? (isDark ? Colors.grey[700] : Colors.grey[300])
+                                  : (isDark ? Colors.white : Colors.black),
+                            ),
+                            tooltip: 'Previous Month',
+                          ),
+                          Text(
+                            _displayMonth,
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: isDark ? Colors.white70 : Colors.black87,
+                            ),
+                          ),
+                          // Next Month Button
+                          IconButton(
+                            onPressed: _isNavigating ? null : _navigateToNextMonth,
+                            icon: Icon(
+                              Icons.chevron_right,
+                              color: _isNavigating
+                                  ? (isDark ? Colors.grey[700] : Colors.grey[300])
+                                  : (isDark ? Colors.white : Colors.black),
+                            ),
+                            tooltip: 'Next Month',
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
                 ),
               ),
 
-              // Sticky Month Header (single, global)
-              SliverPersistentHeader(
-                pinned: true,
-                floating: false,
-                delegate: _StickyMonthHeaderDelegate(
-                  monthYear: _currentMonth,
-                  isDark: isDark,
-                ),
-              ),
-
-              // Timeline - All days
-              _buildAllDaysList(isDark),
+              // Timeline - Days grouped by month
+              _buildDaysList(isDark),
             ],
           ),
         ),
@@ -513,6 +743,103 @@ class _AgendaScreenState extends State<AgendaScreen> {
             ),
           ),
       ],
+      ),
+    );
+  }
+
+  Widget _buildDaysList(bool isDark) {
+    if (_earliestLoadedMonth == null || _latestLoadedMonth == null) {
+      return const SliverToBoxAdapter(child: SizedBox.shrink());
+    }
+
+    // Build list of all days in loaded range
+    final days = <DateTime>[];
+    var currentDate = _earliestLoadedMonth!;
+    final endDate = _latestLoadedMonth!;
+
+    while (currentDate.isBefore(endDate) || currentDate.isAtSameMomentAs(endDate)) {
+      days.add(currentDate);
+      currentDate = currentDate.add(const Duration(days: 1));
+    }
+
+    return SliverList(
+      delegate: SliverChildBuilderDelegate(
+        (context, index) {
+          if (index >= days.length) return null;
+
+          final date = days[index];
+          final dayBookings = _confirmedBookings
+              .where((b) => _isSameDay(b.date, date))
+              .toList();
+
+          final isFirstDayOfMonth = date.day == 1;
+          final isMonday = date.weekday == DateTime.monday;
+          final isToday = _isSameDay(date, DateTime.now());
+
+          return Column(
+            key: isToday ? _todayKey : null,
+            children: [
+              // Month separator
+              if (isFirstDayOfMonth)
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                  decoration: BoxDecoration(
+                    color: isDark ? const Color(0xFF141414) : const Color(0xFFF0F0F0),
+                    border: Border(
+                      top: BorderSide(
+                        color: isDark ? const Color(0xFF2A2A2A) : const Color(0xFFDDDDDD),
+                        width: 1,
+                      ),
+                      bottom: BorderSide(
+                        color: isDark ? const Color(0xFF2A2A2A) : const Color(0xFFDDDDDD),
+                        width: 1,
+                      ),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.calendar_month,
+                        size: 16,
+                        color: isDark ? Colors.white60 : Colors.black45,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        DateFormat('MMMM yyyy').format(date).toUpperCase(),
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 1.2,
+                          color: isDark ? Colors.white70 : Colors.black54,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              // Week separator (on Mondays, except first day of month)
+              if (isMonday && !isFirstDayOfMonth)
+                Container(
+                  height: 1,
+                  margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        (isDark ? Colors.white : Colors.black).withOpacity(0.0),
+                        (isDark ? Colors.white : Colors.black).withOpacity(0.1),
+                        (isDark ? Colors.white : Colors.black).withOpacity(0.0),
+                      ],
+                    ),
+                  ),
+                ),
+              _buildDayCard(date, dayBookings, isDark),
+            ],
+          );
+        },
+        childCount: days.length,
+        addAutomaticKeepAlives: false,
+        addRepaintBoundaries: true,
+      ),
     );
   }
 
@@ -521,15 +848,14 @@ class _AgendaScreenState extends State<AgendaScreen> {
     List<Booking> bookings,
     bool isDark,
   ) {
-    final isToday = isSameDay(date, DateTime.now());
+    final isToday = _isSameDay(date, DateTime.now());
     final isPast = date.isBefore(DateTime.now()) && !isToday;
-    final gradientColor = _getGradientColor(date, isDark);
 
     return Container(
       decoration: BoxDecoration(
         color: isToday
             ? (isDark ? const Color(0xFF1E1E1E) : const Color(0xFFF0F9FF))
-            : gradientColor,
+            : (isDark ? Colors.black : Colors.white),
         border: Border(
           bottom: BorderSide(
             color: isDark
@@ -612,115 +938,57 @@ class _AgendaScreenState extends State<AgendaScreen> {
   }
 
   Widget _buildEventCard(Booking booking, bool isDark) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF2A2A2A) : const Color(0xFFF8FAFC),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: isDark ? const Color(0xFF3A3A3A) : const Color(0xFFE2E8F0),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 4,
-                height: 32,
-                decoration: BoxDecoration(
-                  color: isDark ? Colors.blue[400] : Colors.blue[600],
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      booking.companyName,
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: isDark ? Colors.white : Colors.black87,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      booking.startTime,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: isDark ? Colors.white70 : Colors.black54,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  bool isSameDay(DateTime a, DateTime b) {
-    return a.year == b.year && a.month == b.month && a.day == b.day;
-  }
-}
-
-// Sticky Month Header Delegate
-class _StickyMonthHeaderDelegate extends SliverPersistentHeaderDelegate {
-  final String monthYear;
-  final bool isDark;
-
-  _StickyMonthHeaderDelegate({
-    required this.monthYear,
-    required this.isDark,
-  });
-
-  @override
-  double get minExtent => 48.0;
-
-  @override
-  double get maxExtent => 48.0;
-
-  @override
-  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
-    return Material(
-      elevation: 0,
-      color: Colors.transparent,
+    return InkWell(
+      onTap: () => _onBookingTap(booking),
+      borderRadius: BorderRadius.circular(8),
       child: Container(
-        height: 48,
-        width: double.infinity,
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF0A0A0A) : const Color(0xFFF8F8F8),
-          border: Border(
-            bottom: BorderSide(
-              color: isDark ? const Color(0xFF333333) : const Color(0xFFDDDDDD),
-              width: 1,
-            ),
+          color: isDark ? const Color(0xFF2A2A2A) : const Color(0xFFF8FAFC),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: isDark ? const Color(0xFF3A3A3A) : const Color(0xFFE2E8F0),
           ),
         ),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         child: Row(
           children: [
-            Icon(
-              Icons.calendar_today,
-              size: 16,
-              color: isDark ? Colors.white70 : Colors.black54,
+            Container(
+              width: 4,
+              height: 40,
+              decoration: BoxDecoration(
+                color: isDark ? Colors.blue[400] : Colors.blue[600],
+                borderRadius: BorderRadius.circular(2),
+              ),
             ),
             const SizedBox(width: 12),
-            Text(
-              monthYear.toUpperCase(),
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 1.2,
-                color: isDark ? Colors.white : Colors.black87,
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    booking.companyName,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: isDark ? Colors.white : Colors.black87,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    booking.startTime,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: isDark ? Colors.white70 : Colors.black54,
+                    ),
+                  ),
+                ],
               ),
+            ),
+            Icon(
+              Icons.chevron_right,
+              color: isDark ? Colors.white38 : Colors.black38,
+              size: 20,
             ),
           ],
         ),
@@ -728,8 +996,7 @@ class _StickyMonthHeaderDelegate extends SliverPersistentHeaderDelegate {
     );
   }
 
-  @override
-  bool shouldRebuild(_StickyMonthHeaderDelegate oldDelegate) {
-    return monthYear != oldDelegate.monthYear || isDark != oldDelegate.isDark;
+  bool _isSameDay(DateTime a, DateTime b) {
+    return a.year == b.year && a.month == b.month && a.day == b.day;
   }
 }

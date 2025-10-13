@@ -103,4 +103,10 @@ class AuthProvider with ChangeNotifier {
       notifyListeners();
     }
   }
+
+  /// Update user data (used after profile update)
+  void updateUser(Map<String, dynamic> userData) {
+    _user = User.fromJson(userData);
+    notifyListeners();
+  }
 }

@@ -50,10 +50,21 @@ class NavigationService {
     navigateTo('/agenda');
   }
 
-  /// Navigate to booking details
+  /// Navigate to my bookings
+  void navigateToMyBookings() {
+    navigateTo('/my-bookings');
+  }
+
+  /// Navigate to booking details (goes to My Bookings first, then opens details drawer)
   void navigateToBookingDetails(String bookingId) {
-    navigateTo('/booking/$bookingId');
-    debugPrint('[NavigationService] Navigated to booking details: $bookingId');
+    navigateTo('/my-bookings?bookingId=$bookingId');
+    debugPrint('[NavigationService] Navigated to My Bookings with booking details: $bookingId');
+  }
+
+  /// Navigate to approvals with booking details (for ADMIN/MANAGER)
+  void navigateToApprovalsWithBooking(String bookingId) {
+    navigateTo('/approvals?bookingId=$bookingId');
+    debugPrint('[NavigationService] Navigated to Approvals with booking details: $bookingId');
   }
 
   /// Show snackbar

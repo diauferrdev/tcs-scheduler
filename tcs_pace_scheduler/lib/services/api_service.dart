@@ -313,8 +313,20 @@ class ApiService {
     return await get('/api/bookings/$id');
   }
 
-  Future<Map<String, dynamic>> createBooking(Map<String, dynamic> data) async {
-    return await post('/api/bookings', data);
+  Future<Map<String, dynamic>> createBooking(Map<String, dynamic> data, {bool isDraft = false}) async {
+    final query = isDraft ? '?draft=true' : '';
+    final url = Uri.parse('${ApiConfig.baseUrl}/api/bookings$query');
+    final headers = {...ApiConfig.defaultHeaders};
+
+    if (_sessionCookie != null) {
+      headers['Cookie'] = _sessionCookie!;
+    }
+
+    final response = await _client
+        .post(url, headers: headers, body: jsonEncode(data))
+        .timeout(ApiConfig.timeout);
+
+    return _handleResponse(response);
   }
 
   Future<Map<String, dynamic>> updateBooking(String id, Map<String, dynamic> data) async {
@@ -426,7 +438,7 @@ class ApiService {
 
   // Get confirmed bookings (for calendar/agenda)
   Future<dynamic> getConfirmedBookings({String? month}) async {
-    return await getBookings(month: month, status: 'CONFIRMED');
+    return await getBookings(month: month, status: 'APPROVED');
   }
 
   // FCM Methods
@@ -450,6 +462,28 @@ class ApiService {
       debugPrint('[API] Error unregistering FCM token: $e');
       rethrow;
     }
+  }
+
+  // User Profile Methods
+
+  /// Change current user's password
+  Future<Map<String, dynamic>> changePassword(Map<String, dynamic> data) async {
+    return await post('/api/auth/me/change-password', data);
+  }
+
+  /// Update current user's profile (name, email)
+  Future<Map<String, dynamic>> updateProfile(Map<String, dynamic> data) async {
+    return await _client
+        .patch(
+          Uri.parse('${ApiConfig.baseUrl}/api/auth/me/profile'),
+          headers: {
+            ...ApiConfig.defaultHeaders,
+            if (_sessionCookie != null) 'Cookie': _sessionCookie!,
+          },
+          body: jsonEncode(data),
+        )
+        .timeout(ApiConfig.timeout)
+        .then(_handleResponse);
   }
 }
 

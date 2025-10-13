@@ -1,15 +1,21 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
+import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 import '../services/api_service.dart';
 import '../models/booking.dart';
-import '../services/navigation_service.dart';
+import '../services/realtime_service.dart';
+import '../services/drawer_service.dart';
+import '../widgets/booking_card.dart';
+import '../providers/auth_provider.dart';
 
 class MyBookingsScreen extends StatefulWidget {
   final bool skipLayout;
+  final String? initialBookingId;
 
   const MyBookingsScreen({
     super.key,
     this.skipLayout = false,
+    this.initialBookingId,
   });
 
   @override
@@ -18,6 +24,7 @@ class MyBookingsScreen extends StatefulWidget {
 
 class _MyBookingsScreenState extends State<MyBookingsScreen> {
   final ApiService _apiService = ApiService();
+  final RealtimeService _realtimeService = RealtimeService();
   List<Booking> _bookings = [];
   List<Booking> _filteredBookings = [];
   bool _isLoading = true;
@@ -28,13 +35,101 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
   void initState() {
     super.initState();
     _loadBookings();
+    _setupRealtimeUpdates();
+    // No polling - fully real-time via WebSocket only
+
+    // Open drawer if initialBookingId is provided
+    if (widget.initialBookingId != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _openInitialBooking();
+      });
+    }
+  }
+
+  void _openInitialBooking() {
+    if (widget.initialBookingId == null) return;
+
+    // Use DrawerService to open the booking details drawer
+    DrawerService.instance.openDrawer(
+      context,
+      DrawerType.bookingDetails,
+      params: {'bookingId': widget.initialBookingId!},
+      updateUrl: false,
+    );
+  }
+
+  void _setupRealtimeUpdates() {
+    // Listen for booking updates
+    _realtimeService.onBookingCreated = (bookingData) {
+      _handleBookingUpdate(bookingData);
+    };
+
+    _realtimeService.onBookingUpdated = (bookingData) {
+      _handleBookingUpdate(bookingData);
+    };
+
+    _realtimeService.onBookingApproved = (bookingData) {
+      _handleBookingUpdate(bookingData);
+    };
+
+    _realtimeService.onBookingDeleted = (bookingId) {
+      if (mounted) {
+        setState(() {
+          _bookings.removeWhere((b) => b.id == bookingId);
+          _filterBookings();
+        });
+      }
+    };
+  }
+
+  void _handleBookingUpdate(Map<String, dynamic> bookingData) {
+    if (!mounted) return;
+
+    try {
+      final booking = Booking.fromJson(bookingData);
+      final currentUserId = context.read<AuthProvider>().user?.id;
+
+      // CRITICAL: Only process bookings that belong to the current user
+      if (booking.createdById != currentUserId) {
+        debugPrint('[MyBookings] Ignoring booking from another user: ${booking.id}');
+        return;
+      }
+
+      setState(() {
+        final index = _bookings.indexWhere((b) => b.id == booking.id);
+        if (index >= 0) {
+          // Update existing booking
+          _bookings[index] = booking;
+        } else {
+          // Add new booking (verified it belongs to current user above)
+          _bookings.add(booking);
+        }
+        _filterBookings();
+      });
+      debugPrint('[MyBookings] Updated booking list, total: ${_bookings.length}');
+    } catch (e) {
+      debugPrint('[MyBookings] Error handling booking update: $e');
+    }
+  }
+
+  @override
+  void dispose() {
+    // Clear callbacks
+    _realtimeService.onBookingCreated = null;
+    _realtimeService.onBookingUpdated = null;
+    _realtimeService.onBookingApproved = null;
+    _realtimeService.onBookingDeleted = null;
+    super.dispose();
   }
 
   Future<void> _loadBookings() async {
-    setState(() {
-      _isLoading = true;
-      _error = null;
-    });
+    // Only show loading on initial load, not on auto-refresh
+    if (_bookings.isEmpty) {
+      setState(() {
+        _isLoading = true;
+        _error = null;
+      });
+    }
 
     try {
       debugPrint('[MyBookings] Loading user bookings');
@@ -70,8 +165,18 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
           .toList();
     }
 
-    // Sort by date (newest first)
-    _filteredBookings.sort((a, b) => b.date.compareTo(a.date));
+    // Sort: pending bookings always at top, then by createdAt (newest first)
+    _filteredBookings.sort((a, b) {
+      // If one is pending and the other isn't, pending comes first
+      if (a.status == BookingStatus.PENDING_APPROVAL && b.status != BookingStatus.PENDING_APPROVAL) {
+        return -1;
+      }
+      if (b.status == BookingStatus.PENDING_APPROVAL && a.status != BookingStatus.PENDING_APPROVAL) {
+        return 1;
+      }
+      // If both have the same status (both pending or both not pending), sort by createdAt
+      return b.createdAt.compareTo(a.createdAt);
+    });
   }
 
   void _changeFilter(BookingStatus? status) {
@@ -81,42 +186,118 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
     });
   }
 
+  Future<void> _handleCancelBooking(Booking booking) async {
+    // Show confirmation dialog
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+        return AlertDialog(
+          backgroundColor: isDark ? const Color(0xFF18181B) : Colors.white,
+          title: Text(
+            'Cancel Booking',
+            style: TextStyle(
+              color: isDark ? Colors.white : Colors.black,
+            ),
+          ),
+          content: Text(
+            'Are you sure you want to cancel this booking for ${booking.companyName}?',
+            style: TextStyle(
+              color: isDark ? Colors.grey[300] : Colors.grey[700],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('No, keep it'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              style: TextButton.styleFrom(foregroundColor: Colors.red),
+              child: const Text('Yes, cancel'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed != true) return;
+
+    try {
+      // Close the drawer first
+      Navigator.of(context).pop();
+
+      // Show loading
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Canceling booking...'),
+            duration: Duration(seconds: 1),
+          ),
+        );
+      }
+
+      // Call API to delete booking
+      await _apiService.deleteBooking(booking.id);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Booking cancelled successfully'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        // Reload bookings
+        _loadBookings();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error canceling booking: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
   Color _getStatusColor(BookingStatus status) {
     switch (status) {
-      case BookingStatus.CONFIRMED:
-        return Colors.green;
+      case BookingStatus.DRAFT:
+        return Colors.grey;
       case BookingStatus.PENDING_APPROVAL:
         return Colors.orange;
+      case BookingStatus.APPROVED:
+        return Colors.green;
       case BookingStatus.CANCELLED:
         return Colors.red;
-      case BookingStatus.RESCHEDULED:
-        return Colors.blue;
     }
   }
 
   String _getStatusText(BookingStatus status) {
     switch (status) {
-      case BookingStatus.CONFIRMED:
-        return 'Confirmed';
+      case BookingStatus.DRAFT:
+        return 'Draft';
       case BookingStatus.PENDING_APPROVAL:
         return 'Pending Approval';
+      case BookingStatus.APPROVED:
+        return 'Approved';
       case BookingStatus.CANCELLED:
         return 'Cancelled';
-      case BookingStatus.RESCHEDULED:
-        return 'Rescheduled';
     }
   }
 
   IconData _getStatusIcon(BookingStatus status) {
     switch (status) {
-      case BookingStatus.CONFIRMED:
-        return Icons.check_circle;
+      case BookingStatus.DRAFT:
+        return Icons.edit_note;
       case BookingStatus.PENDING_APPROVAL:
         return Icons.pending;
+      case BookingStatus.APPROVED:
+        return Icons.check_circle;
       case BookingStatus.CANCELLED:
         return Icons.cancel;
-      case BookingStatus.RESCHEDULED:
-        return Icons.event_repeat;
     }
   }
 
@@ -124,15 +305,9 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return Scaffold(
-      backgroundColor: isDark ? Colors.black : const Color(0xFFF9FAFB),
-      appBar: AppBar(
-        backgroundColor: Colors.black,
-        foregroundColor: Colors.white,
-        title: const Text('My Bookings'),
-        elevation: 0,
-      ),
-      body: Column(
+    return Container(
+      color: isDark ? Colors.black : const Color(0xFFF9FAFB),
+      child: Column(
         children: [
           // Filter chips
           _buildFilterChips(isDark),
@@ -148,14 +323,9 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
 
   Widget _buildFilterChips(bool isDark) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF18181B) : Colors.white,
-        border: Border(
-          bottom: BorderSide(
-            color: isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
-          ),
-        ),
+        color: isDark ? Colors.black : const Color(0xFFF9FAFB),
       ),
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
@@ -173,15 +343,23 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
               isSelected: _selectedStatus == BookingStatus.PENDING_APPROVAL,
               onTap: () => _changeFilter(BookingStatus.PENDING_APPROVAL),
               isDark: isDark,
-              color: Colors.orange,
+              color: const Color(0xFFF59E0B),
             ),
             const SizedBox(width: 8),
             _buildFilterChip(
-              label: 'Confirmed',
-              isSelected: _selectedStatus == BookingStatus.CONFIRMED,
-              onTap: () => _changeFilter(BookingStatus.CONFIRMED),
+              label: 'Draft',
+              isSelected: _selectedStatus == BookingStatus.DRAFT,
+              onTap: () => _changeFilter(BookingStatus.DRAFT),
               isDark: isDark,
-              color: Colors.green,
+              color: const Color(0xFF6B7280),
+            ),
+            const SizedBox(width: 8),
+            _buildFilterChip(
+              label: 'Approved',
+              isSelected: _selectedStatus == BookingStatus.APPROVED,
+              onTap: () => _changeFilter(BookingStatus.APPROVED),
+              isDark: isDark,
+              color: const Color(0xFF10B981),
             ),
             const SizedBox(width: 8),
             _buildFilterChip(
@@ -189,15 +367,7 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
               isSelected: _selectedStatus == BookingStatus.CANCELLED,
               onTap: () => _changeFilter(BookingStatus.CANCELLED),
               isDark: isDark,
-              color: Colors.red,
-            ),
-            const SizedBox(width: 8),
-            _buildFilterChip(
-              label: 'Rescheduled',
-              isSelected: _selectedStatus == BookingStatus.RESCHEDULED,
-              onTap: () => _changeFilter(BookingStatus.RESCHEDULED),
-              isDark: isDark,
-              color: Colors.blue,
+              color: const Color(0xFFEF4444),
             ),
           ],
         ),
@@ -337,145 +507,103 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
     );
   }
 
-  Widget _buildBookingCard(Booking booking, bool isDark) {
-    return GestureDetector(
-      onTap: () {
-        NavigationService().navigateToBookingDetails(booking.id);
-      },
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF18181B) : Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: _getStatusColor(booking.status).withOpacity(0.3),
-            width: 1.5,
-          ),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Status badge
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: _getStatusColor(booking.status).withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color: _getStatusColor(booking.status),
-                      width: 1,
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        _getStatusIcon(booking.status),
-                        size: 16,
-                        color: _getStatusColor(booking.status),
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        _getStatusText(booking.status),
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: _getStatusColor(booking.status),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const Spacer(),
-                Icon(
-                  Icons.chevron_right,
-                  color: isDark ? Colors.grey[600] : Colors.grey[400],
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-
-            // Company name
-            Text(
-              booking.companyName,
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: isDark ? Colors.white : Colors.black,
-              ),
-            ),
-            const SizedBox(height: 8),
-
-            // Date and time
-            Row(
-              children: [
-                Icon(
-                  Icons.calendar_today,
-                  size: 16,
-                  color: isDark ? Colors.grey[400] : Colors.grey[600],
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  DateFormat('EEEE, MMM d, yyyy').format(booking.date),
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: isDark ? Colors.grey[300] : Colors.grey[700],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 6),
-            Row(
-              children: [
-                Icon(
-                  Icons.access_time,
-                  size: 16,
-                  color: isDark ? Colors.grey[400] : Colors.grey[600],
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  '${booking.startTime} - ${_formatVisitType(booking.visitType.name)}',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: isDark ? Colors.grey[300] : Colors.grey[700],
-                  ),
-                ),
-              ],
-            ),
-
-            // Attendees count
-            if (booking.expectedAttendees > 0) ...[
-              const SizedBox(height: 6),
-              Row(
-                children: [
-                  Icon(
-                    Icons.people,
-                    size: 16,
-                    color: isDark ? Colors.grey[400] : Colors.grey[600],
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    '${booking.expectedAttendees} attendees',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: isDark ? Colors.grey[300] : Colors.grey[700],
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ],
-        ),
-      ),
+  void _showBookingDetailsDrawer(Booking booking) {
+    // Use DrawerService for consistent drawer experience
+    DrawerService.instance.openDrawer(
+      context,
+      DrawerType.bookingDetails,
+      params: {'bookingId': booking.id},
+      updateUrl: false, // Don't update URL from My Bookings screen
     );
   }
 
-  String _formatVisitType(String visitType) {
-    return visitType.replaceAll('_', ' ').toLowerCase().split(' ').map((word) =>
-      word[0].toUpperCase() + word.substring(1)
-    ).join(' ');
+  Widget _buildBookingCard(Booking booking, bool isDark) {
+    return BookingCard(
+      booking: booking,
+      onTap: () => _showBookingDetailsDrawer(booking),
+    );
+  }
+
+  void _handleContinueDraft(Booking booking) {
+    // Navigate to calendar with the draft's date selected and open the form with draft data
+    context.go('/calendar?draftId=${booking.id}');
+  }
+
+  /// CRITICAL: Handle draft deletion with confirmation dialog
+  Future<void> _handleDeleteDraft(Booking booking) async {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    // Show confirmation dialog
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          backgroundColor: isDark ? const Color(0xFF18181B) : Colors.white,
+          title: Text(
+            'Delete Draft?',
+            style: TextStyle(
+              color: isDark ? Colors.white : Colors.black,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          content: Text(
+            'Are you sure you want to delete this draft booking for ${booking.companyName}? This action cannot be undone.',
+            style: TextStyle(
+              color: isDark ? Colors.grey[300] : Colors.grey[700],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: Text(
+                'Cancel',
+                style: TextStyle(
+                  color: isDark ? Colors.grey[400] : Colors.grey[600],
+                ),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Delete'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    try {
+      // Delete the draft booking
+      await _apiService.deleteBooking(booking.id);
+
+      if (!mounted) return;
+
+      // Show success message
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Draft deleted successfully'),
+          backgroundColor: Colors.green,
+          duration: Duration(seconds: 2),
+        ),
+      );
+
+      // Reload bookings to update the list
+      await _loadBookings();
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to delete draft: $e'),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    }
   }
 }

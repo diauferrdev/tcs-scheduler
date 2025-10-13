@@ -360,6 +360,10 @@ class UnifiedNotificationService {
             date: metadata?['date'] ?? 'Soon',
             time: metadata?['time'],
             approvedBy: metadata?['approvedBy'],
+            sector: metadata?['sector'],
+            expectedAttendees: metadata?['expectedAttendees'],
+            eventType: metadata?['eventType'],
+            bookingId: data['bookingId'] as String?, // Include bookingId for navigation
           );
           break;
 

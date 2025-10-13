@@ -1,7 +1,7 @@
 import { hash, verify } from '@node-rs/argon2';
 import { lucia } from '../lib/lucia';
 import { prisma } from '../lib/prisma';
-import type { LoginInput } from '../types';
+import type { LoginInput, PasswordChangeInput, ProfileUpdateInput } from '../types';
 
 export async function login(data: LoginInput) {
   const user = await prisma.user.findUnique({
@@ -47,7 +47,16 @@ export async function logout(sessionId: string) {
   return sessionCookie;
 }
 
-export async function createUser(email: string, password: string, name: string, role: 'ADMIN' | 'MANAGER') {
+export async function createUser(email: string, password: string, name: string, role: 'ADMIN' | 'MANAGER' | 'USER') {
+  // CRITICAL FIX: Check if user with this email already exists
+  const existingUser = await prisma.user.findUnique({
+    where: { email },
+  });
+
+  if (existingUser) {
+    throw new Error('A user with this email already exists');
+  }
+
   const passwordHash = await hash(password, {
     memoryCost: 19456,
     timeCost: 2,
@@ -73,12 +82,9 @@ export async function createUser(email: string, password: string, name: string, 
 }
 
 export async function getAllUsers() {
+  // CRITICAL FIX: Return ALL users (ADMIN, MANAGER, USER)
+  // Previously was only returning ADMIN and MANAGER
   const users = await prisma.user.findMany({
-    where: {
-      role: {
-        in: ['ADMIN', 'MANAGER'],
-      },
-    },
     select: {
       id: true,
       email: true,
@@ -144,4 +150,75 @@ export async function resetUserPassword(userId: string, newPassword: string) {
   await prisma.session.deleteMany({
     where: { userId },
   });
+}
+
+// User self-service: Change own password
+export async function changePassword(userId: string, data: PasswordChangeInput) {
+  // Get user with current password
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+  });
+
+  if (!user) {
+    throw new Error('User not found');
+  }
+
+  // Verify current password
+  const validPassword = await verify(user.passwordHash, data.currentPassword, {
+    memoryCost: 19456,
+    timeCost: 2,
+    outputLen: 32,
+    parallelism: 1,
+  });
+
+  if (!validPassword) {
+    throw new Error('Current password is incorrect');
+  }
+
+  // Hash the new password
+  const newPasswordHash = await hash(data.newPassword, {
+    memoryCost: 19456,
+    timeCost: 2,
+    outputLen: 32,
+    parallelism: 1,
+  });
+
+  // Update password
+  await prisma.user.update({
+    where: { id: userId },
+    data: { passwordHash: newPasswordHash },
+  });
+
+  // Invalidate all other sessions (keep current one)
+  // This is done by Lucia on next validation
+}
+
+// User self-service: Update own profile (email cannot be changed)
+export async function updateProfile(userId: string, data: ProfileUpdateInput) {
+  // Check if user exists
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+  });
+
+  if (!user) {
+    throw new Error('User not found');
+  }
+
+  // Update profile (only name can be changed)
+  const updatedUser = await prisma.user.update({
+    where: { id: userId },
+    data: {
+      ...(data.name && { name: data.name }),
+    },
+    select: {
+      id: true,
+      email: true,
+      name: true,
+      role: true,
+      isActive: true,
+      createdAt: true,
+    },
+  });
+
+  return updatedUser;
 }
