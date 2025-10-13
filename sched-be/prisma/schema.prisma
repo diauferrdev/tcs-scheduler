@@ -127,6 +127,11 @@ model Booking {
   approvedBy         User?      @relation("ApprovedBy", fields: [approvedById], references: [id])
   approvedAt         DateTime?
 
+  // Cancellation
+  cancellationReason String?    @db.Text        // Reason for cancellation (if manually cancelled)
+  cancelledById      String?                     // User who cancelled (if manually cancelled)
+  cancelledAt        DateTime?                   // When was it cancelled
+
   // Reschedule tracking
   originalBookingId   String?    // If this was rescheduled, reference to original
   rescheduledToId     String?    // If this was rescheduled, reference to new booking
