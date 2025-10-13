@@ -549,7 +549,7 @@ class _AgendaScreenState extends State<AgendaScreen> {
             // Event card
             Expanded(
               child: Container(
-                margin: const EdgeInsets.only(bottom: isLast ? 0 : 12),
+                margin: EdgeInsets.only(bottom: isLast ? 0 : 12),
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   color: isDark ? const Color(0xFF18181B) : Colors.white,
