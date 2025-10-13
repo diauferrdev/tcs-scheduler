@@ -89,20 +89,25 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
       final booking = Booking.fromJson(bookingData);
       final currentUserId = context.read<AuthProvider>().user?.id;
 
-      // CRITICAL: Only process bookings that belong to the current user
-      if (booking.createdById != currentUserId) {
+      // Check if booking already exists in list OR belongs to current user
+      final existingIndex = _bookings.indexWhere((b) => b.id == booking.id);
+      final belongsToUser = booking.createdById == currentUserId;
+
+      // Only process if: 1) Already in our list (needs update) OR 2) Created by current user (new booking)
+      if (existingIndex < 0 && !belongsToUser) {
         debugPrint('[MyBookings] Ignoring booking from another user: ${booking.id}');
         return;
       }
 
       setState(() {
-        final index = _bookings.indexWhere((b) => b.id == booking.id);
-        if (index >= 0) {
-          // Update existing booking
-          _bookings[index] = booking;
+        if (existingIndex >= 0) {
+          // Update existing booking (even if created by another user - could be updated by admin)
+          _bookings[existingIndex] = booking;
+          debugPrint('[MyBookings] Updated existing booking: ${booking.id}');
         } else {
           // Add new booking (verified it belongs to current user above)
           _bookings.add(booking);
+          debugPrint('[MyBookings] Added new booking: ${booking.id}');
         }
         _filterBookings();
       });
