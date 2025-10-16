@@ -10,6 +10,7 @@ interface CreateNotificationInput {
   userId: string;
   bookingId?: string;
   actionUrl?: string;
+  screen?: 'approvals' | 'booking_details' | 'my_bookings' | 'calendar' | 'notifications';
   metadata?: any;
 }
 
@@ -44,7 +45,10 @@ export async function createNotification(data: CreateNotificationInput) {
     userId: data.userId, // ✅ Include userId for Flutter AppNotification.fromJson()
     bookingId: data.bookingId,
     actionUrl: data.actionUrl,
-    metadata: data.metadata,
+    metadata: {
+      ...data.metadata,
+      screen: data.screen, // ✅ Include screen for navigation
+    },
     isRead: false,
     createdAt: notification.createdAt.toISOString(), // ✅ Send as ISO String, not timestamp
   });
@@ -64,6 +68,7 @@ export async function createNotification(data: CreateNotificationInput) {
       notificationId: notification.id,
       type: data.type,
       bookingId: data.bookingId || '', // ✅ CRITICAL: Include bookingId for deep linking
+      screen: data.screen || 'booking_details', // ✅ Include screen for navigation
       ...(data.metadata || {}),
     },
   }).catch((error: any) => {

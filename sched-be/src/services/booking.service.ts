@@ -881,6 +881,7 @@ export async function deleteBooking(id: string) {
       message: `Your booking for ${booking.companyName} on ${new Date(booking.date).toLocaleDateString()} at ${booking.startTime} has been cancelled.`,
       userId: booking.createdById,
       bookingId: booking.id,
+      screen: 'my_bookings',
     }).catch((error: any) => {
       console.error('Failed to send cancellation notification to creator:', error);
     });
@@ -933,7 +934,7 @@ export async function getAttendeeById(id: string) {
 }
 
 // Approve a booking (manager only)
-// Automatically cancels all conflicting PENDING bookings
+// Automatically marks all conflicting PENDING bookings as NEED_RESCHEDULE (not cancelled!)
 export async function approveBooking(bookingId: string, managerId: string) {
   const booking = await prisma.booking.findUnique({
     where: { id: bookingId },
@@ -1012,8 +1013,8 @@ export async function approveBooking(bookingId: string, managerId: string) {
         {
           date: booking.date,
         },
-        // For Innovation Exchange, also check prep/teardown periods
-        ...(booking.visitType === 'INNOVATION_EXCHANGE' ? [
+        // For Innovation Exchange and Pace Experience, also check prep/teardown periods
+        ...(booking.visitType === 'INNOVATION_EXCHANGE' || booking.visitType === 'PACE_EXPERIENCE' ? [
           // If approved IE is in morning, it blocks:
           // - Previous day afternoon (prep)
           // - Same day morning + afternoon (event + teardown)
@@ -1060,8 +1061,8 @@ export async function approveBooking(bookingId: string, managerId: string) {
       }
     }
 
-    // For Innovation Exchange approved booking, check if pending conflicts with prep/teardown
-    if (booking.visitType === 'INNOVATION_EXCHANGE') {
+    // For Innovation Exchange and Pace Experience approved booking, check if pending conflicts with prep/teardown
+    if (booking.visitType === 'INNOVATION_EXCHANGE' || booking.visitType === 'PACE_EXPERIENCE') {
       const isApprovedInMorning = isMorningPeriod(booking.startTime);
 
       if (isApprovedInMorning) {
@@ -1085,8 +1086,8 @@ export async function approveBooking(bookingId: string, managerId: string) {
       }
     }
 
-    // Check if pending IE prep/teardown conflicts with approved booking
-    if (pending.visitType === 'INNOVATION_EXCHANGE') {
+    // Check if pending IE or PE prep/teardown conflicts with approved booking
+    if (pending.visitType === 'INNOVATION_EXCHANGE' || pending.visitType === 'PACE_EXPERIENCE') {
       const isPendingInMorning = isMorningPeriod(pending.startTime);
       const pendingDate = pending.date;
 
@@ -1112,38 +1113,42 @@ export async function approveBooking(bookingId: string, managerId: string) {
     }
   }
 
-  // Cancel all conflicting PENDING bookings
+  // Mark all conflicting PENDING bookings as NEED_RESCHEDULE (not cancelled!)
   const notificationService = await import('./notification.service');
-  const cancelledCount = bookingsToCancel.length;
+  const conflictingCount = bookingsToCancel.length;
 
-  if (cancelledCount > 0) {
-    console.log(`[Approval] Cancelling ${cancelledCount} conflicting PENDING bookings`);
+  if (conflictingCount > 0) {
+    console.log(`[Approval] Marking ${conflictingCount} conflicting bookings as NEED_RESCHEDULE`);
 
     for (const pendingBooking of bookingsToCancel) {
-      // Mark as cancelled
+      // Mark as NEED_RESCHEDULE instead of CANCELLED
       await prisma.booking.update({
         where: { id: pendingBooking.id },
-        data: { status: 'CANCELLED' },
+        data: {
+          status: 'NEED_RESCHEDULE',
+          rescheduleRequestMessage: `Another booking was approved for a conflicting time slot. Please choose a new date and time.`
+        },
       });
 
-      // Notify the creator that their booking was auto-cancelled
+      // Notify the creator that their booking needs rescheduling
       if (pendingBooking.createdById) {
         notificationService.createNotification({
-          type: 'BOOKING_CANCELLED',
-          title: 'Booking Cancelled',
-          message: `Your booking for ${pendingBooking.companyName} on ${new Date(pendingBooking.date).toLocaleDateString()} at ${pendingBooking.startTime} was automatically cancelled because another booking was approved for a conflicting time slot.`,
+          type: 'BOOKING_NEED_RESCHEDULE',
+          title: 'Booking Needs Rescheduling',
+          message: `Your booking for ${pendingBooking.companyName || pendingBooking.organizationName} on ${new Date(pendingBooking.date).toLocaleDateString()} at ${pendingBooking.startTime} conflicts with another approved booking. Please reschedule to a new date and time.`,
           userId: pendingBooking.createdById,
           bookingId: pendingBooking.id,
+          screen: 'my_bookings', // ✅ Changed to my_bookings for better UX
         }).catch((error: any) => {
-          console.error('Failed to send cancellation notification:', error);
+          console.error('Failed to send reschedule notification:', error);
         });
       }
 
-      // Broadcast cancellation
-      websocketService.broadcastBookingDeleted(pendingBooking.id);
+      // Broadcast booking update (not deletion, since it's not cancelled)
+      websocketService.broadcastBookingUpdated(pendingBooking);
     }
 
-    console.log(`[Approval] Successfully cancelled ${cancelledCount} conflicting bookings`);
+    console.log(`[Approval] Successfully marked ${conflictingCount} conflicting bookings as NEED_RESCHEDULE`);
   }
 
   // Notify the approved booking creator
@@ -1154,6 +1159,7 @@ export async function approveBooking(bookingId: string, managerId: string) {
       message: `Your booking for ${booking.companyName} on ${new Date(booking.date).toLocaleDateString()} at ${booking.startTime} has been approved!`,
       userId: booking.createdById,
       bookingId: booking.id,
+      screen: 'booking_details',
       metadata: {
         companyName: booking.companyName,
         date: new Date(booking.date).toLocaleDateString(),
@@ -1172,7 +1178,7 @@ export async function approveBooking(bookingId: string, managerId: string) {
   notificationService.notifyAllManagers(
     'BOOKING_APPROVED',
     'Booking Confirmed',
-    `${booking.companyName} visit on ${new Date(booking.date).toLocaleDateString()} at ${booking.startTime} has been approved by ${updatedBooking.approvedBy?.name}.${cancelledCount > 0 ? ` (${cancelledCount} conflicting bookings were automatically cancelled)` : ''}`,
+    `${booking.companyName} visit on ${new Date(booking.date).toLocaleDateString()} at ${booking.startTime} has been approved by ${updatedBooking.approvedBy?.name}.${conflictingCount > 0 ? ` (${conflictingCount} conflicting bookings were marked for rescheduling)` : ''}`,
     booking.id,
     managerId // Exclude the manager who approved
   ).catch((error: any) => {
@@ -1338,6 +1344,7 @@ export async function requestEdit(
       message: message || `Your booking for ${booking.organizationName || booking.companyName} needs to be edited. Please review and update the information.`,
       userId: booking.createdById,
       bookingId: booking.id,
+      screen: 'my_bookings', // ✅ Changed to my_bookings for better UX
     }).catch((error: any) => {
       console.error('Failed to send edit request notification:', error);
     });
@@ -1397,6 +1404,7 @@ export async function requestReschedule(
       message: message || `Your booking for ${booking.organizationName || booking.companyName} needs to be rescheduled. Please choose a new date.`,
       userId: booking.createdById,
       bookingId: booking.id,
+      screen: 'my_bookings', // ✅ Changed to my_bookings for better UX
     }).catch((error: any) => {
       console.error('Failed to send reschedule request notification:', error);
     });
@@ -1466,6 +1474,7 @@ export async function rejectBooking(
       message: `Your booking for ${booking.organizationName || booking.companyName} was not approved. Reason: ${rejectionReason}`,
       userId: booking.createdById,
       bookingId: booking.id,
+      screen: 'booking_details',
     }).catch((error: any) => {
       console.error('Failed to send rejection notification:', error);
     });
@@ -1526,6 +1535,7 @@ export async function cancelBooking(
       message: `Your booking for ${booking.organizationName || booking.companyName} on ${new Date(booking.date).toLocaleDateString()} was cancelled. Reason: ${cancellationReason}`,
       userId: booking.createdById,
       bookingId: booking.id,
+      screen: 'my_bookings',
     }).catch((error: any) => {
       console.error('Failed to send cancellation notification:', error);
     });
@@ -1780,6 +1790,7 @@ export async function markAsUnderReview(bookingId: string, managerId: string) {
       message: `Your booking for ${booking.organizationName || booking.companyName} is now under review by the management team.`,
       userId: booking.createdById,
       bookingId: booking.id,
+      screen: 'booking_details',
     }).catch((error: any) => {
       console.error('Failed to send under review notification:', error);
     });

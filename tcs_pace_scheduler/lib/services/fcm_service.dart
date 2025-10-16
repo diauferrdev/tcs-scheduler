@@ -148,31 +148,59 @@ class FCMService {
 
   /// Handle notification tap (app in background/terminated)
   void _handleNotificationTap(RemoteMessage message) {
+    debugPrint('[FCM Tap] ========================================');
     debugPrint('[FCM Tap] Notification tapped: ${message.notification?.title}');
-    debugPrint('[FCM Tap] Data: ${message.data}');
+    debugPrint('[FCM Tap] Full message data: ${message.data}');
 
     final notificationId = message.data['notificationId'] as String?;
     final bookingId = message.data['bookingId'] as String?;
     final type = message.data['type'] as String?;
+    final screen = message.data['screen'] as String?;
 
-    debugPrint('[FCM Tap] NotificationId: $notificationId, BookingId: $bookingId, Type: $type');
+    debugPrint('[FCM Tap] Extracted values:');
+    debugPrint('[FCM Tap]   - NotificationId: $notificationId');
+    debugPrint('[FCM Tap]   - BookingId: $bookingId');
+    debugPrint('[FCM Tap]   - Type: $type');
+    debugPrint('[FCM Tap]   - Screen: $screen');
 
-    // Navigate to booking details if bookingId is available
-    if (bookingId != null && bookingId.isNotEmpty) {
-      debugPrint('[FCM Tap] Navigating to booking details: $bookingId');
+    // Use Future.delayed to ensure navigation happens after app is fully ready
+    // Increased delay to 1 second for background/terminated state
+    Future.delayed(const Duration(milliseconds: 1000), () {
+      try {
+        debugPrint('[FCM Tap] Delay complete, starting navigation...');
+        final navigationService = NavigationService();
 
-      // Use Future.delayed to ensure navigation happens after app is fully ready
-      Future.delayed(const Duration(milliseconds: 500), () {
-        try {
-          NavigationService().navigateToBookingDetails(bookingId);
-          debugPrint('[FCM Tap] ✅ Navigation completed');
-        } catch (e) {
-          debugPrint('[FCM Tap] ❌ Navigation error: $e');
+        // Navigate based on 'screen' field from backend
+        if (screen == 'approvals' && bookingId != null && bookingId.isNotEmpty) {
+          // New booking notifications for managers - go to approvals screen
+          debugPrint('[FCM Tap] ➡️ Navigating to approvals with booking: $bookingId');
+          navigationService.navigateToApprovalsWithBooking(bookingId);
+        } else if (screen == 'my_bookings') {
+          // Booking cancelled, reschedule needed, etc. - go to my bookings
+          debugPrint('[FCM Tap] ➡️ Navigating to my bookings');
+          if (bookingId != null && bookingId.isNotEmpty) {
+            debugPrint('[FCM Tap] ➡️ With booking details: $bookingId');
+            navigationService.navigateToBookingDetails(bookingId);
+          } else {
+            navigationService.navigateToMyBookings();
+          }
+        } else if (bookingId != null && bookingId.isNotEmpty) {
+          // Default: booking_details or no screen specified - show booking details
+          debugPrint('[FCM Tap] ➡️ Navigating to booking details (default): $bookingId');
+          navigationService.navigateToBookingDetails(bookingId);
+        } else {
+          // No bookingId and no specific screen - just open app
+          debugPrint('[FCM Tap] ℹ️ No bookingId or screen - opening app without navigation');
         }
-      });
-    } else {
-      debugPrint('[FCM Tap] No bookingId - opening app without navigation');
-    }
+
+        debugPrint('[FCM Tap] ✅ Navigation call completed');
+        debugPrint('[FCM Tap] ========================================');
+      } catch (e, stackTrace) {
+        debugPrint('[FCM Tap] ❌ Navigation error: $e');
+        debugPrint('[FCM Tap] ❌ Stack trace: $stackTrace');
+        debugPrint('[FCM Tap] ========================================');
+      }
+    });
   }
 
   /// Delete FCM token on logout

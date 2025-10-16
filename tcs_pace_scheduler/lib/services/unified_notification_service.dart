@@ -303,14 +303,17 @@ class UnifiedNotificationService {
       debugPrint('[UnifiedNotification] Title: $title, Type: $type, Platform: ${kIsWeb ? 'web' : Platform.operatingSystem}');
 
       if (kIsWeb) {
-        // Web: Show notification when app is OPEN (foreground)
-        // Service Worker handles notifications when app is CLOSED (background)
-        // This prevents duplicate notifications while ensuring coverage in both states
-        debugPrint('[UnifiedNotification] Web: Showing notification (app is open)');
+        // Web: Show browser notification when app is OPEN
+        // User wants to see notifications even when page is open
+        debugPrint('[UnifiedNotification] Web: Showing browser notification');
         await _webNotificationService.showNotification(
           title: title,
           body: message,
-          data: data,
+          data: {
+            'type': type,
+            'bookingId': bookingId,
+            ...?metadata,
+          },
         );
         return;
       }

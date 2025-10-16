@@ -2,7 +2,9 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'api_service.dart';
+import 'navigation_service.dart';
 import 'web_notification_interop.dart' if (dart.library.io) 'web_notification_interop_stub.dart';
+import 'web_html_stub.dart' if (dart.library.html) 'dart:html' as html;
 
 /// Web Notification Service
 /// Handles Web Push Notifications using Service Worker and Push API
@@ -54,10 +56,66 @@ class WebNotificationService {
       // Subscribe to push notifications
       await _subscribeToPush();
 
+      // Setup Service Worker message listener for notification clicks
+      _setupServiceWorkerListener();
+
       _initialized = true;
       debugPrint('[WebNotification] ✅ Initialized successfully');
     } catch (e) {
       debugPrint('[WebNotification] ❌ Initialization error: $e');
+    }
+  }
+
+  /// Setup listener for Service Worker navigation messages
+  void _setupServiceWorkerListener() {
+    if (!kIsWeb) {
+      debugPrint('[WebNotification] Not web, skipping Service Worker listener');
+      return;
+    }
+
+    try {
+      debugPrint('[WebNotification] Setting up Service Worker message listener...');
+
+      // Setup JS listener using interop
+      setupServiceWorkerMessageListener((url, bookingId, screen) {
+        debugPrint('[WebNotification] Navigation request from Service Worker: $url');
+        // This will be called from JS
+      });
+
+      // Listen for custom event from JavaScript
+      html.window.addEventListener('flutter_navigate', (event) {
+        final customEvent = event as html.CustomEvent;
+        final detail = customEvent.detail as Map<String, dynamic>?;
+
+        if (detail != null) {
+          final url = detail['url'] as String?;
+          final bookingId = detail['bookingId'] as String?;
+          final screen = detail['screen'] as String?;
+
+          debugPrint('[WebNotification] Flutter navigate event: url=$url, bookingId=$bookingId, screen=$screen');
+
+          // Navigate using NavigationService
+          final navigationService = NavigationService();
+
+          if (screen == 'approvals' && bookingId != null && bookingId.isNotEmpty) {
+            navigationService.navigateToApprovalsWithBooking(bookingId);
+          } else if (screen == 'my_bookings') {
+            if (bookingId != null && bookingId.isNotEmpty) {
+              navigationService.navigateToBookingDetails(bookingId);
+            } else {
+              navigationService.navigateToMyBookings();
+            }
+          } else if (bookingId != null && bookingId.isNotEmpty) {
+            navigationService.navigateToBookingDetails(bookingId);
+          } else if (url != null && url.isNotEmpty && url != '/') {
+            navigationService.navigateTo(url);
+          }
+        }
+      });
+
+      debugPrint('[WebNotification] ✅ Service Worker listener setup complete');
+    } catch (e) {
+      debugPrint('[WebNotification] Error setting up Service Worker listener: $e');
     }
   }
 

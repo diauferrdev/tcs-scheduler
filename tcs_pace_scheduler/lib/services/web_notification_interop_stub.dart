@@ -38,3 +38,9 @@ void injectBase64Helper() {
 void injectPushManagerHelper() {
   // No-op on non-web platforms
 }
+
+/// Setup listener for Service Worker messages (stub)
+void setupServiceWorkerMessageListener(void Function(String url, String? bookingId, String? screen) onNavigate) {
+  // No-op on non-web platforms
+  debugPrint('[WebInterop] Stub: Not on web platform, Service Worker listener not needed');
+}

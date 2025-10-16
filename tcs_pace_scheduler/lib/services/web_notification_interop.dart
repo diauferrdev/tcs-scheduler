@@ -240,3 +240,66 @@ void injectPushManagerHelper() {
     debugPrint('[WebInterop] Error injecting push manager helper: $e');
   }
 }
+
+/// Setup listener for Service Worker messages (notification clicks)
+void setupServiceWorkerMessageListener(void Function(String url, String? bookingId, String? screen) onNavigate) {
+  if (!kIsWeb) return;
+
+  const script = '''
+    if (typeof window._swMessageListenerSetup === 'undefined') {
+      window._swMessageListenerSetup = true;
+
+      // Listen for messages from Service Worker
+      navigator.serviceWorker.addEventListener('message', function(event) {
+        console.log('[Flutter] Message from Service Worker:', event.data);
+
+        if (event.data && event.data.type === 'NOTIFICATION_CLICK') {
+          console.log('[Flutter] Notification clicked, navigating to:', event.data.url);
+
+          // Call Flutter callback via window object
+          if (window._onServiceWorkerNavigate) {
+            window._onServiceWorkerNavigate(
+              event.data.url || '/',
+              event.data.bookingId || null,
+              event.data.screen || null
+            );
+          }
+        }
+      });
+
+      console.log('[Flutter] ✅ Service Worker message listener setup complete');
+    }
+  ''';
+
+  try {
+    _eval(script);
+
+    // Register Flutter callback
+    _registerNavigationCallback(onNavigate);
+
+    debugPrint('[WebInterop] ✅ Service Worker message listener registered');
+  } catch (e) {
+    debugPrint('[WebInterop] Error setting up Service Worker listener: $e');
+  }
+}
+
+/// Register Flutter navigation callback
+void _registerNavigationCallback(void Function(String url, String? bookingId, String? screen) onNavigate) {
+  final callbackScript = '''
+    window._onServiceWorkerNavigate = function(url, bookingId, screen) {
+      console.log('[Flutter Callback] Navigating to:', url, 'bookingId:', bookingId, 'screen:', screen);
+
+      // Notify Dart via a custom event
+      const event = new CustomEvent('flutter_navigate', {
+        detail: { url: url, bookingId: bookingId, screen: screen }
+      });
+      window.dispatchEvent(event);
+    };
+  ''';
+
+  try {
+    _eval(callbackScript);
+  } catch (e) {
+    debugPrint('[WebInterop] Error registering navigation callback: $e');
+  }
+}

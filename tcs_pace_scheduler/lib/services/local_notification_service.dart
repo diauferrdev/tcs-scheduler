@@ -219,8 +219,9 @@ class LocalNotificationService {
       final type = data['type'] as String?;
       final bookingId = data['bookingId'] as String?;
       final metadata = data['metadata'] as Map<String, dynamic>?;
+      final screen = metadata?['screen'] as String?;
 
-      debugPrint('[LocalNotification] Type: $type, BookingId: $bookingId, ActionId: $actionId');
+      debugPrint('[LocalNotification] Type: $type, BookingId: $bookingId, ActionId: $actionId, Screen: $screen');
 
       // TEST NOTIFICATIONS - Just open app, don't navigate
       if (type == 'test' || payload == 'test') {
@@ -234,13 +235,26 @@ class LocalNotificationService {
         return;
       }
 
-      // Handle notification tap - navigate to booking details if bookingId exists
-      if (bookingId != null && bookingId.isNotEmpty) {
+      // Handle notification tap - navigate based on 'screen' field from backend
+      if (screen == 'approvals' && bookingId != null && bookingId.isNotEmpty) {
+        // New booking notifications for managers - go to approvals screen
+        debugPrint('[LocalNotification] Navigating to approvals with booking: $bookingId');
+        navigationService.navigateToApprovalsWithBooking(bookingId);
+      } else if (screen == 'my_bookings') {
+        // Booking cancelled, reschedule needed, etc. - go to my bookings
+        debugPrint('[LocalNotification] Navigating to my bookings');
+        if (bookingId != null && bookingId.isNotEmpty) {
+          navigationService.navigateToBookingDetails(bookingId);
+        } else {
+          navigationService.navigateToMyBookings();
+        }
+      } else if (bookingId != null && bookingId.isNotEmpty) {
+        // Default: booking_details or no screen specified - show booking details
         debugPrint('[LocalNotification] Navigating to booking details: $bookingId');
         navigationService.navigateToBookingDetails(bookingId);
       } else {
-        // No bookingId - just open app without navigation
-        debugPrint('[LocalNotification] No bookingId - opening app only');
+        // No bookingId and no specific screen - just open app without navigation
+        debugPrint('[LocalNotification] No bookingId or screen - opening app only');
       }
 
       debugPrint('[LocalNotification] ✅ Navigation handled for type: $type');
@@ -1005,6 +1019,15 @@ class LocalNotificationService {
         autoCancel: true,
         onlyAlertOnce: false,
         fullScreenIntent: true,
+        // ✅ CRITICAL: Add action to make notification tappable on Android
+        actions: [
+          const AndroidNotificationAction(
+            'view',
+            'View Details',
+            showsUserInterface: true,
+            icon: DrawableResourceAndroidBitmap('@mipmap/tcs_pace_scheduler'),
+          ),
+        ],
       );
 
       const iosDetails = DarwinNotificationDetails(

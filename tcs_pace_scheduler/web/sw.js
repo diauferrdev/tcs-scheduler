@@ -39,6 +39,8 @@ self.addEventListener('push', (event) => {
         url: data.url || '/',
         notificationId: notificationId,
         type: data.type,
+        bookingId: data.bookingId || data.data?.bookingId, // ✅ Include bookingId from FCM data
+        screen: data.screen || data.data?.screen,           // ✅ Include screen from FCM data
         ...data.metadata
       },
       tag: notificationId,  // Use consistent tag to replace duplicates
@@ -70,17 +72,54 @@ self.addEventListener('notificationclick', (event) => {
   console.log('[SW] Notification clicked:', event.notification.data);
   event.notification.close();
 
-  const urlToOpen = event.notification.data?.url || '/';
+  // Extract notification data
+  const data = event.notification.data || {};
+  const bookingId = data.bookingId || data.metadata?.bookingId;
+  const screen = data.screen || data.metadata?.screen;
+  const type = data.type;
+
+  console.log('[SW] Notification data:', { bookingId, screen, type });
+
+  // Build navigation URL based on screen and bookingId
+  let urlToOpen = '/';
+  if (screen === 'approvals' && bookingId) {
+    urlToOpen = `/approvals?bookingId=${bookingId}`;
+  } else if (screen === 'my_bookings') {
+    urlToOpen = bookingId ? `/my-bookings?bookingId=${bookingId}` : '/my-bookings';
+  } else if (screen === 'booking_details' && bookingId) {
+    urlToOpen = `/booking/${bookingId}`;
+  } else if (bookingId) {
+    // Default: navigate to booking details if we have a bookingId
+    urlToOpen = `/booking/${bookingId}`;
+  }
+
+  console.log('[SW] Navigating to:', urlToOpen);
 
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
-      // Check if there's already a window open
+      // Find any open window from the same origin
       for (const client of clientList) {
-        if (client.url === urlToOpen && 'focus' in client) {
-          return client.focus();
+        // Check if client is from our app (same origin)
+        if (client.url.includes(self.location.origin)) {
+          console.log('[SW] Found open window, focusing...');
+          // ✅ Focus the window first
+          client.focus();
+
+          // ✅ Send navigation message to Flutter app via postMessage
+          console.log('[SW] Sending navigation message to Flutter:', urlToOpen);
+          client.postMessage({
+            type: 'NOTIFICATION_CLICK',
+            url: urlToOpen,
+            bookingId: bookingId,
+            screen: screen,
+          });
+
+          return Promise.resolve();
         }
       }
+
       // If no window is open, open a new one
+      console.log('[SW] No open window found, opening new window...');
       if (clients.openWindow) {
         return clients.openWindow(urlToOpen);
       }
