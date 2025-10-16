@@ -159,12 +159,20 @@ class WebNotificationService {
   }) async {
     if (!kIsWeb) return;
 
-    debugPrint('[WebNotification] Showing notification: $title');
+    debugPrint('[WebNotification] 🔔 showNotification() called');
+    debugPrint('[WebNotification] Title: $title');
+    debugPrint('[WebNotification] Body: $body');
+    debugPrint('[WebNotification] Initialized: $_initialized');
+    debugPrint('[WebNotification] Permission: ${getNotificationPermission()}');
 
     try {
+      // Always try to show notification, even if not fully initialized
+      // This ensures notifications work even if push subscription failed
       showBrowserNotification(title, body);
-    } catch (e) {
-      debugPrint('[WebNotification] Error showing notification: $e');
+      debugPrint('[WebNotification] ✅ Notification display attempted');
+    } catch (e, stack) {
+      debugPrint('[WebNotification] ❌ Error showing notification: $e');
+      debugPrint('[WebNotification] Stack: $stack');
     }
   }
 

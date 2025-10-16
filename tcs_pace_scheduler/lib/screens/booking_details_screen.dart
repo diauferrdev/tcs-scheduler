@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:go_router/go_router.dart';
@@ -10,8 +11,11 @@ import '../providers/auth_provider.dart';
 import '../widgets/booking_status_stepper.dart';
 import '../widgets/booking_form_fields.dart';
 import '../widgets/access_badge.dart';
+import '../widgets/reschedule_drawer.dart';
+import '../widgets/edit_booking_drawer.dart';
 import '../utils/file_utils.dart';
 import '../utils/document_opener.dart';
+import 'booking_form_screen.dart';
 import 'image_viewer_screen.dart';
 
 /// Booking Details Screen - Shows complete booking information
@@ -29,8 +33,8 @@ import 'image_viewer_screen.dart';
 ///
 /// Permissions:
 /// - ADMIN: Can always edit any booking
-/// - USER: Can only edit DRAFT and PENDING_APPROVAL bookings (not APPROVED)
-/// - MANAGER: Can approve/deny bookings
+/// - USER: Can edit DRAFT, CREATED, NEED_EDIT, and NEED_RESCHEDULE bookings
+/// - MANAGER: Can review, approve, reject, and request changes to bookings
 class BookingDetailsScreen extends StatefulWidget {
   final String bookingId;
   final bool skipLayout;
@@ -160,25 +164,57 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
     // ADMIN can always edit
     if (userRole == UserRole.ADMIN) return true;
 
-    // USER can only edit their own DRAFT or PENDING_APPROVAL bookings
+    // USER can ONLY edit when status = NEED_EDIT (manager requested edits)
     if (userRole == UserRole.USER) {
       final isOwner = _booking!.createdById == userId;
-      final canEditStatus = _booking!.status == BookingStatus.DRAFT ||
-                            _booking!.status == BookingStatus.PENDING_APPROVAL;
+      final canEditStatus = _booking!.status == BookingStatus.NEED_EDIT;
       return isOwner && canEditStatus;
     }
 
-    // MANAGER cannot edit bookings directly (they approve/deny)
+    // MANAGER cannot edit bookings directly (they review/approve/reject)
     return false;
   }
 
-  void _enterEditMode() {
+  Future<void> _enterEditMode() async {
     if (!_canEdit()) return;
 
-    setState(() {
-      _formData = BookingFormData.fromBooking(_booking!);
-      _isEditing = true;
-    });
+    // Open edit drawer (following app pattern)
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return EditBookingDrawer(
+          booking: _booking!,
+          onClose: () => Navigator.of(context).pop(),
+          onSuccess: () {
+            Navigator.of(context).pop(); // Close edit drawer
+            _loadBookingDetails(); // Reload booking details
+          },
+        );
+      },
+    );
+  }
+
+  int _getDurationFromEnum(String durationEnum) {
+    switch (durationEnum) {
+      case 'ONE_HOUR':
+        return 1;
+      case 'TWO_HOURS':
+        return 2;
+      case 'THREE_HOURS':
+        return 3;
+      case 'FOUR_HOURS':
+        return 4;
+      case 'FIVE_HOURS':
+        return 5;
+      case 'SIX_HOURS':
+        return 6;
+      case 'SEVEN_HOURS':
+        return 7;
+      default:
+        return 2;
+    }
   }
 
   void _cancelEdit() {
@@ -254,8 +290,8 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
         _booking!.startTime,
       );
 
-      // Set status to PENDING_APPROVAL
-      updateData['status'] = 'PENDING_APPROVAL';
+      // Set status to CREATED (submit for review)
+      updateData['status'] = 'CREATED';
 
       await _apiService.updateBooking(_booking!.id, updateData);
 
@@ -388,6 +424,427 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
     }
   }
 
+  Future<void> _handleRequestEdit() async {
+    if (_booking == null) return;
+
+    final messageController = TextEditingController();
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: isDark ? const Color(0xFF18181B) : Colors.white,
+          title: Text(
+            'Request Edit',
+            style: TextStyle(color: isDark ? Colors.white : Colors.black),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Request the user to make edits to this booking.',
+                style: TextStyle(color: isDark ? Colors.grey[300] : Colors.grey[700]),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: messageController,
+                decoration: InputDecoration(
+                  labelText: 'Message (optional)',
+                  hintText: 'Explain what needs to be edited...',
+                  border: const OutlineInputBorder(),
+                  labelStyle: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey[600]),
+                ),
+                maxLines: 3,
+                style: TextStyle(color: isDark ? Colors.white : Colors.black),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              style: TextButton.styleFrom(foregroundColor: Colors.orange),
+              child: const Text('Request Edit'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed != true) return;
+
+    try {
+      setState(() => _processing = true);
+      await _apiService.requestEdit(
+        _booking!.id,
+        message: messageController.text.isNotEmpty ? messageController.text : null,
+      );
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Edit requested successfully'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+
+        if (widget.onClose != null) {
+          widget.onClose!();
+        } else {
+          Navigator.of(context).pop();
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _processing = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error requesting edit: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _handleRequestReschedule() async {
+    if (_booking == null) return;
+
+    final messageController = TextEditingController();
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: isDark ? const Color(0xFF18181B) : Colors.white,
+          title: Text(
+            'Request Reschedule',
+            style: TextStyle(color: isDark ? Colors.white : Colors.black),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Request the user to reschedule this booking to a different date/time.',
+                style: TextStyle(color: isDark ? Colors.grey[300] : Colors.grey[700]),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: messageController,
+                decoration: InputDecoration(
+                  labelText: 'Message (optional)',
+                  hintText: 'Explain why reschedule is needed...',
+                  border: const OutlineInputBorder(),
+                  labelStyle: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey[600]),
+                ),
+                maxLines: 3,
+                style: TextStyle(color: isDark ? Colors.white : Colors.black),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              style: TextButton.styleFrom(foregroundColor: Colors.orange),
+              child: const Text('Request Reschedule'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed != true) return;
+
+    try {
+      setState(() => _processing = true);
+      await _apiService.requestReschedule(
+        _booking!.id,
+        message: messageController.text.isNotEmpty ? messageController.text : null,
+      );
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Reschedule requested successfully'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+
+        if (widget.onClose != null) {
+          widget.onClose!();
+        } else {
+          Navigator.of(context).pop();
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _processing = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error requesting reschedule: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _handleReject() async {
+    if (_booking == null) return;
+
+    final reasonController = TextEditingController();
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: isDark ? const Color(0xFF18181B) : Colors.white,
+          title: Text(
+            'Reject Booking',
+            style: TextStyle(color: isDark ? Colors.white : Colors.black),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Permanently reject this booking request. The user will be notified.',
+                style: TextStyle(color: isDark ? Colors.grey[300] : Colors.grey[700]),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: reasonController,
+                decoration: InputDecoration(
+                  labelText: 'Rejection Reason*',
+                  hintText: 'Explain why this booking is rejected...',
+                  border: const OutlineInputBorder(),
+                  labelStyle: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey[600]),
+                ),
+                maxLines: 3,
+                style: TextStyle(color: isDark ? Colors.white : Colors.black),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () {
+                if (reasonController.text.trim().isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Please provide a rejection reason'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                  return;
+                }
+                Navigator.pop(context, true);
+              },
+              style: TextButton.styleFrom(foregroundColor: Colors.red),
+              child: const Text('Reject'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed != true) return;
+
+    try {
+      setState(() => _processing = true);
+      await _apiService.rejectBooking(_booking!.id, reasonController.text);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Booking rejected'),
+            backgroundColor: Colors.red,
+          ),
+        );
+
+        if (widget.onClose != null) {
+          widget.onClose!();
+        } else {
+          Navigator.of(context).pop();
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _processing = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error rejecting booking: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _handleCancel() async {
+    if (_booking == null) return;
+
+    final reasonController = TextEditingController();
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: isDark ? const Color(0xFF18181B) : Colors.white,
+          title: Text(
+            'Cancel Booking',
+            style: TextStyle(color: isDark ? Colors.white : Colors.black),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Cancel this booking. This can be used for approved bookings that need to be cancelled.',
+                style: TextStyle(color: isDark ? Colors.grey[300] : Colors.grey[700]),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: reasonController,
+                decoration: InputDecoration(
+                  labelText: 'Cancellation Reason*',
+                  hintText: 'Explain why this booking is cancelled...',
+                  border: const OutlineInputBorder(),
+                  labelStyle: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey[600]),
+                ),
+                maxLines: 3,
+                style: TextStyle(color: isDark ? Colors.white : Colors.black),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () {
+                if (reasonController.text.trim().isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Please provide a cancellation reason'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                  return;
+                }
+                Navigator.pop(context, true);
+              },
+              style: TextButton.styleFrom(foregroundColor: Colors.red),
+              child: const Text('Cancel Booking'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed != true) return;
+
+    try {
+      setState(() => _processing = true);
+      await _apiService.cancelBooking(_booking!.id, reasonController.text);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Booking cancelled'),
+            backgroundColor: Colors.red,
+          ),
+        );
+
+        if (widget.onClose != null) {
+          widget.onClose!();
+        } else {
+          Navigator.of(context).pop();
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _processing = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error cancelling booking: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _handleMarkUnderReview() async {
+    if (_booking == null) return;
+
+    try {
+      setState(() => _processing = true);
+      await _apiService.markBookingAsUnderReview(_booking!.id);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Booking marked as under review'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+
+        _loadBookingDetails();
+        setState(() => _processing = false);
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _processing = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error marking booking as under review: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  /// USER: Handle reschedule when status is NEED_RESCHEDULE
+  Future<void> _handleUserReschedule() async {
+    if (_booking == null) return;
+
+    // Open reschedule drawer
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return RescheduleDrawer(
+          booking: _booking!,
+          onClose: () => Navigator.of(context).pop(),
+          onSuccess: () {
+            Navigator.of(context).pop(); // Close reschedule drawer
+            _loadBookingDetails(); // Reload booking details
+          },
+        );
+      },
+    );
+  }
+
   /// CRITICAL: Handle "Continue" for draft - navigate to calendar with draft
   void _handleContinueDraft() {
     if (_booking == null) return;
@@ -476,11 +933,16 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
     if (_booking == null) return Colors.grey;
     switch (_booking!.status) {
       case BookingStatus.DRAFT:
+      case BookingStatus.CREATED:
         return const Color(0xFF6B7280);
       case BookingStatus.PENDING_APPROVAL:
+      case BookingStatus.UNDER_REVIEW:
+      case BookingStatus.NEED_EDIT:
+      case BookingStatus.NEED_RESCHEDULE:
         return const Color(0xFFF59E0B);
       case BookingStatus.APPROVED:
         return const Color(0xFF10B981);
+      case BookingStatus.NOT_APPROVED:
       case BookingStatus.CANCELLED:
         return const Color(0xFFEF4444);
     }
@@ -491,10 +953,20 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
     switch (_booking!.status) {
       case BookingStatus.DRAFT:
         return 'Draft';
+      case BookingStatus.CREATED:
+        return 'Created';
       case BookingStatus.PENDING_APPROVAL:
         return 'Pending Approval';
+      case BookingStatus.UNDER_REVIEW:
+        return 'Under Review';
+      case BookingStatus.NEED_EDIT:
+        return 'Change Request';
+      case BookingStatus.NEED_RESCHEDULE:
+        return 'Needs Reschedule';
       case BookingStatus.APPROVED:
         return 'Approved';
+      case BookingStatus.NOT_APPROVED:
+        return 'Not Approved';
       case BookingStatus.CANCELLED:
         return 'Cancelled';
     }
@@ -504,11 +976,19 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
     if (_booking == null) return Icons.info_outline;
     switch (_booking!.status) {
       case BookingStatus.DRAFT:
+      case BookingStatus.CREATED:
         return Icons.edit_note;
       case BookingStatus.PENDING_APPROVAL:
+      case BookingStatus.UNDER_REVIEW:
         return Icons.pending;
+      case BookingStatus.NEED_EDIT:
+        return Icons.edit_outlined;
+      case BookingStatus.NEED_RESCHEDULE:
+        return Icons.event_busy;
       case BookingStatus.APPROVED:
         return Icons.check_circle;
+      case BookingStatus.NOT_APPROVED:
+        return Icons.cancel_outlined;
       case BookingStatus.CANCELLED:
         return Icons.cancel;
     }
@@ -625,6 +1105,12 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
 
   Widget _buildDrawerHeader(bool isDark) {
     final canEdit = _canEdit();
+    final authProvider = context.read<AuthProvider>();
+    final userId = authProvider.user?.id;
+    final isOwner = _booking?.createdById == userId;
+
+    // Check if user can reschedule
+    final canReschedule = isOwner && _booking?.status == BookingStatus.NEED_RESCHEDULE;
 
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
@@ -651,15 +1137,65 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
           ),
           const SizedBox(width: 8),
 
-          // Title
+          // Title with pencil icon for edit/reschedule
           Expanded(
-            child: Text(
-              'Booking Details',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: isDark ? Colors.white : Colors.black,
-              ),
+            child: Row(
+              children: [
+                Text(
+                  'Booking Details',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: isDark ? Colors.white : Colors.black,
+                  ),
+                ),
+                const Spacer(),
+                // Edit icon for NEED_EDIT (on the right side)
+                if (canEdit) ...[
+                  InkWell(
+                    onTap: _enterEditMode,
+                    borderRadius: BorderRadius.circular(6),
+                    child: Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF59E0B).withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(
+                          color: const Color(0xFFF59E0B).withOpacity(0.3),
+                        ),
+                      ),
+                      child: const Icon(
+                        Icons.edit_outlined,
+                        size: 18,
+                        color: Color(0xFFF59E0B),
+                      ),
+                    ),
+                  ),
+                ],
+                // Calendar icon for NEED_RESCHEDULE (on the right side)
+                if (canReschedule) ...[
+                  const SizedBox(width: 8),
+                  InkWell(
+                    onTap: _handleUserReschedule,
+                    borderRadius: BorderRadius.circular(6),
+                    child: Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF59E0B).withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(
+                          color: const Color(0xFFF59E0B).withOpacity(0.3),
+                        ),
+                      ),
+                      child: const Icon(
+                        Icons.calendar_month,
+                        size: 18,
+                        color: Color(0xFFF59E0B),
+                      ),
+                    ),
+                  ),
+                ],
+              ],
             ),
           ),
 
@@ -701,53 +1237,41 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
             ),
           ],
 
-          // Action buttons for non-drafts
-          if (_booking!.status != BookingStatus.DRAFT) ...[
-            if (_isEditing) ...[
-              // Cancel button
-              IconButton(
-                onPressed: _processing ? null : _cancelEdit,
-                icon: Icon(
-                  Icons.undo_rounded,
-                  size: 22,
-                  color: isDark ? Colors.grey[400] : Colors.grey[600],
-                ),
-                tooltip: 'Cancel',
+          // Action buttons for non-drafts (only when in editing mode)
+          if (_booking!.status != BookingStatus.DRAFT && _isEditing) ...[
+            // Cancel button
+            IconButton(
+              onPressed: _processing ? null : _cancelEdit,
+              icon: Icon(
+                Icons.undo_rounded,
+                size: 22,
+                color: isDark ? Colors.grey[400] : Colors.grey[600],
               ),
-              const SizedBox(width: 8),
+              tooltip: 'Cancel',
+            ),
+            const SizedBox(width: 8),
 
-              // Save button
-              IconButton(
-                onPressed: _processing ? null : _submitForApproval,
-                icon: _processing
-                    ? SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation<Color>(
-                            isDark ? Colors.white : Colors.black,
-                          ),
+            // Save button
+            IconButton(
+              onPressed: _processing ? null : _submitForApproval,
+              icon: _processing
+                  ? SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          isDark ? Colors.white : Colors.black,
                         ),
-                      )
-                    : Icon(
-                        Icons.save,
-                        size: 22,
-                        color: isDark ? Colors.white : Colors.black,
                       ),
-                tooltip: 'Save changes',
-              ),
-            ] else if (canEdit) ...[
-              // Edit button
-              IconButton(
-                onPressed: _enterEditMode,
-                icon: const Icon(Icons.edit_outlined, size: 20),
-                tooltip: 'Edit booking',
-                style: IconButton.styleFrom(
-                  backgroundColor: isDark ? const Color(0xFF27272A) : const Color(0xFFF3F4F6),
-                ),
-              ),
-            ],
+                    )
+                  : Icon(
+                      Icons.save,
+                      size: 22,
+                      color: isDark ? Colors.white : Colors.black,
+                    ),
+              tooltip: 'Save changes',
+            ),
           ],
         ],
       ),
@@ -775,22 +1299,303 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
         ),
         const SizedBox(height: 16),
 
-        // Company Information
+        // Cancellation Reason (for CANCELLED bookings)
+        if (_booking!.status == BookingStatus.CANCELLED && _booking!.cancellationReason != null) ...[
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFEF2F2),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: const Color(0xFFEF4444),
+                width: 1.5,
+              ),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(
+                  Icons.cancel_outlined,
+                  size: 24,
+                  color: const Color(0xFFEF4444),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Cancellation Reason',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: const Color(0xFFEF4444),
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        _booking!.cancellationReason!,
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: const Color(0xFF991B1B),
+                          height: 1.4,
+                        ),
+                      ),
+                      if (_booking!.cancelledAt != null) ...[
+                        const SizedBox(height: 8),
+                        Text(
+                          'Cancelled on ${DateFormat('MMM d, yyyy - HH:mm').format(_booking!.cancelledAt!)}',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: const Color(0xFF991B1B).withOpacity(0.7),
+                            fontStyle: FontStyle.italic,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+        ],
+
+        // Rejection Reason (for NOT_APPROVED bookings)
+        if (_booking!.status == BookingStatus.NOT_APPROVED && _booking!.rejectionReason != null) ...[
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFEF2F2),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: const Color(0xFFEF4444),
+                width: 1.5,
+              ),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(
+                  Icons.cancel_outlined,
+                  size: 24,
+                  color: const Color(0xFFEF4444),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Rejection Reason',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: const Color(0xFFEF4444),
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        _booking!.rejectionReason!,
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: const Color(0xFF991B1B),
+                          height: 1.4,
+                        ),
+                      ),
+                      if (_booking!.rejectedAt != null) ...[
+                        const SizedBox(height: 8),
+                        Text(
+                          'Rejected on ${DateFormat('MMM d, yyyy - HH:mm').format(_booking!.rejectedAt!)}',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: const Color(0xFF991B1B).withOpacity(0.7),
+                            fontStyle: FontStyle.italic,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+        ],
+
+        // Edit Request Message (for NEED_EDIT bookings) - ALWAYS SHOW
+        if (_booking!.status == BookingStatus.NEED_EDIT) ...[
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF78350F).withOpacity(0.15) : const Color(0xFFFEF3C7),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: const Color(0xFFF59E0B).withOpacity(0.3),
+                width: 1,
+              ),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(
+                  Icons.info_outline,
+                  size: 18,
+                  color: const Color(0xFFF59E0B),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Change request from manager',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: isDark ? const Color(0xFFFBBF24) : const Color(0xFFF59E0B),
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        _booking!.editRequestMessage ?? 'Please review and make the necessary changes to this booking.',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: isDark ? const Color(0xFFFBBF24).withOpacity(0.9) : const Color(0xFF92400E),
+                          height: 1.3,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+        ],
+
+        // Reschedule Request Message (for NEED_RESCHEDULE bookings) - ALWAYS SHOW
+        if (_booking!.status == BookingStatus.NEED_RESCHEDULE) ...[
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF78350F).withOpacity(0.15) : const Color(0xFFFEF3C7),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: const Color(0xFFF59E0B).withOpacity(0.3),
+                width: 1,
+              ),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(
+                  Icons.info_outline,
+                  size: 18,
+                  color: const Color(0xFFF59E0B),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Manager requested reschedule',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: isDark ? const Color(0xFFFBBF24) : const Color(0xFFF59E0B),
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        _booking!.rescheduleRequestMessage ?? 'Please reschedule this booking to a different date/time.',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: isDark ? const Color(0xFFFBBF24).withOpacity(0.9) : const Color(0xFF92400E),
+                          height: 1.3,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+        ],
+
+        // Removed: Large action buttons for NEED_EDIT and NEED_RESCHEDULE
+        // Now using pencil icon in header instead
+
+        // Requester Information
         _buildInfoSection(
-          'Company Information',
+          'Requester Information',
           [
-            _buildInfoRow(Icons.business, 'Company', _booking!.companyName, isDark),
-            _buildInfoRow(Icons.account_circle, 'Account', _booking!.accountName!, isDark),
-            if (_booking!.companySector != null)
-              _buildInfoRow(Icons.category, 'Sector', _booking!.companySector!, isDark),
-            if (_booking!.companyVertical != null)
-              _buildInfoRow(Icons.trending_up, 'Vertical', _booking!.companyVertical!, isDark),
-            if (_booking!.companySize != null)
-              _buildInfoRow(Icons.business_center, 'Size', _booking!.companySize!, isDark),
+            if (_booking!.requesterName != null && _booking!.requesterName!.isNotEmpty)
+              _buildInfoRow(Icons.person, 'Name', _booking!.requesterName!, isDark),
+            if (_booking!.employeeId != null && _booking!.employeeId!.isNotEmpty)
+              _buildInfoRow(Icons.badge, 'Employee ID', _booking!.employeeId!, isDark),
+            if (_booking!.vertical != null)
+              _buildInfoRow(Icons.apartment, 'TCS Vertical', _formatEnum(_booking!.vertical!.name), isDark),
           ],
           isDark,
         ),
         const SizedBox(height: 16),
+
+        // Organization Information
+        _buildInfoSection(
+          'Organization Information',
+          [
+            if (_booking!.organizationName != null && _booking!.organizationName!.isNotEmpty)
+              _buildInfoRow(Icons.business, 'Organization', _booking!.organizationName!, isDark),
+            if (_booking!.organizationType != null)
+              _buildInfoRow(Icons.category, 'Type', _formatEnum(_booking!.organizationType!.name), isDark),
+            if (_booking!.organizationTypeOther != null && _booking!.organizationTypeOther!.isNotEmpty)
+              _buildInfoRow(Icons.info_outline, 'Type (Other)', _booking!.organizationTypeOther!, isDark),
+            if (_booking!.organizationDescription != null && _booking!.organizationDescription!.isNotEmpty)
+              _buildInfoRow(Icons.description, 'Description', _booking!.organizationDescription!, isDark),
+          ],
+          isDark,
+        ),
+        const SizedBox(height: 16),
+
+        // Engagement Details
+        _buildInfoSection(
+          'Engagement Details',
+          [
+            _buildInfoRow(
+              Icons.handshake,
+              'Engagement Type',
+              _formatEnum(_booking!.engagementType?.name ?? 'Not specified'),
+              isDark,
+            ),
+            _buildInfoRow(
+              Icons.event,
+              'Visit Type',
+              _formatEnum(_booking!.visitType?.name ?? 'Not specified'),
+              isDark,
+            ),
+            if (_booking!.objectiveInterest != null && _booking!.objectiveInterest!.isNotEmpty)
+              _buildInfoRow(Icons.flag, 'Objective / Interest', _booking!.objectiveInterest!, isDark),
+            if (_booking!.targetAudience != null)
+              _buildTargetAudienceRow(_booking!.targetAudience!, isDark),
+          ],
+          isDark,
+        ),
+        const SizedBox(height: 16),
+
+        // Questionnaire Answers (if present)
+        if (_booking!.questionnaireAnswers != null) ...[
+          _buildInfoSection(
+            'Questionnaire Answers',
+            [
+              _buildQuestionnaireAnswers(_booking!.questionnaireAnswers!, isDark),
+            ],
+            isDark,
+          ),
+          const SizedBox(height: 16),
+        ],
 
         // Visit Details
         _buildInfoSection(
@@ -1018,9 +1823,13 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
           isDark,
         ),
 
-        // Approval Actions (for PENDING_APPROVAL)
-        if (_booking!.status == BookingStatus.PENDING_APPROVAL) ...[
-          const SizedBox(height: 24),
+        // Manager/Admin Actions for Review Statuses
+        if (_booking!.status == BookingStatus.CREATED ||
+            _booking!.status == BookingStatus.UNDER_REVIEW ||
+            _booking!.status == BookingStatus.NEED_EDIT ||
+            _booking!.status == BookingStatus.NEED_RESCHEDULE ||
+            _booking!.status == BookingStatus.PENDING_APPROVAL) ...[
+          const SizedBox(height: 20),
           Builder(
             builder: (context) {
               final authProvider = Provider.of<AuthProvider>(context, listen: false);
@@ -1030,87 +1839,180 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
 
               if (!isAdminOrManager) return const SizedBox.shrink();
 
-              return Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF18181B) : Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
-                  ),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Text(
-                      'Pending Approval',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: isDark ? Colors.white : Colors.black,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Review this booking and take action',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: isDark ? Colors.grey[400] : Colors.grey[600],
-                      ),
-                    ),
-                    const SizedBox(height: 20),
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // Action buttons for CREATED, UNDER_REVIEW, PENDING_APPROVAL
+                  if (_booking!.status == BookingStatus.CREATED ||
+                      _booking!.status == BookingStatus.UNDER_REVIEW ||
+                      _booking!.status == BookingStatus.PENDING_APPROVAL) ...[
+                    // Secondary actions first
                     Row(
                       children: [
                         Expanded(
-                          child: ElevatedButton.icon(
-                            onPressed: _processing ? null : _handleApprove,
-                            icon: _processing
-                                ? const SizedBox(
-                                    width: 18,
-                                    height: 18,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      valueColor:
-                                          AlwaysStoppedAnimation<Color>(Colors.white),
-                                    ),
-                                  )
-                                : const Icon(Icons.check, size: 20),
+                          child: OutlinedButton.icon(
+                            onPressed: _processing ? null : _handleRequestEdit,
+                            icon: const Icon(Icons.edit_outlined, size: 16),
                             label: const Text(
-                              'Approve',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                              ),
+                              'Change Request',
+                              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
                             ),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF10B981),
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(vertical: 16),
-                              elevation: 0,
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: isDark ? Colors.white : Colors.black,
+                              side: BorderSide(
+                                color: isDark ? Colors.white.withOpacity(0.2) : Colors.black.withOpacity(0.2),
+                              ),
+                              padding: const EdgeInsets.symmetric(vertical: 10),
                               shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8),
+                                borderRadius: BorderRadius.circular(6),
                               ),
                             ),
                           ),
                         ),
-                        const SizedBox(width: 12),
+                        const SizedBox(width: 8),
                         Expanded(
                           child: OutlinedButton.icon(
-                            onPressed: _processing ? null : _handleDeny,
-                            icon: const Icon(Icons.close, size: 20),
+                            onPressed: _processing ? null : _handleRequestReschedule,
+                            icon: const Icon(Icons.calendar_month, size: 16),
                             label: const Text(
-                              'Deny',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                              ),
+                              'Need Reschedule',
+                              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
                             ),
                             style: OutlinedButton.styleFrom(
-                              foregroundColor: Colors.red,
-                              side: const BorderSide(color: Colors.red, width: 2),
-                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              foregroundColor: isDark ? Colors.white : Colors.black,
+                              side: BorderSide(
+                                color: isDark ? Colors.white.withOpacity(0.2) : Colors.black.withOpacity(0.2),
+                              ),
+                              padding: const EdgeInsets.symmetric(vertical: 10),
                               shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: _processing ? null : _handleReject,
+                            icon: const Icon(Icons.close, size: 16),
+                            label: const Text(
+                              'Reject',
+                              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+                            ),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: isDark ? Colors.white : Colors.black,
+                              side: BorderSide(
+                                color: isDark ? Colors.white.withOpacity(0.2) : Colors.black.withOpacity(0.2),
+                              ),
+                              padding: const EdgeInsets.symmetric(vertical: 10),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: _processing ? null : _handleCancel,
+                            icon: const Icon(Icons.block, size: 16),
+                            label: const Text(
+                              'Cancel',
+                              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+                            ),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: isDark ? Colors.white : Colors.black,
+                              side: BorderSide(
+                                color: isDark ? Colors.white.withOpacity(0.2) : Colors.black.withOpacity(0.2),
+                              ),
+                              padding: const EdgeInsets.symmetric(vertical: 10),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    // Approve button last (primary action)
+                    ElevatedButton.icon(
+                      onPressed: _processing ? null : _handleApprove,
+                      icon: _processing
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                              ),
+                            )
+                          : const Icon(Icons.check, size: 16),
+                      label: const Text(
+                        'Approve',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: isDark ? Colors.white : Colors.black,
+                        foregroundColor: isDark ? Colors.black : Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                      ),
+                    ),
+                  ],
+
+                  // For NEED_EDIT and NEED_RESCHEDULE - Only show reject/cancel
+                  if (_booking!.status == BookingStatus.NEED_EDIT ||
+                      _booking!.status == BookingStatus.NEED_RESCHEDULE) ...[
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: _processing ? null : _handleReject,
+                            icon: const Icon(Icons.close, size: 16),
+                            label: const Text(
+                              'Reject',
+                              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+                            ),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: isDark ? Colors.white : Colors.black,
+                              side: BorderSide(
+                                color: isDark ? Colors.white.withOpacity(0.2) : Colors.black.withOpacity(0.2),
+                              ),
+                              padding: const EdgeInsets.symmetric(vertical: 10),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: _processing ? null : _handleCancel,
+                            icon: const Icon(Icons.block, size: 16),
+                            label: const Text(
+                              'Cancel',
+                              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+                            ),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: isDark ? Colors.white : Colors.black,
+                              side: BorderSide(
+                                color: isDark ? Colors.white.withOpacity(0.2) : Colors.black.withOpacity(0.2),
+                              ),
+                              padding: const EdgeInsets.symmetric(vertical: 10),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(6),
                               ),
                             ),
                           ),
@@ -1118,7 +2020,7 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
                       ],
                     ),
                   ],
-                ),
+                ],
               );
             },
           ),
@@ -1584,6 +2486,151 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
         size: 40,
         color: FileUtils.getFileIconColor(url),
       ),
+    );
+  }
+
+  Widget _buildTargetAudienceRow(dynamic targetAudience, bool isDark) {
+    List<String> audiences = [];
+
+    if (targetAudience is List) {
+      audiences = targetAudience.map((e) => e.toString()).toList();
+    } else if (targetAudience is String) {
+      try {
+        // Try to parse as JSON if it's a string
+        final parsed = jsonDecode(targetAudience);
+        if (parsed is List) {
+          audiences = parsed.map((e) => e.toString()).toList();
+        }
+      } catch (e) {
+        audiences = [targetAudience];
+      }
+    }
+
+    if (audiences.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            Icons.groups,
+            size: 20,
+            color: isDark ? Colors.grey[400] : Colors.grey[600],
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Target Audience',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: isDark ? Colors.grey[500] : Colors.grey[600],
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: audiences.map((audience) {
+                    return Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: isDark ? const Color(0xFF27272A) : const Color(0xFFF3F4F6),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(
+                          color: isDark ? const Color(0xFF3F3F46) : const Color(0xFFE5E7EB),
+                        ),
+                      ),
+                      child: Text(
+                        _formatEnum(audience),
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: isDark ? Colors.white : Colors.black,
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildQuestionnaireAnswers(dynamic questionnaireData, bool isDark) {
+    Map<String, dynamic> answers = {};
+
+    if (questionnaireData is Map) {
+      answers = questionnaireData.cast<String, dynamic>();
+    } else if (questionnaireData is String) {
+      try {
+        final parsed = jsonDecode(questionnaireData);
+        if (parsed is Map) {
+          answers = parsed.cast<String, dynamic>();
+        }
+      } catch (e) {
+        return Text(
+          'Error parsing questionnaire data',
+          style: TextStyle(
+            color: isDark ? Colors.red[400] : Colors.red[600],
+            fontSize: 14,
+          ),
+        );
+      }
+    }
+
+    if (answers.isEmpty) {
+      return const Text('No questionnaire answers available');
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: answers.entries.map((entry) {
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                entry.key,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: isDark ? Colors.grey[300] : Colors.grey[700],
+                ),
+              ),
+              const SizedBox(height: 6),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF27272A) : const Color(0xFFF9FAFB),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: isDark ? const Color(0xFF3F3F46) : const Color(0xFFE5E7EB),
+                  ),
+                ),
+                child: Text(
+                  entry.value.toString(),
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: isDark ? Colors.white : Colors.black,
+                    height: 1.4,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      }).toList(),
     );
   }
 }

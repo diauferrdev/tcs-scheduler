@@ -22,16 +22,49 @@ enum VisitDuration {
   SIX_HOURS
 }
 
+enum EngagementType {
+  VISIT
+  INNOVATION_EXCHANGE
+}
+
 enum VisitType {
-  QUICK_TOUR           // 2 hours - up to 2 per day
-  INNOVATION_EXCHANGE  // 4-6 hours - needs setup/teardown periods
+  QUICK_TOUR       // DEPRECATED - kept for backwards compatibility, maps to PACE_TOUR
+  PACE_TOUR        // 14h-16h (2 hours) - simple visit, no questionnaire
+  PACE_EXPERIENCE  // 10h-16h (6 hours) - full day, requires questionnaire
+  INNOVATION_EXCHANGE  // 10h-17h (7 hours) - requires questionnaire and alignment call
 }
 
 enum BookingStatus {
-  DRAFT             // Draft booking (not yet submitted)
-  PENDING_APPROVAL  // Waiting for at least one manager approval
-  APPROVED          // Approved and scheduled
-  CANCELLED
+  DRAFT            // DEPRECATED - kept for backwards compatibility
+  PENDING_APPROVAL // DEPRECATED - kept for backwards compatibility, maps to UNDER_REVIEW
+  CREATED          // Initial status when booking is submitted
+  UNDER_REVIEW     // Manager/Admin is reviewing the booking
+  NEED_EDIT        // User must edit information (except date)
+  NEED_RESCHEDULE  // User must choose new date
+  APPROVED         // Approved and scheduled (time blocked)
+  NOT_APPROVED     // Rejected with reason
+  CANCELLED        // Manually cancelled
+}
+
+enum OrganizationType {
+  GOVERNMENTAL_INSTITUTION
+  PARTNER
+  EXISTING_CUSTOMER
+  PROSPECT
+  OTHER
+}
+
+enum TCSVertical {
+  BFSI                  // Banking, Financial Services & Insurance
+  RETAIL_CPG            // Retail & Consumer Packaged Goods
+  LIFE_SCIENCES_HEALTHCARE  // Life Sciences & Healthcare
+  MANUFACTURING
+  HI_TECH
+  CMT                   // Communications, Media & Technology
+  ERU                   // Energy, Resources & Utilities
+  TRAVEL_HOSPITALITY    // Travel, Transportation & Hospitality
+  PUBLIC_SERVICES
+  BUSINESS_SERVICES
 }
 
 enum EventType {
@@ -91,12 +124,30 @@ model Booking {
   date            DateTime       @db.Date
   startTime       String
   duration        VisitDuration
-  visitType       VisitType      @default(INNOVATION_EXCHANGE) // QUICK_TOUR or INNOVATION_EXCHANGE
-  status          BookingStatus  @default(PENDING_APPROVAL)
 
-  // Account & Company Info
-  accountName     String
-  companyName     String
+  // New engagement flow
+  engagementType  EngagementType @default(VISIT)
+  visitType       VisitType      @default(PACE_TOUR)
+  status          BookingStatus  @default(CREATED)
+
+  // Base Information (Drawer 2)
+  requesterName   String         @default("")  // Name of requester
+  employeeId      String         @default("")  // TCS Employee ID
+  vertical        TCSVertical    @default(BFSI)  // TCS Vertical
+  organizationName String        @default("")  // Organization Name
+  organizationType OrganizationType @default(PROSPECT)
+  organizationTypeOther String?  // If "OTHER" is selected
+  organizationDescription String? @db.Text
+  objectiveInterest String?      @db.Text  // Objective / Interest in PacePort
+  targetAudience  Json?          // Array of target audience types
+
+  // Questionnaire (for Pace Experience & Innovation Exchange)
+  questionnaireAnswers Json?     // Stores 5 questionnaire answers
+  requiresAlignmentCall Boolean  @default(false)  // Flag for Pace Experience & Innovation Exchange
+
+  // Legacy Company Info (kept for compatibility)
+  accountName     String         @default("")
+  companyName     String         @default("")
   companySector   String?
   companyVertical String?
   companySize     String?
@@ -120,21 +171,30 @@ model Booking {
   // Deal Status
   dealStatus      DealStatus?
 
-  // Approvals
-  attachHeadApproval Boolean    @default(false)  // Renamed from segmentHeadApproval
-  attachments        Json?                       // Array of attachment URLs (up to 6)
+  // Approvals & Status Management
+  attachHeadApproval Boolean    @default(false)
+  attachments        Json?      // Array of attachment URLs (up to 6)
   approvedById       String?    // Manager who approved
   approvedBy         User?      @relation("ApprovedBy", fields: [approvedById], references: [id])
   approvedAt         DateTime?
 
+  // Rejection
+  rejectionReason String?       @db.Text  // Reason for Not Approved status
+  rejectedById    String?       // Manager who rejected
+  rejectedAt      DateTime?
+
+  // Status Change Messages
+  editRequestMessage String?    @db.Text  // Message when requesting edit
+  rescheduleRequestMessage String? @db.Text  // Message when requesting reschedule
+
   // Cancellation
-  cancellationReason String?    @db.Text        // Reason for cancellation (if manually cancelled)
-  cancelledById      String?                     // User who cancelled (if manually cancelled)
-  cancelledAt        DateTime?                   // When was it cancelled
+  cancellationReason String?    @db.Text  // Reason for cancellation
+  cancelledById      String?    // User who cancelled
+  cancelledAt        DateTime?  // When was it cancelled
 
   // Reschedule tracking
-  originalBookingId   String?    // If this was rescheduled, reference to original
-  rescheduledToId     String?    // If this was rescheduled, reference to new booking
+  originalBookingId   String?   // If this was rescheduled, reference to original
+  rescheduledToId     String?   // If this was rescheduled, reference to new booking
 
   // Legacy fields (kept for compatibility)
   interestArea    String?
@@ -155,6 +215,9 @@ model Booking {
   @@index([date])
   @@index([status])
   @@index([createdById])
+  @@index([engagementType])
+  @@index([visitType])
+  @@index([vertical])
 }
 
 model Attendee {
@@ -292,11 +355,16 @@ model BookingParticipant {
 
 enum NotificationType {
   BOOKING_INVITATION
-  BOOKING_PENDING_APPROVAL     // New booking waiting for manager approval
-  BOOKING_CONFIRMED
+  BOOKING_PENDING_APPROVAL     // DEPRECATED - kept for backwards compatibility
+  BOOKING_CONFIRMED            // DEPRECATED - kept for backwards compatibility
+  BOOKING_CREATED              // New booking submitted (CREATED status)
+  BOOKING_UNDER_REVIEW         // Booking moved to under review
+  BOOKING_NEED_EDIT            // User must edit information
+  BOOKING_NEED_RESCHEDULE      // User must reschedule
   BOOKING_APPROVED             // Manager approved the booking
+  BOOKING_NOT_APPROVED         // Manager rejected the booking
   BOOKING_UPDATED
-  BOOKING_IMPORTANT_CHANGE     // Important data changed (attendees, date, etc)
+  BOOKING_IMPORTANT_CHANGE     // Important data changed
   BOOKING_CANCELLED
   BOOKING_RESCHEDULED
   PARTICIPANT_CONFIRMED

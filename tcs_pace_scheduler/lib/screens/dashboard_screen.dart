@@ -6,7 +6,6 @@ import '../providers/theme_provider.dart';
 import '../services/api_service.dart';
 import '../services/universal_update_service.dart';
 import '../models/dashboard.dart';
-import '../models/booking.dart';
 
 class DashboardScreen extends StatefulWidget {
   final bool skipLayout;
@@ -22,18 +21,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   // Data
   DashboardStats? _stats;
-  List<Booking> _allBookings = [];
-  List<SectorData> _sectors = [];
-  List<TopCompany> _topCompanies = [];
 
-  // Loading states
-  bool _loadingStats = true;
-  bool _loadingBookings = true;
-  bool _loadingSectors = true;
-  bool _loadingCompanies = true;
-
-  // Filters
-  final int _selectedYear = DateTime.now().year;
+  // Loading state
+  bool _loading = true;
 
   // Error
   String? _error;
@@ -41,7 +31,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   void initState() {
     super.initState();
-    _loadAllData();
+    _loadData();
 
     // Check for updates IMMEDIATELY after login to prevent bugs
     // Blocks UI if app is outdated
@@ -52,228 +42,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
     });
   }
 
-  Future<void> _loadAllData() async {
-    await Future.wait([
-      _loadStats(),
-      _loadBookings(),
-      _loadSectors(),
-      _loadTopCompanies(),
-    ]);
-  }
-
-  Future<void> _loadStats() async {
+  Future<void> _loadData() async {
     try {
-      setState(() => _loadingStats = true);
+      setState(() => _loading = true);
       final response = await _apiService.getDashboardStats();
       setState(() {
         _stats = DashboardStats.fromJson(response);
-        _loadingStats = false;
+        _loading = false;
+        _error = null;
       });
     } catch (e) {
       setState(() {
         _error = e.toString();
-        _loadingStats = false;
+        _loading = false;
       });
     }
-  }
-
-  Future<void> _loadBookings() async {
-    try {
-      setState(() => _loadingBookings = true);
-      final response = await _apiService.getBookings();
-      final bookingsData = (response['bookings'] as List?) ?? [];
-      setState(() {
-        _allBookings = bookingsData.map((e) => Booking.fromJson(e)).toList();
-        _loadingBookings = false;
-      });
-    } catch (e) {
-      debugPrint('Error loading bookings: $e');
-      setState(() => _loadingBookings = false);
-    }
-  }
-
-  Future<void> _loadSectors() async {
-    try {
-      setState(() => _loadingSectors = true);
-      final data = await _apiService.getBookingsBySector(_selectedYear);
-      setState(() {
-        _sectors = data.map((e) => SectorData.fromJson(e)).toList();
-        _loadingSectors = false;
-      });
-    } catch (e) {
-      setState(() {
-        _error = e.toString();
-        _loadingSectors = false;
-      });
-    }
-  }
-
-  Future<void> _loadTopCompanies() async {
-    try {
-      setState(() => _loadingCompanies = true);
-      final data = await _apiService.getTopCompanies(10);
-      setState(() {
-        _topCompanies = data.map((e) => TopCompany.fromJson(e)).toList();
-        _loadingCompanies = false;
-      });
-    } catch (e) {
-      setState(() {
-        _error = e.toString();
-        _loadingCompanies = false;
-      });
-    }
-  }
-
-  // Advanced analytics calculations
-  double _calculateConversionRate() {
-    if (_allBookings.isEmpty) return 0;
-    final wonCount = _allBookings.where((b) => b.dealStatus == DealStatus.WON).length;
-    final totalDeals = _allBookings.where((b) => b.dealStatus != null).length;
-    return totalDeals > 0 ? (wonCount / totalDeals * 100) : 0;
-  }
-
-  double _calculatePartnerEventsPercentage() {
-    if (_allBookings.isEmpty) return 0;
-    final partnerCount = _allBookings.where((b) => b.eventType == EventType.PARTNER).length;
-    return (partnerCount / _allBookings.length * 100);
-  }
-
-  double _calculateReturnRate() {
-    if (_allBookings.isEmpty) return 0;
-    final returningCount = _allBookings.where((b) => b.lastInnovationDay != null).length;
-    return (returningCount / _allBookings.length * 100);
-  }
-
-  double _calculateSupporterRatio() {
-    final allAttendees = _allBookings
-        .where((b) => b.attendees != null)
-        .expand((b) => b.attendees!)
-        .toList();
-    if (allAttendees.isEmpty) return 0;
-    final supporters = allAttendees.where((a) => a.tcsSupporter == TCSSupporter.SUPPORTER).length;
-    return (supporters / allAttendees.length * 100);
-  }
-
-  double _calculateAverageAttendees() {
-    if (_allBookings.isEmpty) return 0;
-    final total = _allBookings.fold<int>(0, (sum, b) => sum + b.expectedAttendees);
-    return total / _allBookings.length;
-  }
-
-  Map<String, int> _getDealPipelineBySector() {
-    final Map<String, int> pipeline = {};
-    for (var booking in _allBookings) {
-      if (booking.companySector != null) {
-        final sector = booking.companySector!;
-        pipeline[sector] = (pipeline[sector] ?? 0) + 1;
-      }
-    }
-    return pipeline;
-  }
-
-  Map<String, dynamic> _getEventTypeDistribution() {
-    final tcsCount = _allBookings.where((b) => b.eventType == EventType.TCS || b.eventType == null).length;
-    final partnerCount = _allBookings.where((b) => b.eventType == EventType.PARTNER).length;
-    return {'TCS': tcsCount, 'PARTNER': partnerCount};
-  }
-
-  Map<String, int> _getCompanySizeDistribution() {
-    final Map<String, int> dist = {};
-    for (var booking in _allBookings) {
-      if (booking.companySize != null) {
-        final size = booking.companySize!;
-        dist[size] = (dist[size] ?? 0) + 1;
-      }
-    }
-    return dist;
-  }
-
-  Map<String, dynamic> _getSupporterBreakdown() {
-    final allAttendees = _allBookings
-        .where((b) => b.attendees != null)
-        .expand((b) => b.attendees!)
-        .toList();
-
-    final supporters = allAttendees.where((a) => a.tcsSupporter == TCSSupporter.SUPPORTER).length;
-    final neutrals = allAttendees.where((a) => a.tcsSupporter == TCSSupporter.NEUTRAL).length;
-    final detractors = allAttendees.where((a) => a.tcsSupporter == TCSSupporter.DETRACTOR).length;
-
-    return {
-      'SUPPORTER': supporters,
-      'NEUTRAL': neutrals,
-      'DETRACTOR': detractors,
-    };
-  }
-
-  Map<String, int> _getFocusAreasDistribution() {
-    final Map<String, int> focusAreas = {};
-    final allAttendees = _allBookings
-        .where((b) => b.attendees != null)
-        .expand((b) => b.attendees!)
-        .toList();
-
-    for (var attendee in allAttendees) {
-      if (attendee.focusAreas != null && attendee.focusAreas!.isNotEmpty) {
-        final areas = attendee.focusAreas!.split(',').map((e) => e.trim()).toList();
-        for (var area in areas) {
-          if (area.isNotEmpty) {
-            focusAreas[area] = (focusAreas[area] ?? 0) + 1;
-          }
-        }
-      }
-    }
-
-    // Sort by count and get top 10
-    final sorted = focusAreas.entries.toList()
-      ..sort((a, b) => b.value.compareTo(a.value));
-    return Map.fromEntries(sorted.take(10));
-  }
-
-  Map<int, Map<int, int>> _getEngagementHeatmap() {
-    final Map<int, Map<int, int>> heatmap = {};
-
-    for (var booking in _allBookings) {
-      final dayOfWeek = booking.date.weekday; // 1-7 (Monday-Sunday)
-      final hour = int.tryParse(booking.startTime.split(':')[0]) ?? 0;
-
-      if (!heatmap.containsKey(dayOfWeek)) {
-        heatmap[dayOfWeek] = {};
-      }
-      heatmap[dayOfWeek]![hour] = (heatmap[dayOfWeek]![hour] ?? 0) + 1;
-    }
-
-    return heatmap;
-  }
-
-  Map<String, double> _getAverageDurationByEventType() {
-    final tcsBookings = _allBookings.where((b) => b.eventType == EventType.TCS || b.eventType == null).toList();
-    final partnerBookings = _allBookings.where((b) => b.eventType == EventType.PARTNER).toList();
-
-    double getDurationHours(VisitDuration duration) {
-      switch (duration) {
-        case VisitDuration.ONE_HOUR:
-          return 1.0;
-        case VisitDuration.TWO_HOURS:
-          return 2.0;
-        case VisitDuration.THREE_HOURS:
-          return 3.0;
-        case VisitDuration.FOUR_HOURS:
-          return 4.0;
-        case VisitDuration.FIVE_HOURS:
-          return 5.0;
-        case VisitDuration.SIX_HOURS:
-          return 6.0;
-      }
-    }
-
-    final tcsAvg = tcsBookings.isEmpty
-        ? 0.0
-        : tcsBookings.fold<double>(0, (sum, b) => sum + getDurationHours(b.duration)) / tcsBookings.length;
-    final partnerAvg = partnerBookings.isEmpty
-        ? 0.0
-        : partnerBookings.fold<double>(0, (sum, b) => sum + getDurationHours(b.duration)) / partnerBookings.length;
-
-    return {'TCS': tcsAvg, 'PARTNER': partnerAvg};
   }
 
   @override
@@ -328,11 +111,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
               ),
 
-            // Stat Cards Grid (2 columns)
+            // Stat Cards Grid
             _buildStatCardsGrid(isDark, screenWidth),
             const SizedBox(height: 24),
 
-            // Advanced Charts Grid
+            // Charts Grid
             _buildChartsGrid(isDark, screenWidth),
             const SizedBox(height: 24),
           ],
@@ -344,55 +127,93 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildStatCardsGrid(bool isDark, double screenWidth) {
+    if (_loading || _stats == null) {
+      return _buildLoadingCards(isDark);
+    }
+
+    final total = _stats!.statusDistribution.pending +
+        _stats!.statusDistribution.approved +
+        _stats!.statusDistribution.notApproved;
+    final approvalRate = total > 0
+        ? (_stats!.statusDistribution.approved / total * 100)
+        : 0.0;
+
     final statCards = [
       _buildStatCard(
         'Total Bookings',
-        _loadingStats ? '...' : (_stats?.totalBookings.toString() ?? '0'),
+        _stats!.totalBookings.toString(),
         Icons.calendar_today,
         isDark,
-        trend: _loadingStats ? null : '+${_stats?.thisMonthBookings ?? 0} this month',
+        trend: '+${_stats!.thisMonthBookings} this month',
       ),
       _buildStatCard(
-        'Conversion Rate',
-        _loadingBookings ? '...' : '${_calculateConversionRate().toStringAsFixed(1)}%',
-        Icons.trending_up,
-        isDark,
-        trend: 'WON / Total Deals',
-      ),
-      _buildStatCard(
-        'Avg Attendees/Event',
-        _loadingBookings ? '...' : _calculateAverageAttendees().toStringAsFixed(1),
+        'Avg Attendees',
+        _stats!.avgAttendees.toStringAsFixed(1),
         Icons.people,
         isDark,
+        trend: 'per booking',
       ),
       _buildStatCard(
-        'Partner Events',
-        _loadingBookings ? '...' : '${_calculatePartnerEventsPercentage().toStringAsFixed(1)}%',
-        Icons.handshake,
+        'Approved',
+        _stats!.statusDistribution.approved.toString(),
+        Icons.check_circle,
+        isDark,
+        trend: '${approvalRate.toStringAsFixed(1)}% approval rate',
+      ),
+      _buildStatCard(
+        'Pending',
+        _stats!.statusDistribution.pending.toString(),
+        Icons.pending,
+        isDark,
+        trend: 'awaiting review',
+      ),
+      _buildStatCard(
+        'Not Approved',
+        _stats!.statusDistribution.notApproved.toString(),
+        Icons.cancel,
         isDark,
       ),
       _buildStatCard(
-        'Return Rate',
-        _loadingBookings ? '...' : '${_calculateReturnRate().toStringAsFixed(1)}%',
-        Icons.repeat,
-        isDark,
-        trend: 'Companies returning',
-      ),
-      _buildStatCard(
-        'Supporter Ratio',
-        _loadingBookings ? '...' : '${_calculateSupporterRatio().toStringAsFixed(1)}%',
-        Icons.thumb_up,
+        'This Month',
+        _stats!.thisMonthBookings.toString(),
+        Icons.today,
         isDark,
       ),
     ];
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        // Always show 2 cards per row
         return Wrap(
           spacing: 16,
           runSpacing: 16,
           children: statCards.map((card) {
+            final itemWidth = (constraints.maxWidth - 16) / 2;
+            return SizedBox(
+              width: itemWidth,
+              child: card,
+            );
+          }).toList(),
+        );
+      },
+    );
+  }
+
+  Widget _buildLoadingCards(bool isDark) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final loadingCards = List.generate(
+          6,
+          (index) => _buildStatCard(
+            'Loading...',
+            '...',
+            Icons.hourglass_empty,
+            isDark,
+          ),
+        );
+        return Wrap(
+          spacing: 16,
+          runSpacing: 16,
+          children: loadingCards.map((card) {
             final itemWidth = (constraints.maxWidth - 16) / 2;
             return SizedBox(
               width: itemWidth,
@@ -413,76 +234,36 @@ class _DashboardScreenState extends State<DashboardScreen> {
         final maxWidth = constraints.maxWidth;
 
         if (isDesktop) {
-          // Desktop: 2 columns
           final columnWidth = (maxWidth - 16) / 2;
           return Column(
             children: [
-              // Row 1: Deal Pipeline & Event Type
+              // Row 1: Visit Type & Status Breakdown
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  SizedBox(
-                    width: columnWidth,
-                    child: _buildDealPipelineChart(isDark),
-                  ),
+                  SizedBox(width: columnWidth, child: _buildVisitTypeChart(isDark)),
                   const SizedBox(width: 16),
-                  SizedBox(
-                    width: columnWidth,
-                    child: _buildEventTypeChart(isDark),
-                  ),
+                  SizedBox(width: columnWidth, child: _buildStatusBreakdownChart(isDark)),
                 ],
               ),
               const SizedBox(height: 16),
 
-              // Row 2: Company Size & Sector Performance
+              // Row 2: Organization Type & TCS Vertical Distribution
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  SizedBox(
-                    width: columnWidth,
-                    child: _buildCompanySizeChart(isDark),
-                  ),
+                  SizedBox(width: columnWidth, child: _buildOrganizationTypeChart(isDark)),
                   const SizedBox(width: 16),
-                  SizedBox(
-                    width: columnWidth,
-                    child: _buildSectorPerformanceChart(isDark),
-                  ),
+                  SizedBox(width: columnWidth, child: _buildVerticalChart(isDark)),
                 ],
               ),
               const SizedBox(height: 16),
 
-              // Row 3: Supporter Analysis & Focus Areas
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  SizedBox(
-                    width: columnWidth,
-                    child: _buildSupporterAnalysisChart(isDark),
-                  ),
-                  const SizedBox(width: 16),
-                  SizedBox(
-                    width: columnWidth,
-                    child: _buildFocusAreasChart(isDark),
-                  ),
-                ],
-              ),
+              // Row 3: Time Slot Distribution (full width)
+              _buildTimeSlotChart(isDark),
               const SizedBox(height: 16),
 
-              // Row 4: Engagement Heatmap & Duration by Type
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  SizedBox(
-                    width: columnWidth,
-                    child: _buildEngagementHeatmapChart(isDark),
-                  ),
-                  const SizedBox(width: 16),
-                  SizedBox(
-                    width: columnWidth,
-                    child: _buildDurationByTypeChart(isDark),
-                  ),
-                ],
-              ),
+              _buildMonthlyTrendChart(isDark),
               const SizedBox(height: 16),
 
               // Row 5: Top Companies (full width)
@@ -490,45 +271,30 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ],
           );
         } else if (isTablet) {
-          // Tablet: 2 columns
           final columnWidth = (maxWidth - 16) / 2;
           return Column(
             children: [
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  SizedBox(width: columnWidth, child: _buildDealPipelineChart(isDark)),
+                  SizedBox(width: columnWidth, child: _buildVisitTypeChart(isDark)),
                   const SizedBox(width: 16),
-                  SizedBox(width: columnWidth, child: _buildEventTypeChart(isDark)),
+                  SizedBox(width: columnWidth, child: _buildStatusBreakdownChart(isDark)),
                 ],
               ),
               const SizedBox(height: 16),
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  SizedBox(width: columnWidth, child: _buildCompanySizeChart(isDark)),
+                  SizedBox(width: columnWidth, child: _buildOrganizationTypeChart(isDark)),
                   const SizedBox(width: 16),
-                  SizedBox(width: columnWidth, child: _buildSectorPerformanceChart(isDark)),
+                  SizedBox(width: columnWidth, child: _buildVerticalChart(isDark)),
                 ],
               ),
               const SizedBox(height: 16),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  SizedBox(width: columnWidth, child: _buildSupporterAnalysisChart(isDark)),
-                  const SizedBox(width: 16),
-                  SizedBox(width: columnWidth, child: _buildFocusAreasChart(isDark)),
-                ],
-              ),
+              _buildTimeSlotChart(isDark),
               const SizedBox(height: 16),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  SizedBox(width: columnWidth, child: _buildEngagementHeatmapChart(isDark)),
-                  const SizedBox(width: 16),
-                  SizedBox(width: columnWidth, child: _buildDurationByTypeChart(isDark)),
-                ],
-              ),
+              _buildMonthlyTrendChart(isDark),
               const SizedBox(height: 16),
               _buildTopCompaniesCard(isDark),
             ],
@@ -537,21 +303,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
           // Mobile: 1 column
           return Column(
             children: [
-              _buildDealPipelineChart(isDark),
+              _buildVisitTypeChart(isDark),
               const SizedBox(height: 16),
-              _buildEventTypeChart(isDark),
+              _buildStatusBreakdownChart(isDark),
               const SizedBox(height: 16),
-              _buildCompanySizeChart(isDark),
+              _buildOrganizationTypeChart(isDark),
               const SizedBox(height: 16),
-              _buildSectorPerformanceChart(isDark),
+              _buildVerticalChart(isDark),
               const SizedBox(height: 16),
-              _buildSupporterAnalysisChart(isDark),
+              _buildTimeSlotChart(isDark),
               const SizedBox(height: 16),
-              _buildFocusAreasChart(isDark),
-              const SizedBox(height: 16),
-              _buildEngagementHeatmapChart(isDark),
-              const SizedBox(height: 16),
-              _buildDurationByTypeChart(isDark),
+              _buildMonthlyTrendChart(isDark),
               const SizedBox(height: 16),
               _buildTopCompaniesCard(isDark),
             ],
@@ -623,20 +385,194 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _buildDealPipelineChart(bool isDark) {
+  Widget _buildVisitTypeChart(bool isDark) {
     return _buildChartContainer(
-      title: 'Deal Pipeline by Sector',
+      title: 'Visit Type Distribution',
       isDark: isDark,
-      child: _loadingBookings
+      child: _loading || _stats == null
           ? _buildLoadingIndicator(isDark)
           : () {
-              final pipeline = _getDealPipelineBySector();
-              if (pipeline.isEmpty) {
+              final dist = _stats!.visitTypeDistribution;
+              final total = dist.total;
+
+              if (total == 0) {
                 return _buildNoData(isDark);
               }
 
-              final sorted = pipeline.entries.toList()
-                ..sort((a, b) => b.value.compareTo(a.value));
+              return Column(
+                children: [
+                  SizedBox(
+                    height: 200,
+                    child: Center(
+                      child: PieChart(
+                        PieChartData(
+                          sectionsSpace: 2,
+                          centerSpaceRadius: 35,
+                          sections: [
+                            if (dist.paceTour > 0)
+                              PieChartSectionData(
+                                color: const Color(0xFF3B82F6),
+                                value: dist.paceTour.toDouble(),
+                                title: '${(dist.paceTour / total * 100).toStringAsFixed(1)}%',
+                                radius: 45,
+                                titleStyle: const TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            if (dist.paceExperience > 0)
+                              PieChartSectionData(
+                                color: const Color(0xFF8B5CF6),
+                                value: dist.paceExperience.toDouble(),
+                                title: '${(dist.paceExperience / total * 100).toStringAsFixed(1)}%',
+                                radius: 45,
+                                titleStyle: const TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            if (dist.innovationExchange > 0)
+                              PieChartSectionData(
+                                color: const Color(0xFF10B981),
+                                value: dist.innovationExchange.toDouble(),
+                                title: '${(dist.innovationExchange / total * 100).toStringAsFixed(1)}%',
+                                radius: 45,
+                                titleStyle: const TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            if (dist.quickTour > 0)
+                              PieChartSectionData(
+                                color: const Color(0xFFF59E0B),
+                                value: dist.quickTour.toDouble(),
+                                title: '${(dist.quickTour / total * 100).toStringAsFixed(1)}%',
+                                radius: 45,
+                                titleStyle: const TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Wrap(
+                    spacing: 12,
+                    runSpacing: 8,
+                    alignment: WrapAlignment.center,
+                    children: [
+                      if (dist.paceTour > 0)
+                        _buildLegendItem('PACE Tour (${dist.paceTour})', const Color(0xFF3B82F6), isDark),
+                      if (dist.paceExperience > 0)
+                        _buildLegendItem('PACE Experience (${dist.paceExperience})', const Color(0xFF8B5CF6), isDark),
+                      if (dist.innovationExchange > 0)
+                        _buildLegendItem('Innovation Exchange (${dist.innovationExchange})', const Color(0xFF10B981), isDark),
+                      if (dist.quickTour > 0)
+                        _buildLegendItem('Quick Tour (${dist.quickTour})', const Color(0xFFF59E0B), isDark),
+                    ],
+                  ),
+                ],
+              );
+            }(),
+    );
+  }
+
+  Widget _buildStatusBreakdownChart(bool isDark) {
+    return _buildChartContainer(
+      title: 'Status Breakdown',
+      isDark: isDark,
+      child: _loading || _stats == null
+          ? _buildLoadingIndicator(isDark)
+          : () {
+              final breakdown = _stats!.statusBreakdown;
+              final total = breakdown.created +
+                  breakdown.underReview +
+                  breakdown.needEdit +
+                  breakdown.needReschedule +
+                  breakdown.approved +
+                  breakdown.notApproved;
+
+              if (total == 0) {
+                return _buildNoData(isDark);
+              }
+
+              final sections = <PieChartSectionData>[];
+              final legends = <Widget>[];
+              int colorIndex = 0;
+
+              void addSection(int value, String label, Color color) {
+                if (value > 0) {
+                  sections.add(
+                    PieChartSectionData(
+                      color: color,
+                      value: value.toDouble(),
+                      title: '${(value / total * 100).toStringAsFixed(1)}%',
+                      radius: 40,
+                      titleStyle: const TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                  );
+                  legends.add(_buildLegendItem('$label ($value)', color, isDark));
+                }
+              }
+
+              addSection(breakdown.created, 'Created', _getChartColor(colorIndex++));
+              addSection(breakdown.underReview, 'Under Review', _getChartColor(colorIndex++));
+              addSection(breakdown.needEdit, 'Need Edit', _getChartColor(colorIndex++));
+              addSection(breakdown.needReschedule, 'Need Reschedule', _getChartColor(colorIndex++));
+              addSection(breakdown.approved, 'Approved', _getChartColor(colorIndex++));
+              addSection(breakdown.notApproved, 'Not Approved', _getChartColor(colorIndex++));
+
+              return Column(
+                children: [
+                  SizedBox(
+                    height: 200,
+                    child: Center(
+                      child: PieChart(
+                        PieChartData(
+                          sectionsSpace: 2,
+                          centerSpaceRadius: 30,
+                          sections: sections,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Wrap(
+                    spacing: 12,
+                    runSpacing: 8,
+                    alignment: WrapAlignment.center,
+                    children: legends,
+                  ),
+                ],
+              );
+            }(),
+    );
+  }
+
+  Widget _buildOrganizationTypeChart(bool isDark) {
+    return _buildChartContainer(
+      title: 'Organization Type Distribution',
+      isDark: isDark,
+      child: _loading || _stats == null
+          ? _buildLoadingIndicator(isDark)
+          : () {
+              final dist = _stats!.organizationTypeDistribution;
+              if (dist.isEmpty) {
+                return _buildNoData(isDark);
+              }
+
+              final sorted = dist.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
               final top5 = sorted.take(5).toList();
 
               return Column(
@@ -650,14 +586,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         barTouchData: BarTouchData(enabled: false),
                         titlesData: FlTitlesData(
                           show: true,
-                          bottomTitles: const AxisTitles(
-                            sideTitles: SideTitles(showTitles: false),
-                          ),
+                          bottomTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
                           leftTitles: AxisTitles(
                             sideTitles: SideTitles(
                               showTitles: true,
                               reservedSize: 40,
-                              interval: top5.first.value > 5 ? (top5.first.value / 5).ceilToDouble() : 1,
                               getTitlesWidget: (value, meta) {
                                 if (value == 0 || value == meta.max) return const SizedBox.shrink();
                                 return Text(
@@ -713,7 +646,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       final index = entry.key;
                       final item = entry.value;
                       return _buildLegendItem(
-                        '${item.key} (${item.value})',
+                        '${_formatOrgType(item.key)} (${item.value})',
                         _getChartColor(index),
                         isDark,
                       );
@@ -725,353 +658,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _buildEventTypeChart(bool isDark) {
+  Widget _buildVerticalChart(bool isDark) {
     return _buildChartContainer(
-      title: 'Event Type Distribution',
+      title: 'TCS Vertical Distribution',
       isDark: isDark,
-      child: _loadingBookings
+      child: _loading || _stats == null
           ? _buildLoadingIndicator(isDark)
           : () {
-              final allEventTypes = {'TCS': 0, 'PARTNER': 0};
-              final dist = _getEventTypeDistribution();
-              allEventTypes['TCS'] = dist['TCS']!;
-              allEventTypes['PARTNER'] = dist['PARTNER']!;
-              final total = allEventTypes['TCS']! + allEventTypes['PARTNER']!;
-
-              if (total == 0) {
+              final dist = _stats!.verticalDistribution;
+              if (dist.isEmpty) {
                 return _buildNoData(isDark);
               }
 
-              return Column(
-                children: [
-                  SizedBox(
-                    height: 200,
-                    child: Center(
-                      child: PieChart(
-                        PieChartData(
-                          sectionsSpace: 2,
-                          centerSpaceRadius: 40,
-                          sections: [
-                            PieChartSectionData(
-                              color: const Color(0xFF3B82F6),
-                              value: allEventTypes['TCS']!.toDouble(),
-                              title: '${(allEventTypes['TCS']! / total * 100).toStringAsFixed(1)}%',
-                              radius: 50,
-                              titleStyle: const TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
-                              ),
-                            ),
-                            PieChartSectionData(
-                              color: const Color(0xFF8B5CF6),
-                              value: allEventTypes['PARTNER']!.toDouble(),
-                              title: '${(allEventTypes['PARTNER']! / total * 100).toStringAsFixed(1)}%',
-                              radius: 50,
-                              titleStyle: const TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      _buildLegendItem('TCS (${allEventTypes['TCS']})', const Color(0xFF3B82F6), isDark),
-                      const SizedBox(width: 24),
-                      _buildLegendItem('PARTNER (${allEventTypes['PARTNER']})', const Color(0xFF8B5CF6), isDark),
-                    ],
-                  ),
-                ],
-              );
-            }(),
-    );
-  }
-
-  Widget _buildCompanySizeChart(bool isDark) {
-    return _buildChartContainer(
-      title: 'Company Size Distribution',
-      isDark: isDark,
-      child: _loadingBookings
-          ? _buildLoadingIndicator(isDark)
-          : () {
-              final allSizes = <String, int>{
-                'SMALL': 0,
-                'MEDIUM': 0,
-                'LARGE': 0,
-                'ENTERPRISE': 0,
-              };
-
-              final dist = _getCompanySizeDistribution();
-              dist.forEach((key, value) {
-                allSizes[key] = value;
-              });
-
-              final total = allSizes.values.fold<int>(0, (sum, v) => sum + v);
-
-              if (total == 0) {
-                return _buildNoData(isDark);
-              }
-
-              final entriesList = allSizes.entries.toList();
-
-              return Column(
-                children: [
-                  SizedBox(
-                    height: 200,
-                    child: Center(
-                      child: PieChart(
-                        PieChartData(
-                          sectionsSpace: 2,
-                          centerSpaceRadius: 35,
-                          sections: entriesList.asMap().entries.map((entry) {
-                            final index = entry.key;
-                            final item = entry.value;
-                            final percentage = (item.value / total * 100).toStringAsFixed(1);
-
-                            return PieChartSectionData(
-                              color: _getChartColor(index),
-                              value: item.value.toDouble(),
-                              title: '$percentage%',
-                              radius: 45,
-                              titleStyle: const TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
-                              ),
-                            );
-                          }).toList(),
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Wrap(
-                    spacing: 12,
-                    runSpacing: 8,
-                    alignment: WrapAlignment.center,
-                    children: entriesList.asMap().entries.map((entry) {
-                      final index = entry.key;
-                      final item = entry.value;
-                      return _buildLegendItem(
-                        '${item.key} (${item.value})',
-                        _getChartColor(index),
-                        isDark,
-                      );
-                    }).toList(),
-                  ),
-                ],
-              );
-            }(),
-    );
-  }
-
-  Widget _buildSectorPerformanceChart(bool isDark) {
-    return _buildChartContainer(
-      title: 'Top Sectors',
-      isDark: isDark,
-      child: _loadingSectors
-          ? _buildLoadingIndicator(isDark)
-          : _sectors.isEmpty
-              ? _buildNoData(isDark)
-              : () {
-                  final top5 = _sectors.take(5).toList();
-
-                  return Column(
-                    children: [
-                      SizedBox(
-                        height: 200,
-                        child: BarChart(
-                          BarChartData(
-                            alignment: BarChartAlignment.spaceAround,
-                            maxY: top5.first.count.toDouble() * 1.4,
-                            barTouchData: BarTouchData(enabled: false),
-                            titlesData: FlTitlesData(
-                              show: true,
-                              bottomTitles: const AxisTitles(
-                                sideTitles: SideTitles(showTitles: false),
-                              ),
-                              leftTitles: AxisTitles(
-                                sideTitles: SideTitles(
-                                  showTitles: true,
-                                  reservedSize: 40,
-                                  interval: top5.first.count > 5 ? (top5.first.count / 5).ceilToDouble() : 1,
-                                  getTitlesWidget: (value, meta) {
-                                    if (value == 0 || value == meta.max) return const SizedBox.shrink();
-                                    return Text(
-                                      value.toInt().toString(),
-                                      style: TextStyle(
-                                        color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
-                                        fontSize: 10,
-                                      ),
-                                    );
-                                  },
-                                ),
-                              ),
-                              topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                              rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                            ),
-                            gridData: FlGridData(
-                              show: true,
-                              drawVerticalLine: false,
-                              getDrawingHorizontalLine: (value) {
-                                return FlLine(
-                                  color: isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
-                                  strokeWidth: 1,
-                                );
-                              },
-                            ),
-                            borderData: FlBorderData(show: false),
-                            barGroups: List.generate(
-                              top5.length,
-                              (index) => BarChartGroupData(
-                                x: index,
-                                barRods: [
-                                  BarChartRodData(
-                                    toY: top5[index].count.toDouble(),
-                                    color: _getChartColor(index),
-                                    width: 32,
-                                    borderRadius: const BorderRadius.only(
-                                      topLeft: Radius.circular(4),
-                                      topRight: Radius.circular(4),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      Wrap(
-                        spacing: 12,
-                        runSpacing: 8,
-                        alignment: WrapAlignment.center,
-                        children: top5.asMap().entries.map((entry) {
-                          final index = entry.key;
-                          final sector = entry.value;
-                          return _buildLegendItem(
-                            '${sector.sector} (${sector.count})',
-                            _getChartColor(index),
-                            isDark,
-                          );
-                        }).toList(),
-                      ),
-                    ],
-                  );
-                }(),
-    );
-  }
-
-  Widget _buildSupporterAnalysisChart(bool isDark) {
-    return _buildChartContainer(
-      title: 'Supporter Analysis',
-      isDark: isDark,
-      child: _loadingBookings
-          ? _buildLoadingIndicator(isDark)
-          : () {
-              final allSupporterTypes = {
-                'SUPPORTER': 0,
-                'NEUTRAL': 0,
-                'DETRACTOR': 0,
-              };
-
-              final breakdown = _getSupporterBreakdown();
-              breakdown.forEach((key, value) {
-                allSupporterTypes[key] = value as int;
-              });
-
-              final total = allSupporterTypes.values.fold<int>(0, (sum, v) => sum + v);
-
-              if (total == 0) {
-                return _buildNoData(isDark);
-              }
-
-              return Column(
-                children: [
-                  SizedBox(
-                    height: 200,
-                    child: Center(
-                      child: PieChart(
-                        PieChartData(
-                          sectionsSpace: 2,
-                          centerSpaceRadius: 35,
-                          sections: [
-                            PieChartSectionData(
-                              color: const Color(0xFF10B981),
-                              value: allSupporterTypes['SUPPORTER']!.toDouble(),
-                              title: '${(allSupporterTypes['SUPPORTER']! / total * 100).toStringAsFixed(1)}%',
-                              radius: 45,
-                              titleStyle: const TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
-                              ),
-                            ),
-                            PieChartSectionData(
-                              color: const Color(0xFFF59E0B),
-                              value: allSupporterTypes['NEUTRAL']!.toDouble(),
-                              title: '${(allSupporterTypes['NEUTRAL']! / total * 100).toStringAsFixed(1)}%',
-                              radius: 45,
-                              titleStyle: const TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
-                              ),
-                            ),
-                            PieChartSectionData(
-                              color: const Color(0xFFEF4444),
-                              value: allSupporterTypes['DETRACTOR']!.toDouble(),
-                              title: '${(allSupporterTypes['DETRACTOR']! / total * 100).toStringAsFixed(1)}%',
-                              radius: 45,
-                              titleStyle: const TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Wrap(
-                    spacing: 12,
-                    runSpacing: 8,
-                    alignment: WrapAlignment.center,
-                    children: [
-                      _buildLegendItem('Supporter (${allSupporterTypes['SUPPORTER']})', const Color(0xFF10B981), isDark),
-                      _buildLegendItem('Neutral (${allSupporterTypes['NEUTRAL']})', const Color(0xFFF59E0B), isDark),
-                      _buildLegendItem('Detractor (${allSupporterTypes['DETRACTOR']})', const Color(0xFFEF4444), isDark),
-                    ],
-                  ),
-                ],
-              );
-            }(),
-    );
-  }
-
-  Widget _buildFocusAreasChart(bool isDark) {
-    return _buildChartContainer(
-      title: 'Top Focus Areas',
-      isDark: isDark,
-      child: _loadingBookings
-          ? _buildLoadingIndicator(isDark)
-          : () {
-              final focusAreas = _getFocusAreasDistribution();
-              if (focusAreas.isEmpty) {
-                return _buildNoData(isDark);
-              }
-
-              final entries = focusAreas.entries.toList();
-              final top5 = entries.take(5).toList();
+              final sorted = dist.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
+              final top5 = sorted.take(5).toList();
 
               return Column(
                 children: [
@@ -1084,14 +684,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         barTouchData: BarTouchData(enabled: false),
                         titlesData: FlTitlesData(
                           show: true,
-                          bottomTitles: const AxisTitles(
-                            sideTitles: SideTitles(showTitles: false),
-                          ),
+                          bottomTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
                           leftTitles: AxisTitles(
                             sideTitles: SideTitles(
                               showTitles: true,
                               reservedSize: 40,
-                              interval: top5.first.value > 5 ? (top5.first.value / 5).ceilToDouble() : 1,
                               getTitlesWidget: (value, meta) {
                                 if (value == 0 || value == meta.max) return const SizedBox.shrink();
                                 return Text(
@@ -1147,7 +744,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       final index = entry.key;
                       final item = entry.value;
                       return _buildLegendItem(
-                        '${item.key} (${item.value})',
+                        '${_formatVertical(item.key)} (${item.value})',
                         _getChartColor(index),
                         isDark,
                       );
@@ -1159,38 +756,30 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _buildEngagementHeatmapChart(bool isDark) {
+  Widget _buildTimeSlotChart(bool isDark) {
     return _buildChartContainer(
-      title: 'Booking Frequency by Hour',
+      title: 'Popular Time Slots',
       isDark: isDark,
-      child: _loadingBookings
+      child: _loading || _stats == null
           ? _buildLoadingIndicator(isDark)
           : () {
-              final heatmap = _getEngagementHeatmap();
-              if (heatmap.isEmpty) {
+              final dist = _stats!.timeSlotDistribution;
+              if (dist.isEmpty) {
                 return _buildNoData(isDark);
               }
 
-              final List<Map<String, dynamic>> hourlyData = [];
+              final sorted = dist.entries.toList()
+                ..sort((a, b) {
+                  final hourA = int.tryParse(a.key.split(':')[0]) ?? 0;
+                  final hourB = int.tryParse(b.key.split(':')[0]) ?? 0;
+                  return hourA.compareTo(hourB);
+                });
 
-              for (int hour = 8; hour <= 18; hour++) {
-                int totalForHour = 0;
-                for (var dayData in heatmap.values) {
-                  totalForHour += dayData[hour] ?? 0;
-                }
-                hourlyData.add({'hour': hour, 'count': totalForHour});
-              }
+              final maxCount = sorted.fold<int>(0, (max, e) => e.value > max ? e.value : max);
 
-              if (hourlyData.every((d) => d['count'] == 0)) {
-                return _buildNoData(isDark);
-              }
-
-              final maxCount = hourlyData.fold<int>(0, (max, d) => d['count'] > max ? d['count'] : max);
-
-              return Center(
-                child: SizedBox(
-                  height: 240,
-                  child: BarChart(
+              return SizedBox(
+                height: 240,
+                child: BarChart(
                   BarChartData(
                     alignment: BarChartAlignment.spaceAround,
                     maxY: maxCount.toDouble() * 1.2,
@@ -1202,11 +791,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           showTitles: true,
                           reservedSize: 30,
                           getTitlesWidget: (value, meta) {
-                            if (value.toInt() >= 0 && value.toInt() < hourlyData.length) {
+                            if (value.toInt() >= 0 && value.toInt() < sorted.length) {
                               return Padding(
                                 padding: const EdgeInsets.only(top: 8),
                                 child: Text(
-                                  '${hourlyData[value.toInt()]['hour']}h',
+                                  sorted[value.toInt()].key,
                                   style: TextStyle(
                                     color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
                                     fontSize: 8,
@@ -1222,7 +811,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         sideTitles: SideTitles(
                           showTitles: true,
                           reservedSize: 40,
-                          interval: maxCount > 5 ? (maxCount / 5).ceilToDouble() : 1,
                           getTitlesWidget: (value, meta) {
                             if (value == 0 || value == meta.max) return const SizedBox.shrink();
                             return Text(
@@ -1250,12 +838,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ),
                     borderData: FlBorderData(show: false),
                     barGroups: List.generate(
-                      hourlyData.length,
+                      sorted.length,
                       (index) => BarChartGroupData(
                         x: index,
                         barRods: [
                           BarChartRodData(
-                            toY: hourlyData[index]['count'].toDouble(),
+                            toY: sorted[index].value.toDouble(),
                             color: const Color(0xFF06B6D4),
                             width: 14,
                             borderRadius: const BorderRadius.only(
@@ -1268,53 +856,77 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ),
                   ),
                 ),
-                ),
               );
             }(),
     );
   }
 
-  Widget _buildDurationByTypeChart(bool isDark) {
+  Widget _buildMonthlyTrendChart(bool isDark) {
     return _buildChartContainer(
-      title: 'Avg Duration by Event Type',
+      title: 'Monthly Trend (Last 6 Months)',
       isDark: isDark,
-      child: _loadingBookings
+      child: _loading || _stats == null
           ? _buildLoadingIndicator(isDark)
           : () {
-              final avgDuration = _getAverageDurationByEventType();
-              final tcsAvg = avgDuration['TCS']!;
-              final partnerAvg = avgDuration['PARTNER']!;
-
-              if (tcsAvg == 0 && partnerAvg == 0) {
+              final trend = _stats!.monthlyTrend;
+              if (trend.isEmpty) {
                 return _buildNoData(isDark);
               }
 
-              final maxY = tcsAvg > partnerAvg ? tcsAvg : partnerAvg;
+              final maxY = trend.fold<int>(0, (max, t) => t.count > max ? t.count : max).toDouble();
 
-              return Center(
-                child: SizedBox(
-                  height: 240,
-                  child: BarChart(
-                  BarChartData(
-                    alignment: BarChartAlignment.spaceAround,
-                    maxY: maxY * 1.4,
-                    barTouchData: BarTouchData(enabled: false),
+              return SizedBox(
+                height: 240,
+                child: LineChart(
+                  LineChartData(
+                    maxY: maxY * 1.2,
+                    minY: 0,
+                    lineBarsData: [
+                      LineChartBarData(
+                        spots: trend.asMap().entries.map((e) {
+                          return FlSpot(e.key.toDouble(), e.value.count.toDouble());
+                        }).toList(),
+                        isCurved: true,
+                        color: const Color(0xFF3B82F6),
+                        barWidth: 3,
+                        dotData: const FlDotData(show: true),
+                        belowBarData: BarAreaData(
+                          show: true,
+                          color: const Color(0xFF3B82F6).withValues(alpha: 0.1),
+                        ),
+                      ),
+                      LineChartBarData(
+                        spots: trend.asMap().entries.map((e) {
+                          return FlSpot(e.key.toDouble(), e.value.approved.toDouble());
+                        }).toList(),
+                        isCurved: true,
+                        color: const Color(0xFF10B981),
+                        barWidth: 3,
+                        dotData: const FlDotData(show: true),
+                        belowBarData: BarAreaData(
+                          show: true,
+                          color: const Color(0xFF10B981).withValues(alpha: 0.1),
+                        ),
+                      ),
+                    ],
                     titlesData: FlTitlesData(
                       show: true,
                       bottomTitles: AxisTitles(
                         sideTitles: SideTitles(
                           showTitles: true,
+                          reservedSize: 30,
                           getTitlesWidget: (value, meta) {
-                            if (value == 0) {
-                              return const Padding(
-                                padding: EdgeInsets.only(top: 8),
-                                child: Text('TCS', style: TextStyle(fontSize: 12)),
-                              );
-                            }
-                            if (value == 1) {
-                              return const Padding(
-                                padding: EdgeInsets.only(top: 8),
-                                child: Text('PARTNER', style: TextStyle(fontSize: 12)),
+                            if (value.toInt() >= 0 && value.toInt() < trend.length) {
+                              final month = trend[value.toInt()].month;
+                              return Padding(
+                                padding: const EdgeInsets.only(top: 8),
+                                child: Text(
+                                  month.substring(5), // MM
+                                  style: TextStyle(
+                                    color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
+                                    fontSize: 10,
+                                  ),
+                                ),
                               );
                             }
                             return const Text('');
@@ -1325,11 +937,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         sideTitles: SideTitles(
                           showTitles: true,
                           reservedSize: 40,
-                          interval: maxY > 2 ? (maxY / 4).ceilToDouble() : 0.5,
                           getTitlesWidget: (value, meta) {
                             if (value == 0 || value == meta.max) return const SizedBox.shrink();
                             return Text(
-                              '${value.toStringAsFixed(1)}h',
+                              value.toInt().toString(),
                               style: TextStyle(
                                 color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
                                 fontSize: 10,
@@ -1352,38 +963,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       },
                     ),
                     borderData: FlBorderData(show: false),
-                    barGroups: [
-                      BarChartGroupData(
-                        x: 0,
-                        barRods: [
-                          BarChartRodData(
-                            toY: tcsAvg,
-                            color: const Color(0xFF3B82F6),
-                            width: 40,
-                            borderRadius: const BorderRadius.only(
-                              topLeft: Radius.circular(4),
-                              topRight: Radius.circular(4),
-                            ),
-                          ),
-                        ],
-                      ),
-                      BarChartGroupData(
-                        x: 1,
-                        barRods: [
-                          BarChartRodData(
-                            toY: partnerAvg,
-                            color: const Color(0xFF8B5CF6),
-                            width: 40,
-                            borderRadius: const BorderRadius.only(
-                              topLeft: Radius.circular(4),
-                              topRight: Radius.circular(4),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
                   ),
-                ),
                 ),
               );
             }(),
@@ -1394,9 +974,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return _buildChartContainer(
       title: 'Top Companies',
       isDark: isDark,
-      child: _loadingCompanies
+      child: _loading || _stats == null
           ? _buildLoadingIndicator(isDark)
-          : _topCompanies.isEmpty
+          : _stats!.topCompanies.isEmpty
               ? _buildNoData(isDark)
               : SingleChildScrollView(
                   child: Table(
@@ -1441,7 +1021,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           ),
                         ],
                       ),
-                      ..._topCompanies.asMap().entries.map((entry) {
+                      ..._stats!.topCompanies.asMap().entries.map((entry) {
                         final index = entry.key;
                         final company = entry.value;
                         return TableRow(
@@ -1498,13 +1078,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        // Responsive height: Mobile needs MORE height since charts stack vertically
         final screenWidth = MediaQuery.of(context).size.width;
         final containerHeight = screenWidth >= 1024
-            ? 380.0 // Desktop - 2 columns side-by-side
+            ? 380.0
             : screenWidth >= 600
-                ? 380.0 // Tablet - 2 columns side-by-side
-                : 420.0; // Mobile - 1 column (needs more height for legends)
+                ? 380.0
+                : 420.0;
 
         return Container(
           height: containerHeight,
@@ -1581,11 +1160,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
         ),
         const SizedBox(width: 8),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 11,
-            color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
+        Flexible(
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
+            ),
+            overflow: TextOverflow.ellipsis,
           ),
         ),
       ],
@@ -1606,5 +1188,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
       const Color(0xFFF97316), // orange
     ];
     return colors[index % colors.length];
+  }
+
+  String _formatOrgType(String type) {
+    return type.split('_').map((word) {
+      return word[0].toUpperCase() + word.substring(1).toLowerCase();
+    }).join(' ');
+  }
+
+  String _formatVertical(String vertical) {
+    return vertical.split('_').map((word) {
+      return word[0].toUpperCase() + word.substring(1).toLowerCase();
+    }).join(' ');
   }
 }

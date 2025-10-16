@@ -686,6 +686,10 @@ class _AgendaScreenState extends State<AgendaScreen> {
     switch (type) {
       case VisitType.QUICK_TOUR:
         return 'Quick Tour';
+      case VisitType.PACE_TOUR:
+        return 'Pace Tour';
+      case VisitType.PACE_EXPERIENCE:
+        return 'Pace Experience';
       case VisitType.INNOVATION_EXCHANGE:
         return 'Innovation Exchange';
     }
@@ -694,6 +698,10 @@ class _AgendaScreenState extends State<AgendaScreen> {
   Color _getVisitTypeColor(VisitType type) {
     switch (type) {
       case VisitType.QUICK_TOUR:
+        return const Color(0xFF8B5CF6); // Purple
+      case VisitType.PACE_TOUR:
+        return const Color(0xFF3B82F6); // Blue
+      case VisitType.PACE_EXPERIENCE:
         return const Color(0xFF8B5CF6); // Purple
       case VisitType.INNOVATION_EXCHANGE:
         return const Color(0xFF06B6D4); // Cyan

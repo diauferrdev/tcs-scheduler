@@ -639,7 +639,7 @@ export async function sendNewBookingNotification(bookingId: string): Promise<voi
       title: 'New Booking Request',
       body: `${booking.companyName} - ${formattedDate} at ${booking.startTime} (by ${booking.createdBy?.name || 'Unknown'})`,
       data: {
-        type: 'NEW_BOOKING',
+        type: 'BOOKING_UNDER_REVIEW',
         bookingId: booking.id,
         screen: 'approvals',
       },
@@ -703,7 +703,7 @@ export async function sendBookingUpdateNotification(bookingId: string): Promise<
       title: 'Booking Updated',
       body: `${booking.companyName} - ${formattedDate} at ${booking.startTime}`,
       data: {
-        type: 'BOOKING_UPDATE',
+        type: 'BOOKING_UPDATED',
         bookingId: booking.id,
         screen: 'booking_details',
       },
@@ -731,12 +731,11 @@ export async function sendBookingUpdateNotification(bookingId: string): Promise<
 }
 
 /**
- * CRITICAL: Send push notification when booking is cancelled
+ * Send push notification when booking is approved
  * @param bookingId - Booking ID
  */
-export async function sendBookingCancelledNotification(bookingId: string): Promise<void> {
+export async function sendBookingApprovedNotification(bookingId: string): Promise<void> {
   try {
-    // Get booking details BEFORE it's deleted
     const booking = await prisma.booking.findUnique({
       where: { id: bookingId },
       select: {
@@ -745,6 +744,142 @@ export async function sendBookingCancelledNotification(bookingId: string): Promi
         date: true,
         startTime: true,
         createdById: true,
+      },
+    });
+
+    if (!booking) {
+      console.warn(`[FCM] Booking ${bookingId} not found, skipping notification`);
+      return;
+    }
+
+    const formattedDate = new Date(booking.date).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    });
+
+    const notification: PushNotification = {
+      title: '✅ Booking Approved!',
+      body: `Your booking for ${booking.companyName} on ${formattedDate} at ${booking.startTime} has been approved`,
+      data: {
+        type: 'BOOKING_APPROVED',
+        bookingId: booking.id,
+        screen: 'booking_details',
+      },
+    };
+
+    // Send only to booking creator
+    await sendPushToUser(booking.createdById, notification);
+
+    console.log(`[FCM] ✅ Booking approved notification sent to user ${booking.createdById}`);
+  } catch (error) {
+    console.error('[FCM] Error sending booking approved notification:', error);
+    throw error;
+  }
+}
+
+/**
+ * Send push notification when manager requests edit
+ * @param bookingId - Booking ID
+ */
+export async function sendEditRequestNotification(bookingId: string): Promise<void> {
+  try {
+    const booking = await prisma.booking.findUnique({
+      where: { id: bookingId },
+      select: {
+        id: true,
+        companyName: true,
+        organizationName: true,
+        date: true,
+        startTime: true,
+        createdById: true,
+        editRequestMessage: true,
+      },
+    });
+
+    if (!booking) {
+      console.warn(`[FCM] Booking ${bookingId} not found, skipping notification`);
+      return;
+    }
+
+    const notification: PushNotification = {
+      title: 'Booking Needs Editing',
+      body: booking.editRequestMessage || `Your booking for ${booking.organizationName || booking.companyName} needs to be edited. Please review and update the information.`,
+      data: {
+        type: 'BOOKING_NEED_EDIT',
+        bookingId: booking.id,
+        screen: 'booking_details',
+      },
+    };
+
+    // Send only to booking creator
+    await sendPushToUser(booking.createdById, notification);
+
+    console.log(`[FCM] ✅ Edit request notification sent to user ${booking.createdById}`);
+  } catch (error) {
+    console.error('[FCM] Error sending edit request notification:', error);
+    throw error;
+  }
+}
+
+/**
+ * Send push notification when manager requests reschedule
+ * @param bookingId - Booking ID
+ */
+export async function sendRescheduleRequestNotification(bookingId: string): Promise<void> {
+  try {
+    const booking = await prisma.booking.findUnique({
+      where: { id: bookingId },
+      select: {
+        id: true,
+        companyName: true,
+        organizationName: true,
+        date: true,
+        startTime: true,
+        createdById: true,
+        rescheduleRequestMessage: true,
+      },
+    });
+
+    if (!booking) {
+      console.warn(`[FCM] Booking ${bookingId} not found, skipping notification`);
+      return;
+    }
+
+    const notification: PushNotification = {
+      title: 'Booking Needs Rescheduling',
+      body: booking.rescheduleRequestMessage || `Your booking for ${booking.organizationName || booking.companyName} needs to be rescheduled. Please choose a new date.`,
+      data: {
+        type: 'BOOKING_NEED_RESCHEDULE',
+        bookingId: booking.id,
+        screen: 'booking_details',
+      },
+    };
+
+    // Send only to booking creator
+    await sendPushToUser(booking.createdById, notification);
+
+    console.log(`[FCM] ✅ Reschedule request notification sent to user ${booking.createdById}`);
+  } catch (error) {
+    console.error('[FCM] Error sending reschedule request notification:', error);
+    throw error;
+  }
+}
+
+/**
+ * Send push notification when user rescheduled booking (to managers)
+ * @param bookingId - Booking ID
+ */
+export async function sendUserRescheduledNotification(bookingId: string): Promise<void> {
+  try {
+    const booking = await prisma.booking.findUnique({
+      where: { id: bookingId },
+      select: {
+        id: true,
+        companyName: true,
+        organizationName: true,
+        date: true,
+        startTime: true,
         createdBy: {
           select: {
             name: true,
@@ -765,8 +900,198 @@ export async function sendBookingCancelledNotification(bookingId: string): Promi
     });
 
     const notification: PushNotification = {
-      title: 'Booking Cancelled',
-      body: `${booking.companyName} - ${formattedDate} at ${booking.startTime} has been cancelled`,
+      title: 'Booking Rescheduled - Ready for Review',
+      body: `${booking.organizationName || booking.companyName} has been rescheduled to ${formattedDate} at ${booking.startTime} and is ready for review.`,
+      data: {
+        type: 'BOOKING_UNDER_REVIEW',
+        bookingId: booking.id,
+        screen: 'approvals',
+      },
+    };
+
+    // Send to all admins and managers
+    const admins = await prisma.user.findMany({
+      where: {
+        role: { in: ['ADMIN', 'MANAGER'] },
+        isActive: true,
+      },
+      select: { id: true },
+    });
+
+    const adminIds = admins.map(a => a.id);
+    await sendPushToMultipleUsers(adminIds, notification);
+
+    // IMPORTANT: Also create in-app notifications for managers
+    const notificationService = await import('./notification.service');
+    await notificationService.notifyAllManagers(
+      'BOOKING_UNDER_REVIEW',
+      'Booking Rescheduled - Ready for Review',
+      `${booking.organizationName || booking.companyName} has been rescheduled to ${formattedDate} at ${booking.startTime} and is ready for review.`,
+      booking.id
+    );
+
+    console.log(`[FCM] ✅ User rescheduled notification sent to ${adminIds.length} admin(s)/manager(s)`);
+  } catch (error) {
+    console.error('[FCM] Error sending user rescheduled notification:', error);
+    throw error;
+  }
+}
+
+/**
+ * Send push notification when user edited booking (to managers)
+ * @param bookingId - Booking ID
+ */
+export async function sendUserEditedNotification(bookingId: string): Promise<void> {
+  try {
+    const booking = await prisma.booking.findUnique({
+      where: { id: bookingId },
+      select: {
+        id: true,
+        companyName: true,
+        organizationName: true,
+        date: true,
+        startTime: true,
+        createdBy: {
+          select: {
+            name: true,
+          },
+        },
+      },
+    });
+
+    if (!booking) {
+      console.warn(`[FCM] Booking ${bookingId} not found, skipping notification`);
+      return;
+    }
+
+    const formattedDate = new Date(booking.date).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    });
+
+    const notification: PushNotification = {
+      title: 'Booking Edited - Ready for Review',
+      body: `${booking.organizationName || booking.companyName} has been edited and is ready for review.`,
+      data: {
+        type: 'BOOKING_UNDER_REVIEW',
+        bookingId: booking.id,
+        screen: 'approvals',
+      },
+    };
+
+    // Send to all admins and managers
+    const admins = await prisma.user.findMany({
+      where: {
+        role: { in: ['ADMIN', 'MANAGER'] },
+        isActive: true,
+      },
+      select: { id: true },
+    });
+
+    const adminIds = admins.map(a => a.id);
+    await sendPushToMultipleUsers(adminIds, notification);
+
+    // IMPORTANT: Also create in-app notifications for managers
+    const notificationService = await import('./notification.service');
+    await notificationService.notifyAllManagers(
+      'BOOKING_UNDER_REVIEW',
+      'Booking Edited - Ready for Review',
+      `${booking.organizationName || booking.companyName} has been edited and is ready for review.`,
+      booking.id
+    );
+
+    console.log(`[FCM] ✅ User edited notification sent to ${adminIds.length} admin(s)/manager(s)`);
+  } catch (error) {
+    console.error('[FCM] Error sending user edited notification:', error);
+    throw error;
+  }
+}
+
+/**
+ * Send push notification when booking is rejected
+ * @param bookingId - Booking ID
+ */
+export async function sendBookingRejectedNotification(bookingId: string): Promise<void> {
+  try {
+    const booking = await prisma.booking.findUnique({
+      where: { id: bookingId },
+      select: {
+        id: true,
+        companyName: true,
+        organizationName: true,
+        date: true,
+        startTime: true,
+        createdById: true,
+        rejectionReason: true,
+      },
+    });
+
+    if (!booking) {
+      console.warn(`[FCM] Booking ${bookingId} not found, skipping notification`);
+      return;
+    }
+
+    const notification: PushNotification = {
+      title: 'Booking Not Approved',
+      body: `Your booking for ${booking.organizationName || booking.companyName} was not approved. Reason: ${booking.rejectionReason}`,
+      data: {
+        type: 'BOOKING_NOT_APPROVED',
+        bookingId: booking.id,
+        screen: 'booking_details',
+      },
+    };
+
+    // Send only to booking creator
+    await sendPushToUser(booking.createdById, notification);
+
+    console.log(`[FCM] ✅ Booking rejected notification sent to user ${booking.createdById}`);
+  } catch (error) {
+    console.error('[FCM] Error sending booking rejected notification:', error);
+    throw error;
+  }
+}
+
+/**
+ * CRITICAL: Send push notification when booking is cancelled
+ * @param bookingId - Booking ID
+ */
+export async function sendBookingCancelledNotification(bookingId: string): Promise<void> {
+  try {
+    // Get booking details BEFORE it's deleted
+    const booking = await prisma.booking.findUnique({
+      where: { id: bookingId },
+      select: {
+        id: true,
+        companyName: true,
+        date: true,
+        startTime: true,
+        createdById: true,
+        cancellationReason: true,
+        createdBy: {
+          select: {
+            name: true,
+          },
+        },
+      },
+    });
+
+    if (!booking) {
+      console.warn(`[FCM] Booking ${bookingId} not found, skipping notification`);
+      return;
+    }
+
+    const formattedDate = new Date(booking.date).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    });
+
+    const notification: PushNotification = {
+      title: '🚫 Booking Cancelled',
+      body: booking.cancellationReason
+        ? `${booking.companyName} (${formattedDate}) cancelled: ${booking.cancellationReason}`
+        : `${booking.companyName} on ${formattedDate} at ${booking.startTime} has been cancelled`,
       data: {
         type: 'BOOKING_CANCELLED',
         bookingId: booking.id,

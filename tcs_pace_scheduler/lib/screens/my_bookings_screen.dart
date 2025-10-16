@@ -138,13 +138,24 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
   }
 
   void _categorizeBookings() {
+    // New Requests: Bookings waiting for review or user action
+    // Sorted by latest status update (updatedAt) - most recently updated first
     _newRequests = _allBookings
-        .where((b) => b.status == BookingStatus.PENDING_APPROVAL)
+        .where((b) =>
+            b.status == BookingStatus.CREATED ||
+            b.status == BookingStatus.UNDER_REVIEW ||
+            b.status == BookingStatus.NEED_EDIT ||
+            b.status == BookingStatus.NEED_RESCHEDULE ||
+            b.status == BookingStatus.PENDING_APPROVAL) // DEPRECATED
         .toList()
-      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
 
+    // Recent History: Completed/final states
     _recentHistory = _allBookings
-        .where((b) => b.status == BookingStatus.APPROVED || b.status == BookingStatus.CANCELLED)
+        .where((b) =>
+            b.status == BookingStatus.APPROVED ||
+            b.status == BookingStatus.NOT_APPROVED ||
+            b.status == BookingStatus.CANCELLED)
         .toList()
       ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
   }
@@ -228,13 +239,18 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
   Color _getStatusColor(BookingStatus status) {
     switch (status) {
       case BookingStatus.DRAFT:
-        return Colors.grey;
+      case BookingStatus.CREATED:
+        return const Color(0xFF6B7280);
       case BookingStatus.PENDING_APPROVAL:
-        return Colors.orange;
+      case BookingStatus.UNDER_REVIEW:
+      case BookingStatus.NEED_EDIT:
+      case BookingStatus.NEED_RESCHEDULE:
+        return const Color(0xFFF59E0B);
       case BookingStatus.APPROVED:
-        return Colors.green;
+        return const Color(0xFF10B981);
+      case BookingStatus.NOT_APPROVED:
       case BookingStatus.CANCELLED:
-        return Colors.red;
+        return const Color(0xFFEF4444);
     }
   }
 
@@ -242,10 +258,20 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
     switch (status) {
       case BookingStatus.DRAFT:
         return 'Draft';
+      case BookingStatus.CREATED:
+        return 'Created';
       case BookingStatus.PENDING_APPROVAL:
         return 'Pending Approval';
+      case BookingStatus.UNDER_REVIEW:
+        return 'Under Review';
+      case BookingStatus.NEED_EDIT:
+        return 'Change Request';
+      case BookingStatus.NEED_RESCHEDULE:
+        return 'Needs Reschedule';
       case BookingStatus.APPROVED:
         return 'Approved';
+      case BookingStatus.NOT_APPROVED:
+        return 'Not Approved';
       case BookingStatus.CANCELLED:
         return 'Cancelled';
     }
@@ -254,11 +280,19 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
   IconData _getStatusIcon(BookingStatus status) {
     switch (status) {
       case BookingStatus.DRAFT:
+      case BookingStatus.CREATED:
         return Icons.edit_note;
       case BookingStatus.PENDING_APPROVAL:
+      case BookingStatus.UNDER_REVIEW:
         return Icons.pending;
+      case BookingStatus.NEED_EDIT:
+        return Icons.edit_outlined;
+      case BookingStatus.NEED_RESCHEDULE:
+        return Icons.event_busy;
       case BookingStatus.APPROVED:
         return Icons.check_circle;
+      case BookingStatus.NOT_APPROVED:
+        return Icons.cancel_outlined;
       case BookingStatus.CANCELLED:
         return Icons.cancel;
     }

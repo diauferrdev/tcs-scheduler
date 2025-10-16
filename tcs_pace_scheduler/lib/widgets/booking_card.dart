@@ -58,12 +58,16 @@ class _BookingCardState extends State<BookingCard> with SingleTickerProviderStat
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    // Only pending cards are bright, others are darker
-    final isPending = widget.booking.status == BookingStatus.PENDING_APPROVAL;
-    final backgroundColor = isPending
+    // Bookings under review are bright (waiting for action), others are darker
+    final isUnderReview = widget.booking.status == BookingStatus.CREATED ||
+                          widget.booking.status == BookingStatus.UNDER_REVIEW ||
+                          widget.booking.status == BookingStatus.NEED_EDIT ||
+                          widget.booking.status == BookingStatus.NEED_RESCHEDULE ||
+                          widget.booking.status == BookingStatus.PENDING_APPROVAL; // DEPRECATED
+    final backgroundColor = isUnderReview
         ? (isDark ? const Color(0xFF18181B) : Colors.white)
         : (isDark ? const Color(0xFF0A0A0B) : const Color(0xFFF3F4F6));
-    final borderColor = isPending
+    final borderColor = isUnderReview
         ? (isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB))
         : (isDark ? const Color(0xFF1C1C1E) : const Color(0xFFD1D5DB));
 

@@ -798,6 +798,22 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         icon = Icons.event_repeat;
         color = Colors.blue;
         break;
+      case NotificationType.BOOKING_NEED_EDIT:
+        icon = Icons.edit_outlined;
+        color = Colors.orange;
+        break;
+      case NotificationType.BOOKING_NEED_RESCHEDULE:
+        icon = Icons.calendar_month;
+        color = Colors.amber;
+        break;
+      case NotificationType.BOOKING_NOT_APPROVED:
+        icon = Icons.block;
+        color = Colors.red;
+        break;
+      case NotificationType.BOOKING_UNDER_REVIEW:
+        icon = Icons.rate_review;
+        color = const Color(0xFFF59E0B);
+        break;
       case NotificationType.PARTICIPANT_CONFIRMED:
         icon = Icons.person_add_outlined;
         color = Colors.green;
@@ -1726,6 +1742,22 @@ class _NotificationsDrawerState extends State<NotificationsDrawer> {
       case NotificationType.BOOKING_RESCHEDULED:
         icon = Icons.event_repeat;
         color = Colors.blue;
+        break;
+      case NotificationType.BOOKING_NEED_EDIT:
+        icon = Icons.edit_outlined;
+        color = Colors.orange;
+        break;
+      case NotificationType.BOOKING_NEED_RESCHEDULE:
+        icon = Icons.calendar_month;
+        color = Colors.amber;
+        break;
+      case NotificationType.BOOKING_NOT_APPROVED:
+        icon = Icons.block;
+        color = Colors.red;
+        break;
+      case NotificationType.BOOKING_UNDER_REVIEW:
+        icon = Icons.rate_review;
+        color = const Color(0xFFF59E0B);
         break;
       case NotificationType.PARTICIPANT_CONFIRMED:
         icon = Icons.person_add_outlined;

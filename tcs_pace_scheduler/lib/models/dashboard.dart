@@ -1,28 +1,141 @@
 class DashboardStats {
   final int totalBookings;
   final int thisMonthBookings;
-  final int thisYearBookings;
-  final int pendingBookings;
-  final int uniqueCompanies;
-  final int totalAttendeesThisYear;
+  final double avgAttendees;
+  final StatusDistribution statusDistribution;
+  final StatusBreakdown statusBreakdown;
+  final VisitTypeDistribution visitTypeDistribution;
+  final Map<String, int> organizationTypeDistribution;
+  final Map<String, int> verticalDistribution;
+  final List<MonthlyTrend> monthlyTrend;
+  final Map<String, int> timeSlotDistribution;
+  final List<TopCompany> topCompanies;
 
   DashboardStats({
     required this.totalBookings,
     required this.thisMonthBookings,
-    required this.thisYearBookings,
-    required this.pendingBookings,
-    required this.uniqueCompanies,
-    required this.totalAttendeesThisYear,
+    required this.avgAttendees,
+    required this.statusDistribution,
+    required this.statusBreakdown,
+    required this.visitTypeDistribution,
+    required this.organizationTypeDistribution,
+    required this.verticalDistribution,
+    required this.monthlyTrend,
+    required this.timeSlotDistribution,
+    required this.topCompanies,
   });
 
   factory DashboardStats.fromJson(Map<String, dynamic> json) {
     return DashboardStats(
       totalBookings: json['totalBookings'] as int,
       thisMonthBookings: json['thisMonthBookings'] as int,
-      thisYearBookings: json['thisYearBookings'] as int,
-      pendingBookings: json['pendingBookings'] as int,
-      uniqueCompanies: json['uniqueCompanies'] as int,
-      totalAttendeesThisYear: json['totalAttendeesThisYear'] as int,
+      avgAttendees: (json['avgAttendees'] as num).toDouble(),
+      statusDistribution: StatusDistribution.fromJson(json['statusDistribution'] as Map<String, dynamic>),
+      statusBreakdown: StatusBreakdown.fromJson(json['statusBreakdown'] as Map<String, dynamic>),
+      visitTypeDistribution: VisitTypeDistribution.fromJson(json['visitTypeDistribution'] as Map<String, dynamic>),
+      organizationTypeDistribution: Map<String, int>.from(json['organizationTypeDistribution'] as Map),
+      verticalDistribution: Map<String, int>.from(json['verticalDistribution'] as Map),
+      monthlyTrend: (json['monthlyTrend'] as List)
+          .map((e) => MonthlyTrend.fromJson(e as Map<String, dynamic>))
+          .toList(),
+      timeSlotDistribution: Map<String, int>.from(json['timeSlotDistribution'] as Map),
+      topCompanies: (json['topCompanies'] as List)
+          .map((e) => TopCompany.fromJson(e as Map<String, dynamic>))
+          .toList(),
+    );
+  }
+}
+
+class StatusDistribution {
+  final int pending;
+  final int approved;
+  final int notApproved;
+
+  StatusDistribution({
+    required this.pending,
+    required this.approved,
+    required this.notApproved,
+  });
+
+  factory StatusDistribution.fromJson(Map<String, dynamic> json) {
+    return StatusDistribution(
+      pending: json['pending'] as int,
+      approved: json['approved'] as int,
+      notApproved: json['notApproved'] as int,
+    );
+  }
+}
+
+class StatusBreakdown {
+  final int created;
+  final int underReview;
+  final int needEdit;
+  final int needReschedule;
+  final int approved;
+  final int notApproved;
+
+  StatusBreakdown({
+    required this.created,
+    required this.underReview,
+    required this.needEdit,
+    required this.needReschedule,
+    required this.approved,
+    required this.notApproved,
+  });
+
+  factory StatusBreakdown.fromJson(Map<String, dynamic> json) {
+    return StatusBreakdown(
+      created: json['created'] as int,
+      underReview: json['underReview'] as int,
+      needEdit: json['needEdit'] as int,
+      needReschedule: json['needReschedule'] as int,
+      approved: json['approved'] as int,
+      notApproved: json['notApproved'] as int,
+    );
+  }
+}
+
+class VisitTypeDistribution {
+  final int paceTour;
+  final int paceExperience;
+  final int innovationExchange;
+  final int quickTour;
+
+  VisitTypeDistribution({
+    required this.paceTour,
+    required this.paceExperience,
+    required this.innovationExchange,
+    required this.quickTour,
+  });
+
+  factory VisitTypeDistribution.fromJson(Map<String, dynamic> json) {
+    return VisitTypeDistribution(
+      paceTour: json['PACE_TOUR'] as int,
+      paceExperience: json['PACE_EXPERIENCE'] as int,
+      innovationExchange: json['INNOVATION_EXCHANGE'] as int,
+      quickTour: json['QUICK_TOUR'] as int,
+    );
+  }
+
+  int get total => paceTour + paceExperience + innovationExchange + quickTour;
+}
+
+class MonthlyTrend {
+  final String month;
+  final int count;
+  final int approved;
+
+  MonthlyTrend({
+    required this.month,
+    required this.count,
+    required this.approved,
+  });
+
+  factory MonthlyTrend.fromJson(Map<String, dynamic> json) {
+    return MonthlyTrend(
+      month: json['month'] as String,
+      count: json['count'] as int,
+      approved: json['approved'] as int,
     );
   }
 }

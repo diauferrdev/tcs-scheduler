@@ -93,13 +93,24 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
   }
 
   void _categorizeBookings() {
+    // New Requests: All bookings that need review/action
+    // Sorted by latest status update (updatedAt) - most recently updated first
     _newRequests = _allBookings
-        .where((b) => b.status == BookingStatus.PENDING_APPROVAL)
+        .where((b) =>
+            b.status == BookingStatus.CREATED ||
+            b.status == BookingStatus.UNDER_REVIEW ||
+            b.status == BookingStatus.NEED_EDIT ||
+            b.status == BookingStatus.NEED_RESCHEDULE ||
+            b.status == BookingStatus.PENDING_APPROVAL) // DEPRECATED
         .toList()
-      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
 
+    // Recent History: Completed/final states (approved, rejected, cancelled)
     _recentHistory = _allBookings
-        .where((b) => b.status == BookingStatus.APPROVED || b.status == BookingStatus.CANCELLED)
+        .where((b) =>
+            b.status == BookingStatus.APPROVED ||
+            b.status == BookingStatus.NOT_APPROVED ||
+            b.status == BookingStatus.CANCELLED)
         .toList()
       ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
   }
@@ -170,63 +181,25 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Header
-              Row(
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Bookings',
-                          style: TextStyle(
-                            fontSize: 28,
-                            fontWeight: FontWeight.bold,
-                            color: isDark ? Colors.white : Colors.black,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Manage all booking requests',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
-                          ),
-                        ),
-                      ],
+                  Text(
+                    'Bookings',
+                    style: TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold,
+                      color: isDark ? Colors.white : Colors.black,
                     ),
                   ),
-                  // Count badge for new requests
-                  if (!_loading && _newRequests.isNotEmpty)
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF59E0B).withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(
-                          color: const Color(0xFFF59E0B),
-                          width: 2,
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(
-                            Icons.pending_actions,
-                            color: Color(0xFFF59E0B),
-                            size: 18,
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            '${_newRequests.length}',
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFFF59E0B),
-                            ),
-                          ),
-                        ],
-                      ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Manage all booking requests',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
                     ),
+                  ),
                 ],
               ),
 

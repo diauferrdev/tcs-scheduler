@@ -18,6 +18,7 @@ import '../models/user.dart';
 import '../widgets/access_badge.dart';
 import '../utils/time_formatter.dart';
 import 'booking_form_screen.dart';
+import '../services/booking_flow_service.dart';
 
 enum CalendarViewType {
   month,
@@ -28,11 +29,13 @@ enum CalendarViewType {
 class CalendarScreen extends StatefulWidget {
   final bool skipLayout;
   final String? draftIdToEdit; // Optional draft ID to open for editing
+  final Function(DateTime)? onDaySelected; // Optional callback when a day is clicked (for reschedule drawer)
 
   const CalendarScreen({
     super.key,
     this.skipLayout = false,
     this.draftIdToEdit,
+    this.onDaySelected,
   });
 
   @override
@@ -204,10 +207,15 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
         _error = null;
       });
 
-      // Get all bookings from backend
-      // Note: PENDING_APPROVAL bookings are filtered out from calendar display
-      // They only appear in My Bookings (USER) and Approvals page (ADMIN/MANAGER)
-      final response = await _apiService.getBookings();
+      // Get user role to determine which endpoint to use
+      final authProvider = context.read<AuthProvider>();
+      final userRole = authProvider.user?.role;
+
+      // ADMIN/MANAGER: Use availability-admin endpoint (shows PENDING + APPROVED)
+      // USER: Use availability endpoint (shows only APPROVED bookings, not PENDING)
+      final response = (userRole == UserRole.ADMIN || userRole == UserRole.MANAGER)
+          ? await _apiService.getBookingsAvailabilityForAdmins(null)
+          : await _apiService.getBookingsAvailability(null);
       final bookingsData = response['bookings'] as List;
 
       setState(() {
@@ -544,6 +552,12 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
   }
 
   Future<void> _handleDayClick(DateTime date) async {
+    // If onDaySelected callback is provided (reschedule mode), use it instead
+    if (widget.onDaySelected != null) {
+      widget.onDaySelected!(date);
+      return;
+    }
+
     // Check if date is bookable (at least 7 business days from today, not weekend)
     if (!_isDateBookable(date)) {
       // Show appropriate message based on why the date is not bookable
@@ -605,120 +619,30 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
     }
   }
 
-  void _showSlotPickerDrawer(DateTime date) {
+  void _showSlotPickerDrawer(DateTime date, {Function(TimeOfDay, int)? onSlotSelected}) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final availability = _selectedDayAvailability;
     final allPeriods = availability?.allPeriods ?? [];
     final visitTypeLabel = _selectedVisitType == 'QUICK_TOUR' ? 'Quick Tour' : 'Innovation Exchange';
+
+    // Check user role to determine if we should show block details
+    final authProvider = context.read<AuthProvider>();
+    final isUserRole = authProvider.user?.role == UserRole.USER;
 
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       isDismissible: true,
-      builder: (context) => DraggableScrollableSheet(
-        initialChildSize: 0.75,
-        minChildSize: 0.5,
-        maxChildSize: 0.9,
-        builder: (context, scrollController) => Container(
-          decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF18181B) : Colors.white,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-          ),
-          child: Column(
-            children: [
-              // Handle bar
-              Container(
-                margin: const EdgeInsets.only(top: 8, bottom: 4),
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: isDark ? Colors.grey[700] : Colors.grey[300],
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              // Header
-              Container(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-                decoration: BoxDecoration(
-                  border: Border(
-                    bottom: BorderSide(
-                      color: isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
-                    ),
-                  ),
-                ),
-                child: Column(
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        IconButton(
-                          onPressed: () {
-                            Navigator.of(context).pop();
-                            _closeSlotPickerAndClearCache();
-                          },
-                          icon: Icon(Icons.close, color: isDark ? Colors.white : Colors.black),
-                          tooltip: 'Close',
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Select Period',
-                                style: TextStyle(
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.bold,
-                                  color: isDark ? Colors.white : Colors.black,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                visitTypeLabel,
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: Padding(
-                        padding: const EdgeInsets.only(left: 56),
-                        child: Text(
-                          DateFormat('MMMM d, yyyy').format(date),
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              // Content
-              Expanded(
-                child: SingleChildScrollView(
-                  controller: scrollController,
-                  padding: const EdgeInsets.all(24),
-                  child: Column(
-                    children: allPeriods.map((period) {
-                      return _buildPeriodCard(period, isDark);
-                    }).toList(),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
+      builder: (context) => SlotPickerContent(
+        date: date,
+        allPeriods: allPeriods,
+        visitTypeLabel: visitTypeLabel,
+        selectedVisitType: _selectedVisitType,
+        isUserRole: isUserRole,
+        isDark: isDark,
+        onSlotSelected: onSlotSelected,
+        onClose: _closeSlotPickerAndClearCache,
       ),
     ).whenComplete(() => _closeSlotPickerAndClearCache());
   }
@@ -767,217 +691,38 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
   }
 
   Future<void> _showBookingFormDrawer(DateTime selectedDate, TimeOfDay startTime, int duration) async {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    // Create a GlobalKey to access BookingFormScreen's fillWithMockData method
-    final formKey = GlobalKey<BookingFormScreenState>();
-
-    await showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      isDismissible: false, // Prevent dismissing to avoid losing form data
-      enableDrag: false, // Prevent dragging to avoid accidental closes
-      builder: (context) => DraggableScrollableSheet(
-        initialChildSize: 0.85, // Increased from 0.75 to 0.85 (85% height)
-        minChildSize: 0.6, // Increased from 0.5 to 0.6
-        maxChildSize: 0.95, // Increased from 0.9 to 0.95
-        builder: (context, scrollController) => Container(
-          decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF18181B) : Colors.white,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-          ),
-          child: Column(
-            children: [
-              // Handle bar
-              Container(
-                margin: const EdgeInsets.only(top: 8, bottom: 4),
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: isDark ? Colors.grey[700] : Colors.grey[300],
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              // Header with close button and mock data button
-              Container(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-                decoration: BoxDecoration(
-                  border: Border(
-                    bottom: BorderSide(
-                      color: isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
-                    ),
-                  ),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    IconButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      icon: Icon(Icons.close, color: isDark ? Colors.white : Colors.black),
-                      tooltip: 'Close',
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'New Booking',
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: isDark ? Colors.white : Colors.black,
-                        ),
-                      ),
-                    ),
-                    // Mock data button
-                    IconButton(
-                      onPressed: () {
-                        // Call fillWithMockData on the form
-                        formKey.currentState?.fillWithMockData();
-                      },
-                      icon: Icon(Icons.auto_awesome, color: isDark ? Colors.white : Colors.black),
-                      tooltip: 'Fill with Mock Data',
-                    ),
-                  ],
-                ),
-              ),
-              // Content - Full BookingFormScreen (without Scaffold wrapper)
-              Expanded(
-                child: BookingFormScreen(
-                  key: formKey,
-                  selectedDate: selectedDate,
-                  startTime: startTime,
-                  duration: duration,
-                  showScaffold: false, // Use form content only in drawer context
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
+    // Use the new BookingFlowService to start the multi-drawer flow
+    final flowService = BookingFlowService();
+    flowService.startBookingFlow(
+      context,
+      selectedDate: selectedDate,
+      startTime: startTime,
     );
+
+    // Reload bookings after flow completes
+    _loadBookings();
   }
 
   Future<void> _showVisitTypeSelectionDialog(DateTime date) async {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    // Start the new booking flow with engagement type selection
+    // This will chain through: Engagement Type → Visit Type (if needed) → Period Selection → Base Info → Questionnaire (if needed)
+    final flowService = BookingFlowService();
 
-    final visitType = await showModalBottomSheet<String>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => DraggableScrollableSheet(
-        initialChildSize: 0.75,
-        minChildSize: 0.5,
-        maxChildSize: 0.9,
-        builder: (context, scrollController) => Container(
-          decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF18181B) : Colors.white,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-          ),
-          child: Column(
-            children: [
-              // Handle bar
-              Container(
-                margin: const EdgeInsets.only(top: 8, bottom: 4),
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: isDark ? Colors.grey[700] : Colors.grey[300],
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              // Header
-              Container(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-                decoration: BoxDecoration(
-                  border: Border(
-                    bottom: BorderSide(
-                      color: isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
-                    ),
-                  ),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    IconButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      icon: Icon(Icons.close, color: isDark ? Colors.white : Colors.black),
-                      tooltip: 'Close',
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'Visit Type',
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: isDark ? Colors.white : Colors.black,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              // Content
-              Expanded(
-                child: SingleChildScrollView(
-                  controller: scrollController,
-                  padding: const EdgeInsets.all(24),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Select the type of visit you want to schedule:',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-                      // Quick Tour Option
-                      _buildVisitTypeOption(
-                        context,
-                        'QUICK_TOUR',
-                        'Quick Tour',
-                        '2 hours - Max 2 per day (1 morning + 1 afternoon)',
-                        Icons.schedule,
-                        isDark,
-                      ),
-                      const SizedBox(height: 12),
-                      // Innovation Exchange Option
-                      _buildVisitTypeOption(
-                        context,
-                        'INNOVATION_EXCHANGE',
-                        'Innovation Exchange',
-                        '4-6 hours - Requires prep and teardown periods',
-                        Icons.auto_awesome,
-                        isDark,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
+    await flowService.startBookingFlowWithPeriodSelection(
+      context,
+      selectedDate: date,
+      onPeriodSelected: (startTime) {
+        // Reload bookings after flow completes
+        _loadBookings();
+      },
+      // Pass wrapper functions with correct signatures
+      loadAvailability: (DateTime date, String visitType) {
+        return _loadDayAvailability(date, visitType: visitType);
+      },
+      showSlotPicker: (DateTime date, Function(TimeOfDay, int) onSlotSelected) {
+        _showSlotPickerDrawer(date, onSlotSelected: onSlotSelected);
+      },
     );
-
-    if (visitType != null) {
-      setState(() => _selectedVisitType = visitType);
-
-      // Load availability with selected visit type
-      // CRITICAL: This call validates IE requirements (prep/teardown) on backend
-      await _loadDayAvailability(date, visitType: visitType);
-
-      // Show slot picker with filtered periods
-      _showSlotPickerDrawer(date);
-    } else {
-      // User cancelled - clear the availability cache for this date
-      final dateStr = DateFormat('yyyy-MM-dd').format(date);
-      setState(() {
-        _availabilityCache.remove(dateStr);
-        _selectedDayAvailability = null;
-      });
-    }
   }
 
   Widget _buildVisitTypeOption(
@@ -1632,24 +1377,27 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
                           // Only pending bookings - orange
                           indicatorColor = const Color(0xFFF59E0B); // Orange - pending approval
                         } else if (isFull) {
-                          // Both periods occupied (bookings OR IE blocks) - RED (100% full)
-                          indicatorColor = const Color(0xFFEF4444); // Red - no slots available
-                        } else if (!hasAnyOccupation && dayBookings.isEmpty) {
-                          // No bookings AND no IE blocks at all
+                          // Both periods occupied (bookings OR IE blocks) - 100% full
+                          // NO DOT for full days - they will be greyed out via opacity below
+                          indicatorColor = null; // No indicator for full days
+                        } else if (!hasAnyOccupation && dayBookings.isEmpty && isBookable) {
+                          // No bookings AND no IE blocks at all AND is bookable
+                          // Only show green dot on days that are actually available for booking
                           indicatorColor = const Color(0xFF10B981); // Green - available, no bookings
                         } else if (hasAnyOccupation) {
                           // Has bookings OR IE blocks but NOT full - Yellow (partial)
                           indicatorColor = const Color(0xFFFBBF24); // Yellow - partial (has bookings/blocks but slots available)
                         }
 
-                        // If not bookable (disabled day), apply darker tone
+                        // If not bookable (disabled day), apply darker tone to other indicators
                         if (indicatorColor != null && !isBookable) {
                           indicatorColor = indicatorColor.withOpacity(0.4);
                         }
                       }
 
                       // Allow ADMIN/MANAGER to click on disabled days to view events
-                      final canClickDay = isBookable ||
+                      // But full days are unclickable for everyone (unless ADMIN/MANAGER)
+                      final canClickDay = (isBookable && !isFull) ||
                         (authProvider.user?.role == UserRole.ADMIN ||
                          authProvider.user?.role == UserRole.MANAGER);
 
@@ -1680,8 +1428,8 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
                                     style: TextStyle(
                                       fontSize: 13,
                                       fontWeight: isToday || isSelected ? FontWeight.bold : FontWeight.normal,
-                                      color: !isBookable
-                                          ? const Color(0xFF9CA3AF) // Disabled (past or before 7 business days)
+                                      color: !isBookable || isFull
+                                          ? const Color(0xFF9CA3AF) // Disabled (past, before 7 business days, or full)
                                           : isSelected
                                             ? (isDark ? Colors.black : Colors.white)
                                             : isDark
@@ -2001,17 +1749,31 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
 
     switch (booking.status) {
       case BookingStatus.DRAFT:
+      case BookingStatus.CREATED:
         statusColor = const Color(0xFF6B7280); // Gray
-        statusLabel = 'DRAFT';
+        statusLabel = booking.status == BookingStatus.DRAFT ? 'DRAFT' : 'CREATED';
         break;
       case BookingStatus.PENDING_APPROVAL:
+      case BookingStatus.UNDER_REVIEW:
+      case BookingStatus.NEED_EDIT:
+      case BookingStatus.NEED_RESCHEDULE:
         statusColor = const Color(0xFFF59E0B); // Amber/Yellow
-        statusLabel = 'PENDING';
-        shouldPulse = true; // Animate for pending
+        statusLabel = booking.status == BookingStatus.NEED_EDIT
+            ? 'NEEDS EDIT'
+            : booking.status == BookingStatus.NEED_RESCHEDULE
+                ? 'NEEDS RESCHEDULE'
+                : booking.status == BookingStatus.UNDER_REVIEW
+                    ? 'UNDER REVIEW'
+                    : 'PENDING';
+        shouldPulse = true; // Animate for pending/review
         break;
       case BookingStatus.APPROVED:
         statusColor = const Color(0xFF10B981); // Green
         statusLabel = 'APPROVED';
+        break;
+      case BookingStatus.NOT_APPROVED:
+        statusColor = const Color(0xFFEF4444); // Red
+        statusLabel = 'NOT APPROVED';
         break;
       case BookingStatus.CANCELLED:
         statusColor = const Color(0xFFEF4444); // Red
@@ -2821,7 +2583,12 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
     );
   }
 
-  Widget _buildPeriodCard(AvailablePeriod period, bool isDark) {
+  Widget _buildPeriodCard(
+    AvailablePeriod period,
+    bool isDark, {
+    bool showBlockDetails = true,
+    Function(TimeOfDay, int)? onSlotSelected,
+  }) {
     final isAvailable = period.available;
     final willBlock = period.willBlock;
 
@@ -2841,23 +2608,33 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
               minute: int.parse(timeParts[1]),
             );
 
-            // Close drawer and show booking form drawer
-            Navigator.of(context).pop(); // Close the period picker drawer first
+            // If callback is provided (from booking flow service), use it
+            if (onSlotSelected != null) {
+              // Close the modal bottom sheet drawer only
+              Navigator.of(context, rootNavigator: false).pop();
 
-            await _showBookingFormDrawer(_selectedDate!, startTime, duration);
+              // Call the callback
+              onSlotSelected(startTime, duration);
+            } else {
+              // Close drawer for default flow
+              Navigator.of(context).pop();
 
-            // ALWAYS clear cache after closing form
-            final dateStr = DateFormat('yyyy-MM-dd').format(_selectedDate!);
-            setState(() {
-              _availabilityCache.remove(dateStr);
-              _selectedDayAvailability = null;
-              _selectedVisitType = null;
-              _selectedStartTime = null;
-              _selectedDuration = null;
-            });
+              // Use the default flow
+              await _showBookingFormDrawer(_selectedDate!, startTime, duration);
 
-            // Reload bookings
-            await _loadBookings();
+              // ALWAYS clear cache after closing form
+              final dateStr = DateFormat('yyyy-MM-dd').format(_selectedDate!);
+              setState(() {
+                _availabilityCache.remove(dateStr);
+                _selectedDayAvailability = null;
+                _selectedVisitType = null;
+                _selectedStartTime = null;
+                _selectedDuration = null;
+              });
+
+              // Reload bookings
+              await _loadBookings();
+            }
           } : null,
           borderRadius: BorderRadius.circular(12),
           child: Container(
@@ -2910,7 +2687,7 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
                                   : (isDark ? const Color(0xFF6B7280) : const Color(0xFF9CA3AF)),
                             ),
                           ),
-                          if (!isAvailable && period.blockedBy != null) ...[
+                          if (showBlockDetails && !isAvailable && period.blockedBy != null) ...[
                             const SizedBox(height: 6),
                             Row(
                               children: [
@@ -2944,8 +2721,8 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
                   ],
                 ),
 
-                // Show blocks for Innovation Exchange
-                if (isAvailable && willBlock != null && willBlock.isNotEmpty) ...[
+                // Show blocks for Innovation Exchange (only for ADMIN/MANAGER)
+                if (showBlockDetails && isAvailable && willBlock != null && willBlock.isNotEmpty) ...[
                   const SizedBox(height: 16),
                   Container(
                     padding: const EdgeInsets.all(12),
@@ -4671,5 +4448,273 @@ class _BookingFormWidgetState extends State<_BookingFormWidget> {
         ),
       ),
     );
+  }
+}
+
+// Stateful widget for slot picker with confirmation button
+// Made public to be reusable in reschedule_drawer.dart
+class SlotPickerContent extends StatefulWidget {
+  final DateTime date;
+  final List<AvailablePeriod> allPeriods;
+  final String visitTypeLabel;
+  final String? selectedVisitType;
+  final bool isUserRole;
+  final bool isDark;
+  final Function(TimeOfDay, int)? onSlotSelected;
+  final VoidCallback onClose;
+
+  const SlotPickerContent({
+    super.key,
+    required this.date,
+    required this.allPeriods,
+    required this.visitTypeLabel,
+    required this.selectedVisitType,
+    required this.isUserRole,
+    required this.isDark,
+    this.onSlotSelected,
+    required this.onClose,
+  });
+
+  @override
+  State<SlotPickerContent> createState() => _SlotPickerContentState();
+}
+
+class _SlotPickerContentState extends State<SlotPickerContent> {
+  AvailablePeriod? _selectedPeriod;
+
+  @override
+  Widget build(BuildContext context) {
+    return DraggableScrollableSheet(
+      initialChildSize: 0.75,
+      minChildSize: 0.5,
+      maxChildSize: 0.9,
+      builder: (context, scrollController) => Container(
+        decoration: BoxDecoration(
+          color: widget.isDark ? const Color(0xFF18181B) : Colors.white,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: Column(
+          children: [
+            // Handle bar
+            Container(
+              margin: const EdgeInsets.only(top: 8, bottom: 4),
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: widget.isDark ? Colors.grey[700] : Colors.grey[300],
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            // Header
+            Container(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+              decoration: BoxDecoration(
+                border: Border(
+                  bottom: BorderSide(
+                    color: widget.isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
+                  ),
+                ),
+              ),
+              child: Column(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      IconButton(
+                        onPressed: () {
+                          Navigator.of(context).pop();
+                          widget.onClose();
+                        },
+                        icon: Icon(Icons.close, color: widget.isDark ? Colors.white : Colors.black),
+                        tooltip: 'Close',
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Select Period',
+                              style: TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                                color: widget.isDark ? Colors.white : Colors.black,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              widget.visitTypeLabel,
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: widget.isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Padding(
+                      padding: const EdgeInsets.only(left: 56),
+                      child: Text(
+                        DateFormat('MMMM d, yyyy').format(widget.date),
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: widget.isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            // Content
+            Expanded(
+              child: SingleChildScrollView(
+                controller: scrollController,
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  children: widget.allPeriods.map((period) {
+                    return _buildSelectablePeriodCard(period);
+                  }).toList(),
+                ),
+              ),
+            ),
+            // Confirm button
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                border: Border(
+                  top: BorderSide(
+                    color: widget.isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
+                  ),
+                ),
+              ),
+              child: ElevatedButton(
+                onPressed: _selectedPeriod != null ? _confirmSelection : null,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.black,
+                  foregroundColor: Colors.white,
+                  minimumSize: const Size(double.infinity, 50),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                child: const Text(
+                  'Confirm',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSelectablePeriodCard(AvailablePeriod period) {
+    final isAvailable = period.available;
+    final isSelected = _selectedPeriod == period;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: isAvailable ? () {
+            setState(() {
+              _selectedPeriod = period;
+            });
+          } : null,
+          borderRadius: BorderRadius.circular(12),
+          child: Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: isAvailable
+                  ? (widget.isDark ? const Color(0xFF18181B) : Colors.white)
+                  : (widget.isDark ? const Color(0xFF09090B) : const Color(0xFFF3F4F6)),
+              border: Border.all(
+                color: isSelected
+                    ? Colors.black
+                    : (isAvailable
+                        ? (widget.isDark ? const Color(0xFF10B981) : const Color(0xFF059669))
+                        : (widget.isDark ? const Color(0xFF3F3F46) : const Color(0xFFD1D5DB))),
+                width: isSelected ? 3 : 2,
+              ),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: isAvailable
+                        ? (widget.isDark ? const Color(0xFF10B981).withValues(alpha: 0.2) : const Color(0xFF10B981).withValues(alpha: 0.1))
+                        : (widget.isDark ? const Color(0xFF3F3F46) : const Color(0xFFE5E7EB)),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(
+                    period.period == 'MORNING' ? Icons.wb_sunny : Icons.nights_stay,
+                    size: 24,
+                    color: isAvailable
+                        ? (widget.isDark ? const Color(0xFF10B981) : const Color(0xFF059669))
+                        : (widget.isDark ? const Color(0xFF6B7280) : const Color(0xFF9CA3AF)),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        period.label,
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: isAvailable
+                              ? (widget.isDark ? Colors.white : Colors.black)
+                              : (widget.isDark ? const Color(0xFF6B7280) : const Color(0xFF9CA3AF)),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (isSelected)
+                  const Icon(Icons.check_circle, color: Colors.black, size: 28),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _confirmSelection() {
+    if (_selectedPeriod == null) return;
+
+    // Calculate duration based on visit type
+    final duration = widget.selectedVisitType == 'QUICK_TOUR' ? 2 : 4;
+
+    // Parse start time to TimeOfDay
+    final timeParts = _selectedPeriod!.startTime.split(':');
+    final startTime = TimeOfDay(
+      hour: int.parse(timeParts[0]),
+      minute: int.parse(timeParts[1]),
+    );
+
+    // Close the drawer
+    Navigator.of(context, rootNavigator: false).pop();
+
+    // Call the callback
+    if (widget.onSlotSelected != null) {
+      widget.onSlotSelected!(startTime, duration);
+    }
   }
 }

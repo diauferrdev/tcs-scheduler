@@ -1,46 +1,38 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'dart:convert';
-import 'dart:math';
-import '../services/api_service.dart';
 import '../models/booking.dart';
+import '../services/api_service.dart';
 import '../widgets/booking_form_fields.dart';
 
-class BookingFormScreen extends StatefulWidget {
-  final DateTime selectedDate;
-  final TimeOfDay startTime;
-  final int duration;
-  final bool showScaffold;
-  final Booking? existingBooking;
+/// Drawer for editing booking details when status is NEED_EDIT
+/// Shows multi-step form: Step 3 (Base Information) → Step 4 (Questionnaire if applicable)
+class EditBookingDrawer extends StatefulWidget {
+  final Booking booking;
+  final VoidCallback onClose;
+  final VoidCallback onSuccess;
 
-  const BookingFormScreen({
-    Key? key,
-    required this.selectedDate,
-    required this.startTime,
-    required this.duration,
-    this.showScaffold = true,
-    this.existingBooking,
-  }) : super(key: key);
+  const EditBookingDrawer({
+    super.key,
+    required this.booking,
+    required this.onClose,
+    required this.onSuccess,
+  });
 
   @override
-  State<BookingFormScreen> createState() => BookingFormScreenState();
+  State<EditBookingDrawer> createState() => _EditBookingDrawerState();
 }
 
-class BookingFormScreenState extends State<BookingFormScreen> {
+class _EditBookingDrawerState extends State<EditBookingDrawer> {
+  final ApiService _apiService = ApiService();
   final _formKey = GlobalKey<FormState>();
-  bool _isSubmitting = false;
 
-  // Multi-step flow state
-  int _currentStep = 1; // 1, 2, 3, 4
+  int _currentStep = 3; // Start at Step 3 (Base Information)
+  bool _submitting = false;
 
-  // Step 1: Engagement Type
-  String? _engagementType; // 'VISIT' or 'INNOVATION_EXCHANGE'
-
-  // Step 2: Visit Type (only if VISIT selected)
-  String? _visitType; // 'PACE_TOUR' or 'PACE_EXPERIENCE'
-  int _visitDuration = 2; // 2 for PACE_TOUR, 6 for PACE_EXPERIENCE
+  // Step 1 & 2 data (read-only from existing booking)
+  String? _engagementType;
+  String? _visitType;
 
   // Step 3: Base Information
   final _requesterNameController = TextEditingController();
@@ -56,7 +48,7 @@ class BookingFormScreenState extends State<BookingFormScreen> {
   // Attendees (optional)
   List<AttendeeFormData> _attendees = [];
 
-  // Step 4: Questionnaire (only for PACE_EXPERIENCE and INNOVATION_EXCHANGE)
+  // Step 4: Questionnaire
   final _questionnaireAnswers = <String, String>{
     'q1': '',
     'q2': '',
@@ -68,26 +60,17 @@ class BookingFormScreenState extends State<BookingFormScreen> {
   @override
   void initState() {
     super.initState();
-
-    if (widget.existingBooking != null) {
-      _prefillFromExistingBooking(widget.existingBooking!);
-      // In edit mode, start at Step 3 (Base Information)
-      _currentStep = 3;
-    }
+    _prefillFromBooking();
   }
 
-  bool get _isEditMode => widget.existingBooking != null;
+  void _prefillFromBooking() {
+    final booking = widget.booking;
 
-  void _prefillFromExistingBooking(Booking booking) {
     setState(() {
-      // Step 1: Engagement Type
+      // Step 1 & 2: Read-only
       _engagementType = booking.engagementType?.name ??
-        (booking.visitType == VisitType.INNOVATION_EXCHANGE ? 'INNOVATION_EXCHANGE' : 'VISIT');
-
-      // Step 2: Visit Type
-      if (_engagementType == 'VISIT') {
-        _visitType = booking.visitType.name;
-      }
+          (booking.visitType == VisitType.INNOVATION_EXCHANGE ? 'INNOVATION_EXCHANGE' : 'VISIT');
+      _visitType = booking.visitType.name;
 
       // Step 3: Base Information
       _requesterNameController.text = booking.requesterName ?? '';
@@ -100,7 +83,7 @@ class BookingFormScreenState extends State<BookingFormScreen> {
       _objectiveInterestController.text = booking.objectiveInterest ?? '';
       _targetAudience = booking.targetAudience?.map((a) => a.name).toList() ?? [];
 
-      // Attendees (if present)
+      // Attendees
       if (booking.attendees != null && booking.attendees!.isNotEmpty) {
         _attendees = booking.attendees!.map((a) => AttendeeFormData.fromAttendee(a)).toList();
       }
@@ -124,11 +107,16 @@ class BookingFormScreenState extends State<BookingFormScreen> {
     _organizationTypeOtherController.dispose();
     _organizationDescriptionController.dispose();
     _objectiveInterestController.dispose();
-    // Dispose attendees
     for (var attendee in _attendees) {
       attendee.dispose();
     }
     super.dispose();
+  }
+
+  bool _requiresQuestionnaire() {
+    if (_engagementType == 'INNOVATION_EXCHANGE') return true;
+    if (_engagementType == 'VISIT' && _visitType == 'PACE_EXPERIENCE') return true;
+    return false;
   }
 
   String _durationToEnum(int hours) {
@@ -152,33 +140,8 @@ class BookingFormScreenState extends State<BookingFormScreen> {
     }
   }
 
-  Map<String, dynamic> _buildBookingData() {
-    // Determine final engagement type and visit type
-    String finalEngagementType;
-    String finalVisitType;
-    int finalDuration;
-
-    if (_engagementType == 'VISIT') {
-      finalEngagementType = 'VISIT';
-      finalVisitType = _visitType!; // PACE_TOUR or PACE_EXPERIENCE
-      finalDuration = _visitType == 'PACE_TOUR' ? 2 : 6;
-    } else {
-      // INNOVATION_EXCHANGE
-      finalEngagementType = 'INNOVATION_EXCHANGE';
-      finalVisitType = 'INNOVATION_EXCHANGE';
-      finalDuration = 7;
-    }
-
-    final bookingData = {
-      // Date/Time
-      'date': DateFormat('yyyy-MM-dd').format(widget.selectedDate),
-      'startTime': '${widget.startTime.hour.toString().padLeft(2, '0')}:${widget.startTime.minute.toString().padLeft(2, '0')}',
-      'duration': _durationToEnum(finalDuration),
-
-      // New engagement flow
-      'engagementType': finalEngagementType,
-      'visitType': finalVisitType,
-
+  Map<String, dynamic> _buildUpdateData() {
+    final updateData = {
       // Base Information
       'requesterName': _requesterNameController.text.trim(),
       'employeeId': _employeeIdController.text.trim(),
@@ -193,141 +156,28 @@ class BookingFormScreenState extends State<BookingFormScreen> {
         'objectiveInterest': _objectiveInterestController.text.trim(),
       'targetAudience': _targetAudience,
 
-      // Questionnaire (for PACE_EXPERIENCE and INNOVATION_EXCHANGE)
+      // Questionnaire (if applicable)
       if (_requiresQuestionnaire())
         'questionnaireAnswers': _questionnaireAnswers,
 
-      // Alignment call flag
-      'requiresAlignmentCall': _requiresQuestionnaire(),
-
-      // Attendees (optional)
+      // Attendees
       if (_attendees.isNotEmpty)
         'attendees': _attendees.map((a) => a.toJson()).toList(),
       'expectedAttendees': _attendees.isNotEmpty ? _attendees.length : 1,
 
-      // Legacy compatibility fields
+      // Status change: After editing a NEED_EDIT booking, return to PENDING_APPROVAL
+      'status': 'PENDING_APPROVAL',
+
+      // Legacy compatibility
       'companyName': _organizationNameController.text.trim(),
       'accountName': _organizationNameController.text.trim(),
     };
 
-    return bookingData;
+    return updateData;
   }
 
-  bool _requiresQuestionnaire() {
-    if (_engagementType == 'INNOVATION_EXCHANGE') return true;
-    if (_engagementType == 'VISIT' && _visitType == 'PACE_EXPERIENCE') return true;
-    return false;
-  }
-
-  Future<void> _submitForm() async {
-    if (!_formKey.currentState!.validate()) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please fill in all required fields'),
-          backgroundColor: Colors.red,
-        ),
-      );
-      return;
-    }
-
-    setState(() {
-      _isSubmitting = true;
-    });
-
-    try {
-      final apiService = ApiService();
-
-      if (_isEditMode) {
-        // EDIT MODE: Update existing booking
-        final bookingData = _buildBookingData();
-        // Remove date/time fields (cannot be changed in edit mode)
-        bookingData.remove('date');
-        bookingData.remove('startTime');
-        bookingData.remove('duration');
-
-        debugPrint('[BOOKING] Updating booking ${widget.existingBooking!.id}: ${json.encode(bookingData)}');
-
-        await apiService.updateBooking(widget.existingBooking!.id, bookingData);
-
-        if (!mounted) return;
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Booking updated successfully! Status changed to Under Review.'),
-            backgroundColor: Colors.green,
-          ),
-        );
-      } else {
-        // CREATE MODE: Create new booking
-        final bookingData = _buildBookingData();
-
-        debugPrint('[BOOKING] Creating booking: ${json.encode(bookingData)}');
-
-        await apiService.createBooking(bookingData);
-
-        if (!mounted) return;
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Booking created successfully!'),
-            backgroundColor: Colors.green,
-          ),
-        );
-      }
-
-      Navigator.pop(context, true);
-    } catch (e) {
-      if (!mounted) return;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error: ${e.toString()}'),
-          backgroundColor: Colors.red,
-          duration: const Duration(seconds: 5),
-        ),
-      );
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isSubmitting = false;
-        });
-      }
-    }
-  }
-
-  void _nextStep() {
-    if (_currentStep == 1) {
-      // Validate engagement type selection
-      if (_engagementType == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Please select an engagement type'),
-            backgroundColor: Colors.orange,
-          ),
-        );
-        return;
-      }
-
-      // If VISIT, go to step 2 (visit type selection)
-      // If INNOVATION_EXCHANGE, skip to step 3 (base info)
-      if (_engagementType == 'VISIT') {
-        setState(() => _currentStep = 2);
-      } else {
-        setState(() => _currentStep = 3);
-      }
-    } else if (_currentStep == 2) {
-      // Validate visit type selection
-      if (_visitType == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Please select a visit type'),
-            backgroundColor: Colors.orange,
-          ),
-        );
-        return;
-      }
-      setState(() => _currentStep = 3);
-    } else if (_currentStep == 3) {
+  Future<void> _handleNext() async {
+    if (_currentStep == 3) {
       // Validate base information
       if (!_formKey.currentState!.validate()) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -340,11 +190,11 @@ class BookingFormScreenState extends State<BookingFormScreen> {
       }
 
       // If requires questionnaire, go to step 4
-      // Otherwise, submit directly
       if (_requiresQuestionnaire()) {
         setState(() => _currentStep = 4);
       } else {
-        _submitForm();
+        // Otherwise, submit directly
+        await _submitUpdate();
       }
     } else if (_currentStep == 4) {
       // Validate questionnaire
@@ -358,32 +208,41 @@ class BookingFormScreenState extends State<BookingFormScreen> {
         );
         return;
       }
-      _submitForm();
+      await _submitUpdate();
     }
   }
 
-  void _previousStep() {
-    // In edit mode, only allow navigation between steps 3 and 4
-    if (_isEditMode) {
-      if (_currentStep == 4) {
-        setState(() => _currentStep = 3);
-      }
-      // If at step 3, can't go back (it's the first step in edit mode)
-      return;
-    }
+  Future<void> _submitUpdate() async {
+    setState(() => _submitting = true);
 
-    // Normal create mode navigation
-    if (_currentStep == 2) {
-      setState(() => _currentStep = 1);
-    } else if (_currentStep == 3) {
-      // If came from VISIT flow, go back to step 2
-      // Otherwise go back to step 1
-      if (_engagementType == 'VISIT') {
-        setState(() => _currentStep = 2);
-      } else {
-        setState(() => _currentStep = 1);
+    try {
+      final updateData = _buildUpdateData();
+      await _apiService.updateBooking(widget.booking.id, updateData);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Booking updated successfully! Status changed to Under Review.'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        widget.onSuccess();
       }
-    } else if (_currentStep == 4) {
+    } catch (e) {
+      if (mounted) {
+        setState(() => _submitting = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error updating booking: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  void _handleBack() {
+    if (_currentStep == 4) {
       setState(() => _currentStep = 3);
     }
   }
@@ -404,177 +263,98 @@ class BookingFormScreenState extends State<BookingFormScreen> {
     });
   }
 
-  void fillWithMockData() {
-    final random = Random();
-    final mockCompanies = [
-      'Itaú Unibanco', 'Petrobras', 'Magazine Luiza', 'Vale', 'Telefônica Brasil',
-      'Banco do Brasil', 'Bradesco', 'Natura', 'Ambev', 'Embraer'
-    ];
-    final mockNames = [
-      'Ana Paula Silva', 'Carlos Eduardo Santos', 'Marina Oliveira',
-      'Roberto Mendes', 'Fernanda Costa', 'Lucas Almeida'
-    ];
-
-    setState(() {
-      // Step 1: Set engagement type randomly
-      _engagementType = random.nextBool() ? 'VISIT' : 'INNOVATION_EXCHANGE';
-
-      // Step 2: If VISIT, set visit type
-      if (_engagementType == 'VISIT') {
-        _visitType = random.nextBool() ? 'PACE_TOUR' : 'PACE_EXPERIENCE';
-      }
-
-      // Step 3: Fill base information
-      _requesterNameController.text = mockNames[random.nextInt(mockNames.length)];
-      _employeeIdController.text = '${random.nextInt(900000) + 100000}';
-      _vertical = [
-        'BFSI', 'RETAIL_CPG', 'LIFE_SCIENCES_HEALTHCARE', 'MANUFACTURING',
-        'HI_TECH', 'CMT', 'ERU'
-      ][random.nextInt(7)];
-      _organizationNameController.text = mockCompanies[random.nextInt(mockCompanies.length)];
-      _organizationType = [
-        'EXISTING_CUSTOMER', 'PROSPECT', 'PARTNER'
-      ][random.nextInt(3)];
-      _organizationDescriptionController.text = 'Leading company in their sector';
-      _objectiveInterestController.text = 'Explore digital transformation solutions and innovation capabilities';
-      _targetAudience = ['C-Level', 'Technology Leaders'];
-
-      // Step 4: Fill questionnaire if needed
-      if (_requiresQuestionnaire()) {
-        _questionnaireAnswers['q1'] = 'Cloud migration and AI/ML integration';
-        _questionnaireAnswers['q2'] = 'Digital transformation, customer experience, data analytics';
-        _questionnaireAnswers['q3'] = 'CTO, VP of Engineering, Innovation Director';
-        _questionnaireAnswers['q4'] = 'Technology modernization and scalability challenges';
-        _questionnaireAnswers['q5'] = 'Understanding best practices and real-world use cases';
-      }
-    });
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Mock data loaded'),
-        backgroundColor: Colors.green,
-        duration: Duration(seconds: 2),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    Widget formContent = Form(
-      key: _formKey,
+    return Container(
+      height: MediaQuery.of(context).size.height * 0.90,
+      decoration: BoxDecoration(
+        color: isDark ? Colors.black : Colors.white,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+      ),
       child: Column(
         children: [
-          // Header with date/time
+          // Header
           _buildHeader(isDark),
 
-          // Content based on current step
+          // Body
           Expanded(
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(24),
-              child: _buildStepContent(isDark),
+              child: Form(
+                key: _formKey,
+                child: _currentStep == 3
+                    ? _buildStep3BaseInfo(isDark)
+                    : _buildStep4Questionnaire(isDark),
+              ),
             ),
           ),
 
-          // Navigation buttons
-          _buildNavigationButtons(isDark),
+          // Footer with navigation buttons
+          _buildFooter(isDark),
         ],
       ),
-    );
-
-    if (!widget.showScaffold) {
-      return formContent;
-    }
-
-    return Scaffold(
-      backgroundColor: isDark ? Colors.grey[900] : Colors.white,
-      appBar: AppBar(
-        backgroundColor: Colors.black,
-        foregroundColor: Colors.white,
-        title: Text(_isEditMode ? 'Edit Booking' : 'New Booking'),
-        elevation: 0,
-        actions: [
-          if (!_isEditMode)
-            IconButton(
-              icon: const Icon(Icons.auto_awesome),
-              tooltip: 'Fill with Mock Data',
-              onPressed: fillWithMockData,
-            ),
-        ],
-      ),
-      body: formContent,
     );
   }
 
   Widget _buildHeader(bool isDark) {
     return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF18181B) : const Color(0xFFF9FAFB),
         border: Border(
           bottom: BorderSide(
             color: isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
-            width: 1,
           ),
         ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Step indicator (only in create mode)
-          if (!_isEditMode) ...[
-            Row(
-              children: [
-                _buildStepIndicator(1, _currentStep >= 1, isDark),
-                if (_engagementType == 'VISIT') ...[
-                  _buildStepConnector(isDark),
-                  _buildStepIndicator(2, _currentStep >= 2, isDark),
-                ],
-                _buildStepConnector(isDark),
-                _buildStepIndicator(3, _currentStep >= 3, isDark),
-                if (_requiresQuestionnaire()) ...[
-                  _buildStepConnector(isDark),
-                  _buildStepIndicator(4, _currentStep >= 4, isDark),
-                ],
-              ],
-            ),
-            const SizedBox(height: 16),
-          ],
-
-          // Step title
-          Text(
-            _getStepTitle(),
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: isDark ? Colors.white : Colors.black,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            _getStepSubtitle(),
-            style: TextStyle(
-              fontSize: 14,
-              color: isDark ? Colors.grey[400] : Colors.grey[600],
-            ),
+          Row(
+            children: [
+              IconButton(
+                onPressed: widget.onClose,
+                icon: Icon(Icons.close, color: isDark ? Colors.white : Colors.black),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _currentStep == 3 ? 'Edit Base Information' : 'Edit Questionnaire',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: isDark ? Colors.white : Colors.black,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      _currentStep == 3
+                          ? 'Update organization and requester details'
+                          : 'Update questionnaire answers',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: isDark ? Colors.grey[400] : Colors.grey[600],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 12),
-
-          // Selected date/time
+          // Date/Time info (read-only)
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
-              color: _isEditMode
-                  ? (isDark ? const Color(0xFF27272A) : const Color(0xFFF3F4F6))
-                  : Colors.transparent,
+              color: isDark ? const Color(0xFF27272A) : const Color(0xFFF3F4F6),
               borderRadius: BorderRadius.circular(6),
-              border: _isEditMode
-                  ? Border.all(
-                      color: isDark ? const Color(0xFF3F3F46) : const Color(0xFFE5E7EB),
-                    )
-                  : null,
+              border: Border.all(
+                color: isDark ? const Color(0xFF3F3F46) : const Color(0xFFE5E7EB),
+              ),
             ),
             child: Row(
               children: [
@@ -585,7 +365,7 @@ class BookingFormScreenState extends State<BookingFormScreen> {
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  DateFormat('EEE, MMM d, yyyy').format(widget.selectedDate),
+                  DateFormat('EEE, MMM d, yyyy').format(widget.booking.date),
                   style: TextStyle(
                     fontSize: 13,
                     color: isDark ? Colors.grey[300] : Colors.grey[700],
@@ -599,317 +379,22 @@ class BookingFormScreenState extends State<BookingFormScreen> {
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  widget.startTime.format(context),
+                  widget.booking.startTime,
                   style: TextStyle(
                     fontSize: 13,
                     color: isDark ? Colors.grey[300] : Colors.grey[700],
                   ),
                 ),
-                if (_isEditMode) ...[
-                  const SizedBox(width: 8),
-                  Icon(
-                    Icons.lock_outline,
-                    size: 14,
-                    color: isDark ? Colors.grey[500] : Colors.grey[500],
-                  ),
-                ],
+                const SizedBox(width: 8),
+                Icon(
+                  Icons.lock_outline,
+                  size: 14,
+                  color: isDark ? Colors.grey[500] : Colors.grey[500],
+                ),
               ],
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildStepIndicator(int step, bool isActive, bool isDark) {
-    return Container(
-      width: 32,
-      height: 32,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: isActive
-            ? Colors.black
-            : (isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB)),
-      ),
-      child: Center(
-        child: Text(
-          '$step',
-          style: TextStyle(
-            color: isActive ? Colors.white : (isDark ? Colors.grey[600] : Colors.grey[400]),
-            fontWeight: FontWeight.bold,
-            fontSize: 14,
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildStepConnector(bool isDark) {
-    return Container(
-      width: 40,
-      height: 2,
-      color: isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
-      margin: const EdgeInsets.symmetric(horizontal: 4),
-    );
-  }
-
-  String _getStepTitle() {
-    switch (_currentStep) {
-      case 1:
-        return 'Select Engagement Type';
-      case 2:
-        return 'Select Visit Type';
-      case 3:
-        return 'Base Information';
-      case 4:
-        return 'Questionnaire';
-      default:
-        return '';
-    }
-  }
-
-  String _getStepSubtitle() {
-    switch (_currentStep) {
-      case 1:
-        return 'Choose between a visit or innovation exchange';
-      case 2:
-        return 'Choose the type of visit experience';
-      case 3:
-        return 'Provide organization and requester details';
-      case 4:
-        return 'Answer questions to help us prepare';
-      default:
-        return '';
-    }
-  }
-
-  Widget _buildStepContent(bool isDark) {
-    switch (_currentStep) {
-      case 1:
-        return _buildStep1EngagementType(isDark);
-      case 2:
-        return _buildStep2VisitType(isDark);
-      case 3:
-        return _buildStep3BaseInfo(isDark);
-      case 4:
-        return _buildStep4Questionnaire(isDark);
-      default:
-        return Container();
-    }
-  }
-
-  Widget _buildStep1EngagementType(bool isDark) {
-    return Column(
-      children: [
-        _buildEngagementTypeCard(
-          'VISIT',
-          'PacePort Visit',
-          'Quick tour or full-day experience',
-          Icons.tour,
-          isDark,
-        ),
-        const SizedBox(height: 16),
-        _buildEngagementTypeCard(
-          'INNOVATION_EXCHANGE',
-          'Innovation Exchange',
-          'In-depth innovation session with preparation',
-          Icons.lightbulb_outline,
-          isDark,
-        ),
-      ],
-    );
-  }
-
-  Widget _buildEngagementTypeCard(
-    String value,
-    String title,
-    String subtitle,
-    IconData icon,
-    bool isDark,
-  ) {
-    final isSelected = _engagementType == value;
-
-    return InkWell(
-      onTap: () {
-        setState(() {
-          _engagementType = value;
-          // Reset visit type if changing engagement type
-          if (value != 'VISIT') {
-            _visitType = null;
-          }
-        });
-      },
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? (isDark ? const Color(0xFF18181B) : Colors.white)
-              : (isDark ? const Color(0xFF0A0A0B) : const Color(0xFFF9FAFB)),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: isSelected
-                ? Colors.black
-                : (isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB)),
-            width: isSelected ? 2 : 1,
-          ),
-        ),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: isSelected
-                    ? Colors.black
-                    : (isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB)),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Icon(
-                icon,
-                color: isSelected ? Colors.white : (isDark ? Colors.grey[400] : Colors.grey[600]),
-                size: 28,
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: isDark ? Colors.white : Colors.black,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    subtitle,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: isDark ? Colors.grey[400] : Colors.grey[600],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            if (isSelected)
-              const Icon(Icons.check_circle, color: Colors.black, size: 24),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildStep2VisitType(bool isDark) {
-    return Column(
-      children: [
-        _buildVisitTypeCard(
-          'PACE_TOUR',
-          'Pace Tour',
-          '2 hours (14h-16h)',
-          'Quick demonstration and overview',
-          Icons.schedule,
-          isDark,
-        ),
-        const SizedBox(height: 16),
-        _buildVisitTypeCard(
-          'PACE_EXPERIENCE',
-          'PaceFlow Experience',
-          '6 hours (10h-16h)',
-          'Full-day immersive experience with questionnaire',
-          Icons.event,
-          isDark,
-        ),
-      ],
-    );
-  }
-
-  Widget _buildVisitTypeCard(
-    String value,
-    String title,
-    String duration,
-    String description,
-    IconData icon,
-    bool isDark,
-  ) {
-    final isSelected = _visitType == value;
-
-    return InkWell(
-      onTap: () {
-        setState(() {
-          _visitType = value;
-        });
-      },
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? (isDark ? const Color(0xFF18181B) : Colors.white)
-              : (isDark ? const Color(0xFF0A0A0B) : const Color(0xFFF9FAFB)),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: isSelected
-                ? Colors.black
-                : (isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB)),
-            width: isSelected ? 2 : 1,
-          ),
-        ),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: isSelected
-                    ? Colors.black
-                    : (isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB)),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Icon(
-                icon,
-                color: isSelected ? Colors.white : (isDark ? Colors.grey[400] : Colors.grey[600]),
-                size: 28,
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: isDark ? Colors.white : Colors.black,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    duration,
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                      color: isDark ? Colors.grey[400] : Colors.grey[600],
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    description,
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: isDark ? Colors.grey[500] : Colors.grey[500],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            if (isSelected)
-              const Icon(Icons.check_circle, color: Colors.black, size: 24),
-          ],
-        ),
       ),
     );
   }
@@ -972,73 +457,43 @@ class BookingFormScreenState extends State<BookingFormScreen> {
           items: const [
             DropdownMenuItem(
               value: 'BFSI',
-              child: Text(
-                'BFSI (Banking, Financial Services & Insurance)',
-                overflow: TextOverflow.ellipsis,
-              ),
+              child: Text('BFSI (Banking, Financial Services & Insurance)', overflow: TextOverflow.ellipsis),
             ),
             DropdownMenuItem(
               value: 'RETAIL_CPG',
-              child: Text(
-                'Retail & CPG',
-                overflow: TextOverflow.ellipsis,
-              ),
+              child: Text('Retail & CPG', overflow: TextOverflow.ellipsis),
             ),
             DropdownMenuItem(
               value: 'LIFE_SCIENCES_HEALTHCARE',
-              child: Text(
-                'Life Sciences & Healthcare',
-                overflow: TextOverflow.ellipsis,
-              ),
+              child: Text('Life Sciences & Healthcare', overflow: TextOverflow.ellipsis),
             ),
             DropdownMenuItem(
               value: 'MANUFACTURING',
-              child: Text(
-                'Manufacturing',
-                overflow: TextOverflow.ellipsis,
-              ),
+              child: Text('Manufacturing', overflow: TextOverflow.ellipsis),
             ),
             DropdownMenuItem(
               value: 'HI_TECH',
-              child: Text(
-                'Hi-Tech',
-                overflow: TextOverflow.ellipsis,
-              ),
+              child: Text('Hi-Tech', overflow: TextOverflow.ellipsis),
             ),
             DropdownMenuItem(
               value: 'CMT',
-              child: Text(
-                'CMT (Communications, Media & Technology)',
-                overflow: TextOverflow.ellipsis,
-              ),
+              child: Text('CMT (Communications, Media & Technology)', overflow: TextOverflow.ellipsis),
             ),
             DropdownMenuItem(
               value: 'ERU',
-              child: Text(
-                'ERU (Energy, Resources & Utilities)',
-                overflow: TextOverflow.ellipsis,
-              ),
+              child: Text('ERU (Energy, Resources & Utilities)', overflow: TextOverflow.ellipsis),
             ),
             DropdownMenuItem(
               value: 'TRAVEL_HOSPITALITY',
-              child: Text(
-                'Travel & Hospitality',
-                overflow: TextOverflow.ellipsis,
-              ),
+              child: Text('Travel & Hospitality', overflow: TextOverflow.ellipsis),
             ),
             DropdownMenuItem(
               value: 'PUBLIC_SERVICES',
-              child: Text(
-                'Public Services',
-                overflow: TextOverflow.ellipsis,
-              ),
+              child: Text('Public Services', overflow: TextOverflow.ellipsis),
             ),
             DropdownMenuItem(
               value: 'BUSINESS_SERVICES',
-              child: Text(
-                'Business Services',
-                overflow: TextOverflow.ellipsis,
-              ),
+              child: Text('Business Services', overflow: TextOverflow.ellipsis),
             ),
           ],
           validator: (value) {
@@ -1162,7 +617,7 @@ class BookingFormScreenState extends State<BookingFormScreen> {
         _buildTargetAudienceMultiSelect(isDark),
         const SizedBox(height: 24),
 
-        // Attendees Section (Optional)
+        // Attendees Section
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
@@ -1215,7 +670,7 @@ class BookingFormScreenState extends State<BookingFormScreen> {
                 onRemove: () => _removeAttendee(index),
                 onUpdate: setState,
                 enabled: true,
-                initiallyExpanded: index == _attendees.length - 1, // Expand last added
+                initiallyExpanded: index == _attendees.length - 1,
               );
             },
           )
@@ -1404,7 +859,7 @@ class BookingFormScreenState extends State<BookingFormScreen> {
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
-                  'Please answer these questions to help us prepare a tailored experience for you.',
+                  'Update your questionnaire answers to help us prepare a tailored experience.',
                   style: TextStyle(
                     fontSize: 13,
                     color: isDark ? Colors.blue[200] : Colors.blue[900],
@@ -1483,32 +938,28 @@ class BookingFormScreenState extends State<BookingFormScreen> {
     );
   }
 
-  Widget _buildNavigationButtons(bool isDark) {
+  Widget _buildFooter(bool isDark) {
     return Container(
-      width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF0A0A0B) : Colors.white,
         border: Border(
           top: BorderSide(
             color: isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
-            width: 1,
           ),
         ),
       ),
       child: Row(
         children: [
-          // Back button (hide in edit mode at step 3, since it's the first editable step)
-          if (_currentStep > 1 && !(_isEditMode && _currentStep == 3))
+          // Back button (only show in step 4)
+          if (_currentStep == 4) ...[
             Expanded(
               flex: 2,
               child: OutlinedButton(
-                onPressed: _isSubmitting ? null : _previousStep,
+                onPressed: _submitting ? null : _handleBack,
                 style: OutlinedButton.styleFrom(
                   foregroundColor: isDark ? Colors.white : Colors.black,
                   side: BorderSide(
                     color: isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
-                    width: 1,
                   ),
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(
@@ -1524,23 +975,25 @@ class BookingFormScreenState extends State<BookingFormScreen> {
                 ),
               ),
             ),
-          if (_currentStep > 1 && !(_isEditMode && _currentStep == 3)) const SizedBox(width: 12),
+            const SizedBox(width: 12),
+          ],
 
-          // Next/Submit button
+          // Next/Update button
           Expanded(
             flex: 3,
             child: ElevatedButton(
-              onPressed: _isSubmitting ? null : _nextStep,
+              onPressed: _submitting ? null : _handleNext,
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.black,
+                backgroundColor: const Color(0xFF10B981),
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 16),
+                elevation: 0,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8),
                 ),
-                disabledBackgroundColor: Colors.grey,
+                disabledBackgroundColor: Colors.grey[400],
               ),
-              child: _isSubmitting
+              child: _submitting
                   ? const SizedBox(
                       height: 20,
                       width: 20,
@@ -1549,27 +1002,31 @@ class BookingFormScreenState extends State<BookingFormScreen> {
                         valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                       ),
                     )
-                  : Text(
-                      _getNextButtonLabel(),
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
+                  : Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          _currentStep == 3 && _requiresQuestionnaire()
+                              ? Icons.arrow_forward
+                              : Icons.check_circle,
+                          size: 20,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          _currentStep == 3 && _requiresQuestionnaire()
+                              ? 'Next'
+                              : 'Update Booking',
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
                     ),
             ),
           ),
         ],
       ),
     );
-  }
-
-  String _getNextButtonLabel() {
-    if (_currentStep == 3 && !_requiresQuestionnaire()) {
-      return _isEditMode ? 'Update Booking' : 'Create Booking';
-    }
-    if (_currentStep == 4) {
-      return _isEditMode ? 'Update Booking' : 'Create Booking';
-    }
-    return 'Next';
   }
 }

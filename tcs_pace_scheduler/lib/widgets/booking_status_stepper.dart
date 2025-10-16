@@ -6,11 +6,13 @@ import '../models/booking.dart';
 class BookingStatusStepper extends StatefulWidget {
   final BookingStatus currentStatus;
   final bool isDark;
+  final bool showOnlyCurrentColor; // If true, only show current step color
 
   const BookingStatusStepper({
     super.key,
     required this.currentStatus,
     required this.isDark,
+    this.showOnlyCurrentColor = true, // Default to simple mode
   });
 
   @override
@@ -58,8 +60,8 @@ class _BookingStatusStepperState extends State<BookingStatusStepper>
       ),
     );
 
-    // Only pulse if status is PENDING_APPROVAL
-    if (widget.currentStatus == BookingStatus.PENDING_APPROVAL) {
+    // Only pulse if status is under review (UNDER_REVIEW, NEED_EDIT, NEED_RESCHEDULE)
+    if (_isUnderReviewStatus(widget.currentStatus)) {
       _pulseController.repeat();
     }
   }
@@ -76,12 +78,20 @@ class _BookingStatusStepperState extends State<BookingStatusStepper>
       _transitionController.forward(from: 0.0);
 
       // Restart pulse animation if needed
-      if (widget.currentStatus == BookingStatus.PENDING_APPROVAL) {
+      if (_isUnderReviewStatus(widget.currentStatus)) {
         _pulseController.repeat();
       } else {
         _pulseController.stop();
       }
     }
+  }
+
+  /// Check if status is in "under review" phase (review, need edit, need reschedule)
+  bool _isUnderReviewStatus(BookingStatus status) {
+    return status == BookingStatus.UNDER_REVIEW ||
+           status == BookingStatus.NEED_EDIT ||
+           status == BookingStatus.NEED_RESCHEDULE ||
+           status == BookingStatus.PENDING_APPROVAL; // DEPRECATED but kept for compatibility
   }
 
   @override
@@ -129,7 +139,7 @@ class _BookingStatusStepperState extends State<BookingStatusStepper>
     required bool isActive,
     required bool isCurrent,
   }) {
-    final isPending = isCurrent && widget.currentStatus == BookingStatus.PENDING_APPROVAL;
+    final isPending = isCurrent && _isUnderReviewStatus(widget.currentStatus);
 
     // Animated color transition
     return AnimatedBuilder(
@@ -139,7 +149,10 @@ class _BookingStatusStepperState extends State<BookingStatusStepper>
 
         // If status just changed, animate from previous color
         if (_transitionController.isAnimating && _previousStatus != null) {
-          Color previousColor = _getCircleColorForStatus(stepIndex, _previousStatus!);
+          // Calculate if this step was current in the previous status
+          int previousStepIndex = _getStepIndexForStatus(_previousStatus!);
+          bool wasPreviousCurrent = stepIndex == previousStepIndex;
+          Color previousColor = _getCircleColorForStatus(stepIndex, _previousStatus!, isCurrent: wasPreviousCurrent);
           circleColor = Color.lerp(previousColor, circleColor, _transitionController.value) ?? circleColor;
         }
 
@@ -151,7 +164,7 @@ class _BookingStatusStepperState extends State<BookingStatusStepper>
             color: circleColor,
             shape: BoxShape.circle,
             border: Border.all(
-              color: isActive ? circleColor : (widget.isDark ? Colors.grey[700]! : Colors.grey[300]!),
+              color: circleColor, // Border matches the circle color
               width: 1.5,
             ),
           ),
@@ -205,18 +218,19 @@ class _BookingStatusStepperState extends State<BookingStatusStepper>
                   ),
                   const SizedBox(height: 4),
                   SizedBox(
-                    width: 50, // Fixed width to prevent layout shifts
+                    width: 70, // Increased width to fit longer labels like "Need Reschedule"
                     child: Text(
                       step.label,
                       style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
-                        color: isActive
+                        fontSize: 9, // Slightly smaller to fit better
+                        fontWeight: isCurrent ? FontWeight.w600 : FontWeight.normal,
+                        color: isCurrent
                             ? (widget.isDark ? Colors.white : Colors.black)
                             : (widget.isDark ? Colors.grey[600]! : Colors.grey[400]!),
+                        height: 1.2, // Tighter line height
                       ),
                       textAlign: TextAlign.center,
-                      maxLines: 1,
+                      maxLines: 2, // Allow 2 lines for longer labels
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
@@ -230,35 +244,66 @@ class _BookingStatusStepperState extends State<BookingStatusStepper>
   }
 
   Color _getCircleColor(int stepIndex, bool isActive, bool isCurrent) {
-    return _getCircleColorForStatus(stepIndex, widget.currentStatus, isActive: isActive);
+    return _getCircleColorForStatus(stepIndex, widget.currentStatus, isActive: isActive, isCurrent: isCurrent);
   }
 
-  Color _getCircleColorForStatus(int stepIndex, BookingStatus status, {bool isActive = true}) {
-    if (!isActive) {
-      return widget.isDark ? Colors.grey[800]! : Colors.grey[200]!;
+  Color _getCircleColorForStatus(int stepIndex, BookingStatus status, {bool isActive = true, bool isCurrent = false}) {
+    final currentStepIndex = _getStepIndexForStatus(status);
+
+    // If showOnlyCurrentColor is true, only color the current step
+    if (widget.showOnlyCurrentColor) {
+      if (stepIndex != currentStepIndex) {
+        // All non-current steps are grey
+        return widget.isDark ? Colors.grey[700]! : Colors.grey[300]!;
+      }
+
+      // Current step gets its appropriate color
+      return _getCurrentStepColor(status);
     }
 
-    if (status == BookingStatus.CANCELLED) {
-      // Cancelled state - red for final step
-      if (stepIndex == 2) {
-        return const Color(0xFFEF4444); // Red
+    // Full color mode: show all colors up to current step
+    // If this step hasn't been reached yet, make it grey
+    if (stepIndex > currentStepIndex) {
+      return widget.isDark ? Colors.grey[700]! : Colors.grey[300]!;
+    }
+
+    // For completed or current steps, use appropriate colors based on step position
+    if (status == BookingStatus.CANCELLED || status == BookingStatus.NOT_APPROVED) {
+      // Cancelled or Not Approved flow
+      if (stepIndex == 0) {
+        return const Color(0xFF6B7280); // Grey for Created
       } else if (stepIndex == 1) {
-        return const Color(0xFFF59E0B); // Yellow/Orange
+        return const Color(0xFFF59E0B); // Yellow for Review phase
       } else {
-        return const Color(0xFF3B82F6); // Blue for Created
+        return const Color(0xFFEF4444); // Red for final step (Cancelled/Not Approved)
       }
     } else {
-      // Normal flow
+      // Normal flow (Created → Review → Approved)
       if (stepIndex == 0) {
-        // Created - Blue
-        return const Color(0xFF3B82F6);
+        return const Color(0xFF6B7280); // Grey for Created
       } else if (stepIndex == 1) {
-        // Pending - Yellow/Orange
-        return const Color(0xFFF59E0B);
+        return const Color(0xFFF59E0B); // Yellow for Review phase
       } else {
-        // Approved - Green
-        return const Color(0xFF10B981);
+        return const Color(0xFF10B981); // Green for Approved
       }
+    }
+  }
+
+  /// Get the color for the current step based on status
+  Color _getCurrentStepColor(BookingStatus status) {
+    if (status == BookingStatus.CANCELLED || status == BookingStatus.NOT_APPROVED) {
+      return const Color(0xFFEF4444); // Red
+    } else if (status == BookingStatus.APPROVED) {
+      return const Color(0xFF10B981); // Green
+    } else if (status == BookingStatus.UNDER_REVIEW || status == BookingStatus.PENDING_APPROVAL) {
+      return const Color(0xFFF59E0B); // Yellow (only for UNDER_REVIEW)
+    } else if (status == BookingStatus.NEED_EDIT) {
+      return const Color(0xFFEA580C); // Orange (needs edit)
+    } else if (status == BookingStatus.NEED_RESCHEDULE) {
+      return const Color(0xFF8B5CF6); // Purple (needs reschedule)
+    } else {
+      // CREATED or DRAFT
+      return const Color(0xFF6B7280); // Grey
     }
   }
 
@@ -267,46 +312,75 @@ class _BookingStatusStepperState extends State<BookingStatusStepper>
     required int toIndex,
     required int currentStepIndex,
   }) {
-    // Determine if this line segment should be active
-    final isActive = fromIndex < currentStepIndex;
-
     return AnimatedBuilder(
       animation: _transitionController,
       builder: (context, child) {
-        // Get the color for this line segment
         Color lineColor;
-        if (!isActive) {
-          // Inactive line - grey
-          lineColor = widget.isDark ? Colors.grey[800]! : Colors.grey[300]!;
-        } else {
-          // Active line - depends on which segment
-          if (fromIndex == 0) {
-            // First line (Created -> Pending): Always Yellow/Orange
-            lineColor = const Color(0xFFF59E0B);
+
+        if (widget.showOnlyCurrentColor) {
+          // Simple mode: only color the line connected to current step
+          if (toIndex == currentStepIndex) {
+            // Line leading TO current step - use current step color
+            lineColor = _getCurrentStepColor(widget.currentStatus);
           } else {
-            // Second line (Pending -> Final): Green or Red depending on status
-            if (widget.currentStatus == BookingStatus.CANCELLED) {
-              lineColor = const Color(0xFFEF4444); // Red for cancelled
+            // All other lines are grey
+            lineColor = widget.isDark ? Colors.grey[800]! : Colors.grey[300]!;
+          }
+        } else {
+          // Full color mode: color all lines up to current step
+          final bool isLineActive = toIndex <= currentStepIndex;
+
+          if (!isLineActive) {
+            // Future line - grey
+            lineColor = widget.isDark ? Colors.grey[800]! : Colors.grey[300]!;
+          } else {
+            // Active line - color based on destination step
+            if (toIndex == 1) {
+              // Line to Review step: Yellow/Orange
+              lineColor = const Color(0xFFF59E0B);
+            } else if (toIndex == 2) {
+              // Line to Final step: Green or Red depending on status
+              if (widget.currentStatus == BookingStatus.CANCELLED ||
+                  widget.currentStatus == BookingStatus.NOT_APPROVED) {
+                lineColor = const Color(0xFFEF4444); // Red for cancelled/not approved
+              } else {
+                lineColor = const Color(0xFF10B981); // Green for approved
+              }
             } else {
-              lineColor = const Color(0xFF10B981); // Green for approved
+              // Line from Created to Review (toIndex == 1 handled above)
+              lineColor = const Color(0xFFF59E0B);
             }
 
-            // Animate color transition for the final line
-            if (_transitionController.isAnimating && _previousStatus != null && fromIndex == 1) {
+            // Animate color transition when status changes
+            if (_transitionController.isAnimating && _previousStatus != null) {
+              int previousStepIndex = _getStepIndexForStatus(_previousStatus!);
+              bool wasPreviousLineActive = toIndex <= previousStepIndex;
+
               Color previousColor;
-              if (_previousStatus == BookingStatus.CANCELLED) {
-                previousColor = const Color(0xFFEF4444);
-              } else if (_previousStatus == BookingStatus.APPROVED) {
-                previousColor = const Color(0xFF10B981);
-              } else {
+              if (!wasPreviousLineActive) {
                 previousColor = widget.isDark ? Colors.grey[800]! : Colors.grey[300]!;
+              } else {
+                if (toIndex == 1) {
+                  previousColor = const Color(0xFFF59E0B);
+                } else if (toIndex == 2) {
+                  if (_previousStatus == BookingStatus.CANCELLED ||
+                      _previousStatus == BookingStatus.NOT_APPROVED) {
+                    previousColor = const Color(0xFFEF4444);
+                  } else {
+                    previousColor = const Color(0xFF10B981);
+                  }
+                } else {
+                  previousColor = const Color(0xFFF59E0B);
+                }
               }
               lineColor = Color.lerp(previousColor, lineColor, _transitionController.value) ?? lineColor;
             }
           }
         }
 
-        // Animate line fill
+        // Animate line fill only if it's active (leads to current or past step)
+        final isActive = toIndex <= currentStepIndex;
+
         return TweenAnimationBuilder<double>(
           duration: const Duration(milliseconds: 600),
           tween: Tween(begin: 0.0, end: isActive ? 1.0 : 0.0),
@@ -328,31 +402,56 @@ class _BookingStatusStepperState extends State<BookingStatusStepper>
   }
 
   List<_StepInfo> _getSteps() {
+    // Middle step label depends on current review status
+    String middleLabel;
+    if (widget.currentStatus == BookingStatus.NEED_EDIT) {
+      middleLabel = 'Change Request';
+    } else if (widget.currentStatus == BookingStatus.NEED_RESCHEDULE) {
+      middleLabel = 'Need Reschedule';
+    } else {
+      middleLabel = 'Under Review';
+    }
+
+    // Final step label depends on current status
+    String finalLabel;
     if (widget.currentStatus == BookingStatus.CANCELLED) {
-      return [
-        _StepInfo(label: 'Created'),
-        _StepInfo(label: 'Pending'),
-        _StepInfo(label: 'Cancelled'),
-      ];
+      finalLabel = 'Cancelled';
+    } else if (widget.currentStatus == BookingStatus.NOT_APPROVED) {
+      finalLabel = 'Not Approved';
+    } else {
+      finalLabel = 'Approved';
     }
 
     return [
       _StepInfo(label: 'Created'),
-      _StepInfo(label: 'Pending'),
-      _StepInfo(label: 'Approved'),
+      _StepInfo(label: middleLabel),
+      _StepInfo(label: finalLabel),
     ];
   }
 
   int _getCurrentStepIndex() {
-    switch (widget.currentStatus) {
-      case BookingStatus.DRAFT:
-        return 0; // Draft is the first step
-      case BookingStatus.PENDING_APPROVAL:
+    return _getStepIndexForStatus(widget.currentStatus);
+  }
+
+  int _getStepIndexForStatus(BookingStatus status) {
+    switch (status) {
+      // Step 0: Created
+      case BookingStatus.DRAFT: // DEPRECATED
+      case BookingStatus.CREATED:
+        return 0;
+
+      // Step 1: Under Review (includes review, need edit, need reschedule)
+      case BookingStatus.PENDING_APPROVAL: // DEPRECATED
+      case BookingStatus.UNDER_REVIEW:
+      case BookingStatus.NEED_EDIT:
+      case BookingStatus.NEED_RESCHEDULE:
         return 1;
+
+      // Step 2: Final (approved, not approved, or cancelled)
       case BookingStatus.APPROVED:
-        return 2; // Approved is the final step
+      case BookingStatus.NOT_APPROVED:
       case BookingStatus.CANCELLED:
-        return 2; // Cancelled is shown as the final step
+        return 2;
     }
   }
 }

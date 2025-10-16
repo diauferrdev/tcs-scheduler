@@ -8,15 +8,59 @@ enum VisitDuration {
 }
 
 enum VisitType {
-  QUICK_TOUR,           // 2 hours - up to 2 per day
-  INNOVATION_EXCHANGE,  // 4-6 hours - needs prep/teardown
+  QUICK_TOUR,           // DEPRECATED - 2 hours - kept for backwards compatibility
+  PACE_TOUR,            // 14h-16h (2 hours) - simple visit, no questionnaire
+  PACE_EXPERIENCE,      // 10h-16h (6 hours) - full day, requires questionnaire
+  INNOVATION_EXCHANGE,  // 10h-17h (7 hours) - requires questionnaire and alignment call
 }
 
 enum BookingStatus {
-  DRAFT,
-  PENDING_APPROVAL,
-  APPROVED,
-  CANCELLED,
+  DRAFT,                // DEPRECATED - kept for backwards compatibility
+  PENDING_APPROVAL,     // DEPRECATED - kept for backwards compatibility
+  CREATED,              // Initial status when booking is submitted
+  UNDER_REVIEW,         // Manager/Admin is reviewing the booking
+  NEED_EDIT,            // User must edit information (except date)
+  NEED_RESCHEDULE,      // User must choose new date
+  APPROVED,             // Approved and scheduled (time blocked)
+  NOT_APPROVED,         // Rejected with reason
+  CANCELLED,            // Manually cancelled
+}
+
+enum EngagementType {
+  VISIT,
+  INNOVATION_EXCHANGE,
+}
+
+enum OrganizationType {
+  GOVERNMENTAL_INSTITUTION,
+  PARTNER,
+  EXISTING_CUSTOMER,
+  PROSPECT,
+  OTHER,
+}
+
+enum TCSVertical {
+  BFSI,                       // Banking, Financial Services & Insurance
+  RETAIL_CPG,                 // Retail & Consumer Packaged Goods
+  LIFE_SCIENCES_HEALTHCARE,   // Life Sciences & Healthcare
+  MANUFACTURING,
+  HI_TECH,
+  CMT,                        // Communications, Media & Technology
+  ERU,                        // Energy, Resources & Utilities
+  TRAVEL_HOSPITALITY,         // Travel, Transportation & Hospitality
+  PUBLIC_SERVICES,
+  BUSINESS_SERVICES,
+}
+
+enum TargetAudience {
+  EXECUTIVES,
+  MIDDLE_MANAGEMENT,
+  TECHNICAL_TEAM,
+  TRAINEES,
+  STUDENTS,
+  CELEBRITIES,
+  PARTNERS,
+  OTHER,
 }
 
 enum EventType {
@@ -118,7 +162,21 @@ class Booking {
   final VisitType visitType;
   final BookingStatus status;
 
-  // Account & Company Information
+  // New Engagement Flow
+  final EngagementType? engagementType;
+  final String? requesterName;
+  final String? employeeId;
+  final TCSVertical? vertical;
+  final String? organizationName;
+  final OrganizationType? organizationType;
+  final String? organizationTypeOther;
+  final String? organizationDescription;
+  final String? objectiveInterest;
+  final List<TargetAudience>? targetAudience;
+  final Map<String, dynamic>? questionnaireAnswers;
+  final bool? requiresAlignmentCall;
+
+  // Account & Company Information (legacy)
   final String accountName;
   final String companyName;
   final String? companySector;
@@ -150,6 +208,20 @@ class Booking {
   final String? approvedById;
   final DateTime? approvedAt;
 
+  // Rejection
+  final String? rejectionReason;
+  final String? rejectedById;
+  final DateTime? rejectedAt;
+
+  // Status Change Messages
+  final String? editRequestMessage;
+  final String? rescheduleRequestMessage;
+
+  // Cancellation
+  final String? cancellationReason;
+  final String? cancelledById;
+  final DateTime? cancelledAt;
+
   // Reschedule tracking
   final String? originalBookingId;
   final String? rescheduledToId;
@@ -174,6 +246,18 @@ class Booking {
     required this.duration,
     required this.visitType,
     required this.status,
+    this.engagementType,
+    this.requesterName,
+    this.employeeId,
+    this.vertical,
+    this.organizationName,
+    this.organizationType,
+    this.organizationTypeOther,
+    this.organizationDescription,
+    this.objectiveInterest,
+    this.targetAudience,
+    this.questionnaireAnswers,
+    this.requiresAlignmentCall,
     required this.accountName,
     required this.companyName,
     this.companySector,
@@ -194,6 +278,14 @@ class Booking {
     this.attachments,
     this.approvedById,
     this.approvedAt,
+    this.rejectionReason,
+    this.rejectedById,
+    this.rejectedAt,
+    this.editRequestMessage,
+    this.rescheduleRequestMessage,
+    this.cancellationReason,
+    this.cancelledById,
+    this.cancelledAt,
     this.originalBookingId,
     this.rescheduledToId,
     this.interestArea,
@@ -215,12 +307,34 @@ class Booking {
       ),
       visitType: json['visitType'] != null
           ? VisitType.values.firstWhere((e) => e.name == json['visitType'])
-          : VisitType.INNOVATION_EXCHANGE,
+          : VisitType.PACE_TOUR,
       status: BookingStatus.values.firstWhere(
         (e) => e.name == json['status'],
       ),
-      accountName: json['accountName'] as String,
-      companyName: json['companyName'] as String,
+      engagementType: json['engagementType'] != null
+          ? EngagementType.values.firstWhere((e) => e.name == json['engagementType'])
+          : null,
+      requesterName: json['requesterName'] as String?,
+      employeeId: json['employeeId'] as String?,
+      vertical: json['vertical'] != null
+          ? TCSVertical.values.firstWhere((e) => e.name == json['vertical'])
+          : null,
+      organizationName: json['organizationName'] as String?,
+      organizationType: json['organizationType'] != null
+          ? OrganizationType.values.firstWhere((e) => e.name == json['organizationType'])
+          : null,
+      organizationTypeOther: json['organizationTypeOther'] as String?,
+      organizationDescription: json['organizationDescription'] as String?,
+      objectiveInterest: json['objectiveInterest'] as String?,
+      targetAudience: json['targetAudience'] != null
+          ? (json['targetAudience'] as List)
+              .map((e) => TargetAudience.values.firstWhere((ta) => ta.name == e))
+              .toList()
+          : null,
+      questionnaireAnswers: json['questionnaireAnswers'] as Map<String, dynamic>?,
+      requiresAlignmentCall: json['requiresAlignmentCall'] as bool?,
+      accountName: json['accountName'] as String? ?? '',
+      companyName: json['companyName'] as String? ?? '',
       companySector: json['companySector'] as String?,
       companyVertical: json['companyVertical'] as String?,
       companySize: json['companySize'] as String?,
@@ -229,7 +343,7 @@ class Booking {
       contactPhone: json['contactPhone'] as String?,
       contactPosition: json['contactPosition'] as String?,
       venue: json['venue'] as String?,
-      expectedAttendees: json['expectedAttendees'] as int,
+      expectedAttendees: json['expectedAttendees'] as int? ?? 1,
       overallTheme: json['overallTheme'] as String?,
       lastInnovationDay: json['lastInnovationDay'] != null
           ? DateTime.parse(json['lastInnovationDay'] as String)
@@ -248,6 +362,18 @@ class Booking {
       approvedById: json['approvedById'] as String?,
       approvedAt: json['approvedAt'] != null
           ? DateTime.parse(json['approvedAt'] as String)
+          : null,
+      rejectionReason: json['rejectionReason'] as String?,
+      rejectedById: json['rejectedById'] as String?,
+      rejectedAt: json['rejectedAt'] != null
+          ? DateTime.parse(json['rejectedAt'] as String)
+          : null,
+      editRequestMessage: json['editRequestMessage'] as String?,
+      rescheduleRequestMessage: json['rescheduleRequestMessage'] as String?,
+      cancellationReason: json['cancellationReason'] as String?,
+      cancelledById: json['cancelledById'] as String?,
+      cancelledAt: json['cancelledAt'] != null
+          ? DateTime.parse(json['cancelledAt'] as String)
           : null,
       originalBookingId: json['originalBookingId'] as String?,
       rescheduledToId: json['rescheduledToId'] as String?,
@@ -269,6 +395,18 @@ class Booking {
       'startTime': startTime,
       'duration': duration.name,
       'visitType': visitType.name,
+      if (engagementType != null) 'engagementType': engagementType!.name,
+      if (requesterName != null) 'requesterName': requesterName,
+      if (employeeId != null) 'employeeId': employeeId,
+      if (vertical != null) 'vertical': vertical!.name,
+      if (organizationName != null) 'organizationName': organizationName,
+      if (organizationType != null) 'organizationType': organizationType!.name,
+      if (organizationTypeOther != null) 'organizationTypeOther': organizationTypeOther,
+      if (organizationDescription != null) 'organizationDescription': organizationDescription,
+      if (objectiveInterest != null) 'objectiveInterest': objectiveInterest,
+      if (targetAudience != null) 'targetAudience': targetAudience!.map((e) => e.name).toList(),
+      if (questionnaireAnswers != null) 'questionnaireAnswers': questionnaireAnswers,
+      if (requiresAlignmentCall != null) 'requiresAlignmentCall': requiresAlignmentCall,
       'accountName': accountName,
       'companyName': companyName,
       if (companySector != null) 'companySector': companySector,

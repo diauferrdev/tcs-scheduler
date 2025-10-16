@@ -968,6 +968,82 @@ class LocalNotificationService {
     );
   }
 
+  /// Show generic notification with exact title and message (no modifications)
+  /// Used for WebSocket notifications to match FCM exactly
+  Future<void> showGenericNotification({
+    required String title,
+    required String message,
+    String? bookingId,
+    Map<String, dynamic>? metadata,
+  }) async {
+    try {
+      debugPrint('[LocalNotification] 🔔 showGenericNotification() called');
+      debugPrint('[LocalNotification] Title: $title, Message: $message');
+
+      if (!_initialized) {
+        debugPrint('[LocalNotification] ⚠️ Service not initialized, cannot show notification');
+        return;
+      }
+
+      final androidDetails = AndroidNotificationDetails(
+        'bookings',
+        'Bookings',
+        channelDescription: 'Booking notifications',
+        importance: Importance.high,
+        priority: Priority.high,
+        icon: '@mipmap/tcs_pace_scheduler',
+        color: const Color(0xFF4CAF50),
+        largeIcon: const DrawableResourceAndroidBitmap('@mipmap/tcs_pace_scheduler'),
+        playSound: true,
+        enableVibration: true,
+        enableLights: true,
+        ledColor: const Color(0xFF4CAF50),
+        ledOnMs: 1000,
+        ledOffMs: 500,
+        ticker: title,
+        setAsGroupSummary: false,
+        autoCancel: true,
+        onlyAlertOnce: false,
+        fullScreenIntent: true,
+      );
+
+      const iosDetails = DarwinNotificationDetails(
+        presentAlert: true,
+        presentBadge: true,
+        presentSound: true,
+      );
+
+      const linuxDetails = LinuxNotificationDetails();
+
+      final details = NotificationDetails(
+        android: androidDetails,
+        iOS: iosDetails,
+        linux: linuxDetails,
+      );
+
+      final payload = _buildPayload(
+        type: metadata?['type'] as String? ?? 'notification',
+        bookingId: bookingId,
+        metadata: metadata,
+      );
+
+      final notificationId = DateTime.now().millisecondsSinceEpoch % 100000;
+
+      await _notifications.show(
+        notificationId,
+        title,  // Use EXACT title from backend
+        message,  // Use EXACT message from backend
+        details,
+        payload: payload,
+      );
+
+      debugPrint('[LocalNotification] ✅ Generic notification shown');
+    } catch (e, stackTrace) {
+      debugPrint('[LocalNotification] ❌ Error showing generic notification: $e');
+      debugPrint('[LocalNotification] Stack trace: $stackTrace');
+    }
+  }
+
   /// Test notification (for debug button)
   Future<void> showTestNotification() async {
     try {

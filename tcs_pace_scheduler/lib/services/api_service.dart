@@ -166,10 +166,12 @@ class ApiService {
     }
   }
 
-  // Analytics Methods
+  // Dashboard Methods
   Future<Map<String, dynamic>> getDashboardStats() async {
-    return await get('/api/analytics/dashboard');
+    return await get('/api/dashboard/stats');
   }
+
+  // Analytics Methods (legacy - for backwards compatibility)
 
   Future<List<dynamic>> getBookingsByMonth(int year) async {
     final response = await get('/api/analytics/bookings-by-month/$year');
@@ -382,6 +384,60 @@ class ApiService {
       'startTime': startTime,
       'duration': duration,
     });
+  }
+
+  // ==================== NEW STATUS MANAGEMENT METHODS ====================
+
+  /// Manager/Admin: Request edit (CREATED/UNDER_REVIEW → NEED_EDIT)
+  Future<Map<String, dynamic>> requestEdit(String id, {String? message}) async {
+    return await post('/api/bookings/$id/request-edit', {
+      if (message != null) 'message': message,
+    });
+  }
+
+  /// Manager/Admin: Request reschedule (CREATED/UNDER_REVIEW → NEED_RESCHEDULE)
+  Future<Map<String, dynamic>> requestReschedule(String id, {String? message}) async {
+    return await post('/api/bookings/$id/request-reschedule', {
+      if (message != null) 'message': message,
+    });
+  }
+
+  /// Manager/Admin: Reject booking (CREATED/UNDER_REVIEW → NOT_APPROVED)
+  Future<Map<String, dynamic>> rejectBooking(String id, String rejectionReason) async {
+    return await post('/api/bookings/$id/reject', {
+      'rejectionReason': rejectionReason,
+    });
+  }
+
+  /// Manager/Admin: Cancel booking (ANY → CANCELLED)
+  Future<Map<String, dynamic>> cancelBooking(String id, String cancellationReason) async {
+    return await post('/api/bookings/$id/cancel', {
+      'cancellationReason': cancellationReason,
+    });
+  }
+
+  /// User: Reschedule when status is NEED_RESCHEDULE (NEED_RESCHEDULE → UNDER_REVIEW)
+  Future<Map<String, dynamic>> userRescheduleBooking(
+    String id,
+    String date,
+    String startTime,
+    String duration,
+  ) async {
+    return await post('/api/bookings/$id/user-reschedule', {
+      'date': date,
+      'startTime': startTime,
+      'duration': duration,
+    });
+  }
+
+  /// Manager/Admin: Mark as under review (CREATED → UNDER_REVIEW)
+  Future<Map<String, dynamic>> markBookingAsUnderReview(String id) async {
+    return await post('/api/bookings/$id/mark-under-review', {});
+  }
+
+  /// Get questionnaire questions
+  Future<dynamic> getQuestionnaire() async {
+    return await get('/api/bookings/questionnaire');
   }
 
   // Notifications Methods

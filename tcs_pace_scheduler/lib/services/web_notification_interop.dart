@@ -75,20 +75,27 @@ void showBrowserNotification(String title, String body, {String? icon}) {
   if (!kIsWeb) return;
 
   try {
+    debugPrint('[WebInterop] 🔔 Attempting to show notification: $title');
+    debugPrint('[WebInterop] Current permission: $notificationPermission');
+
     if (notificationPermission == 'granted') {
-      Notification(
+      debugPrint('[WebInterop] Permission granted, creating notification...');
+      final notification = Notification(
         title,
         NotificationOptions(
           body: body,
           icon: icon ?? '/icons/Icon-192.png',
         ),
       );
-      debugPrint('[WebInterop] Notification shown: $title');
+      debugPrint('[WebInterop] ✅ Notification created successfully: $title');
+      debugPrint('[WebInterop] Notification object: $notification');
     } else {
-      debugPrint('[WebInterop] Permission not granted: $notificationPermission');
+      debugPrint('[WebInterop] ⚠️ Cannot show notification - Permission: $notificationPermission');
+      debugPrint('[WebInterop] Please grant notification permissions in your browser settings');
     }
-  } catch (e) {
-    debugPrint('[WebInterop] Error showing notification: $e');
+  } catch (e, stack) {
+    debugPrint('[WebInterop] ❌ Error showing notification: $e');
+    debugPrint('[WebInterop] Stack trace: $stack');
   }
 }
 

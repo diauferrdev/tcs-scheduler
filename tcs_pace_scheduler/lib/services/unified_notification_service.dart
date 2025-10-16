@@ -274,9 +274,11 @@ class UnifiedNotificationService {
       _notificationController.add(data);
     }
 
-    // Show visual notification via WebSocket (app is OPEN)
-    // FCM handles notifications when app is CLOSED/BACKGROUND
-    debugPrint('[UnifiedNotification] 🔔 App is OPEN - showing visual notification via WebSocket');
+    // DUAL NOTIFICATION SYSTEM:
+    // - FCM: Handles notifications when app is CLOSED/BACKGROUND (Android, iOS, Web)
+    // - Local Notifications: Handles notifications when app is OPEN/FOREGROUND (all platforms)
+    // Messages are now synchronized in backend, so both show identical content
+    debugPrint('[UnifiedNotification] 🔔 App is OPEN - showing local notification (FCM handles when app is closed)');
     _showNativeNotification(data);
 
     // Increment badge count (only if not closed)
@@ -296,12 +298,15 @@ class UnifiedNotificationService {
       final message = data['message'] as String? ?? '';
       final type = data['type'] as String?;
       final metadata = data['metadata'] as Map<String, dynamic>?;
+      final bookingId = data['bookingId'] as String?;
 
       debugPrint('[UnifiedNotification] Title: $title, Type: $type, Platform: ${kIsWeb ? 'web' : Platform.operatingSystem}');
 
       if (kIsWeb) {
-        // Web: Use Web Notification API
-        debugPrint('[UnifiedNotification] Showing web notification');
+        // Web: Show notification when app is OPEN (foreground)
+        // Service Worker handles notifications when app is CLOSED (background)
+        // This prevents duplicate notifications while ensuring coverage in both states
+        debugPrint('[UnifiedNotification] Web: Showing notification (app is open)');
         await _webNotificationService.showNotification(
           title: title,
           body: message,
@@ -318,83 +323,19 @@ class UnifiedNotificationService {
         return;
       }
 
-      // Mobile/macOS: Use flutter_local_notifications (rich formatting)
-      debugPrint('[UnifiedNotification] Showing mobile/macOS notification');
-      // Map notification type to appropriate local notification method
-      switch (type) {
-        case 'BOOKING_CONFIRMED':
-        case 'BOOKING_INVITATION':
-          await _localNotificationService.showNewBookingNotification(
-            companyName: metadata?['companyName'] ?? 'Guest',
-            date: metadata?['date'] ?? 'Soon',
-            time: metadata?['time'] ?? '',
-            sector: metadata?['sector'],
-            expectedAttendees: metadata?['expectedAttendees'],
-            eventType: metadata?['eventType'],
-          );
-          break;
-
-        case 'BOOKING_UPDATED':
-          await _localNotificationService.showBookingUpdatedNotification(
-            companyName: metadata?['companyName'] ?? 'Guest',
-            changes: message,
-            previousDate: metadata?['previousDate'],
-            newDate: metadata?['newDate'],
-            previousTime: metadata?['previousTime'],
-            newTime: metadata?['newTime'],
-          );
-          break;
-
-        case 'BOOKING_CANCELLED':
-          await _localNotificationService.showBookingCancelledNotification(
-            companyName: metadata?['companyName'] ?? 'Guest',
-            date: metadata?['date'] ?? 'Soon',
-            time: metadata?['time'],
-            reason: metadata?['reason'],
-          );
-          break;
-
-        case 'BOOKING_APPROVED':
-          await _localNotificationService.showBookingApprovedNotification(
-            companyName: metadata?['companyName'] ?? 'Guest',
-            date: metadata?['date'] ?? 'Soon',
-            time: metadata?['time'],
-            approvedBy: metadata?['approvedBy'],
-            sector: metadata?['sector'],
-            expectedAttendees: metadata?['expectedAttendees'],
-            eventType: metadata?['eventType'],
-            bookingId: data['bookingId'] as String?, // Include bookingId for navigation
-          );
-          break;
-
-        case 'BOOKING_PENDING_APPROVAL':
-          await _localNotificationService.showNewBookingNotification(
-            companyName: metadata?['companyName'] ?? 'Guest',
-            date: metadata?['date'] ?? 'Soon',
-            time: metadata?['time'] ?? '',
-            sector: metadata?['sector'],
-            expectedAttendees: metadata?['expectedAttendees'],
-            eventType: 'Pending Approval',
-          );
-          break;
-
-        case 'BOOKING_RESCHEDULED':
-          await _localNotificationService.showBookingUpdatedNotification(
-            companyName: metadata?['companyName'] ?? 'Guest',
-            changes: 'Booking rescheduled',
-            previousDate: metadata?['previousDate'],
-            newDate: metadata?['newDate'],
-            previousTime: metadata?['previousTime'],
-            newTime: metadata?['newTime'],
-          );
-          break;
-
-        default:
-          // Fallback: Show a basic test notification
-          debugPrint('[UnifiedNotification] Unknown type: $type, showing test notification');
-          await _localNotificationService.showTestNotification();
-          break;
-      }
+      // Mobile/macOS: Use flutter_local_notifications
+      // IMPORTANT: Use generic notification to match FCM exactly
+      // No emojis, no title modifications - use exact backend title and message
+      debugPrint('[UnifiedNotification] Showing mobile/macOS notification (generic - matching FCM)');
+      await _localNotificationService.showGenericNotification(
+        title: title,
+        message: message,
+        bookingId: bookingId,
+        metadata: {
+          'type': type,
+          ...?metadata,
+        },
+      );
 
       debugPrint('[UnifiedNotification] ✅ Native notification processing complete');
     } catch (e, stackTrace) {
