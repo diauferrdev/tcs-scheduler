@@ -7,8 +7,10 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
 import { Button } from './ui/button';
 import { Moon, Sun, User, LogOut, LayoutDashboard, Calendar as CalendarIcon, Link as LinkIcon, Users, Activity } from 'lucide-react';
 import { toast } from 'sonner';
-import logoBlack from '../assets/tcs-logo-b.svg';
-import logoWhite from '../assets/tcs-logo-w.svg';
+
+// Logos moved to public folder
+const logoBlack = '/tcs-logo-black.svg';
+const logoWhite = '/tcs-logo-white.svg';
 
 interface AppLayoutProps {
   children: ReactNode;

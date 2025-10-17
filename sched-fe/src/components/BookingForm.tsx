@@ -242,12 +242,16 @@ export default function BookingForm({ onSuccess, onCancel, token, initialDate, i
           };
 
       const response = await api.post(endpoint, payload);
+
+      // Reset loading state BEFORE calling onSuccess to prevent UI hanging
+      setLoading(false);
+
+      // Call success callback (may close drawer/navigate away)
       onSuccess(response.data);
     } catch (err: any) {
+      setLoading(false);
       const errorMessage = err.response?.data?.error || err.response?.data?.message || 'Failed to create booking';
       toast.error(typeof errorMessage === 'string' ? errorMessage : 'Failed to create booking');
-    } finally {
-      setLoading(false);
     }
   };
 

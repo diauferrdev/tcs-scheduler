@@ -2,15 +2,34 @@
 .DS_Store
 *.local
 *.log*
+*.pid
 
 # Dist
 node_modules
 dist/
+build/
 
-# Profile
+# RSBuild Profile
 .rspack-profile-*/
+.rsbuild/
 
 # IDE
 .vscode/*
 !.vscode/extensions.json
 .idea
+*.swp
+*.swo
+
+# Temporary files
+*.tmp
+.cache/
+.temp/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# OS
+Thumbs.db
+*~

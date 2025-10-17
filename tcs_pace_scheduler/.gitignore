@@ -38,6 +38,20 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 
+# APK Build outputs (ignore ALL APKs in build directory)
+build/app/outputs/flutter-apk/*.apk
+build/app/outputs/flutter-apk/*.apk.sha1
+build/app/outputs/bundle/release/*.aab
+
+# CMake build files
+build/.cxx/
+.cxx/
+*.cmake
+
+# Gradle files
+.gradle/
+*.hprof
+
 # Claude & AI tools
 CLAUDE*.md
 **/claude-*.log
@@ -48,14 +62,14 @@ CLAUDE*.md
 *.bak
 *.backup
 
-# Versioned APK builds
-build/app/outputs/flutter-apk/*-v*.apk
-
-# Firebase
+# Firebase (keep google-services.json for builds, ignore iOS config)
 .firebaserc
-google-services.json
-GoogleService-Info.plist
+ios/Runner/GoogleService-Info.plist
 
 # Environment
 .env
 .env.local
+
+# Temporary files
+*.tmp
+*.pid

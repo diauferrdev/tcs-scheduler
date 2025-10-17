@@ -5,6 +5,7 @@ node_modules/
 
 # Testing
 coverage/
+.nyc_output/
 
 # Production builds
 dist/
@@ -18,28 +19,36 @@ out/
 .env.development.local
 .env.test.local
 .env.production.local
+.env.backup.*
 
 # Logs
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+bun-debug.log*
 *.log
+logs/
+deploy-output.log
 
 # OS
 .DS_Store
 Thumbs.db
+*.swp
+*.swo
+*~
 
 # IDE
 .vscode/
 .idea/
-*.swp
-*.swo
-*~
+*.iml
+*.ipr
+*.iws
 
 # Temporary files
 *.tmp
 .cache/
 .temp/
+*.pid
 
 # Database
 *.db
@@ -59,8 +68,7 @@ sched-be/prisma/migrations/**/migration.sql
 # Backup files
 *.bak
 *.backup
-*~
 
-# APK versioned builds
-**/app-release-*.apk
-**/tcs-pace-scheduler-v*.apk
+# Scripts & temporary files
+fix-*.sh
+deploy-*.sh

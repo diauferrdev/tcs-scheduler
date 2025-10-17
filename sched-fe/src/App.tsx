@@ -4,7 +4,7 @@ import { ThemeProvider } from '@/hooks/use-theme';
 import { Toaster } from '@/components/ui/sonner';
 import { useSWNotifications } from '@/hooks/use-sw-notifications';
 import { PWAInstallBanner } from '@/components/PWAInstallBanner';
-import { LoadingOverlay } from '@/components/LoadingOverlay';
+// LoadingOverlay removed - was causing infinite loading issues
 import AppLayout from '@/components/AppLayout';
 import Login from '@/pages/Login';
 import Dashboard from '@/pages/Dashboard';
@@ -17,9 +17,11 @@ import PublicBadge from '@/pages/PublicBadge';
 import AttendeeBadge from '@/pages/AttendeeBadge';
 import { AnimatePresence } from 'framer-motion';
 
-// Register service worker
+// Register service worker - NON-BLOCKING for fast startup
 if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
+  // Use setTimeout to defer registration until after page load
+  // This prevents blocking the critical rendering path
+  setTimeout(() => {
     navigator.serviceWorker
       .register('/sw.js')
       .then((registration) => {
@@ -34,7 +36,7 @@ if ('serviceWorker' in navigator) {
       .catch((error) => {
         console.error('❌ Service Worker registration failed:', error);
       });
-  });
+  }, 0);
 }
 
 function ProtectedRoute({ children, requireAdmin }: { children: React.ReactNode; requireAdmin?: boolean }) {
@@ -82,7 +84,6 @@ function AnimatedRoutes() {
 
   return (
     <>
-      <LoadingOverlay />
       <AnimatePresence mode="wait">
         <Routes location={location} key={location.pathname}>
           <Route path="/login" element={<Login />} />
