@@ -27,13 +27,35 @@ import * as websocketService from './services/websocket.service';
 const app = new Hono<AppContext>();
 
 app.use('*', logger());
+
+// CORS Configuration - Strict in production
+const allowedOrigins = [
+  process.env.FRONTEND_URL || 'https://ppspsched.lat',
+  'https://ppspsched.lat',
+  'https://www.ppspsched.lat',
+  'https://api.ppspsched.lat',
+];
+
+// Only allow localhost in development
+if (process.env.NODE_ENV !== 'production') {
+  allowedOrigins.push('http://localhost:3000', 'http://localhost:5173');
+}
+
 app.use('*', cors({
-  origin: (origin) => origin || '*', // Allow all origins including null
+  origin: (origin) => {
+    // Allow requests with no origin (mobile apps, curl, etc)
+    if (!origin) return true;
+
+    // Check if origin is in allowed list
+    if (allowedOrigins.includes(origin)) return origin;
+
+    console.warn(`[CORS] Blocked origin: ${origin}`);
+    return false;
+  },
   credentials: true,
   allowHeaders: [
     'Content-Type',
     'Authorization',
-    'ngrok-skip-browser-warning',
     'X-Requested-With',
     'Cookie',
     'Origin',
