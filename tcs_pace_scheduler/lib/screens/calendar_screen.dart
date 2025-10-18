@@ -3827,11 +3827,17 @@ class _BookingFormWidgetState extends State<_BookingFormWidget> {
         if (_additionalNotesController.text.trim().isNotEmpty) 'additionalNotes': _additionalNotesController.text.trim(),
       };
 
-      await widget.onSubmit(bookingData);
-    } finally {
+      // Reset loading state BEFORE calling onSubmit to prevent infinite loading
       if (mounted) {
         setState(() => _isSubmitting = false);
       }
+
+      await widget.onSubmit(bookingData);
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isSubmitting = false);
+      }
+      rethrow;
     }
   }
 

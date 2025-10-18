@@ -145,6 +145,28 @@ if [ "$SKIP_BUILD" != "skip-build" ]; then
         VERSIONED_APK="build/app/outputs/flutter-apk/tcs-pace-scheduler-v$NEW_VERSION-build$NEW_BUILD.apk"
         cp "$APK_PATH" "$VERSIONED_APK"
         print_success "Versioned APK created: $VERSIONED_APK"
+
+        # Deploy to Firebase App Distribution
+        print_info "Deploying to Firebase App Distribution..."
+
+        RELEASE_NOTES="Version $NEW_VERSION (Build $NEW_BUILD)
+
+🔧 Changes:
+- Bug fixes and improvements
+
+📦 Build type: $BUMP_TYPE
+🗓️  Release date: $(date '+%Y-%m-%d %H:%M')"
+
+        if firebase appdistribution:distribute "$VERSIONED_APK" \
+            --app 1:874457674237:android:81596c5009b03f9a9fa994 \
+            --groups "testers" \
+            --release-notes "$RELEASE_NOTES" 2>&1; then
+            print_success "Successfully deployed to Firebase App Distribution!"
+        else
+            print_warning "Failed to deploy to Firebase App Distribution"
+            print_info "You can manually deploy later with:"
+            echo -e "  ${BLUE}firebase appdistribution:distribute $VERSIONED_APK --app 1:874457674237:android:81596c5009b03f9a9fa994${NC}"
+        fi
     else
         print_error "APK build failed"
         exit 1
@@ -207,7 +229,6 @@ fi
 
 echo ""
 print_info "Next steps:"
-echo "  1. Test the APK on device"
+echo "  1. Test the APK on device or download from Firebase App Distribution"
 echo "  2. Push changes: git push && git push --tags"
-echo "  3. Deploy to Firebase App Distribution (optional)"
 echo ""

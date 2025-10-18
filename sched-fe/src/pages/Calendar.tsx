@@ -993,10 +993,13 @@ export default function CalendarPage() {
               initialDate={selectedDate ? format(selectedDate, 'yyyy-MM-dd') : undefined}
               initialSlot={selectedSlot || undefined}
               theme={theme}
-              onSuccess={(booking) => {
+              onSuccess={async (booking) => {
                 setShowBookingForm(false);
-                loadBookings();
                 toast.success('Booking created successfully!');
+
+                // Wait for bookings to reload before opening details
+                await loadBookings();
+
                 // Open booking details drawer with the newly created booking
                 setSelectedBooking(booking);
                 setShowBookingDetails(true);

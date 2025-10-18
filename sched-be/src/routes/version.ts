@@ -4,8 +4,8 @@ const app = new Hono();
 
 app.get('/current', (c) => {
   return c.json({
-    version: '1.0.1',
-    buildNumber: 2,
+    version: '1.0.4',
+    buildNumber: 12,
     minVersion: '1.0.0',
     forceUpdate: false,
     downloadUrl: {
@@ -20,7 +20,7 @@ app.get('/current', (c) => {
       'pt-BR': 'Testing',
       'en': 'Version 1.0.1 - Improvements and fixes.',
     },
-    releaseDate: '2025-10-12T01:22:58-03:00',
+    releaseDate: '2025-10-17T23:53:17-03:00',
     critical: false,
   });
 });
