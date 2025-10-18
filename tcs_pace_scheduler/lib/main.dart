@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:window_manager/window_manager.dart';
 import 'firebase_options.dart';
 import 'providers/auth_provider.dart';
 import 'providers/theme_provider.dart';
@@ -49,6 +50,30 @@ void notificationTapBackgroundHandler(NotificationResponse details) {
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Configure desktop window (Windows, Linux, macOS)
+  if (!kIsWeb && (Platform.isWindows || Platform.isLinux || Platform.isMacOS)) {
+    await windowManager.ensureInitialized();
+
+    // Window configuration
+    WindowOptions windowOptions = const WindowOptions(
+      size: Size(1280, 720),
+      minimumSize: Size(800, 600),
+      center: true,
+      backgroundColor: Colors.transparent,
+      skipTaskbar: false,
+      titleBarStyle: TitleBarStyle.normal,
+      title: 'TCS PacePort Scheduler',
+    );
+
+    await windowManager.waitUntilReadyToShow(windowOptions, () async {
+      await windowManager.show();
+      await windowManager.focus();
+
+      // Prevent multiple instances - bring existing window to front
+      await windowManager.setPreventClose(false);
+    });
+  }
 
   // Initialize Firebase ONLY on supported platforms (Android, iOS, web, macOS)
   // Windows and Linux desktop use local_notifier instead

@@ -7,6 +7,27 @@
 
 int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
                       _In_ wchar_t *command_line, _In_ int show_command) {
+  // Single Instance Check - Prevent multiple app instances
+  // Create a named mutex to ensure only one instance runs
+  HANDLE hMutex = CreateMutex(NULL, TRUE, L"TCSPacePortSchedulerSingleInstanceMutex");
+  if (GetLastError() == ERROR_ALREADY_EXISTS) {
+    // Another instance is already running
+    // Find and activate the existing window
+    HWND existingWindow = FindWindow(NULL, L"TCS PacePort Scheduler");
+    if (existingWindow) {
+      // Bring existing window to front
+      if (IsIconic(existingWindow)) {
+        ShowWindow(existingWindow, SW_RESTORE);
+      }
+      SetForegroundWindow(existingWindow);
+    }
+    if (hMutex) {
+      ReleaseMutex(hMutex);
+      CloseHandle(hMutex);
+    }
+    return EXIT_SUCCESS;
+  }
+
   // Attach to console when present (e.g., 'flutter run') or create a
   // new console when running with a debugger.
   if (!::AttachConsole(ATTACH_PARENT_PROCESS) && ::IsDebuggerPresent()) {
@@ -27,7 +48,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
   FlutterWindow window(project);
   Win32Window::Point origin(10, 10);
   Win32Window::Size size(1280, 720);
-  if (!window.Create(L"flutter_multiplatform_app", origin, size)) {
+  if (!window.Create(L"TCS PacePort Scheduler", origin, size)) {
     return EXIT_FAILURE;
   }
   window.SetQuitOnClose(true);
@@ -36,6 +57,12 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
   while (::GetMessage(&msg, nullptr, 0, 0)) {
     ::TranslateMessage(&msg);
     ::DispatchMessage(&msg);
+  }
+
+  // Cleanup mutex before exit
+  if (hMutex) {
+    ReleaseMutex(hMutex);
+    CloseHandle(hMutex);
   }
 
   ::CoUninitialize();

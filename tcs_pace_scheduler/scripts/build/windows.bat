@@ -7,6 +7,9 @@ REM
 REM IMPORTANT: Firebase is excluded from Windows builds
 REM due to C++ SDK linking incompatibilities.
 REM Windows uses local_notifier for desktop notifications.
+REM
+REM This script creates a portable Windows build with ZIP archive.
+REM The app runs without installation - just extract and run!
 
 setlocal EnableDelayedExpansion
 
@@ -32,13 +35,7 @@ set NEW_VERSION=%VERSION_NAME%+%NEW_BUILD_NUMBER%
 
 echo [INFO] New version: %VERSION_NAME% (build %NEW_BUILD_NUMBER%)
 echo.
-
-set /p CONFIRM="Continue with build? [Y/n]: "
-if /i "%CONFIRM%"=="n" (
-    echo [WARNING] Build cancelled by user
-    pause
-    exit /b 0
-)
+echo [INFO] Continuing with build...
 
 REM Update version
 echo [INFO] Updating version in pubspec.yaml...
@@ -90,10 +87,16 @@ if exist "windows\flutter\generated_plugin_registrant.cc" (
     echo [SUCCESS] Firebase include excluded from plugin registrant
 )
 
-REM Exclude Firebase registrar calls (Step 3: Multi-line function call)
+REM Exclude Firebase registrar calls (Step 3: Comment out function call - line 1)
 if exist "windows\flutter\generated_plugin_registrant.cc" (
-    powershell -Command "$content = Get-Content -Raw 'windows\flutter\generated_plugin_registrant.cc'; $content = $content -replace '(?m)^  FirebaseCorePluginCApiRegisterWithRegistrar\(\r?\n      registry->GetRegistrarForPlugin\(\"FirebaseCorePluginCApi\"\)\);', '  // FirebaseCorePluginCApiRegisterWithRegistrar(  // Excluded - Firebase C++ SDK has linking issues\r\n  //     registry->GetRegistrarForPlugin(\"FirebaseCorePluginCApi\"));'; Set-Content -NoNewline 'windows\flutter\generated_plugin_registrant.cc' $content"
-    echo [SUCCESS] Firebase registrar call excluded
+    powershell -Command "(Get-Content windows\flutter\generated_plugin_registrant.cc) -replace '^  FirebaseCorePluginCApiRegisterWithRegistrar\(', '  // FirebaseCorePluginCApiRegisterWithRegistrar(' | Set-Content windows\flutter\generated_plugin_registrant.cc"
+    echo [SUCCESS] Firebase registrar call line 1 excluded
+)
+
+REM Exclude Firebase registrar calls (Step 4: Comment out function call - line 2)
+if exist "windows\flutter\generated_plugin_registrant.cc" (
+    powershell -Command "(Get-Content windows\flutter\generated_plugin_registrant.cc) -replace '^      registry->GetRegistrarForPlugin\(\"FirebaseCorePluginCApi\"\)\);', '  //     registry->GetRegistrarForPlugin(\"FirebaseCorePluginCApi\"));' | Set-Content windows\flutter\generated_plugin_registrant.cc"
+    echo [SUCCESS] Firebase registrar call line 2 excluded
 )
 
 echo.
@@ -121,11 +124,10 @@ echo.
 
 REM Verify build output
 set BUILD_DIR=build\windows\x64\runner\Release
-set EXE_PATH=%BUILD_DIR%\flutter_multiplatform_app.exe
+set EXE_PATH=%BUILD_DIR%\TCS-PacePort-Scheduler.exe
 
 if not exist "%EXE_PATH%" (
     echo [ERROR] Windows build failed - executable not found at: %EXE_PATH%
-    pause
     exit /b 1
 )
 
@@ -156,6 +158,7 @@ if exist "!ZIP_PATH!" (
     echo [WARNING] Could not create ZIP archive - you can manually ZIP the Release folder
 )
 
+
 REM Summary
 echo.
 echo ========================================================
@@ -178,19 +181,47 @@ echo ========================================================
 echo   Build Complete!
 echo ========================================================
 echo.
-echo [INFO] Next steps:
-echo   1. Test the executable: %EXE_PATH%
-echo   2. Distribute the entire Release folder or ZIP archive
-echo   3. Required files for distribution:
-echo      - flutter_multiplatform_app.exe (main executable)
-echo      - flutter_windows.dll (Flutter runtime)
-echo      - data/ folder (app resources)
-echo      - Plugin DLLs (*.dll files)
+echo [INFO] Distribution - Portable Application:
 echo.
-echo [INFO] Installation:
-echo   1. Extract ZIP to any folder
-echo   2. Run flutter_multiplatform_app.exe
-echo   3. No installation required - portable application
+echo   File: %ZIP_PATH%
+echo.
+echo   How to distribute:
+echo     1. Send the ZIP file to users
+echo     2. Users extract ZIP to any folder
+echo     3. Users run TCS-PacePort-Scheduler.exe
+echo.
+echo   Benefits:
+echo     - No installation required
+echo     - Works from any folder ^(USB drive, Documents, etc^)
+echo     - No admin rights needed
+echo     - Easy to uninstall ^(just delete folder^)
+echo     - Multiple versions can coexist
+echo     - Single instance ^(prevents multiple windows^)
 echo.
 
-pause
+REM Generate MSIX package for Microsoft Store
+echo.
+echo ========================================================
+echo   Generating MSIX Package
+echo ========================================================
+echo.
+echo [INFO] Creating MSIX package for Microsoft Store...
+
+dart run msix:create >nul 2>&1
+
+if exist "build\windows\x64\runner\Release\tcs_pace_scheduler.msix" (
+    for %%A in ("build\windows\x64\runner\Release\tcs_pace_scheduler.msix") do set MSIX_SIZE=%%~zA
+    set /a MSIX_SIZE_MB=!MSIX_SIZE!/1024/1024
+    echo [SUCCESS] MSIX package created! ^(!MSIX_SIZE_MB! MB^)
+    echo.
+    echo File: build\windows\x64\runner\Release\tcs_pace_scheduler.msix
+    echo.
+    echo This package can be:
+    echo   - Uploaded to Microsoft Store
+    echo   - Distributed internally ^(requires certificate^)
+    echo.
+) else (
+    echo [WARNING] MSIX generation skipped or failed
+    echo.
+)
+echo.

@@ -89,13 +89,13 @@ BEGIN
     BEGIN
         BLOCK "040904e4"
         BEGIN
-            VALUE "CompanyName", "com.example" "\0"
-            VALUE "FileDescription", "flutter_multiplatform_app" "\0"
+            VALUE "CompanyName", "TCS" "\0"
+            VALUE "FileDescription", "TCS PacePort Scheduler - Enterprise scheduling for office visits" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
-            VALUE "InternalName", "flutter_multiplatform_app" "\0"
-            VALUE "LegalCopyright", "Copyright (C) 2025 com.example. All rights reserved." "\0"
-            VALUE "OriginalFilename", "flutter_multiplatform_app.exe" "\0"
-            VALUE "ProductName", "flutter_multiplatform_app" "\0"
+            VALUE "InternalName", "tcs_pace_scheduler" "\0"
+            VALUE "LegalCopyright", "Copyright (C) 2025 TCS. All rights reserved." "\0"
+            VALUE "OriginalFilename", "TCS-PacePort-Scheduler.exe" "\0"
+            VALUE "ProductName", "TCS PacePort Scheduler" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END

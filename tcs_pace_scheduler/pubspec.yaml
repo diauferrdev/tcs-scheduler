@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 1.0.4+12
+version: 1.0.4+23
 
 environment:
   sdk: ^3.9.2
@@ -93,6 +93,8 @@ dependencies:
   package_info_plus: ^9.0.0
   firebase_app_check: ^0.4.1
   add_2_calendar: ^3.0.1
+  window_manager: ^0.5.1
+  msix: ^3.16.12
 
 dev_dependencies:
   flutter_test:
@@ -104,6 +106,25 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^5.0.0
+  flutter_launcher_icons: ^0.14.4
+
+# Flutter Launcher Icons Configuration
+flutter_launcher_icons:
+  image_path: "assets/icons/android/play_store_512.png"
+  android: true
+  ios: true
+  windows:
+    generate: true
+    image_path: "assets/icons/android/play_store_512.png"
+    icon_size: 256
+  macos:
+    generate: true
+    image_path: "assets/icons/android/play_store_512.png"
+  web:
+    generate: true
+    image_path: "assets/icons/android/play_store_512.png"
+    background_color: "#000000"
+    theme_color: "#000000"
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -146,3 +167,19 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+
+# Microsoft Store (MSIX) Configuration
+msix_config:
+  display_name: TCS PacePort Scheduler
+  publisher_display_name: TCS
+  identity_name: TCS.PacePortScheduler
+  msix_version: 1.0.4.0
+  logo_path: windows\runner\resources\app_icon.ico
+  capabilities: internetClient
+  publisher: CN=TCS
+  languages: en-us, pt-br
+  description: Enterprise scheduling application for TCS PacePort office visits
+  architecture: x64
+  certificate_path: tcs_certificate.pfx
+  certificate_password: Tata@123
+  install_certificate: false
