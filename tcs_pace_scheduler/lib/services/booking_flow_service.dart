@@ -306,29 +306,34 @@ class BookingFlowService {
       return;
     }
 
-    // Show loading
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => const Center(
-        child: CircularProgressIndicator(
-          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-        ),
-      ),
-    );
+    bool dialogShown = false;
 
     try {
-      final bookingData = _buildBookingData();
+      // Show loading dialog
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (dialogContext) => WillPopScope(
+          onWillPop: () async => false, // Prevent back button from closing
+          child: const Center(
+            child: CircularProgressIndicator(
+              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+            ),
+          ),
+        ),
+      );
+      dialogShown = true;
 
+      final bookingData = _buildBookingData();
       final apiService = ApiService();
       final createdBooking = await apiService.createBooking(bookingData);
 
-      // Close loading dialog using root navigator
-      if (context.mounted) {
+      // SUCCESS: Close dialog and show success
+      if (dialogShown) {
         Navigator.of(context, rootNavigator: true).pop();
+        dialogShown = false;
       }
 
-      // Show success and navigate
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -338,7 +343,7 @@ class BookingFlowService {
           ),
         );
 
-        // Navigate to My Bookings with the booking details
+        // Navigate to My Bookings
         Future.delayed(const Duration(milliseconds: 500), () {
           if (context.mounted) {
             context.go('/my-bookings', extra: {'bookingId': createdBooking['id']});
@@ -346,15 +351,14 @@ class BookingFlowService {
         });
       }
 
-      // Reset data for next booking
       _resetData();
     } catch (e) {
-      // Close loading dialog using root navigator
-      if (context.mounted) {
+      // ERROR: Close dialog and show error
+      if (dialogShown) {
         Navigator.of(context, rootNavigator: true).pop();
+        dialogShown = false;
       }
 
-      // Show error
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -363,6 +367,15 @@ class BookingFlowService {
             duration: const Duration(seconds: 5),
           ),
         );
+      }
+    } finally {
+      // SAFETY NET: Ensure dialog is always closed
+      if (dialogShown) {
+        try {
+          Navigator.of(context, rootNavigator: true).pop();
+        } catch (_) {
+          // Ignore if already closed
+        }
       }
     }
   }
