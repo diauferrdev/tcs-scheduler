@@ -251,6 +251,11 @@ class BookingFormScreenState extends State<BookingFormScreen> {
 
         if (!mounted) return;
 
+        // Reset loading state BEFORE popping
+        setState(() {
+          _isSubmitting = false;
+        });
+
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Booking updated successfully! Status changed to Under Review.'),
@@ -267,6 +272,11 @@ class BookingFormScreenState extends State<BookingFormScreen> {
 
         if (!mounted) return;
 
+        // Reset loading state BEFORE popping
+        setState(() {
+          _isSubmitting = false;
+        });
+
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Booking created successfully!'),
@@ -279,6 +289,10 @@ class BookingFormScreenState extends State<BookingFormScreen> {
     } catch (e) {
       if (!mounted) return;
 
+      setState(() {
+        _isSubmitting = false;
+      });
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Error: ${e.toString()}'),
@@ -286,12 +300,6 @@ class BookingFormScreenState extends State<BookingFormScreen> {
           duration: const Duration(seconds: 5),
         ),
       );
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isSubmitting = false;
-        });
-      }
     }
   }
 
