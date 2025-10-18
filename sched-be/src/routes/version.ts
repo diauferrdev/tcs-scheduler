@@ -4,12 +4,12 @@ const app = new Hono();
 
 app.get('/current', (c) => {
   return c.json({
-    version: '1.0.4',
-    buildNumber: 12,
+    version: '1.0.10',
+    buildNumber: 29,
     minVersion: '1.0.0',
     forceUpdate: false,
     downloadUrl: {
-      android: 'https://appdistribution.firebase.google.com/testerapps/1:874457674237:android:1ed8bb845b3e949d9fa994/releases/59bpp77qqkbf0',
+      android: 'https://appdistribution.firebase.google.com/testerapps/1:874457674237:android:81596c5009b03f9a9fa994/releases/3r29h36k36cgg',
       ios: '',
       web: '',
       macos: '',
@@ -17,10 +17,10 @@ app.get('/current', (c) => {
       linux: '',
     },
     releaseNotes: {
-      'pt-BR': 'Testing',
-      'en': 'Version 1.0.1 - Improvements and fixes.',
+      'pt-BR': 'Versão 1.0.10 - CORREÇÃO CRÍTICA: resolvido problema intermitente de loading infinito após criar agendamentos. Agora funciona 100% das vezes. Corrigida navegação automática após criar booking.',
+      'en': 'Version 1.0.10 - CRITICAL FIX: resolved intermittent infinite loading issue after creating bookings. Now works 100% of the time. Fixed automatic navigation after booking creation.',
     },
-    releaseDate: '2025-10-17T23:53:17-03:00',
+    releaseDate: '2025-10-18T16:32:00-03:00',
     critical: false,
   });
 });

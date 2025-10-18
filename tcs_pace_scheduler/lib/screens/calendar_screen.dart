@@ -257,6 +257,13 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
       debugPrint('✅ [Calendar-Load-$timestamp] API returned ${bookingsData.length} bookings');
 
       debugPrint('🔄 [Calendar-Load-$timestamp] Updating state with bookings...');
+
+      // Check if still mounted before setState (WebSocket can trigger after navigation)
+      if (!mounted) {
+        debugPrint('⚠️ [Calendar-Load-$timestamp] Widget disposed, skipping setState');
+        return;
+      }
+
       setState(() {
         _bookings = bookingsData.map((e) => Booking.fromJson(e)).toList();
         // Sort bookings by date, then by startTime (morning first, then afternoon)
@@ -277,6 +284,13 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
     } catch (e) {
       debugPrint('🔴 [Calendar-Load-$timestamp] ========== _loadBookings ERROR ==========');
       debugPrint('🔴 [Calendar-Load-$timestamp] Error: $e');
+
+      // Check if still mounted before setState
+      if (!mounted) {
+        debugPrint('⚠️ [Calendar-Load-$timestamp] Widget disposed, skipping error setState');
+        return;
+      }
+
       setState(() {
         _error = e.toString();
         if (showLoading) {

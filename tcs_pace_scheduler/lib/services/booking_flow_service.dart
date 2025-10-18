@@ -53,6 +53,7 @@ class BookingFlowService {
   }) {
     _selectedDate = selectedDate;
     _startTime = startTime;
+    _rootContext = context; // Store the root context for navigation
     _resetData();
     _showEngagementTypeDrawer(context);
   }
@@ -315,12 +316,24 @@ class BookingFlowService {
       return;
     }
 
+    // CRITICAL: Capture AuthProvider BEFORE any async operations
+    // The WebSocket event will rebuild the Calendar and deactivate the drawer's context
+    debugPrint('🟡 [BookingFlow-$timestamp] Step 0: Capturing AuthProvider BEFORE any async ops');
+    final authProvider = context.read<AuthProvider>();
+    final userRole = authProvider.user?.role;
+    debugPrint('✅ [BookingFlow-$timestamp] User role captured: $userRole');
+
     bool dialogShown = false;
     bool navigationStarted = false;
 
+    // CRITICAL: Get Navigator reference BEFORE any async operations
+    // The WebSocket event can rebuild Calendar and unmount drawer context
+    final navigator = Navigator.of(context, rootNavigator: true);
+    debugPrint('✅ [BookingFlow-$timestamp] Navigator reference captured');
+
     try {
       debugPrint('🟡 [BookingFlow-$timestamp] Step 1: Showing loading dialog');
-      // Show loading dialog
+      // Show loading dialog using the captured navigator
       showDialog(
         context: context,
         barrierDismissible: false,
@@ -344,9 +357,7 @@ class BookingFlowService {
       final createdBooking = await apiService.createBooking(bookingData);
       debugPrint('✅ [BookingFlow-$timestamp] API call successful - Booking ID: ${createdBooking['id']}');
 
-      // Get user role and booking ID BEFORE closing dialog (while context is still valid)
-      final authProvider = context.read<AuthProvider>();
-      final userRole = authProvider.user?.role;
+      // Get booking ID (userRole already captured before async operations)
       final bookingId = createdBooking['id'];
 
       debugPrint('🟡 [BookingFlow-$timestamp] Step 4: Preparing navigation data');
@@ -362,51 +373,64 @@ class BookingFlowService {
       }
       debugPrint('📍 [BookingFlow-$timestamp] Navigation route: $navigationRoute');
 
-      // CRITICAL: Close dialog IMMEDIATELY
+      // CRITICAL: Close dialog using the captured Navigator (not context-dependent)
       debugPrint('🟡 [BookingFlow-$timestamp] Step 5: Closing loading dialog');
-      if (dialogShown && context.mounted) {
-        Navigator.of(context, rootNavigator: true).pop();
-        dialogShown = false;
-        debugPrint('✅ [BookingFlow-$timestamp] Loading dialog closed');
+      if (dialogShown) {
+        try {
+          navigator.pop();
+          dialogShown = false;
+          debugPrint('✅ [BookingFlow-$timestamp] Loading dialog closed using captured Navigator');
+        } catch (popError) {
+          debugPrint('⚠️ [BookingFlow-$timestamp] Error popping dialog: $popError');
+        }
       }
 
-      // Check context immediately after closing dialog
-      if (!context.mounted) {
-        debugPrint('⚠️ [BookingFlow-$timestamp] Context not mounted after dialog close - CRITICAL ERROR');
-        debugPrint('⚠️ [BookingFlow-$timestamp] This should NEVER happen - dialog close unmounted context');
-        return;
+      // Try to show success message if context is still mounted
+      if (context.mounted) {
+        debugPrint('🟡 [BookingFlow-$timestamp] Step 6: Showing success message');
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Booking created successfully!'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      } else {
+        debugPrint('⚠️ [BookingFlow-$timestamp] Context unmounted - skipping snackbar, but navigation will still work');
       }
-
-      debugPrint('🟡 [BookingFlow-$timestamp] Step 6: Showing success message');
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Booking created successfully!'),
-          backgroundColor: Colors.green,
-          duration: Duration(seconds: 2),
-        ),
-      );
 
       // Reset data BEFORE navigation
       _resetData();
       debugPrint('✅ [BookingFlow-$timestamp] Flow data reset');
 
       // Navigate IMMEDIATELY without delay - use WidgetsBinding to ensure it happens after current frame
+      // CRITICAL: This MUST always execute, even if context is unmounted (we have _rootContext fallback)
       navigationStarted = true;
       debugPrint('🟡 [BookingFlow-$timestamp] Step 7: Scheduling navigation');
 
       WidgetsBinding.instance.addPostFrameCallback((_) {
         debugPrint('🚀 [BookingFlow-$timestamp] Post-frame callback executing');
+
+        // Try drawer context first, fallback to root context
+        BuildContext? navContext;
         if (context.mounted) {
-          debugPrint('✅ [BookingFlow-$timestamp] Context still mounted in post-frame');
+          navContext = context;
+          debugPrint('✅ [BookingFlow-$timestamp] Using drawer context for navigation');
+        } else if (_rootContext != null && _rootContext!.mounted) {
+          navContext = _rootContext;
+          debugPrint('✅ [BookingFlow-$timestamp] Drawer context unmounted, using root context for navigation');
+        } else {
+          debugPrint('⚠️ [BookingFlow-$timestamp] Both contexts unmounted - cannot navigate');
+        }
+
+        if (navContext != null) {
           try {
             debugPrint('🚀 [BookingFlow-$timestamp] Navigating to: $navigationRoute');
-            context.go(navigationRoute);
-            debugPrint('✅ [BookingFlow-$timestamp] context.go() called successfully');
+            navContext.go(navigationRoute);
+            debugPrint('✅ [BookingFlow-$timestamp] Navigation successful');
           } catch (navError) {
             debugPrint('🔴 [BookingFlow-$timestamp] Navigation error: $navError');
           }
-        } else {
-          debugPrint('⚠️ [BookingFlow-$timestamp] Context unmounted in post-frame callback');
         }
       });
 
@@ -418,14 +442,12 @@ class BookingFlowService {
       debugPrint('🔴 [BookingFlow-$timestamp] Error: $e');
       debugPrint('🔴 [BookingFlow-$timestamp] Stack trace: $stackTrace');
 
-      // Close dialog if still shown
+      // Close dialog using captured navigator (doesn't depend on context)
       if (dialogShown) {
         try {
-          if (context.mounted) {
-            Navigator.of(context, rootNavigator: true).pop();
-            dialogShown = false;
-            debugPrint('✅ [BookingFlow-$timestamp] Error dialog closed');
-          }
+          navigator.pop();
+          dialogShown = false;
+          debugPrint('✅ [BookingFlow-$timestamp] Error dialog closed using captured Navigator');
         } catch (popError) {
           debugPrint('⚠️ [BookingFlow-$timestamp] Error closing dialog: $popError');
         }
@@ -443,15 +465,13 @@ class BookingFlowService {
 
       debugPrint('🔴 [BookingFlow-$timestamp] ========== ERROR END ==========');
     } finally {
-      // SAFETY NET: Ensure dialog is always closed
+      // SAFETY NET: Ensure dialog is always closed using captured navigator
       debugPrint('🟡 [BookingFlow-$timestamp] Finally block - dialogShown: $dialogShown, navigationStarted: $navigationStarted');
 
       if (dialogShown) {
         try {
-          if (context.mounted) {
-            Navigator.of(context, rootNavigator: true).pop();
-            debugPrint('✅ [BookingFlow-$timestamp] Safety net: Dialog closed');
-          }
+          navigator.pop();
+          debugPrint('✅ [BookingFlow-$timestamp] Safety net: Dialog closed using captured Navigator');
         } catch (finalError) {
           debugPrint('⚠️ [BookingFlow-$timestamp] Safety net: Error closing dialog: $finalError');
         }
