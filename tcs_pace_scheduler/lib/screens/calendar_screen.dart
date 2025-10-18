@@ -164,23 +164,44 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
   void _setupRealtimeListeners() {
     // Create listener references
     _onBookingCreatedListener = (booking) {
-      debugPrint('[Calendar] New booking via WebSocket: ${booking['title']}');
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      debugPrint('📡 [Calendar-WS-$timestamp] ========== BOOKING CREATED EVENT ==========');
+      debugPrint('📡 [Calendar-WS-$timestamp] Booking: ${booking['title']}');
+      debugPrint('📡 [Calendar-WS-$timestamp] ID: ${booking['id']}');
+      debugPrint('📡 [Calendar-WS-$timestamp] Current _loading state: $_loading');
+      debugPrint('📡 [Calendar-WS-$timestamp] Calling _loadBookings(showLoading: false)');
       _loadBookings(showLoading: false); // Silent refresh on WebSocket update
+      debugPrint('📡 [Calendar-WS-$timestamp] ========== EVENT PROCESSED ==========\n');
     };
 
     _onBookingUpdatedListener = (booking) {
-      debugPrint('[Calendar] Booking updated via WebSocket: ${booking['id']}');
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      debugPrint('📡 [Calendar-WS-$timestamp] ========== BOOKING UPDATED EVENT ==========');
+      debugPrint('📡 [Calendar-WS-$timestamp] Booking ID: ${booking['id']}');
+      debugPrint('📡 [Calendar-WS-$timestamp] Current _loading state: $_loading');
+      debugPrint('📡 [Calendar-WS-$timestamp] Calling _loadBookings(showLoading: false)');
       _loadBookings(showLoading: false); // Silent refresh on WebSocket update
+      debugPrint('📡 [Calendar-WS-$timestamp] ========== EVENT PROCESSED ==========\n');
     };
 
     _onBookingApprovedListener = (booking) {
-      debugPrint('[Calendar] Booking approved via WebSocket: ${booking['companyName']}');
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      debugPrint('📡 [Calendar-WS-$timestamp] ========== BOOKING APPROVED EVENT ==========');
+      debugPrint('📡 [Calendar-WS-$timestamp] Company: ${booking['companyName']}');
+      debugPrint('📡 [Calendar-WS-$timestamp] Current _loading state: $_loading');
+      debugPrint('📡 [Calendar-WS-$timestamp] Calling _loadBookings(showLoading: false)');
       _loadBookings(showLoading: false); // Silent refresh on WebSocket update
+      debugPrint('📡 [Calendar-WS-$timestamp] ========== EVENT PROCESSED ==========\n');
     };
 
     _onBookingDeletedListener = (bookingId) {
-      debugPrint('[Calendar] Booking deleted via WebSocket: $bookingId');
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      debugPrint('📡 [Calendar-WS-$timestamp] ========== BOOKING DELETED EVENT ==========');
+      debugPrint('📡 [Calendar-WS-$timestamp] Booking ID: $bookingId');
+      debugPrint('📡 [Calendar-WS-$timestamp] Current _loading state: $_loading');
+      debugPrint('📡 [Calendar-WS-$timestamp] Calling _loadBookings(showLoading: false)');
       _loadBookings(showLoading: false); // Silent refresh on WebSocket update
+      debugPrint('📡 [Calendar-WS-$timestamp] ========== EVENT PROCESSED ==========\n');
     };
 
     // Add listeners to service
@@ -201,16 +222,25 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
   }
 
   Future<void> _loadBookings({bool showLoading = true}) async {
+    final timestamp = DateTime.now().millisecondsSinceEpoch;
+    debugPrint('🔄 [Calendar-Load-$timestamp] ========== _loadBookings CALLED ==========');
+    debugPrint('🔄 [Calendar-Load-$timestamp] showLoading parameter: $showLoading');
+    debugPrint('🔄 [Calendar-Load-$timestamp] Current _loading state BEFORE: $_loading');
+
     try {
       if (showLoading) {
+        debugPrint('🔄 [Calendar-Load-$timestamp] Setting _loading = true (showing spinner)');
         setState(() {
           _loading = true;
           _error = null;
         });
+        debugPrint('✅ [Calendar-Load-$timestamp] _loading state set to true');
       } else {
+        debugPrint('🔄 [Calendar-Load-$timestamp] Silent mode - NOT setting _loading = true');
         setState(() {
           _error = null;
         });
+        debugPrint('✅ [Calendar-Load-$timestamp] Error cleared (silent mode)');
       }
 
       // Get user role to determine which endpoint to use
@@ -219,11 +249,14 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
 
       // ADMIN/MANAGER: Use availability-admin endpoint (shows PENDING + APPROVED)
       // USER: Use availability endpoint (shows only APPROVED bookings, not PENDING)
+      debugPrint('🔄 [Calendar-Load-$timestamp] Fetching bookings from API (role: $userRole)...');
       final response = (userRole == UserRole.ADMIN || userRole == UserRole.MANAGER)
           ? await _apiService.getBookingsAvailabilityForAdmins(null)
           : await _apiService.getBookingsAvailability(null);
       final bookingsData = response['bookings'] as List;
+      debugPrint('✅ [Calendar-Load-$timestamp] API returned ${bookingsData.length} bookings');
 
+      debugPrint('🔄 [Calendar-Load-$timestamp] Updating state with bookings...');
       setState(() {
         _bookings = bookingsData.map((e) => Booking.fromJson(e)).toList();
         // Sort bookings by date, then by startTime (morning first, then afternoon)
@@ -235,15 +268,23 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
         });
         if (showLoading) {
           _loading = false;
+          debugPrint('✅ [Calendar-Load-$timestamp] _loading set to FALSE (spinner hidden)');
+        } else {
+          debugPrint('✅ [Calendar-Load-$timestamp] Silent mode - _loading NOT changed (currently: $_loading)');
         }
       });
+      debugPrint('🟢 [Calendar-Load-$timestamp] ========== _loadBookings SUCCESS ==========\n');
     } catch (e) {
+      debugPrint('🔴 [Calendar-Load-$timestamp] ========== _loadBookings ERROR ==========');
+      debugPrint('🔴 [Calendar-Load-$timestamp] Error: $e');
       setState(() {
         _error = e.toString();
         if (showLoading) {
           _loading = false;
+          debugPrint('✅ [Calendar-Load-$timestamp] _loading set to FALSE (error state)');
         }
       });
+      debugPrint('🔴 [Calendar-Load-$timestamp] ========== _loadBookings ERROR END ==========\n');
     }
   }
 
