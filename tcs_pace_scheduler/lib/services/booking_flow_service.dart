@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 import '../screens/booking_flow/engagement_type_drawer.dart';
 import '../screens/booking_flow/visit_type_drawer.dart';
 import '../screens/booking_flow/base_info_drawer.dart';
 import '../screens/booking_flow/questionnaire_drawer.dart';
 import '../services/api_service.dart';
+import '../providers/auth_provider.dart';
+import '../models/user.dart';
 import 'package:intl/intl.dart';
 
 /// Service to manage the multi-step booking flow through separate drawers
@@ -235,7 +238,7 @@ class BookingFlowService {
         minChildSize: 0.5,
         maxChildSize: 0.9,
         builder: (context, scrollController) => BaseInfoDrawer(
-          onNext: (data) async {
+          onNext: (data) {
             _baseInfo = data;
             Navigator.pop(context);
 
@@ -243,8 +246,8 @@ class BookingFlowService {
             if (_requiresQuestionnaire()) {
               _showQuestionnaireDrawer(context);
             } else {
-              // Wait for submit to complete
-              await _submitBooking(context);
+              // Don't await - let it run in background
+              _submitBooking(context);
             }
           },
           onBack: () {
@@ -274,11 +277,11 @@ class BookingFlowService {
         minChildSize: 0.5,
         maxChildSize: 0.9,
         builder: (context, scrollController) => QuestionnaireDrawer(
-          onSubmit: (answers) async {
+          onSubmit: (answers) {
             _questionnaireAnswers = answers;
             Navigator.pop(context);
-            // Wait for submit to complete before returning
-            await _submitBooking(context);
+            // Don't await - let it run in background
+            _submitBooking(context);
           },
           onBack: () {
             Navigator.pop(context);
@@ -345,10 +348,21 @@ class BookingFlowService {
           ),
         );
 
-        // Navigate to My Bookings
+        // Navigate based on user role:
+        // - USER: Go to My Bookings with details open
+        // - MANAGER/ADMIN: Go to Approvals (they don't have My Bookings)
+        final authProvider = context.read<AuthProvider>();
+        final userRole = authProvider.user?.role;
+
         Future.delayed(const Duration(milliseconds: 500), () {
           if (context.mounted) {
-            context.go('/my-bookings', extra: {'bookingId': createdBooking['id']});
+            if (userRole == UserRole.USER) {
+              // USER: Navigate to My Bookings with booking details
+              context.go('/my-bookings?bookingId=${createdBooking['id']}');
+            } else {
+              // MANAGER/ADMIN: Navigate to Approvals (bookings list)
+              context.go('/approvals');
+            }
           }
         });
       }

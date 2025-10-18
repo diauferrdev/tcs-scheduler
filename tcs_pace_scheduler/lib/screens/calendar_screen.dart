@@ -165,22 +165,22 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
     // Create listener references
     _onBookingCreatedListener = (booking) {
       debugPrint('[Calendar] New booking via WebSocket: ${booking['title']}');
-      _loadBookings(); // Refresh calendar
+      _loadBookings(showLoading: false); // Silent refresh on WebSocket update
     };
 
     _onBookingUpdatedListener = (booking) {
       debugPrint('[Calendar] Booking updated via WebSocket: ${booking['id']}');
-      _loadBookings(); // Refresh calendar
+      _loadBookings(showLoading: false); // Silent refresh on WebSocket update
     };
 
     _onBookingApprovedListener = (booking) {
       debugPrint('[Calendar] Booking approved via WebSocket: ${booking['companyName']}');
-      _loadBookings(); // Refresh calendar
+      _loadBookings(showLoading: false); // Silent refresh on WebSocket update
     };
 
     _onBookingDeletedListener = (bookingId) {
       debugPrint('[Calendar] Booking deleted via WebSocket: $bookingId');
-      _loadBookings(); // Refresh calendar
+      _loadBookings(showLoading: false); // Silent refresh on WebSocket update
     };
 
     // Add listeners to service
@@ -200,12 +200,18 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
     super.dispose();
   }
 
-  Future<void> _loadBookings() async {
+  Future<void> _loadBookings({bool showLoading = true}) async {
     try {
-      setState(() {
-        _loading = true;
-        _error = null;
-      });
+      if (showLoading) {
+        setState(() {
+          _loading = true;
+          _error = null;
+        });
+      } else {
+        setState(() {
+          _error = null;
+        });
+      }
 
       // Get user role to determine which endpoint to use
       final authProvider = context.read<AuthProvider>();
@@ -227,12 +233,16 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
           // If same date, sort by startTime
           return a.startTime.compareTo(b.startTime);
         });
-        _loading = false;
+        if (showLoading) {
+          _loading = false;
+        }
       });
     } catch (e) {
       setState(() {
         _error = e.toString();
-        _loading = false;
+        if (showLoading) {
+          _loading = false;
+        }
       });
     }
   }
