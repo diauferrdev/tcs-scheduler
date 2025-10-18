@@ -23,7 +23,18 @@ class UnifiedNotificationService {
   final DesktopNotificationService _desktopNotificationService = DesktopNotificationService();
   final WebNotificationService _webNotificationService = WebNotificationService();
   final ApiService _apiService = ApiService();
-  final FCMService _fcmService = FCMService();
+
+  // FCMService - Only for platforms that support Firebase
+  // Windows and Linux use local_notifier instead
+  FCMService? _fcmService;
+
+  /// Check if Firebase is supported on current platform
+  /// Firebase is supported on: Android, iOS, web, macOS
+  /// NOT supported on: Windows, Linux
+  bool get _isFirebaseSupported {
+    if (kIsWeb) return true;
+    return Platform.isAndroid || Platform.isIOS || Platform.isMacOS;
+  }
 
   // Stream controller for badge updates
   final StreamController<int> _badgeController = StreamController<int>.broadcast();
@@ -136,14 +147,20 @@ class UnifiedNotificationService {
 
       // Initialize Firebase Cloud Messaging for push notifications (app closed/minimized)
       // This works like WhatsApp - notifications arrive even when app is completely closed
-      debugPrint('[UnifiedNotification] Initializing FCM for push notifications...');
-      _fcmService.initialize().then((_) {
-        if (_fcmService.isInitialized) {
-          debugPrint('[UnifiedNotification] ✅ FCM initialized - push notifications enabled');
-        }
-      }).catchError((e) {
-        debugPrint('[UnifiedNotification] ⚠️ FCM initialization failed: $e');
-      });
+      // ONLY on platforms that support Firebase (Android, iOS, Web, macOS)
+      if (_isFirebaseSupported) {
+        debugPrint('[UnifiedNotification] Initializing FCM for push notifications...');
+        _fcmService = FCMService();
+        _fcmService!.initialize().then((_) {
+          if (_fcmService!.isInitialized) {
+            debugPrint('[UnifiedNotification] ✅ FCM initialized - push notifications enabled');
+          }
+        }).catchError((e) {
+          debugPrint('[UnifiedNotification] ⚠️ FCM initialization failed: $e');
+        });
+      } else {
+        debugPrint('[UnifiedNotification] ⏩ Skipping FCM (Windows/Linux use local_notifier)');
+      }
 
       // CRITICAL: Connect to Native WebSocket for instant real-time updates
       // Run in background - don't block login with await
@@ -477,12 +494,14 @@ class UnifiedNotificationService {
 
     await _realtimeService.disconnect();
 
-    // Dispose FCM (delete token)
-    try {
-      await _fcmService.dispose();
-      debugPrint('[UnifiedNotification] ✅ FCM cleaned up');
-    } catch (e) {
-      debugPrint('[UnifiedNotification] Error cleaning up FCM: $e');
+    // Dispose FCM (delete token) - only if initialized
+    if (_fcmService != null) {
+      try {
+        await _fcmService!.dispose();
+        debugPrint('[UnifiedNotification] ✅ FCM cleaned up');
+      } catch (e) {
+        debugPrint('[UnifiedNotification] Error cleaning up FCM: $e');
+      }
     }
 
     // Clear badge count

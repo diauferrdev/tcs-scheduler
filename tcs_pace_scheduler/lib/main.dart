@@ -1,3 +1,4 @@
+import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart';
@@ -11,19 +12,30 @@ import 'providers/theme_provider.dart';
 import 'router.dart';
 import 'services/unified_notification_service.dart';
 
+/// Check if Firebase is supported on current platform
+/// Firebase is supported on: Android, iOS, web, macOS
+/// NOT supported on: Windows, Linux
+bool get _isFirebaseSupported {
+  if (kIsWeb) return true;
+  return Platform.isAndroid || Platform.isIOS || Platform.isMacOS;
+}
+
 /// Firebase Cloud Messaging background handler - MUST be top-level function
 /// This runs in a separate isolate when FCM push arrives with app closed/terminated
 /// The @pragma annotation ensures this function isn't tree-shaken by Dart AOT compiler
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  // Initialize Firebase (required for background isolate)
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  // Only initialize Firebase on supported platforms
+  if (_isFirebaseSupported) {
+    // Initialize Firebase (required for background isolate)
+    await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
-  debugPrint('[FCM Background] Message received: ${message.notification?.title}');
-  debugPrint('[FCM Background] Data: ${message.data}');
+    debugPrint('[FCM Background] Message received: ${message.notification?.title}');
+    debugPrint('[FCM Background] Data: ${message.data}');
 
-  // Note: UnifiedNotificationService handles showing the notification
-  // when the app comes back to foreground
+    // Note: UnifiedNotificationService handles showing the notification
+    // when the app comes back to foreground
+  }
 }
 
 /// Background notification handler - MUST be top-level function
@@ -38,17 +50,23 @@ void notificationTapBackgroundHandler(NotificationResponse details) {
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize Firebase FIRST (required for FCM)
-  debugPrint('[Firebase] Initializing Firebase...');
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
-  debugPrint('[Firebase] ✅ Firebase initialized successfully');
+  // Initialize Firebase ONLY on supported platforms (Android, iOS, web, macOS)
+  // Windows and Linux desktop use local_notifier instead
+  if (_isFirebaseSupported) {
+    debugPrint('[Firebase] Initializing Firebase (platform: ${kIsWeb ? 'web' : Platform.operatingSystem})...');
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+    debugPrint('[Firebase] ✅ Firebase initialized successfully');
 
-  // Setup Firebase Cloud Messaging background handler
-  // This allows push notifications to arrive even when app is completely closed/terminated
-  FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
-  debugPrint('[FCM] ✅ Background message handler registered');
+    // Setup Firebase Cloud Messaging background handler
+    // This allows push notifications to arrive even when app is completely closed/terminated
+    FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+    debugPrint('[FCM] ✅ Background message handler registered');
+  } else {
+    debugPrint('[Firebase] ⏩ Skipping Firebase initialization (platform: ${Platform.operatingSystem})');
+    debugPrint('[Firebase] Desktop notifications will use local_notifier instead');
+  }
 
   // Initialize unified notification service with background handler support
   // On mobile (Android/iOS/macOS), the background handler allows notifications to work even when app is closed
