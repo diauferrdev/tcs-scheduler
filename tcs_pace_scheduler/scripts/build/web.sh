@@ -7,17 +7,12 @@ set -e
 
 echo "🚀 Starting production build..."
 
-# Check if API_URL is set
+# Check if API_URL is set, use default if not provided
 if [ -z "$API_URL" ]; then
-    echo "⚠️  WARNING: API_URL not set!"
-    echo "Usage: API_URL=https://api.seu-dominio.com ./build-production.sh"
+    API_URL="https://api.ppspsched.lat"
+    echo "⚠️  Using default API_URL: $API_URL"
+    echo "   To use a different URL, run: API_URL=https://your-api.com ./web.sh"
     echo ""
-    read -p "Enter your API URL (e.g., https://api.seu-dominio.com): " API_URL
-
-    if [ -z "$API_URL" ]; then
-        echo "❌ Error: API URL is required"
-        exit 1
-    fi
 fi
 
 echo "📝 Configuration:"
@@ -36,7 +31,6 @@ flutter pub get
 echo "🏗️  Building for web production..."
 flutter build web \
     --release \
-    --web-renderer canvaskit \
     --dart-define=API_URL=$API_URL \
     --source-maps
 

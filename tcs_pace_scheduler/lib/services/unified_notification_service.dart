@@ -109,11 +109,12 @@ class UnifiedNotificationService {
       // WebSocket requires session cookie which only exists AFTER login
       // Will connect via requestPermissionsAfterLogin() method after user logs in
 
-      // Load initial unread count
-      await refreshUnreadCount();
+      // IMPORTANT: Do NOT load unread count during initialization
+      // User is not logged in yet, so API call will fail or delay app startup
+      // Unread count will be loaded after login via requestPermissionsAfterLogin()
 
       _initialized = true;
-      debugPrint('[UnifiedNotification] Initialized successfully (WebSocket will connect after login)');
+      debugPrint('[UnifiedNotification] Initialized successfully (will load data after login)');
     } catch (e) {
       debugPrint('[UnifiedNotification] Initialization error: $e');
     }
@@ -161,6 +162,14 @@ class UnifiedNotificationService {
       } else {
         debugPrint('[UnifiedNotification] ⏩ Skipping FCM (Windows/Linux use local_notifier)');
       }
+
+      // Load initial unread count (non-blocking)
+      debugPrint('[UnifiedNotification] 📊 Loading unread count (background)...');
+      refreshUnreadCount().then((_) {
+        debugPrint('[UnifiedNotification] ✅ Unread count loaded');
+      }).catchError((e) {
+        debugPrint('[UnifiedNotification] ⚠️ Failed to load unread count: $e');
+      });
 
       // CRITICAL: Connect to Native WebSocket for instant real-time updates
       // Run in background - don't block login with await
