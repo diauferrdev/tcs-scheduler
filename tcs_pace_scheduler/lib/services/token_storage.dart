@@ -1,9 +1,11 @@
+import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 /// Token storage service that adapts to the platform:
 /// - Web: Uses SharedPreferences (localStorage)
+/// - Linux: Uses SharedPreferences (fallback when keyring unavailable)
 /// - Mobile/Desktop: Uses FlutterSecureStorage (Keychain/Keystore)
 class TokenStorage {
   static final TokenStorage _instance = TokenStorage._internal();
@@ -14,80 +16,132 @@ class TokenStorage {
   static const _tokenKey = 'auth_token';
   static const _sessionCookieKey = 'session_cookie';
 
+  // Track if secure storage is available (keyring on Linux)
+  bool? _secureStorageAvailable;
+
+  /// Check if we should use SharedPreferences instead of secure storage
+  bool get _useSharedPrefs {
+    if (kIsWeb) return true;
+    if (!Platform.isLinux) return false;
+    // On Linux, use SharedPreferences if secure storage failed before
+    return _secureStorageAvailable == false;
+  }
+
+  /// Try to use secure storage, fall back to SharedPreferences on error
+  Future<T> _withFallback<T>(
+    Future<T> Function() secureOp,
+    Future<T> Function() fallbackOp,
+  ) async {
+    if (_useSharedPrefs) {
+      return fallbackOp();
+    }
+
+    try {
+      final result = await secureOp();
+      _secureStorageAvailable = true;
+      return result;
+    } catch (e) {
+      if (e.toString().contains('libsecret') || e.toString().contains('keyring')) {
+        _secureStorageAvailable = false;
+        _log('[TokenStorage] Secure storage unavailable, using SharedPreferences fallback');
+        return fallbackOp();
+      }
+      rethrow;
+    }
+  }
+
   /// Save authentication token
   Future<void> saveToken(String token) async {
-    if (kIsWeb) {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(_tokenKey, token);
-      _log('[TokenStorage] Token saved to localStorage (web)');
-    } else {
-      await _secure.write(key: _tokenKey, value: token);
-      _log('[TokenStorage] Token saved to secure storage (mobile/desktop)');
-    }
+    await _withFallback(
+      () async {
+        await _secure.write(key: _tokenKey, value: token);
+        _log('[TokenStorage] Token saved to secure storage');
+      },
+      () async {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString(_tokenKey, token);
+        _log('[TokenStorage] Token saved to SharedPreferences (fallback)');
+      },
+    );
   }
 
   /// Read authentication token
   Future<String?> readToken() async {
-    String? token;
-    if (kIsWeb) {
-      final prefs = await SharedPreferences.getInstance();
-      token = prefs.getString(_tokenKey);
-      _log('[TokenStorage] Token read from localStorage (web): ${token != null ? "found" : "not found"}');
-    } else {
-      token = await _secure.read(key: _tokenKey);
-      _log('[TokenStorage] Token read from secure storage (mobile/desktop): ${token != null ? "found" : "not found"}');
-    }
-    return token;
+    return await _withFallback(
+      () async {
+        final token = await _secure.read(key: _tokenKey);
+        _log('[TokenStorage] Token read from secure storage: ${token != null ? "found" : "not found"}');
+        return token;
+      },
+      () async {
+        final prefs = await SharedPreferences.getInstance();
+        final token = prefs.getString(_tokenKey);
+        _log('[TokenStorage] Token read from SharedPreferences (fallback): ${token != null ? "found" : "not found"}');
+        return token;
+      },
+    );
   }
 
   /// Delete authentication token
   Future<void> deleteToken() async {
-    if (kIsWeb) {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.remove(_tokenKey);
-      _log('[TokenStorage] Token deleted from localStorage (web)');
-    } else {
-      await _secure.delete(key: _tokenKey);
-      _log('[TokenStorage] Token deleted from secure storage (mobile/desktop)');
-    }
+    await _withFallback(
+      () async {
+        await _secure.delete(key: _tokenKey);
+        _log('[TokenStorage] Token deleted from secure storage');
+      },
+      () async {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.remove(_tokenKey);
+        _log('[TokenStorage] Token deleted from SharedPreferences (fallback)');
+      },
+    );
   }
 
   /// Save session cookie (for web compatibility)
   Future<void> saveSessionCookie(String cookie) async {
-    if (kIsWeb) {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(_sessionCookieKey, cookie);
-      _log('[TokenStorage] Session cookie saved to localStorage (web)');
-    } else {
-      await _secure.write(key: _sessionCookieKey, value: cookie);
-      _log('[TokenStorage] Session cookie saved to secure storage (mobile/desktop)');
-    }
+    await _withFallback(
+      () async {
+        await _secure.write(key: _sessionCookieKey, value: cookie);
+        _log('[TokenStorage] Session cookie saved to secure storage');
+      },
+      () async {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString(_sessionCookieKey, cookie);
+        _log('[TokenStorage] Session cookie saved to SharedPreferences (fallback)');
+      },
+    );
   }
 
   /// Read session cookie
   Future<String?> readSessionCookie() async {
-    String? cookie;
-    if (kIsWeb) {
-      final prefs = await SharedPreferences.getInstance();
-      cookie = prefs.getString(_sessionCookieKey);
-      _log('[TokenStorage] Session cookie read from localStorage (web): ${cookie != null ? "found" : "not found"}');
-    } else {
-      cookie = await _secure.read(key: _sessionCookieKey);
-      _log('[TokenStorage] Session cookie read from secure storage (mobile/desktop): ${cookie != null ? "found" : "not found"}');
-    }
-    return cookie;
+    return await _withFallback(
+      () async {
+        final cookie = await _secure.read(key: _sessionCookieKey);
+        _log('[TokenStorage] Session cookie read from secure storage: ${cookie != null ? "found" : "not found"}');
+        return cookie;
+      },
+      () async {
+        final prefs = await SharedPreferences.getInstance();
+        final cookie = prefs.getString(_sessionCookieKey);
+        _log('[TokenStorage] Session cookie read from SharedPreferences (fallback): ${cookie != null ? "found" : "not found"}');
+        return cookie;
+      },
+    );
   }
 
   /// Delete session cookie
   Future<void> deleteSessionCookie() async {
-    if (kIsWeb) {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.remove(_sessionCookieKey);
-      _log('[TokenStorage] Session cookie deleted from localStorage (web)');
-    } else {
-      await _secure.delete(key: _sessionCookieKey);
-      _log('[TokenStorage] Session cookie deleted from secure storage (mobile/desktop)');
-    }
+    await _withFallback(
+      () async {
+        await _secure.delete(key: _sessionCookieKey);
+        _log('[TokenStorage] Session cookie deleted from secure storage');
+      },
+      () async {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.remove(_sessionCookieKey);
+        _log('[TokenStorage] Session cookie deleted from SharedPreferences (fallback)');
+      },
+    );
   }
 
   /// Clear all authentication data

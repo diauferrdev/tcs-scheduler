@@ -5,9 +5,51 @@
 # TCS PacePort Scheduler
 # ========================================
 #
-# IMPORTANT: Firebase is excluded from Windows builds
-# due to C++ SDK linking incompatibilities.
-# Windows uses local_notifier for desktop notifications.
+# USAGE:
+#   bash scripts/build/windows.sh
+#   OR: echo "Y" | bash scripts/build/windows.sh  (auto-accept prompts)
+#
+# WHAT THIS SCRIPT DOES:
+#   1. Increments build number in pubspec.yaml
+#   2. Excludes Firebase from Windows build (C++ SDK incompatibility)
+#   3. Builds Windows executable + DLLs (release mode)
+#   4. Creates ZIP archive for distribution
+#   5. Prepares for **GitHub Releases** (PRIMARY DESKTOP DISTRIBUTION)
+#
+# GENERATED FILES (NOT committed to git):
+#   📁 build/windows/x64/runner/Release/          - Complete portable app folder
+#   📦 build/windows/x64/runner/*.zip             - ZIP archive (GITHUB RELEASES)
+#
+# DISTRIBUTION METHOD:
+#   **PRIMARY: GitHub Releases** (upload ZIP file)
+#   - Tag release in git: git tag v1.0.0
+#   - Push tag: git push --tags
+#   - Create release on GitHub
+#   - Upload ZIP file to release assets
+#   - Users download ZIP, extract, and run .exe
+#
+#   ALTERNATIVE: Microsoft Store (requires MSIX package)
+#   - Run: flutter build windows --release
+#   - Run: flutter pub run msix:create
+#   - Submit to Partner Center
+#
+# IMPORTANT NOTES:
+#   ⚠️  Firebase is EXCLUDED from Windows builds
+#   - Firebase C++ SDK has linking issues on Windows desktop
+#   - Uses local_notifier for desktop notifications instead
+#   - Push notifications work via WebSocket connection
+#
+#   📦 Portable Application
+#   - No installation required
+#   - Users extract ZIP and run .exe directly
+#   - All dependencies included in Release folder
+#
+# REQUIREMENTS:
+#   - Flutter SDK with Windows desktop support
+#   - Visual Studio 2019+ (C++ desktop development)
+#   - Windows 10 SDK
+#
+# ========================================
 
 set -e
 

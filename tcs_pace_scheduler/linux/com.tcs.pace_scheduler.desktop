@@ -1,0 +1,10 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=TCS Pace Scheduler
+Comment=Enterprise scheduling application for TCS PacePort office visits
+Exec=tcs_pace_scheduler
+Icon=com.tcs.pace_scheduler
+Categories=Office;
+Terminal=false
+StartupNotify=true

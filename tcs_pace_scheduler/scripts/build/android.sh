@@ -1,7 +1,52 @@
 #!/bin/bash
 
-# TCS Pace Scheduler - Release Script
-# Automatically increments version, builds APK, and manages releases
+# ========================================
+# Android Build Script
+# TCS PacePort Scheduler
+# ========================================
+#
+# USAGE:
+#   bash scripts/build/android.sh [patch|minor|major] [skip-build]
+#   Examples:
+#     bash scripts/build/android.sh patch           # Bug fixes: 1.0.0 -> 1.0.1
+#     bash scripts/build/android.sh minor           # New features: 1.0.0 -> 1.1.0
+#     bash scripts/build/android.sh major           # Breaking changes: 1.0.0 -> 2.0.0
+#     echo "Y" | bash scripts/build/android.sh      # Auto-accept prompts
+#
+# WHAT THIS SCRIPT DOES:
+#   1. Increments version in pubspec.yaml (semantic versioning)
+#   2. Updates backend version.ts endpoint
+#   3. Builds Android APK (release mode)
+#   4. **Deploys to Firebase App Distribution** (PRIMARY MOBILE DISTRIBUTION)
+#   5. Creates git commit and tag
+#   6. Provides push instructions
+#
+# GENERATED FILES (NOT committed to git):
+#   📦 build/app/outputs/flutter-apk/app-release.apk                    - Standard APK
+#   📦 build/app/outputs/flutter-apk/tcs-pace-scheduler-vX.X.X.apk     - Versioned APK
+#
+# DISTRIBUTION METHOD:
+#   **PRIMARY: Firebase App Distribution** (automatically deployed by script)
+#   - Testers receive immediate notifications
+#   - Download link provided in Firebase console
+#   - App ID: 1:874457674237:android:81596c5009b03f9a9fa994
+#   - Tester group: "testers"
+#
+#   ALTERNATIVE: Manual APK distribution
+#   - Share versioned APK file directly
+#   - Users must enable "Install from unknown sources"
+#
+#   GOOGLE PLAY STORE: Use AAB format instead
+#   - Run: flutter build appbundle --release
+#   - Upload to Google Play Console
+#
+# REQUIREMENTS:
+#   - Flutter SDK installed
+#   - Android SDK configured
+#   - Firebase CLI installed (npm install -g firebase-tools)
+#   - Authenticated with Firebase (firebase login)
+#
+# ========================================
 
 set -e  # Exit on error
 
@@ -11,6 +56,10 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
+
+# Load release notes helper
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/lib/get-release-notes.sh"
 
 # Print colored output
 print_info() {
@@ -149,13 +198,8 @@ if [ "$SKIP_BUILD" != "skip-build" ]; then
         # Deploy to Firebase App Distribution
         print_info "Deploying to Firebase App Distribution..."
 
-        RELEASE_NOTES="Version $NEW_VERSION (Build $NEW_BUILD)
-
-🔧 Changes:
-- Bug fixes and improvements
-
-📦 Build type: $BUMP_TYPE
-🗓️  Release date: $(date '+%Y-%m-%d %H:%M')"
+        # Get release notes from centralized RELEASE_NOTES.md file
+        RELEASE_NOTES=$(format_notes_firebase "$NEW_VERSION" "$NEW_BUILD" "$BUMP_TYPE")
 
         if firebase appdistribution:distribute "$VERSIONED_APK" \
             --app 1:874457674237:android:81596c5009b03f9a9fa994 \

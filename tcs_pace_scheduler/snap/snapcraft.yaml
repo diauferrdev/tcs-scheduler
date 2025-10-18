@@ -1,0 +1,39 @@
+name: tcs-pace-scheduler
+version: '1.0.11'
+summary: TCS Pace Scheduler
+description: |
+  Enterprise scheduling application for TCS PacePort office visits.
+
+  Features:
+  - Role-based access control
+  - Automated booking management
+  - Real-time notifications
+  - Calendar integration
+
+grade: stable
+confinement: strict
+base: core22
+
+apps:
+  tcs-pace-scheduler:
+    command: tcs_pace_scheduler
+    plugs:
+      - network
+      - network-bind
+      - desktop
+      - desktop-legacy
+      - wayland
+      - x11
+      - opengl
+      - home
+
+parts:
+  tcs-pace-scheduler:
+    plugin: dump
+    source: build/linux/x64/release/bundle
+    organize:
+      '*': bin/
+    stage-packages:
+      - libgtk-3-0
+      - libglib2.0-0
+      - libnotify4
