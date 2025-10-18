@@ -235,7 +235,7 @@ class BookingFlowService {
         minChildSize: 0.5,
         maxChildSize: 0.9,
         builder: (context, scrollController) => BaseInfoDrawer(
-          onNext: (data) {
+          onNext: (data) async {
             _baseInfo = data;
             Navigator.pop(context);
 
@@ -243,7 +243,8 @@ class BookingFlowService {
             if (_requiresQuestionnaire()) {
               _showQuestionnaireDrawer(context);
             } else {
-              _submitBooking(context);
+              // Wait for submit to complete
+              await _submitBooking(context);
             }
           },
           onBack: () {
@@ -273,10 +274,11 @@ class BookingFlowService {
         minChildSize: 0.5,
         maxChildSize: 0.9,
         builder: (context, scrollController) => QuestionnaireDrawer(
-          onSubmit: (answers) {
+          onSubmit: (answers) async {
             _questionnaireAnswers = answers;
             Navigator.pop(context);
-            _submitBooking(context);
+            // Wait for submit to complete before returning
+            await _submitBooking(context);
           },
           onBack: () {
             Navigator.pop(context);
