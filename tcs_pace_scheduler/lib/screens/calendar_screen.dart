@@ -3827,17 +3827,21 @@ class _BookingFormWidgetState extends State<_BookingFormWidget> {
         if (_additionalNotesController.text.trim().isNotEmpty) 'additionalNotes': _additionalNotesController.text.trim(),
       };
 
-      // Reset loading state BEFORE calling onSubmit to prevent infinite loading
-      if (mounted) {
-        setState(() => _isSubmitting = false);
-      }
-
+      // Call onSubmit without managing loading state after
+      // The parent will handle closing/unmounting this widget
       await widget.onSubmit(bookingData);
     } catch (e) {
+      // Only reset loading on error, since widget is still mounted
       if (mounted) {
         setState(() => _isSubmitting = false);
       }
       rethrow;
+    } finally {
+      // Always try to reset loading if widget is still mounted
+      // This handles the case where onSubmit doesn't unmount the widget
+      if (mounted) {
+        setState(() => _isSubmitting = false);
+      }
     }
   }
 
