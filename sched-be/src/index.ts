@@ -33,6 +33,7 @@ const allowedOrigins = [
   process.env.FRONTEND_URL || 'https://ppspsched.lat',
   'https://ppspsched.lat',
   'https://www.ppspsched.lat',
+  'https://app.ppspsched.lat',
   'https://api.ppspsched.lat',
 ];
 

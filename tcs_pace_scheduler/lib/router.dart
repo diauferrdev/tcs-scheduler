@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:go_router/go_router.dart';
 import 'providers/auth_provider.dart';
 import 'models/user.dart';
 import 'widgets/app_layout.dart';
 import 'widgets/permissions_wrapper.dart';
+import 'screens/landing_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/dashboard_screen.dart';
 import 'screens/calendar_screen.dart';
@@ -18,30 +20,103 @@ import 'screens/my_bookings_screen.dart';
 import 'screens/drawer_route_screen.dart';
 import 'services/navigation_service.dart';
 import 'services/drawer_service.dart';
+import 'dart:html' as html;
+
+/// Helper function to check if current domain is the main domain (not app subdomain)
+bool _isMainDomain() {
+  if (!kIsWeb) return false;
+  final hostname = html.window.location.hostname;
+  return hostname == 'ppspsched.lat' || hostname == 'www.ppspsched.lat' || hostname == 'localhost';
+}
+
+/// Helper function to check if current domain is the app subdomain
+bool _isAppDomain() {
+  if (!kIsWeb) return true; // Mobile/desktop apps always use app logic
+  final hostname = html.window.location.hostname;
+  return hostname == 'app.ppspsched.lat' || hostname == 'localhost';
+}
+
+/// Helper function to redirect to app subdomain
+void _redirectToAppDomain(String path) {
+  if (!kIsWeb) return;
+  final currentUrl = html.window.location.href;
+  final newUrl = currentUrl.replaceFirst('ppspsched.lat', 'app.ppspsched.lat');
+  html.window.location.href = newUrl;
+}
 
 GoRouter createRouter(AuthProvider authProvider) {
   final navigationService = NavigationService();
 
   return GoRouter(
     navigatorKey: navigationService.navigatorKey,
-    initialLocation: '/dashboard', // Start at dashboard, redirect handles role-based routing
+    initialLocation: '/', // Start at landing, redirect handles routing
     refreshListenable: authProvider,
     redirect: (context, state) {
       final isAuthenticated = authProvider.isAuthenticated;
       final isLoading = authProvider.loading;
       final user = authProvider.user;
-      final isLoginRoute = state.uri.path == '/login';
-      final isCalendarRoute = state.uri.path == '/calendar';
-      final isDashboardRoute = state.uri.path == '/dashboard';
+      final currentPath = state.uri.path;
+      final isLandingRoute = currentPath == '/';
+      final isLoginRoute = currentPath == '/login';
+      final isCalendarRoute = currentPath == '/calendar';
+      final isDashboardRoute = currentPath == '/dashboard';
 
       // Wait for auth check to complete
       if (isLoading) {
         return null;
       }
 
-      // Redirect to login if not authenticated
-      if (!isAuthenticated && !isLoginRoute) {
-        return '/login';
+      // DOMAIN-BASED ROUTING (Web only)
+      if (kIsWeb) {
+        final isMainDomain = _isMainDomain();
+        final isAppDomain = _isAppDomain();
+
+        // Main domain (ppspsched.lat) logic
+        if (isMainDomain) {
+          // If authenticated and on landing page, redirect to app subdomain
+          if (isAuthenticated && isLandingRoute) {
+            _redirectToAppDomain('/calendar');
+            return null;
+          }
+
+          // Not authenticated: allow landing and login only
+          if (!isAuthenticated && !isLandingRoute && !isLoginRoute) {
+            return '/';
+          }
+
+          // Block app routes on main domain (force them to use app subdomain)
+          if (isAuthenticated && !isLandingRoute && !isLoginRoute) {
+            _redirectToAppDomain(currentPath);
+            return null;
+          }
+        }
+
+        // App subdomain (app.ppspsched.lat) logic
+        if (isAppDomain) {
+          // Not authenticated: redirect to main domain login
+          if (!isAuthenticated) {
+            html.window.location.href = 'https://ppspsched.lat/login';
+            return null;
+          }
+
+          // Don't allow landing page on app domain
+          if (isLandingRoute) {
+            return _getMainScreenForRole(user?.role ?? UserRole.USER);
+          }
+        }
+      }
+
+      // MOBILE/DESKTOP ROUTING
+      if (!kIsWeb) {
+        // Redirect to login if not authenticated (except on landing/login)
+        if (!isAuthenticated && !isLoginRoute && !isLandingRoute) {
+          return '/login';
+        }
+
+        // Redirect authenticated users from landing to their main screen
+        if (isAuthenticated && isLandingRoute && user != null) {
+          return _getMainScreenForRole(user.role);
+        }
       }
 
       // Redirect authenticated users from login to their main screen
@@ -61,7 +136,6 @@ GoRouter createRouter(AuthProvider authProvider) {
       // Restrict Calendar page: only ADMIN and USER can access
       if (isAuthenticated && isCalendarRoute && user != null) {
         if (user.role == UserRole.MANAGER) {
-          // Manager cannot access calendar, redirect to their main screen
           return _getMainScreenForRole(user.role);
         }
       }
@@ -69,6 +143,12 @@ GoRouter createRouter(AuthProvider authProvider) {
       return null;
     },
     routes: [
+      // Landing page (only on main domain or mobile)
+      GoRoute(
+        path: '/',
+        builder: (context, state) => const LandingScreen(),
+      ),
+
       // Login route (no AppLayout)
       GoRoute(
         path: '/login',
