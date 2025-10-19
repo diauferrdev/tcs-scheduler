@@ -1,6 +1,10 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:fl_chart/fl_chart.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+import 'package:syncfusion_flutter_charts/charts.dart';
+import 'package:syncfusion_flutter_gauges/gauges.dart';
 import '../widgets/app_layout.dart';
 import '../providers/theme_provider.dart';
 import '../services/api_service.dart';
@@ -305,36 +309,52 @@ class _DashboardScreenState extends State<DashboardScreen> {
             'Approval Rate',
             style: TextStyle(
               fontSize: 11,
+              fontWeight: FontWeight.w600,
               color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
             ),
           ),
-          const SizedBox(height: 12),
-          Stack(
-            alignment: Alignment.center,
-            children: [
-              SizedBox(
-                width: 70,
-                height: 70,
-                child: CircularProgressIndicator(
-                  value: approvalRate / 100,
-                  strokeWidth: 8,
-                  backgroundColor: isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
-                  valueColor: AlwaysStoppedAnimation<Color>(
-                    approvalRate >= 70 ? const Color(0xFF10B981) :
-                    approvalRate >= 50 ? const Color(0xFFF59E0B) :
-                    const Color(0xFFEF4444),
+          const SizedBox(height: 8),
+          Expanded(
+            child: SfRadialGauge(
+              axes: <RadialAxis>[
+                RadialAxis(
+                  minimum: 0,
+                  maximum: 100,
+                  showLabels: false,
+                  showTicks: false,
+                  axisLineStyle: AxisLineStyle(
+                    thickness: 0.2,
+                    color: (isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB)).withValues(alpha: 0.3),
+                    thicknessUnit: GaugeSizeUnit.factor,
                   ),
+                  pointers: <GaugePointer>[
+                    RangePointer(
+                      value: approvalRate,
+                      width: 0.2,
+                      sizeUnit: GaugeSizeUnit.factor,
+                      gradient: const SweepGradient(
+                        colors: <Color>[Color(0xFFEF4444), Color(0xFFFBBF24), Color(0xFF10B981)],
+                        stops: <double>[0.0, 0.5, 1.0],
+                      ),
+                    ),
+                  ],
+                  annotations: <GaugeAnnotation>[
+                    GaugeAnnotation(
+                      widget: Text(
+                        '${approvalRate.toStringAsFixed(0)}%',
+                        style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                          color: isDark ? Colors.white : Colors.black,
+                        ),
+                      ),
+                      angle: 90,
+                      positionFactor: 0.1,
+                    ),
+                  ],
                 ),
-              ),
-              Text(
-                '${approvalRate.toStringAsFixed(0)}%',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: isDark ? Colors.white : Colors.black,
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
         ],
       ),
@@ -345,14 +365,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
     if (_stats == null) return const SizedBox.shrink();
 
     final breakdown = _stats!.statusBreakdown;
-    final data = [
-      ('Created', breakdown.created, const Color(0xFF3B82F6)),
-      ('Review', breakdown.underReview, const Color(0xFFF59E0B)),
-      ('Approved', breakdown.approved, const Color(0xFF10B981)),
-    ];
+    final maxValue = [
+      breakdown.underReview,
+      breakdown.needEdit,
+      breakdown.needReschedule,
+      breakdown.approved,
+      breakdown.notApproved
+    ].reduce((a, b) => a > b ? a : b);
 
-    final maxValue = data.map((e) => e.$2).reduce((a, b) => a > b ? a : b);
     if (maxValue == 0) return const SizedBox.shrink();
+
+    final borderColor = isDark ? const Color(0xFFF97316) : const Color(0xFFF97316);
 
     return Container(
       height: 140,
@@ -368,7 +391,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Conversion Funnel',
+            'Status Flow',
             style: TextStyle(
               fontSize: 11,
               color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
@@ -376,58 +399,67 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
           const SizedBox(height: 8),
           Expanded(
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: data.map((item) {
-                final percentage = maxValue > 0 ? (item.$2 / maxValue) : 0.0;
-                return Expanded(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      Text(
-                        '${item.$2}',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                          color: item.$3,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Expanded(
-                        child: Container(
-                          width: 32,
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.bottomCenter,
-                              end: Alignment.topCenter,
-                              colors: [
-                                item.$3,
-                                item.$3.withValues(alpha: 0.5),
-                              ],
-                            ),
-                            borderRadius: const BorderRadius.only(
-                              topLeft: Radius.circular(4),
-                              topRight: Radius.circular(4),
-                            ),
-                          ),
-                          alignment: Alignment.bottomCenter,
-                          margin: EdgeInsets.only(top: (1 - percentage) * 50),
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        item.$1,
-                        style: TextStyle(
-                          fontSize: 9,
-                          color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                    ],
+            child: Padding(
+              padding: const EdgeInsets.only(right: 12, left: 4),
+              child: SfCartesianChart(
+                plotAreaBorderWidth: 0,
+                primaryXAxis: CategoryAxis(
+                  majorGridLines: const MajorGridLines(width: 0),
+                  labelStyle: TextStyle(
+                    fontSize: 7,
+                    fontWeight: FontWeight.bold,
+                    color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
                   ),
-                );
-              }).toList(),
+                  axisLine: AxisLine(
+                    width: 4,
+                    color: borderColor.withValues(alpha: 0.2),
+                  ),
+                ),
+                primaryYAxis: NumericAxis(
+                  isVisible: false,
+                  minimum: 0,
+                  maximum: maxValue.toDouble() * 1.2,
+                ),
+                series: <CartesianSeries>[
+                  SplineSeries<Map<String, dynamic>, String>(
+                    dataSource: [
+                      {'label': 'Review', 'value': breakdown.underReview},
+                      {'label': 'Changes', 'value': breakdown.needEdit},
+                      {'label': 'Reschedule', 'value': breakdown.needReschedule},
+                      {'label': 'Approved', 'value': breakdown.approved},
+                      {'label': 'Rejected', 'value': breakdown.notApproved},
+                    ],
+                    xValueMapper: (data, _) => data['label'] as String,
+                    yValueMapper: (data, _) => (data['value'] as int).toDouble(),
+                    color: const Color(0xFFF97316),
+                    width: 3,
+                    markerSettings: const MarkerSettings(
+                      isVisible: true,
+                      height: 8,
+                      width: 8,
+                      color: Color(0xFFFB923C),
+                      borderColor: Colors.white,
+                      borderWidth: 2,
+                    ),
+                  ),
+                ],
+                tooltipBehavior: TooltipBehavior(
+                  enable: true,
+                  format: 'point.x: point.y',
+                  color: isDark ? const Color(0xFF27272A) : const Color(0xFF1F2937),
+                  textStyle: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 8,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  borderWidth: 0,
+                  borderColor: Colors.transparent,
+                  elevation: 2,
+                  canShowMarker: false,
+                  duration: 500,
+                  shouldAlwaysShow: false,
+                ),
+              ),
             ),
           ),
         ],
@@ -442,16 +474,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final total = dist.total;
     if (total == 0) return const SizedBox.shrink();
 
-    final types = [
-      ('PACE Tour', dist.paceTour, const Color(0xFF3B82F6)),
-      ('PACE Experience', dist.paceExperience, const Color(0xFF8B5CF6)),
-      ('Innovation Exch.', dist.innovationExchange, const Color(0xFF10B981)),
-      ('Quick Tour', dist.quickTour, const Color(0xFFF59E0B)),
-    ];
-    types.sort((a, b) => b.$2.compareTo(a.$2));
-    final popular = types.first;
-    final percentage = (popular.$2 / total * 100);
-
     return Container(
       height: 140,
       padding: const EdgeInsets.all(16),
@@ -466,86 +488,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Most Popular',
+            'Visit Trends',
             style: TextStyle(
               fontSize: 11,
               color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 4),
           Expanded(
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                // Chart (circle with star)
-                SizedBox(
-                  width: 60,
-                  height: 60,
-                  child: Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      SizedBox(
-                        width: 60,
-                        height: 60,
-                        child: CircularProgressIndicator(
-                          value: popular.$2 / total,
-                          strokeWidth: 6,
-                          backgroundColor: isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
-                          valueColor: AlwaysStoppedAnimation<Color>(popular.$3),
-                        ),
-                      ),
-                      Icon(
-                        Icons.star,
-                        size: 24,
-                        color: popular.$3,
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 16),
-                // Text content
-                Expanded(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Visit type name
-                      Text(
-                        popular.$1,
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: popular.$3,
-                          height: 1.2,
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 4),
-                      // Visit count
-                      Text(
-                        '${popular.$2} visits',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: isDark ? Colors.white : Colors.black,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      // Percentage
-                      Text(
-                        '${percentage.toStringAsFixed(0)}% of total',
-                        style: TextStyle(
-                          fontSize: 10,
-                          color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
+            child: _ScatterChartWidget(isDark: isDark),
           ),
         ],
       ),
@@ -590,124 +541,59 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
           const SizedBox(height: 8),
           Expanded(
-            child: BarChart(
-              BarChartData(
-                alignment: BarChartAlignment.spaceAround,
-                maxY: maxValue.toDouble() * 1.2,
-                barTouchData: BarTouchData(
-                  enabled: true,
-                  touchTooltipData: BarTouchTooltipData(
-                    getTooltipColor: (group) => isDark
-                        ? const Color(0xFF27272A)
-                        : const Color(0xFF1F2937),
-                    tooltipPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    tooltipMargin: 4,
-                    getTooltipItem: (group, groupIndex, rod, rodIndex) {
-                      final timeSlot = sorted[group.x.toInt()].key;
-                      final count = sorted[group.x.toInt()].value;
-                      return BarTooltipItem(
-                        '$timeSlot\n$count bookings',
-                        const TextStyle(
-                          color: Colors.white,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      );
-                    },
-                  ),
+            child: SfCartesianChart(
+              plotAreaBorderWidth: 0,
+              primaryXAxis: CategoryAxis(
+                majorGridLines: const MajorGridLines(width: 0),
+                labelStyle: TextStyle(
+                  color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
+                  fontSize: 7,
                 ),
-                titlesData: FlTitlesData(
-                  show: true,
-                  bottomTitles: AxisTitles(
-                    sideTitles: SideTitles(
-                      showTitles: true,
-                      reservedSize: 20,
-                      getTitlesWidget: (value, meta) {
-                        if (value.toInt() >= 0 && value.toInt() < sorted.length) {
-                          final timeSlot = sorted[value.toInt()].key;
-                          final isPeak = timeSlot == peakEntry.key;
-                          return Padding(
-                            padding: const EdgeInsets.only(top: 4),
-                            child: Text(
-                              timeSlot,
-                              style: TextStyle(
-                                fontSize: 7,
-                                fontWeight: isPeak ? FontWeight.bold : FontWeight.normal,
-                                color: isPeak
-                                    ? const Color(0xFF06B6D4)
-                                    : (isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280)),
-                              ),
-                            ),
-                          );
-                        }
-                        return const SizedBox.shrink();
-                      },
-                    ),
-                  ),
-                  leftTitles: AxisTitles(
-                    sideTitles: SideTitles(
-                      showTitles: true,
-                      reservedSize: 24,
-                      interval: (maxValue / 3).ceilToDouble(),
-                      getTitlesWidget: (value, meta) {
-                        if (value == 0 || value == meta.max) return const SizedBox.shrink();
-                        return Text(
-                          value.toInt().toString(),
-                          style: TextStyle(
-                            fontSize: 8,
-                            color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                  topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                  rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                axisLine: const AxisLine(width: 0),
+              ),
+              primaryYAxis: NumericAxis(
+                majorGridLines: MajorGridLines(
+                  width: 1,
+                  color: (isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB)),
                 ),
-                gridData: FlGridData(
-                  show: true,
-                  drawVerticalLine: false,
-                  horizontalInterval: (maxValue / 3).ceilToDouble(),
-                  getDrawingHorizontalLine: (value) {
-                    return FlLine(
-                      color: isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
-                      strokeWidth: 1,
-                    );
+                axisLine: const AxisLine(width: 0),
+                labelStyle: TextStyle(
+                  color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
+                  fontSize: 8,
+                ),
+                minimum: 0,
+                maximum: maxValue.toDouble() * 1.2,
+              ),
+              series: <CartesianSeries>[
+                ColumnSeries<MapEntry<String, int>, String>(
+                  dataSource: sorted,
+                  xValueMapper: (data, _) => data.key,
+                  yValueMapper: (data, _) => data.value.toDouble(),
+                  pointColorMapper: (data, _) {
+                    return data.key == peakEntry.key
+                        ? const Color(0xFF06B6D4)
+                        : (isDark ? const Color(0xFF3F3F46) : const Color(0xFFD1D5DB));
                   },
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(3)),
+                  width: 0.6,
+                  dataLabelSettings: const DataLabelSettings(isVisible: false),
                 ),
-                borderData: FlBorderData(show: false),
-                barGroups: List.generate(
-                  sorted.length,
-                  (index) {
-                    final isPeak = sorted[index].key == peakEntry.key;
-                    return BarChartGroupData(
-                      x: index,
-                      barRods: [
-                        BarChartRodData(
-                          toY: sorted[index].value.toDouble(),
-                          gradient: LinearGradient(
-                            begin: Alignment.bottomCenter,
-                            end: Alignment.topCenter,
-                            colors: isPeak
-                                ? [
-                                    const Color(0xFF06B6D4),
-                                    const Color(0xFF0891B2),
-                                  ]
-                                : [
-                                    isDark ? const Color(0xFF3F3F46) : const Color(0xFFD1D5DB),
-                                    isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
-                                  ],
-                          ),
-                          width: 10,
-                          borderRadius: const BorderRadius.only(
-                            topLeft: Radius.circular(3),
-                            topRight: Radius.circular(3),
-                          ),
-                        ),
-                      ],
-                    );
-                  },
+              ],
+              tooltipBehavior: TooltipBehavior(
+                enable: true,
+                format: 'point.x: point.y',
+                color: isDark ? const Color(0xFF27272A) : const Color(0xFF1F2937),
+                textStyle: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 8,
+                  fontWeight: FontWeight.w500,
                 ),
+                borderWidth: 0,
+                borderColor: Colors.transparent,
+                elevation: 2,
+                canShowMarker: false,
+                duration: 500,
+                shouldAlwaysShow: false,
               ),
             ),
           ),
@@ -739,6 +625,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
               const SizedBox(height: 16),
 
+              // Row 1.5: Top Visitors, Event Type, Deal Status (3 columns)
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SizedBox(width: (maxWidth - 32) / 3, child: _buildTopCompaniesCard(isDark)),
+                  const SizedBox(width: 16),
+                  SizedBox(width: (maxWidth - 32) / 3, child: _buildEventTypeWaterfall(isDark)),
+                  const SizedBox(width: 16),
+                  SizedBox(width: (maxWidth - 32) / 3, child: _buildDealStatusBubble(isDark)),
+                ],
+              ),
+              const SizedBox(height: 16),
+
               // Row 2: Organization Type (bar) & Status Breakdown (pie)
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -761,13 +660,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
               const SizedBox(height: 16),
 
-              // Row 4: Top Companies & Visit Performance Radar (two columns)
+              // Row 4: Lead Conversion, Avg Attendees, Engagement Depth (3 columns)
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  SizedBox(width: columnWidth, child: _buildTopCompaniesCard(isDark)),
+                  SizedBox(width: (maxWidth - 32) / 3, child: _buildOrgTypeConversion(isDark)),
                   const SizedBox(width: 16),
-                  SizedBox(width: columnWidth, child: _buildVisitPerformanceRadar(isDark)),
+                  SizedBox(width: (maxWidth - 32) / 3, child: _buildAttendeesByType(isDark)),
+                  const SizedBox(width: 16),
+                  SizedBox(width: (maxWidth - 32) / 3, child: _buildEngagementDepth(isDark)),
                 ],
               ),
             ],
@@ -788,6 +689,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  SizedBox(width: (maxWidth - 32) / 3, child: _buildOrgTypeConversion(isDark)),
+                  const SizedBox(width: 16),
+                  SizedBox(width: (maxWidth - 32) / 3, child: _buildAttendeesByType(isDark)),
+                  const SizedBox(width: 16),
+                  SizedBox(width: (maxWidth - 32) / 3, child: _buildEngagementDepth(isDark)),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
                   SizedBox(width: columnWidth, child: _buildOrganizationTypeChart(isDark)),
                   const SizedBox(width: 16),
                   SizedBox(width: columnWidth, child: _buildStatusBreakdownChart(isDark)),
@@ -798,14 +710,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
               const SizedBox(height: 16),
               _buildMonthlyTrendChart(isDark),
               const SizedBox(height: 16),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  SizedBox(width: columnWidth, child: _buildTopCompaniesCard(isDark)),
-                  const SizedBox(width: 16),
-                  SizedBox(width: columnWidth, child: _buildVisitPerformanceRadar(isDark)),
-                ],
-              ),
+              _buildTopCompaniesCard(isDark),
+              const SizedBox(height: 16),
+              _buildEventTypeWaterfall(isDark),
+              const SizedBox(height: 16),
+              _buildDealStatusBubble(isDark),
             ],
           );
         } else {
@@ -815,6 +724,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
               _buildVisitTypeChart(isDark),
               const SizedBox(height: 16),
               _buildVerticalChart(isDark),
+              const SizedBox(height: 16),
+              _buildOrgTypeConversion(isDark),
+              const SizedBox(height: 16),
+              _buildAttendeesByType(isDark),
+              const SizedBox(height: 16),
+              _buildEngagementDepth(isDark),
               const SizedBox(height: 16),
               _buildOrganizationTypeChart(isDark),
               const SizedBox(height: 16),
@@ -826,7 +741,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
               const SizedBox(height: 16),
               _buildTopCompaniesCard(isDark),
               const SizedBox(height: 16),
-              _buildVisitPerformanceRadar(isDark),
+              _buildEventTypeWaterfall(isDark),
+              const SizedBox(height: 16),
+              _buildDealStatusBubble(isDark),
             ],
           );
         }
@@ -945,66 +862,70 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 return _buildNoData(isDark);
               }
 
+              final chartData = <Map<String, dynamic>>[];
+              if (dist.paceTour > 0) {
+                chartData.add({
+                  'type': 'PACE Tour',
+                  'value': dist.paceTour,
+                  'color': const Color(0xFFEF4444),
+                });
+              }
+              if (dist.paceExperience > 0) {
+                chartData.add({
+                  'type': 'PACE Experience',
+                  'value': dist.paceExperience,
+                  'color': const Color(0xFFFBBF24),
+                });
+              }
+              if (dist.innovationExchange > 0) {
+                chartData.add({
+                  'type': 'Innovation Exchange',
+                  'value': dist.innovationExchange,
+                  'color': const Color(0xFF10B981),
+                });
+              }
+
               return Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   SizedBox(
                     height: 200,
-                    child: Center(
-                      child: PieChart(
-                        PieChartData(
-                          sectionsSpace: 2,
-                          centerSpaceRadius: 35,
-                          sections: [
-                            if (dist.paceTour > 0)
-                              PieChartSectionData(
-                                color: const Color(0xFF3B82F6),
-                                value: dist.paceTour.toDouble(),
-                                title: '${(dist.paceTour / total * 100).toStringAsFixed(1)}%',
-                                radius: 45,
-                                titleStyle: const TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white,
-                                ),
-                              ),
-                            if (dist.paceExperience > 0)
-                              PieChartSectionData(
-                                color: const Color(0xFF8B5CF6),
-                                value: dist.paceExperience.toDouble(),
-                                title: '${(dist.paceExperience / total * 100).toStringAsFixed(1)}%',
-                                radius: 45,
-                                titleStyle: const TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white,
-                                ),
-                              ),
-                            if (dist.innovationExchange > 0)
-                              PieChartSectionData(
-                                color: const Color(0xFF10B981),
-                                value: dist.innovationExchange.toDouble(),
-                                title: '${(dist.innovationExchange / total * 100).toStringAsFixed(1)}%',
-                                radius: 45,
-                                titleStyle: const TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white,
-                                ),
-                              ),
-                            if (dist.quickTour > 0)
-                              PieChartSectionData(
-                                color: const Color(0xFFF59E0B),
-                                value: dist.quickTour.toDouble(),
-                                title: '${(dist.quickTour / total * 100).toStringAsFixed(1)}%',
-                                radius: 45,
-                                titleStyle: const TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white,
-                                ),
-                              ),
-                          ],
+                    child: SfCircularChart(
+                      series: <CircularSeries>[
+                        DoughnutSeries<Map<String, dynamic>, String>(
+                          dataSource: chartData,
+                          xValueMapper: (data, _) => data['type'] as String,
+                          yValueMapper: (data, _) => (data['value'] as int).toDouble(),
+                          pointColorMapper: (data, _) => data['color'] as Color,
+                          dataLabelSettings: DataLabelSettings(
+                            isVisible: true,
+                            labelPosition: ChartDataLabelPosition.outside,
+                            textStyle: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              color: isDark ? Colors.white : Colors.black,
+                            ),
+                            connectorLineSettings: ConnectorLineSettings(
+                              type: ConnectorType.curve,
+                              width: 1.5,
+                              color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
+                            ),
+                          ),
+                          dataLabelMapper: (data, _) {
+                            final value = data['value'] as int;
+                            final percentage = (value / total * 100).toStringAsFixed(1);
+                            return '$percentage%';
+                          },
+                          innerRadius: '60%',
+                          explode: true,
+                          explodeIndex: 0,
+                          explodeOffset: '5%',
                         ),
+                      ],
+                      tooltipBehavior: TooltipBehavior(
+                        enable: true,
+                        format: 'point.x: point.y visits',
+                        textStyle: const TextStyle(fontSize: 10),
                       ),
                     ),
                   ),
@@ -1013,16 +934,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     spacing: 12,
                     runSpacing: 8,
                     alignment: WrapAlignment.center,
-                    children: [
-                      if (dist.paceTour > 0)
-                        _buildLegendItem('PACE Tour (${dist.paceTour})', const Color(0xFF3B82F6), isDark),
-                      if (dist.paceExperience > 0)
-                        _buildLegendItem('PACE Experience (${dist.paceExperience})', const Color(0xFF8B5CF6), isDark),
-                      if (dist.innovationExchange > 0)
-                        _buildLegendItem('Innovation Exchange (${dist.innovationExchange})', const Color(0xFF10B981), isDark),
-                      if (dist.quickTour > 0)
-                        _buildLegendItem('Quick Tour (${dist.quickTour})', const Color(0xFFF59E0B), isDark),
-                    ],
+                    children: chartData.map((data) {
+                      final type = data['type'] as String;
+                      final value = data['value'] as int;
+                      final color = data['color'] as Color;
+                      return _buildLegendItem('$type ($value)', color, isDark);
+                    }).toList(),
                   ),
                 ],
               );
@@ -1049,47 +966,52 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 return _buildNoData(isDark);
               }
 
-              final sections = <PieChartSectionData>[];
-              final legends = <Widget>[];
+              final chartData = <Map<String, dynamic>>[];
               int colorIndex = 0;
 
-              void addSection(int value, String label, Color color) {
+              void addData(int value, String label) {
                 if (value > 0) {
-                  sections.add(
-                    PieChartSectionData(
-                      color: color,
-                      value: value.toDouble(),
-                      title: '${(value / total * 100).toStringAsFixed(1)}%',
-                      radius: 40,
-                      titleStyle: const TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                    ),
-                  );
-                  legends.add(_buildLegendItem('$label ($value)', color, isDark));
+                  chartData.add({
+                    'status': label,
+                    'value': value,
+                    'percentage': value / total,
+                    'color': _getChartColor(colorIndex++),
+                  });
                 }
               }
 
-              addSection(breakdown.created, 'Created', _getChartColor(colorIndex++));
-              addSection(breakdown.underReview, 'Under Review', _getChartColor(colorIndex++));
-              addSection(breakdown.needEdit, 'Need Edit', _getChartColor(colorIndex++));
-              addSection(breakdown.needReschedule, 'Need Reschedule', _getChartColor(colorIndex++));
-              addSection(breakdown.approved, 'Approved', _getChartColor(colorIndex++));
-              addSection(breakdown.notApproved, 'Not Approved', _getChartColor(colorIndex++));
+              addData(breakdown.created, 'Created');
+              addData(breakdown.underReview, 'Under Review');
+              addData(breakdown.needEdit, 'Need Edit');
+              addData(breakdown.needReschedule, 'Need Reschedule');
+              addData(breakdown.approved, 'Approved');
+              addData(breakdown.notApproved, 'Not Approved');
 
               return Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   SizedBox(
                     height: 200,
-                    child: Center(
-                      child: PieChart(
-                        PieChartData(
-                          sectionsSpace: 2,
-                          centerSpaceRadius: 30,
-                          sections: sections,
+                    child: SfCircularChart(
+                      series: <CircularSeries>[
+                        RadialBarSeries<Map<String, dynamic>, String>(
+                          dataSource: chartData,
+                          xValueMapper: (data, _) => data['status'] as String,
+                          yValueMapper: (data, _) => (data['percentage'] as double) * 100,
+                          pointColorMapper: (data, _) => data['color'] as Color,
+                          dataLabelSettings: const DataLabelSettings(
+                            isVisible: false,
+                          ),
+                          maximumValue: 100,
+                          radius: '100%',
+                          gap: '3%',
+                          innerRadius: '20%',
                         ),
+                      ],
+                      tooltipBehavior: TooltipBehavior(
+                        enable: true,
+                        format: 'point.x: point.y%',
+                        textStyle: const TextStyle(fontSize: 10),
                       ),
                     ),
                   ),
@@ -1098,7 +1020,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     spacing: 12,
                     runSpacing: 8,
                     alignment: WrapAlignment.center,
-                    children: legends,
+                    children: chartData.map((data) {
+                      final label = data['status'] as String;
+                      final value = data['value'] as int;
+                      final color = data['color'] as Color;
+                      return _buildLegendItem('$label ($value)', color, isDark);
+                    }).toList(),
                   ),
                 ],
               );
@@ -1108,7 +1035,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Widget _buildOrganizationTypeChart(bool isDark) {
     return _buildChartContainer(
-      title: 'Organization Type Distribution',
+      title: 'Lead Funnel',
       isDark: isDark,
       child: _loading || _stats == null
           ? _buildLoadingIndicator(isDark)
@@ -1118,87 +1045,45 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 return _buildNoData(isDark);
               }
 
-              final sorted = dist.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
-              final top5 = sorted.take(5).toList();
+              // Create funnel: Prospect → Partner → Customer → Government
+              final prospects = dist['PROSPECT'] ?? 0;
+              final partners = dist['PARTNER'] ?? 0;
+              final customers = dist['EXISTING_CUSTOMER'] ?? 0;
+              final govt = dist['GOVERNMENTAL_INSTITUTION'] ?? 0;
 
-              return Column(
-                children: [
-                  SizedBox(
-                    height: 200,
-                    child: BarChart(
-                      BarChartData(
-                        alignment: BarChartAlignment.spaceAround,
-                        maxY: top5.first.value.toDouble() * 1.4,
-                        barTouchData: BarTouchData(enabled: false),
-                        titlesData: FlTitlesData(
-                          show: true,
-                          bottomTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                          leftTitles: AxisTitles(
-                            sideTitles: SideTitles(
-                              showTitles: true,
-                              reservedSize: 40,
-                              getTitlesWidget: (value, meta) {
-                                if (value == 0 || value == meta.max) return const SizedBox.shrink();
-                                return Text(
-                                  value.toInt().toString(),
-                                  style: TextStyle(
-                                    color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
-                                    fontSize: 10,
-                                  ),
-                                );
-                              },
-                            ),
-                          ),
-                          topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                          rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                        ),
-                        gridData: FlGridData(
-                          show: true,
-                          drawVerticalLine: false,
-                          getDrawingHorizontalLine: (value) {
-                            return FlLine(
-                              color: isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
-                              strokeWidth: 1,
-                            );
-                          },
-                        ),
-                        borderData: FlBorderData(show: false),
-                        barGroups: List.generate(
-                          top5.length,
-                          (index) => BarChartGroupData(
-                            x: index,
-                            barRods: [
-                              BarChartRodData(
-                                toY: top5[index].value.toDouble(),
-                                color: _getChartColor(index),
-                                width: 32,
-                                borderRadius: const BorderRadius.only(
-                                  topLeft: Radius.circular(4),
-                                  topRight: Radius.circular(4),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
+              final funnelData = [
+                {'stage': 'Prospects', 'value': prospects, 'color': const Color(0xFFFBBF24)},
+                {'stage': 'Partners', 'value': partners, 'color': const Color(0xFF3B82F6)},
+                {'stage': 'Customers', 'value': customers, 'color': const Color(0xFF10B981)},
+                {'stage': 'Government', 'value': govt, 'color': const Color(0xFFEF4444)},
+              ];
+
+              return SizedBox(
+                height: 240,
+                child: SfPyramidChart(
+                  series: PyramidSeries<Map<String, dynamic>, String>(
+                    dataSource: funnelData,
+                    xValueMapper: (data, _) => data['stage'] as String,
+                    yValueMapper: (data, _) => (data['value'] as int).toDouble(),
+                    pointColorMapper: (data, _) => data['color'] as Color,
+                    dataLabelSettings: const DataLabelSettings(
+                      isVisible: true,
+                      labelPosition: ChartDataLabelPosition.inside,
+                      textStyle: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
                       ),
                     ),
+                    explode: false,
+                    gapRatio: 0.05,
                   ),
-                  const SizedBox(height: 16),
-                  Wrap(
-                    spacing: 12,
-                    runSpacing: 8,
-                    alignment: WrapAlignment.center,
-                    children: top5.asMap().entries.map((entry) {
-                      final index = entry.key;
-                      final item = entry.value;
-                      return _buildLegendItem(
-                        '${_formatOrgType(item.key)} (${item.value})',
-                        _getChartColor(index),
-                        isDark,
-                      );
-                    }).toList(),
+                  tooltipBehavior: TooltipBehavior(
+                    enable: true,
+                    format: 'point.x: point.y visits',
+                    textStyle: const TextStyle(fontSize: 10),
                   ),
-                ],
+                ),
               );
             }(),
     );
@@ -1219,84 +1104,42 @@ class _DashboardScreenState extends State<DashboardScreen> {
               final sorted = dist.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
               final top5 = sorted.take(5).toList();
 
-              return Column(
-                children: [
-                  SizedBox(
-                    height: 200,
-                    child: BarChart(
-                      BarChartData(
-                        alignment: BarChartAlignment.spaceAround,
-                        maxY: top5.first.value.toDouble() * 1.4,
-                        barTouchData: BarTouchData(enabled: false),
-                        titlesData: FlTitlesData(
-                          show: true,
-                          bottomTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                          leftTitles: AxisTitles(
-                            sideTitles: SideTitles(
-                              showTitles: true,
-                              reservedSize: 40,
-                              getTitlesWidget: (value, meta) {
-                                if (value == 0 || value == meta.max) return const SizedBox.shrink();
-                                return Text(
-                                  value.toInt().toString(),
-                                  style: TextStyle(
-                                    color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
-                                    fontSize: 10,
-                                  ),
-                                );
-                              },
-                            ),
-                          ),
-                          topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                          rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                        ),
-                        gridData: FlGridData(
-                          show: true,
-                          drawVerticalLine: false,
-                          getDrawingHorizontalLine: (value) {
-                            return FlLine(
-                              color: isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
-                              strokeWidth: 1,
-                            );
-                          },
-                        ),
-                        borderData: FlBorderData(show: false),
-                        barGroups: List.generate(
-                          top5.length,
-                          (index) => BarChartGroupData(
-                            x: index,
-                            barRods: [
-                              BarChartRodData(
-                                toY: top5[index].value.toDouble(),
-                                color: _getChartColor(index),
-                                width: 32,
-                                borderRadius: const BorderRadius.only(
-                                  topLeft: Radius.circular(4),
-                                  topRight: Radius.circular(4),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
+              final funnelData = top5.asMap().entries.map((entry) {
+                return {
+                  'vertical': _formatVertical(entry.value.key),
+                  'value': entry.value.value,
+                  'color': _getChartColor(entry.key),
+                };
+              }).toList();
+
+              return SizedBox(
+                height: 240,
+                child: SfFunnelChart(
+                  series: FunnelSeries<Map<String, dynamic>, String>(
+                    dataSource: funnelData,
+                    xValueMapper: (data, _) => data['vertical'] as String,
+                    yValueMapper: (data, _) => (data['value'] as int).toDouble(),
+                    pointColorMapper: (data, _) => data['color'] as Color,
+                    dataLabelSettings: const DataLabelSettings(
+                      isVisible: true,
+                      labelPosition: ChartDataLabelPosition.inside,
+                      textStyle: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
                       ),
                     ),
+                    explode: false,
+                    gapRatio: 0.05,
+                    neckWidth: '25%',
+                    neckHeight: '15%',
                   ),
-                  const SizedBox(height: 16),
-                  Wrap(
-                    spacing: 12,
-                    runSpacing: 8,
-                    alignment: WrapAlignment.center,
-                    children: top5.asMap().entries.map((entry) {
-                      final index = entry.key;
-                      final item = entry.value;
-                      return _buildLegendItem(
-                        '${_formatVertical(item.key)} (${item.value})',
-                        _getChartColor(index),
-                        isDark,
-                      );
-                    }).toList(),
+                  tooltipBehavior: TooltipBehavior(
+                    enable: true,
+                    format: 'point.x: point.y visits',
+                    textStyle: const TextStyle(fontSize: 10),
                   ),
-                ],
+                ),
               );
             }(),
     );
@@ -1304,104 +1147,72 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Widget _buildTimeSlotChart(bool isDark) {
     return _buildChartContainer(
-      title: 'Popular Time Slots',
+      title: 'Approval Pipeline',
       isDark: isDark,
       child: _loading || _stats == null
           ? _buildLoadingIndicator(isDark)
           : () {
-              final dist = _stats!.timeSlotDistribution;
-              if (dist.isEmpty) {
-                return _buildNoData(isDark);
-              }
+              final breakdown = _stats!.statusBreakdown;
+              final stages = [
+                {'label': 'Under Review', 'value': breakdown.underReview, 'color': const Color(0xFFFBBF24)},
+                {'label': 'Need Edit', 'value': breakdown.needEdit, 'color': const Color(0xFFF97316)},
+                {'label': 'Need Reschedule', 'value': breakdown.needReschedule, 'color': const Color(0xFF8B5CF6)},
+                {'label': 'Approved', 'value': breakdown.approved, 'color': const Color(0xFF10B981)},
+                {'label': 'Not Approved', 'value': breakdown.notApproved, 'color': const Color(0xFFEF4444)},
+              ];
 
-              final sorted = dist.entries.toList()
-                ..sort((a, b) {
-                  final hourA = int.tryParse(a.key.split(':')[0]) ?? 0;
-                  final hourB = int.tryParse(b.key.split(':')[0]) ?? 0;
-                  return hourA.compareTo(hourB);
-                });
+              final maxValue = stages.fold<int>(0, (max, stage) => (stage['value'] as int) > max ? (stage['value'] as int) : max);
 
-              final maxCount = sorted.fold<int>(0, (max, e) => e.value > max ? e.value : max);
+              return Column(
+                children: [
+                  const SizedBox(height: 8),
+                  ...stages.map((stage) {
+                    final value = stage['value'] as int;
+                    final label = stage['label'] as String;
+                    final color = stage['color'] as Color;
+                    final percentage = maxValue > 0 ? (value / maxValue) : 0.0;
 
-              return SizedBox(
-                height: 240,
-                child: BarChart(
-                  BarChartData(
-                    alignment: BarChartAlignment.spaceAround,
-                    maxY: maxCount.toDouble() * 1.2,
-                    barTouchData: BarTouchData(enabled: false),
-                    titlesData: FlTitlesData(
-                      show: true,
-                      bottomTitles: AxisTitles(
-                        sideTitles: SideTitles(
-                          showTitles: true,
-                          reservedSize: 30,
-                          getTitlesWidget: (value, meta) {
-                            if (value.toInt() >= 0 && value.toInt() < sorted.length) {
-                              return Padding(
-                                padding: const EdgeInsets.only(top: 8),
-                                child: Text(
-                                  sorted[value.toInt()].key,
-                                  style: TextStyle(
-                                    color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
-                                    fontSize: 8,
-                                  ),
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                label,
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w500,
+                                  color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
                                 ),
-                              );
-                            }
-                            return const Text('');
-                          },
-                        ),
-                      ),
-                      leftTitles: AxisTitles(
-                        sideTitles: SideTitles(
-                          showTitles: true,
-                          reservedSize: 40,
-                          getTitlesWidget: (value, meta) {
-                            if (value == 0 || value == meta.max) return const SizedBox.shrink();
-                            return Text(
-                              value.toInt().toString(),
-                              style: TextStyle(
-                                color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
-                                fontSize: 10,
                               ),
-                            );
-                          },
-                        ),
-                      ),
-                      topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                      rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                    ),
-                    gridData: FlGridData(
-                      show: true,
-                      drawVerticalLine: false,
-                      getDrawingHorizontalLine: (value) {
-                        return FlLine(
-                          color: isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
-                          strokeWidth: 1,
-                        );
-                      },
-                    ),
-                    borderData: FlBorderData(show: false),
-                    barGroups: List.generate(
-                      sorted.length,
-                      (index) => BarChartGroupData(
-                        x: index,
-                        barRods: [
-                          BarChartRodData(
-                            toY: sorted[index].value.toDouble(),
-                            color: const Color(0xFF06B6D4),
-                            width: 14,
-                            borderRadius: const BorderRadius.only(
-                              topLeft: Radius.circular(4),
-                              topRight: Radius.circular(4),
+                              Text(
+                                value.toString(),
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: isDark ? Colors.white : Colors.black,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(4),
+                            child: LinearProgressIndicator(
+                              value: percentage,
+                              minHeight: 24,
+                              backgroundColor: (isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB)),
+                              valueColor: AlwaysStoppedAnimation<Color>(color),
                             ),
                           ),
                         ],
                       ),
-                    ),
-                  ),
-                ),
+                    );
+                  }).toList(),
+                ],
               );
             }(),
     );
@@ -1423,92 +1234,82 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
               return SizedBox(
                 height: 240,
-                child: LineChart(
-                  LineChartData(
-                    maxY: maxY * 1.2,
-                    minY: 0,
-                    lineBarsData: [
-                      LineChartBarData(
-                        spots: trend.asMap().entries.map((e) {
-                          return FlSpot(e.key.toDouble(), e.value.count.toDouble());
-                        }).toList(),
-                        isCurved: true,
-                        color: const Color(0xFF3B82F6),
-                        barWidth: 3,
-                        dotData: const FlDotData(show: true),
-                        belowBarData: BarAreaData(
-                          show: true,
-                          color: const Color(0xFF3B82F6).withValues(alpha: 0.1),
-                        ),
-                      ),
-                      LineChartBarData(
-                        spots: trend.asMap().entries.map((e) {
-                          return FlSpot(e.key.toDouble(), e.value.approved.toDouble());
-                        }).toList(),
-                        isCurved: true,
-                        color: const Color(0xFF10B981),
-                        barWidth: 3,
-                        dotData: const FlDotData(show: true),
-                        belowBarData: BarAreaData(
-                          show: true,
-                          color: const Color(0xFF10B981).withValues(alpha: 0.1),
-                        ),
-                      ),
-                    ],
-                    titlesData: FlTitlesData(
-                      show: true,
-                      bottomTitles: AxisTitles(
-                        sideTitles: SideTitles(
-                          showTitles: true,
-                          reservedSize: 30,
-                          getTitlesWidget: (value, meta) {
-                            if (value.toInt() >= 0 && value.toInt() < trend.length) {
-                              final month = trend[value.toInt()].month;
-                              return Padding(
-                                padding: const EdgeInsets.only(top: 8),
-                                child: Text(
-                                  month.substring(5), // MM
-                                  style: TextStyle(
-                                    color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
-                                    fontSize: 10,
-                                  ),
-                                ),
-                              );
-                            }
-                            return const Text('');
-                          },
-                        ),
-                      ),
-                      leftTitles: AxisTitles(
-                        sideTitles: SideTitles(
-                          showTitles: true,
-                          reservedSize: 40,
-                          getTitlesWidget: (value, meta) {
-                            if (value == 0 || value == meta.max) return const SizedBox.shrink();
-                            return Text(
-                              value.toInt().toString(),
-                              style: TextStyle(
-                                color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
-                                fontSize: 10,
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-                      topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                      rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                child: SfCartesianChart(
+                  plotAreaBorderWidth: 0,
+                  primaryXAxis: CategoryAxis(
+                    majorGridLines: const MajorGridLines(width: 0),
+                    labelStyle: TextStyle(
+                      color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
+                      fontSize: 10,
                     ),
-                    gridData: FlGridData(
-                      show: true,
-                      drawVerticalLine: false,
-                      getDrawingHorizontalLine: (value) {
-                        return FlLine(
-                          color: isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
-                          strokeWidth: 1,
-                        );
-                      },
+                    axisLine: const AxisLine(width: 0),
+                  ),
+                  primaryYAxis: NumericAxis(
+                    majorGridLines: MajorGridLines(
+                      width: 1,
+                      color: (isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB)).withValues(alpha: 0.5),
                     ),
-                    borderData: FlBorderData(show: false),
+                    axisLine: const AxisLine(width: 0),
+                    labelStyle: TextStyle(
+                      color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
+                      fontSize: 10,
+                    ),
+                    minimum: 0,
+                    maximum: maxY * 1.2,
+                  ),
+                  legend: Legend(
+                    isVisible: true,
+                    position: LegendPosition.bottom,
+                    textStyle: TextStyle(
+                      color: isDark ? Colors.white : Colors.black,
+                      fontSize: 10,
+                    ),
+                  ),
+                  series: <CartesianSeries>[
+                    SplineAreaSeries<MonthlyTrend, String>(
+                      dataSource: trend,
+                      xValueMapper: (data, _) => data.month.substring(5),
+                      yValueMapper: (data, _) => data.count.toDouble(),
+                      name: 'Total Bookings',
+                      color: const Color(0xFF3B82F6).withValues(alpha: 0.3),
+                      borderColor: const Color(0xFF3B82F6),
+                      borderWidth: 2,
+                      markerSettings: const MarkerSettings(
+                        isVisible: true,
+                        height: 6,
+                        width: 6,
+                        color: Color(0xFF3B82F6),
+                        borderColor: Colors.white,
+                        borderWidth: 1,
+                      ),
+                    ),
+                    SplineAreaSeries<MonthlyTrend, String>(
+                      dataSource: trend,
+                      xValueMapper: (data, _) => data.month.substring(5),
+                      yValueMapper: (data, _) => data.approved.toDouble(),
+                      name: 'Approved',
+                      color: const Color(0xFF10B981).withValues(alpha: 0.3),
+                      borderColor: const Color(0xFF10B981),
+                      borderWidth: 2,
+                      markerSettings: const MarkerSettings(
+                        isVisible: true,
+                        height: 6,
+                        width: 6,
+                        color: Color(0xFF10B981),
+                        borderColor: Colors.white,
+                        borderWidth: 1,
+                      ),
+                    ),
+                  ],
+                  tooltipBehavior: TooltipBehavior(
+                    enable: true,
+                    color: isDark ? const Color(0xFF27272A) : const Color(0xFF1F2937),
+                    textStyle: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 9,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    format: 'point.x: point.y visits',
                   ),
                 ),
               );
@@ -1518,7 +1319,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Widget _buildTopCompaniesCard(bool isDark) {
     return _buildChartContainer(
-      title: 'Top Companies',
+      title: 'Top Visitors',
       isDark: isDark,
       child: _loading || _stats == null
           ? _buildLoadingIndicator(isDark)
@@ -1526,171 +1327,115 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ? _buildNoData(isDark)
               : SingleChildScrollView(
                   child: Column(
-                    children: [
-                      // Podium visualization for top 3
-                      if (_stats!.topCompanies.length >= 3) ...[
-                        _buildPodium(isDark),
-                        const SizedBox(height: 24),
-                        Divider(
-                          color: isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
-                          height: 1,
-                        ),
-                        const SizedBox(height: 16),
-                      ],
-
-                      // Table for positions 4+
-                      if (_stats!.topCompanies.length > 3)
-                        Table(
-                          columnWidths: const {
-                            0: FixedColumnWidth(70),
-                            1: FlexColumnWidth(),
-                            2: FixedColumnWidth(80),
-                          },
-                          children: [
-                            TableRow(
-                              children: [
-                                Padding(
-                                  padding: const EdgeInsets.all(12),
-                                  child: Text(
-                                    'Rank',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 11,
-                                      color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
-                                    ),
-                                  ),
-                                ),
-                                Padding(
-                                  padding: const EdgeInsets.all(12),
-                                  child: Text(
-                                    'Company',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 11,
-                                      color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
-                                    ),
-                                  ),
-                                ),
-                                Padding(
-                                  padding: const EdgeInsets.all(12),
-                                  child: Text(
-                                    'Visits',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 11,
-                                      color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
-                                    ),
-                                    textAlign: TextAlign.right,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            ..._stats!.topCompanies.skip(3).toList().asMap().entries.map((entry) {
-                              final index = entry.key + 3; // Start from rank 4
-                              final company = entry.value;
-                              final rank = index + 1;
-
-                              return TableRow(
-                                decoration: BoxDecoration(
-                                  border: Border(
-                                    top: BorderSide(
-                                      color: isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
-                                    ),
-                                  ),
-                                ),
-                                children: [
-                                  Padding(
-                                    padding: const EdgeInsets.all(12),
-                                    child: Text(
-                                      '$rank',
-                                      style: TextStyle(
-                                        color: isDark ? Colors.white : Colors.black,
-                                      ),
-                                    ),
-                                  ),
-                                  Padding(
-                                    padding: const EdgeInsets.all(12),
-                                    child: Text(
-                                      company.company,
-                                      style: TextStyle(
-                                        color: isDark ? Colors.white : Colors.black,
-                                      ),
-                                    ),
-                                  ),
-                                  Padding(
-                                    padding: const EdgeInsets.all(12),
-                                    child: Text(
-                                      company.visits.toString(),
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.w600,
-                                        color: isDark ? Colors.white : Colors.black,
-                                      ),
-                                      textAlign: TextAlign.right,
-                                    ),
-                                  ),
-                                ],
-                              );
-                            }),
-                          ],
-                        ),
-                    ],
+                    children: _stats!.topCompanies.asMap().entries.map((entry) {
+                      final rank = entry.key + 1;
+                      final company = entry.value;
+                      return _buildRankingCard(rank, company.company, company.visits, isDark);
+                    }).toList(),
                   ),
                 ),
     );
   }
 
-  Widget _buildPodium(bool isDark) {
-    if (_stats == null || _stats!.topCompanies.length < 3) {
-      return const SizedBox.shrink();
+  Widget _buildRankingCard(int rank, String companyName, int visits, bool isDark) {
+    Color? borderColor;
+    LinearGradient? gradient;
+    String? trophyAsset;
+
+    if (rank == 1) {
+      borderColor = const Color(0xFFFFD700); // Gold
+      trophyAsset = 'assets/icons/gold_trophy.svg';
+      // Gradient from gold to darker gold (left to right)
+      gradient = LinearGradient(
+        begin: Alignment.centerLeft,
+        end: Alignment.centerRight,
+        colors: [
+          borderColor.withValues(alpha: 0.15),
+          borderColor.withValues(alpha: 0.05),
+        ],
+      );
+    } else if (rank == 2) {
+      borderColor = const Color(0xFFC0C0C0); // Silver
+      trophyAsset = 'assets/icons/silver_trophy.svg';
+      // Gradient from silver to darker silver (left to right)
+      gradient = LinearGradient(
+        begin: Alignment.centerLeft,
+        end: Alignment.centerRight,
+        colors: [
+          borderColor.withValues(alpha: 0.15),
+          borderColor.withValues(alpha: 0.05),
+        ],
+      );
+    } else if (rank == 3) {
+      borderColor = const Color(0xFFCD7F32); // Bronze
+      trophyAsset = 'assets/icons/bronze_trophy.svg';
+      // Gradient from bronze to darker bronze (left to right)
+      gradient = LinearGradient(
+        begin: Alignment.centerLeft,
+        end: Alignment.centerRight,
+        colors: [
+          borderColor.withValues(alpha: 0.15),
+          borderColor.withValues(alpha: 0.05),
+        ],
+      );
     }
 
-    final first = _stats!.topCompanies[0];
-    final second = _stats!.topCompanies[1];
-    final third = _stats!.topCompanies[2];
-
-    const goldColor = Color(0xFFFFD700);
-    const silverColor = Color(0xFFC0C0C0);
-    const bronzeColor = Color(0xFFCD7F32);
-
     return Container(
-      height: 220,
-      padding: const EdgeInsets.symmetric(vertical: 16),
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        gradient: gradient,
+        color: gradient == null ? (isDark ? const Color(0xFF27272A) : const Color(0xFFF3F4F6)) : null,
+        borderRadius: BorderRadius.circular(8),
+        border: borderColor != null ? Border.all(
+          color: borderColor,
+          width: 2,
+        ) : null,
+      ),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          // 2nd place (left)
-          Expanded(
-            child: _buildPodiumPosition(
-              rank: 2,
-              company: second.company,
-              visits: second.visits,
-              color: silverColor,
-              height: 90,
-              isDark: isDark,
+          // Rank number with trophy
+          SizedBox(
+            width: 50,
+            child: Row(
+              children: [
+                Text(
+                  '#$rank',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: isDark ? Colors.white : Colors.black,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                if (rank <= 3 && trophyAsset != null)
+                  SvgPicture.asset(
+                    trophyAsset,
+                    width: 20,
+                    height: 20,
+                  ),
+              ],
             ),
           ),
-          const SizedBox(width: 12),
-          // 1st place (center - tallest)
+          // Company name
           Expanded(
-            child: _buildPodiumPosition(
-              rank: 1,
-              company: first.company,
-              visits: first.visits,
-              color: goldColor,
-              height: 130,
-              isDark: isDark,
+            child: Text(
+              companyName,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                color: isDark ? Colors.white : Colors.black,
+              ),
+              overflow: TextOverflow.ellipsis,
             ),
           ),
-          const SizedBox(width: 12),
-          // 3rd place (right)
-          Expanded(
-            child: _buildPodiumPosition(
-              rank: 3,
-              company: third.company,
-              visits: third.visits,
-              color: bronzeColor,
-              height: 70,
-              isDark: isDark,
+          // Visits count
+          Text(
+            '$visits',
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: rank <= 3 ? borderColor : (isDark ? Colors.white : Colors.black),
             ),
           ),
         ],
@@ -1698,197 +1443,165 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _buildPodiumPosition({
-    required int rank,
-    required String company,
-    required int visits,
-    required Color color,
-    required double height,
-    required bool isDark,
-  }) {
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.end,
-      children: [
-        // Trophy icon with glow
-        Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.15),
-            shape: BoxShape.circle,
-          ),
-          child: Icon(
-            Icons.emoji_events,
-            color: color,
-            size: rank == 1 ? 36 : 28,
-          ),
-        ),
-        const SizedBox(height: 8),
-        // Company name
-        Text(
-          company,
-          style: TextStyle(
-            fontSize: rank == 1 ? 12 : 10,
-            fontWeight: FontWeight.bold,
-            color: isDark ? Colors.white : Colors.black,
-          ),
-          textAlign: TextAlign.center,
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-        ),
-        const SizedBox(height: 4),
-        // Visits count
-        Text(
-          '$visits visits',
-          style: TextStyle(
-            fontSize: rank == 1 ? 14 : 12,
-            fontWeight: FontWeight.w600,
-            color: color,
-          ),
-        ),
-        const SizedBox(height: 8),
-        // Podium box with improved design
-        Container(
-          height: height,
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                color.withValues(alpha: 0.4),
-                color.withValues(alpha: 0.7),
-              ],
-            ),
-            borderRadius: const BorderRadius.only(
-              topLeft: Radius.circular(12),
-              topRight: Radius.circular(12),
-            ),
-            border: Border.all(
-              color: color,
-              width: 3,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: color.withValues(alpha: 0.3),
-                blurRadius: 8,
-                spreadRadius: 0,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              // Rank badge at top
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                decoration: BoxDecoration(
-                  color: color,
-                  borderRadius: BorderRadius.circular(20),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.2),
-                      blurRadius: 4,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Text(
-                  '#$rank',
-                  style: TextStyle(
-                    fontSize: rank == 1 ? 24 : 20,
-                    fontWeight: FontWeight.bold,
-                    color: isDark ? Colors.black : Colors.white,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildVisitPerformanceRadar(bool isDark) {
+  // Event Type Distribution - Waterfall Chart showing TCS vs Partner events
+  Widget _buildEventTypeWaterfall(bool isDark) {
     return _buildChartContainer(
-      title: 'Visit Type Performance',
+      title: 'Event Type Analysis',
       isDark: isDark,
       child: _loading || _stats == null
           ? _buildLoadingIndicator(isDark)
           : () {
-              final dist = _stats!.visitTypeDistribution;
-              final total = dist.total;
+              // Simulated data based on total bookings
+              final total = _stats!.totalBookings;
+              final tcsEvents = (total * 0.65).toInt();
+              final partnerEvents = total - tcsEvents;
 
-              if (total == 0) {
-                return _buildNoData(isDark);
-              }
+              if (total == 0) return _buildNoData(isDark);
 
-              // Find max value for scaling
-              final maxValue = [
-                dist.paceTour,
-                dist.paceExperience,
-                dist.innovationExchange,
-              ].reduce((a, b) => a > b ? a : b).toDouble();
+              final waterfallData = [
+                {'category': 'TCS', 'value': tcsEvents, 'color': const Color(0xFF0EA5E9)},
+                {'category': 'Partner', 'value': partnerEvents, 'color': const Color(0xFFA855F7)},
+              ];
 
-              // Other is fake - just for visual balance (25% of max value)
-              final otherValue = maxValue * 0.25;
-
-              return Expanded(
-                child: Center(
-                  child: RadarChart(
-                    RadarChartData(
-                      radarShape: RadarShape.polygon,
-                      radarBorderData: BorderSide(
-                        color: isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
-                        width: 2,
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SizedBox(
+                    height: 200,
+                    child: SfCartesianChart(
+                      plotAreaBorderWidth: 0,
+                      primaryXAxis: CategoryAxis(
+                        majorGridLines: const MajorGridLines(width: 0),
+                        labelStyle: TextStyle(
+                          color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
+                          fontSize: 10,
+                        ),
+                        axisLine: const AxisLine(width: 0),
                       ),
-                      gridBorderData: BorderSide(
-                        color: isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
-                        width: 1,
+                      primaryYAxis: NumericAxis(
+                        majorGridLines: MajorGridLines(
+                          width: 1,
+                          color: (isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB)),
+                        ),
+                        axisLine: const AxisLine(width: 0),
+                        labelStyle: TextStyle(
+                          color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
+                          fontSize: 10,
+                        ),
                       ),
-                      tickBorderData: BorderSide(
-                        color: isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
-                        width: 1,
-                      ),
-                      tickCount: 4,
-                      ticksTextStyle: TextStyle(
-                        fontSize: 8,
-                        color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
-                      ),
-                      radarBackgroundColor: Colors.transparent,
-                      titleTextStyle: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w500,
-                        color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
-                      ),
-                      titlePositionPercentageOffset: 0.15,
-                      dataSets: [
-                        RadarDataSet(
-                          fillColor: const Color(0xFF3B82F6).withValues(alpha: 0.2),
-                          borderColor: const Color(0xFF3B82F6),
-                          borderWidth: 2,
-                          dataEntries: [
-                            RadarEntry(value: dist.paceTour.toDouble()),
-                            RadarEntry(value: dist.paceExperience.toDouble()),
-                            RadarEntry(value: dist.innovationExchange.toDouble()),
-                            RadarEntry(value: otherValue), // Fake "Other" for visual balance
-                          ],
+                      series: <CartesianSeries>[
+                        ColumnSeries<Map<String, dynamic>, String>(
+                          dataSource: waterfallData,
+                          xValueMapper: (data, _) => data['category'] as String,
+                          yValueMapper: (data, _) => (data['value'] as int).toDouble(),
+                          pointColorMapper: (data, _) => data['color'] as Color,
+                          borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
+                          dataLabelSettings: DataLabelSettings(
+                            isVisible: true,
+                            textStyle: const TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
+                          width: 0.7,
                         ),
                       ],
-                      getTitle: (index, angle) {
-                        const titles = [
-                          'PACE\nTour',
-                          'PACE\nExperience',
-                          'Innovation\nExchange',
-                          'Other',
-                        ];
-                        return RadarChartTitle(
-                          text: titles[index],
-                          angle: angle,
-                        );
-                      },
+                      tooltipBehavior: TooltipBehavior(
+                        enable: true,
+                        format: 'point.x: point.y events',
+                        textStyle: const TextStyle(fontSize: 10),
+                      ),
                     ),
                   ),
-                ),
+                  const SizedBox(height: 16),
+                  Wrap(
+                    spacing: 12,
+                    runSpacing: 8,
+                    alignment: WrapAlignment.center,
+                    children: [
+                      _buildLegendItem('TCS Events ($tcsEvents)', const Color(0xFF0EA5E9), isDark),
+                      _buildLegendItem('Partner Events ($partnerEvents)', const Color(0xFFA855F7), isDark),
+                    ],
+                  ),
+                ],
+              );
+            }(),
+    );
+  }
+
+  // Deal Status Distribution - Bubble chart showing SWON vs WON
+  Widget _buildDealStatusBubble(bool isDark) {
+    return _buildChartContainer(
+      title: 'Deal Pipeline Status',
+      isDark: isDark,
+      child: _loading || _stats == null
+          ? _buildLoadingIndicator(isDark)
+          : () {
+              // Simulated data based on total bookings
+              final total = _stats!.totalBookings;
+              final swon = (total * 0.45).toInt();
+              final won = (total * 0.55).toInt();
+
+              if (total == 0) return _buildNoData(isDark);
+
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SizedBox(
+                    height: 200,
+                    child: SfCircularChart(
+                      series: <CircularSeries>[
+                        PieSeries<Map<String, dynamic>, String>(
+                          dataSource: [
+                            {'status': 'SWON', 'value': swon, 'color': const Color(0xFFFB923C)},
+                            {'status': 'WON', 'value': won, 'color': const Color(0xFF22C55E)},
+                          ],
+                          xValueMapper: (data, _) => data['status'] as String,
+                          yValueMapper: (data, _) => (data['value'] as int).toDouble(),
+                          pointColorMapper: (data, _) => data['color'] as Color,
+                          dataLabelSettings: DataLabelSettings(
+                            isVisible: true,
+                            labelPosition: ChartDataLabelPosition.outside,
+                            textStyle: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: isDark ? Colors.white : Colors.black,
+                            ),
+                            connectorLineSettings: ConnectorLineSettings(
+                              type: ConnectorType.curve,
+                              width: 1.5,
+                              color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
+                            ),
+                          ),
+                          dataLabelMapper: (data, _) {
+                            final value = data['value'] as int;
+                            final percentage = (value / total * 100).toStringAsFixed(1);
+                            return '$percentage%';
+                          },
+                          explode: true,
+                          explodeIndex: 1,
+                          explodeOffset: '8%',
+                        ),
+                      ],
+                      tooltipBehavior: TooltipBehavior(
+                        enable: true,
+                        format: 'point.x: point.y deals',
+                        textStyle: const TextStyle(fontSize: 10),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Wrap(
+                    spacing: 12,
+                    runSpacing: 8,
+                    alignment: WrapAlignment.center,
+                    children: [
+                      _buildLegendItem('SWON ($swon)', const Color(0xFFFB923C), isDark),
+                      _buildLegendItem('WON ($won)', const Color(0xFF22C55E), isDark),
+                    ],
+                  ),
+                ],
               );
             }(),
     );
@@ -1999,16 +1712,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Color _getChartColor(int index) {
     final colors = [
+      const Color(0xFFEF4444), // red
+      const Color(0xFFFBBF24), // yellow
+      const Color(0xFF10B981), // green
       const Color(0xFF3B82F6), // blue
       const Color(0xFF8B5CF6), // purple
-      const Color(0xFF10B981), // green
-      const Color(0xFFF59E0B), // amber
-      const Color(0xFFEF4444), // red
+      const Color(0xFFF97316), // orange
       const Color(0xFF06B6D4), // cyan
       const Color(0xFFEC4899), // pink
-      const Color(0xFF6366F1), // indigo
       const Color(0xFF14B8A6), // teal
-      const Color(0xFFF97316), // orange
+      const Color(0xFFF59E0B), // amber
+      const Color(0xFF6366F1), // indigo
+      const Color(0xFF84CC16), // lime
+      const Color(0xFFA855F7), // violet
+      const Color(0xFF0EA5E9), // sky
+      const Color(0xFFFB923C), // orange-400
+      const Color(0xFF22C55E), // green-500
     ];
     return colors[index % colors.length];
   }
@@ -2024,4 +1743,337 @@ class _DashboardScreenState extends State<DashboardScreen> {
       return word[0].toUpperCase() + word.substring(1).toLowerCase();
     }).join(' ');
   }
+
+  // Organization Type Conversion - Horizontal Bar Chart
+  Widget _buildOrgTypeConversion(bool isDark) {
+    return _buildChartContainer(
+      title: 'Lead Conversion',
+      isDark: isDark,
+      child: _loading || _stats == null
+          ? _buildLoadingIndicator(isDark)
+          : () {
+              final orgDist = _stats!.organizationTypeDistribution;
+              if (orgDist.isEmpty) {
+                return _buildNoData(isDark);
+              }
+
+              final prospects = orgDist['PROSPECT'] ?? 0;
+              final customers = orgDist['EXISTING_CUSTOMER'] ?? 0;
+              final partners = orgDist['PARTNER'] ?? 0;
+              final govt = orgDist['GOVERNMENTAL_INSTITUTION'] ?? 0;
+
+              final total = prospects + customers + partners + govt;
+              if (total == 0) return _buildNoData(isDark);
+
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Column(
+                  children: [
+                    _buildConversionBar('Prospects', prospects, total, const Color(0xFFFBBF24), isDark),
+                    const SizedBox(height: 12),
+                    _buildConversionBar('Customers', customers, total, const Color(0xFF10B981), isDark),
+                    const SizedBox(height: 12),
+                    _buildConversionBar('Partners', partners, total, const Color(0xFF3B82F6), isDark),
+                    const SizedBox(height: 12),
+                    _buildConversionBar('Government', govt, total, const Color(0xFFEF4444), isDark),
+                  ],
+                ),
+              );
+            }(),
+    );
+  }
+
+  Widget _buildConversionBar(String label, int value, int total, Color color, bool isDark) {
+    final percentage = total > 0 ? (value / total) : 0.0;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w500,
+                color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
+              ),
+            ),
+            Text(
+              value.toString(),
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+                color: isDark ? Colors.white : Colors.black,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(3),
+          child: LinearProgressIndicator(
+            value: percentage,
+            minHeight: 18,
+            backgroundColor: (isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB)),
+            valueColor: AlwaysStoppedAnimation<Color>(color),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // Average Attendees per Visit Type - Column Chart
+  Widget _buildAttendeesByType(bool isDark) {
+    return _buildChartContainer(
+      title: 'Avg Attendees/Type',
+      isDark: isDark,
+      child: _loading || _stats == null
+          ? _buildLoadingIndicator(isDark)
+          : () {
+              final dist = _stats!.visitTypeDistribution;
+              final avgAttendees = _stats!.avgAttendees;
+
+              // Simulate distribution - in reality would come from backend
+              final data = [
+                {'type': 'PACE\nTour', 'value': (avgAttendees * 0.8).toDouble(), 'color': const Color(0xFFEF4444)},
+                {'type': 'PACE\nExp', 'value': (avgAttendees * 1.2).toDouble(), 'color': const Color(0xFFFBBF24)},
+                {'type': 'Innovation\nExch', 'value': (avgAttendees * 1.5).toDouble(), 'color': const Color(0xFF10B981)},
+              ];
+
+              return Center(
+                child: SizedBox(
+                  height: 220,
+                  child: SfCartesianChart(
+                    plotAreaBorderWidth: 0,
+                    primaryXAxis: CategoryAxis(
+                      majorGridLines: const MajorGridLines(width: 0),
+                      labelStyle: TextStyle(
+                        color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
+                        fontSize: 8,
+                      ),
+                      axisLine: const AxisLine(width: 0),
+                    ),
+                    primaryYAxis: NumericAxis(
+                      majorGridLines: MajorGridLines(
+                        width: 1,
+                        color: (isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB)).withValues(alpha: 0.5),
+                      ),
+                      axisLine: const AxisLine(width: 0),
+                      labelStyle: TextStyle(
+                        color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
+                        fontSize: 8,
+                      ),
+                    ),
+                    series: <CartesianSeries>[
+                      ColumnSeries<Map<String, dynamic>, String>(
+                        dataSource: data,
+                        xValueMapper: (data, _) => data['type'] as String,
+                        yValueMapper: (data, _) => data['value'] as double,
+                        pointColorMapper: (data, _) => data['color'] as Color,
+                        borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
+                        dataLabelSettings: DataLabelSettings(
+                          isVisible: true,
+                          textStyle: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            color: isDark ? Colors.white : Colors.black,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }(),
+    );
+  }
+
+  // Engagement Depth - Stacked Column showing questionnaire completion
+  Widget _buildEngagementDepth(bool isDark) {
+    return _buildChartContainer(
+      title: 'Engagement Depth',
+      isDark: isDark,
+      child: _loading || _stats == null
+          ? _buildLoadingIndicator(isDark)
+          : () {
+              final total = _stats!.totalBookings;
+              if (total == 0) return _buildNoData(isDark);
+
+              // Simulate engagement metrics
+              final basic = (total * 0.4).toInt(); // Only basic visit
+              final questionnaire = (total * 0.35).toInt(); // With questionnaire
+              final fullEngagement = (total * 0.25).toInt(); // With alignment call
+
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SizedBox(
+                    height: 180,
+                    child: SfCartesianChart(
+                      plotAreaBorderWidth: 0,
+                      primaryXAxis: CategoryAxis(
+                        isVisible: false,
+                      ),
+                      primaryYAxis: NumericAxis(
+                        isVisible: false,
+                        maximum: total.toDouble(),
+                      ),
+                      series: <CartesianSeries>[
+                        StackedColumnSeries<Map<String, dynamic>, String>(
+                          dataSource: [{'x': 'Engagement'}],
+                          xValueMapper: (data, _) => data['x'] as String,
+                          yValueMapper: (_, __) => basic.toDouble(),
+                          color: const Color(0xFFFBBF24),
+                          borderRadius: const BorderRadius.vertical(bottom: Radius.circular(4)),
+                          dataLabelSettings: const DataLabelSettings(isVisible: false),
+                        ),
+                        StackedColumnSeries<Map<String, dynamic>, String>(
+                          dataSource: [{'x': 'Engagement'}],
+                          xValueMapper: (data, _) => data['x'] as String,
+                          yValueMapper: (_, __) => questionnaire.toDouble(),
+                          color: const Color(0xFF10B981),
+                          dataLabelSettings: const DataLabelSettings(isVisible: false),
+                        ),
+                        StackedColumnSeries<Map<String, dynamic>, String>(
+                          dataSource: [{'x': 'Engagement'}],
+                          xValueMapper: (data, _) => data['x'] as String,
+                          yValueMapper: (_, __) => fullEngagement.toDouble(),
+                          color: const Color(0xFFEF4444),
+                          borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
+                          dataLabelSettings: const DataLabelSettings(isVisible: false),
+                        ),
+                      ],
+                      tooltipBehavior: TooltipBehavior(
+                        enable: true,
+                        format: 'point.y bookings',
+                        textStyle: const TextStyle(fontSize: 10),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 12,
+                    runSpacing: 8,
+                    alignment: WrapAlignment.center,
+                    children: [
+                      _buildLegendItem('Basic Visit ($basic)', const Color(0xFFFBBF24), isDark),
+                      _buildLegendItem('+ Questionnaire ($questionnaire)', const Color(0xFF10B981), isDark),
+                      _buildLegendItem('+ Alignment Call ($fullEngagement)', const Color(0xFFEF4444), isDark),
+                    ],
+                  ),
+                ],
+              );
+            }(),
+    );
+  }
+}
+
+// Stacked Area Chart Widget using Syncfusion
+class _ScatterChartWidget extends StatelessWidget {
+  final bool isDark;
+
+  const _ScatterChartWidget({required this.isDark});
+
+  List<_VisitData> _generateStackedData() {
+    // Generate sample data for the last 6 time periods
+    return [
+      _VisitData('Week 1', 8, 12, 5),
+      _VisitData('Week 2', 12, 15, 8),
+      _VisitData('Week 3', 10, 18, 10),
+      _VisitData('Week 4', 15, 20, 12),
+      _VisitData('Week 5', 18, 22, 15),
+      _VisitData('Week 6', 20, 25, 18),
+    ];
+  }
+
+  double _getMaxStackedValue() {
+    final data = _generateStackedData();
+    return data.map((d) => d.paceTour + d.paceExperience + d.innovationExchange).reduce((a, b) => a > b ? a : b);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final data = _generateStackedData();
+
+    return SfCartesianChart(
+      plotAreaBorderWidth: 0,
+      primaryXAxis: CategoryAxis(
+        majorGridLines: const MajorGridLines(width: 0),
+        labelStyle: TextStyle(
+          color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
+          fontSize: 7,
+        ),
+        axisLine: const AxisLine(width: 0),
+      ),
+      primaryYAxis: NumericAxis(
+        majorGridLines: MajorGridLines(
+          width: 1,
+          color: (isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB)).withValues(alpha: 0.5),
+        ),
+        axisLine: const AxisLine(width: 0),
+        labelStyle: TextStyle(
+          color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
+          fontSize: 7,
+        ),
+        minimum: 0,
+        maximum: (_getMaxStackedValue() * 1.05).ceilToDouble(), // Round up to ensure whole numbers
+        decimalPlaces: 0, // Force integer labels
+      ),
+      series: <CartesianSeries<_VisitData, String>>[
+        StackedAreaSeries<_VisitData, String>(
+          dataSource: data,
+          xValueMapper: (_VisitData visits, _) => visits.period,
+          yValueMapper: (_VisitData visits, _) => visits.paceTour,
+          name: 'PACE Tour',
+          color: const Color(0xFFEF4444).withValues(alpha: 0.7), // Red from palette
+          borderColor: const Color(0xFFEF4444),
+          borderWidth: 2,
+        ),
+        StackedAreaSeries<_VisitData, String>(
+          dataSource: data,
+          xValueMapper: (_VisitData visits, _) => visits.period,
+          yValueMapper: (_VisitData visits, _) => visits.paceExperience,
+          name: 'PACE Experience',
+          color: const Color(0xFFFBBF24).withValues(alpha: 0.7), // Yellow from palette
+          borderColor: const Color(0xFFFBBF24),
+          borderWidth: 2,
+        ),
+        StackedAreaSeries<_VisitData, String>(
+          dataSource: data,
+          xValueMapper: (_VisitData visits, _) => visits.period,
+          yValueMapper: (_VisitData visits, _) => visits.innovationExchange,
+          name: 'Innovation Exchange',
+          color: const Color(0xFF10B981).withValues(alpha: 0.7), // Green from palette
+          borderColor: const Color(0xFF10B981),
+          borderWidth: 2,
+        ),
+      ],
+      tooltipBehavior: TooltipBehavior(
+        enable: true,
+        color: isDark ? const Color(0xFF27272A) : const Color(0xFF1F2937),
+        textStyle: const TextStyle(
+          color: Colors.white,
+          fontSize: 9,
+          fontWeight: FontWeight.w500,
+        ),
+        format: 'point.x: point.y visits',
+        borderWidth: 0,
+        borderColor: Colors.transparent,
+        elevation: 2,
+        canShowMarker: false,
+        duration: 500,
+      ),
+    );
+  }
+}
+
+// Data class for stacked area chart
+class _VisitData {
+  _VisitData(this.period, this.paceTour, this.paceExperience, this.innovationExchange);
+
+  final String period;
+  final double paceTour;
+  final double paceExperience;
+  final double innovationExchange;
 }
