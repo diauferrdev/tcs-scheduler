@@ -443,6 +443,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
     if (_stats == null) return const SizedBox.shrink();
 
     final dist = _stats!.visitTypeDistribution;
+    final total = dist.total;
+    if (total == 0) return const SizedBox.shrink();
+
     final types = [
       ('PACE Tour', dist.paceTour, const Color(0xFF3B82F6)),
       ('PACE Experience', dist.paceExperience, const Color(0xFF8B5CF6)),
@@ -451,10 +454,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
     ];
     types.sort((a, b) => b.$2.compareTo(a.$2));
     final popular = types.first;
+    final percentage = (popular.$2 / total * 100);
 
     return Container(
       height: 140,
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF18181B) : Colors.white,
         borderRadius: BorderRadius.circular(12),
@@ -463,14 +467,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ),
       ),
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            Icons.star,
-            size: 32,
-            color: popular.$3,
-          ),
-          const SizedBox(height: 8),
           Text(
             'Most Popular',
             style: TextStyle(
@@ -478,26 +475,49 @@ class _DashboardScreenState extends State<DashboardScreen> {
               color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
             ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 8),
+          Expanded(
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                SizedBox(
+                  width: 60,
+                  height: 60,
+                  child: CircularProgressIndicator(
+                    value: popular.$2 / total,
+                    strokeWidth: 6,
+                    backgroundColor: isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
+                    valueColor: AlwaysStoppedAnimation<Color>(popular.$3),
+                  ),
+                ),
+                Icon(
+                  Icons.star,
+                  size: 24,
+                  color: popular.$3,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
           Text(
             popular.$1,
             style: TextStyle(
-              fontSize: 12,
+              fontSize: 11,
               fontWeight: FontWeight.bold,
               color: isDark ? Colors.white : Colors.black,
             ),
             textAlign: TextAlign.center,
-            maxLines: 2,
+            maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
-          const SizedBox(height: 2),
           Text(
-            '${popular.$2} visits',
+            '${popular.$2} visits (${percentage.toStringAsFixed(0)}%)',
             style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
               color: popular.$3,
             ),
+            textAlign: TextAlign.center,
           ),
         ],
       ),
@@ -512,10 +532,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final sorted = _stats!.timeSlotDistribution.entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
     final peak = sorted.first;
+    final maxValue = sorted.first.value;
+
+    // Get top 3 times for mini chart
+    final top3 = sorted.take(3).toList();
 
     return Container(
       height: 140,
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF18181B) : Colors.white,
         borderRadius: BorderRadius.circular(12),
@@ -524,36 +548,75 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ),
       ),
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            Icons.access_time,
-            size: 32,
-            color: const Color(0xFF06B6D4),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Peak Time',
+                style: TextStyle(
+                  fontSize: 10,
+                  color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
+                ),
+              ),
+              Icon(
+                Icons.access_time,
+                size: 16,
+                color: const Color(0xFF06B6D4),
+              ),
+            ],
           ),
-          const SizedBox(height: 8),
-          Text(
-            'Peak Time',
-            style: TextStyle(
-              fontSize: 10,
-              color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
-            ),
-          ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 12),
           Text(
             peak.key,
             style: TextStyle(
-              fontSize: 20,
+              fontSize: 24,
               fontWeight: FontWeight.bold,
               color: isDark ? Colors.white : Colors.black,
+              letterSpacing: 1.2,
             ),
           ),
-          const SizedBox(height: 2),
           Text(
             '${peak.value} bookings',
             style: const TextStyle(
               fontSize: 11,
+              fontWeight: FontWeight.w600,
               color: Color(0xFF06B6D4),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Expanded(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: top3.asMap().entries.map((entry) {
+                final index = entry.key;
+                final item = entry.value;
+                final height = (item.value / maxValue * 30).clamp(8.0, 30.0);
+                return Column(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    Container(
+                      width: 16,
+                      height: height,
+                      decoration: BoxDecoration(
+                        color: index == 0
+                          ? const Color(0xFF06B6D4)
+                          : (isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB)),
+                        borderRadius: const BorderRadius.vertical(top: Radius.circular(2)),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      item.key.substring(0, 2),
+                      style: TextStyle(
+                        fontSize: 8,
+                        color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
+                      ),
+                    ),
+                  ],
+                );
+              }).toList(),
             ),
           ),
         ],
@@ -573,24 +636,24 @@ class _DashboardScreenState extends State<DashboardScreen> {
           final columnWidth = (maxWidth - 16) / 2;
           return Column(
             children: [
-              // Row 1: Visit Type & Status Breakdown
+              // Row 1: Visit Type (pie) & TCS Vertical Distribution (bar)
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   SizedBox(width: columnWidth, child: _buildVisitTypeChart(isDark)),
                   const SizedBox(width: 16),
-                  SizedBox(width: columnWidth, child: _buildStatusBreakdownChart(isDark)),
+                  SizedBox(width: columnWidth, child: _buildVerticalChart(isDark)),
                 ],
               ),
               const SizedBox(height: 16),
 
-              // Row 2: Organization Type & TCS Vertical Distribution
+              // Row 2: Organization Type (bar) & Status Breakdown (pie)
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   SizedBox(width: columnWidth, child: _buildOrganizationTypeChart(isDark)),
                   const SizedBox(width: 16),
-                  SizedBox(width: columnWidth, child: _buildVerticalChart(isDark)),
+                  SizedBox(width: columnWidth, child: _buildStatusBreakdownChart(isDark)),
                 ],
               ),
               const SizedBox(height: 16),
@@ -615,7 +678,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 children: [
                   SizedBox(width: columnWidth, child: _buildVisitTypeChart(isDark)),
                   const SizedBox(width: 16),
-                  SizedBox(width: columnWidth, child: _buildStatusBreakdownChart(isDark)),
+                  SizedBox(width: columnWidth, child: _buildVerticalChart(isDark)),
                 ],
               ),
               const SizedBox(height: 16),
@@ -624,7 +687,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 children: [
                   SizedBox(width: columnWidth, child: _buildOrganizationTypeChart(isDark)),
                   const SizedBox(width: 16),
-                  SizedBox(width: columnWidth, child: _buildVerticalChart(isDark)),
+                  SizedBox(width: columnWidth, child: _buildStatusBreakdownChart(isDark)),
                 ],
               ),
               const SizedBox(height: 16),
@@ -641,11 +704,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
             children: [
               _buildVisitTypeChart(isDark),
               const SizedBox(height: 16),
-              _buildStatusBreakdownChart(isDark),
+              _buildVerticalChart(isDark),
               const SizedBox(height: 16),
               _buildOrganizationTypeChart(isDark),
               const SizedBox(height: 16),
-              _buildVerticalChart(isDark),
+              _buildStatusBreakdownChart(isDark),
               const SizedBox(height: 16),
               _buildTimeSlotChart(isDark),
               const SizedBox(height: 16),
@@ -695,28 +758,30 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
             ],
           ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                value,
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: isDark ? Colors.white : Colors.black,
-                ),
-              ),
-              if (trend != null)
+          Center(
+            child: Column(
+              children: [
                 Text(
-                  trend,
+                  value,
                   style: TextStyle(
-                    fontSize: 9,
-                    color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    color: isDark ? Colors.white : Colors.black,
                   ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
                 ),
-            ],
+                if (trend != null)
+                  Text(
+                    trend,
+                    style: TextStyle(
+                      fontSize: 9,
+                      color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
+                  ),
+              ],
+            ),
           ),
         ],
       ),
