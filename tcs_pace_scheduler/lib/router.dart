@@ -24,7 +24,7 @@ GoRouter createRouter(AuthProvider authProvider) {
 
   return GoRouter(
     navigatorKey: navigationService.navigatorKey,
-    initialLocation: '/calendar',
+    initialLocation: '/dashboard', // Start at dashboard, redirect handles role-based routing
     refreshListenable: authProvider,
     redirect: (context, state) {
       final isAuthenticated = authProvider.isAuthenticated;
@@ -32,6 +32,7 @@ GoRouter createRouter(AuthProvider authProvider) {
       final user = authProvider.user;
       final isLoginRoute = state.uri.path == '/login';
       final isCalendarRoute = state.uri.path == '/calendar';
+      final isDashboardRoute = state.uri.path == '/dashboard';
 
       // Wait for auth check to complete
       if (isLoading) {
@@ -43,10 +44,18 @@ GoRouter createRouter(AuthProvider authProvider) {
         return '/login';
       }
 
-      // Redirect authenticated users from login to their main screen (first icon)
+      // Redirect authenticated users from login to their main screen
       if (isAuthenticated && isLoginRoute && user != null) {
-        // Always redirect to main screen based on role
         return _getMainScreenForRole(user.role);
+      }
+
+      // Redirect users accessing dashboard or calendar on initial load to their main screen
+      if (isAuthenticated && user != null && (isDashboardRoute || isCalendarRoute)) {
+        final mainScreen = _getMainScreenForRole(user.role);
+        // Only redirect if they're not already on their main screen
+        if (state.uri.path != mainScreen) {
+          return mainScreen;
+        }
       }
 
       // Restrict Calendar page: only ADMIN and USER can access
