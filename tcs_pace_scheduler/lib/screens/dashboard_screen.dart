@@ -183,11 +183,29 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     return LayoutBuilder(
       builder: (context, constraints) {
+        // Desktop: try to fit all 6 cards in one or two rows
+        // Determine number of columns based on screen width
+        final int columns;
+        final bool isDesktop = screenWidth >= 1024;
+        final bool isTablet = screenWidth >= 600 && screenWidth < 1024;
+
+        if (isDesktop) {
+          // Desktop: 6 columns if width allows, otherwise 3 columns
+          columns = constraints.maxWidth >= 1400 ? 6 : 3;
+        } else if (isTablet) {
+          // Tablet: 3 columns
+          columns = 3;
+        } else {
+          // Mobile: 2 columns
+          columns = 2;
+        }
+
+        final itemWidth = (constraints.maxWidth - (16 * (columns - 1))) / columns;
+
         return Wrap(
           spacing: 16,
           runSpacing: 16,
           children: statCards.map((card) {
-            final itemWidth = (constraints.maxWidth - 16) / 2;
             return SizedBox(
               width: itemWidth,
               child: card,
@@ -201,6 +219,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget _buildLoadingCards(bool isDark) {
     return LayoutBuilder(
       builder: (context, constraints) {
+        final screenWidth = MediaQuery.of(context).size.width;
         final loadingCards = List.generate(
           6,
           (index) => _buildStatCard(
@@ -210,11 +229,26 @@ class _DashboardScreenState extends State<DashboardScreen> {
             isDark,
           ),
         );
+
+        // Use same logic as main stat cards grid
+        final int columns;
+        final bool isDesktop = screenWidth >= 1024;
+        final bool isTablet = screenWidth >= 600 && screenWidth < 1024;
+
+        if (isDesktop) {
+          columns = constraints.maxWidth >= 1400 ? 6 : 3;
+        } else if (isTablet) {
+          columns = 3;
+        } else {
+          columns = 2;
+        }
+
+        final itemWidth = (constraints.maxWidth - (16 * (columns - 1))) / columns;
+
         return Wrap(
           spacing: 16,
           runSpacing: 16,
           children: loadingCards.map((card) {
-            final itemWidth = (constraints.maxWidth - 16) / 2;
             return SizedBox(
               width: itemWidth,
               child: card,
@@ -325,8 +359,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Widget _buildStatCard(String title, String value, IconData icon, bool isDark, {String? trend}) {
     return Container(
-      height: 120,
-      padding: const EdgeInsets.all(20),
+      height: 110,
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF18181B) : Colors.white,
         borderRadius: BorderRadius.circular(12),
@@ -345,7 +379,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 child: Text(
                   title,
                   style: TextStyle(
-                    fontSize: 12,
+                    fontSize: 11,
                     color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
                   ),
                   maxLines: 1,
@@ -354,7 +388,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
               Icon(
                 icon,
-                size: 16,
+                size: 14,
                 color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
               ),
             ],
@@ -365,7 +399,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               Text(
                 value,
                 style: TextStyle(
-                  fontSize: 28,
+                  fontSize: 24,
                   fontWeight: FontWeight.bold,
                   color: isDark ? Colors.white : Colors.black,
                 ),
@@ -374,9 +408,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 Text(
                   trend,
                   style: TextStyle(
-                    fontSize: 10,
+                    fontSize: 9,
                     color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
                   ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
             ],
           ),
