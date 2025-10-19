@@ -65,6 +65,29 @@ function ProtectedRoute({ children, requireAdmin }: { children: React.ReactNode;
   return <AppLayout>{children}</AppLayout>;
 }
 
+function RootRedirect() {
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-black">
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-8 w-8 border-4 border-gray-200 border-t-black dark:border-zinc-800 dark:border-t-white rounded-full animate-spin" />
+          <p className="text-sm text-gray-600 dark:text-gray-400">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // If user is logged in, redirect to dashboard
+  if (user) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  // If user is not logged in, redirect to login page (or landing page when available)
+  return <Navigate to="/login" replace />;
+}
+
 function ConditionalPWABanner() {
   const location = useLocation();
   const publicRoutes = ['/book', '/badge', '/attendee'];
@@ -131,7 +154,7 @@ function AnimatedRoutes() {
               </ProtectedRoute>
             }
           />
-          <Route path="/" element={<Navigate to="/dashboard" replace />} />
+          <Route path="/" element={<RootRedirect />} />
           <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>
       </AnimatePresence>

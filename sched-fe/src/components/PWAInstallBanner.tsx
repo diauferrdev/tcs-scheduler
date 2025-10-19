@@ -55,8 +55,8 @@ export function PWAInstallBanner() {
     }
   };
 
-  // Only hide if already installed or dismissed in current session
-  if (isInstalled || dismissed) {
+  // Only show on mobile devices, and only if not installed or dismissed
+  if (!isMobile || isInstalled || dismissed) {
     return null;
   }
 
