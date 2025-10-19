@@ -39,7 +39,14 @@ const allowedOrigins = [
 
 // Only allow localhost in development
 if (process.env.NODE_ENV !== 'production') {
-  allowedOrigins.push('http://localhost:3000', 'http://localhost:5173');
+  allowedOrigins.push(
+    'http://localhost:3000',
+    'http://localhost:3005',
+    'http://localhost:5173',
+    'http://127.0.0.1:3000',
+    'http://127.0.0.1:3005',
+    'http://127.0.0.1:5173',
+  );
 }
 
 app.use('*', cors({
