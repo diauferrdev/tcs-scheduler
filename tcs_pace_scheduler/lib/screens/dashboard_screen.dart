@@ -352,6 +352,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   breakdown.needEdit + breakdown.needReschedule +
                   breakdown.approved + breakdown.notApproved;
 
+    if (total == 0) return const SizedBox.shrink();
+
     return Container(
       height: 140,
       padding: const EdgeInsets.all(16),
@@ -372,70 +374,120 @@ class _DashboardScreenState extends State<DashboardScreen> {
               color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 4),
           Expanded(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                _buildFunnelBar('Created', breakdown.created, total, const Color(0xFF3B82F6), isDark),
-                _buildFunnelBar('Review', breakdown.underReview, total, const Color(0xFF8B5CF6), isDark),
-                _buildFunnelBar('Approved', breakdown.approved, total, const Color(0xFF10B981), isDark),
-              ],
+            child: LineChart(
+              LineChartData(
+                minX: 0,
+                maxX: 2,
+                minY: 0,
+                maxY: total.toDouble() * 1.2,
+                lineTouchData: LineTouchData(
+                  enabled: true,
+                  touchTooltipData: LineTouchTooltipData(
+                    getTooltipColor: (touchedSpot) => isDark
+                        ? const Color(0xFF27272A)
+                        : const Color(0xFF1F2937),
+                    tooltipPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    getTooltipItem: (group, groupIndex, rod, rodIndex) {
+                      final labels = ['Created', 'Review', 'Approved'];
+                      final values = [breakdown.created, breakdown.underReview, breakdown.approved];
+                      return LineTooltipItem(
+                        '${labels[group.spotIndex]}\n${values[group.spotIndex]}',
+                        const TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                gridData: FlGridData(
+                  show: true,
+                  drawVerticalLine: false,
+                  horizontalInterval: (total / 3).ceilToDouble(),
+                  getDrawingHorizontalLine: (value) {
+                    return FlLine(
+                      color: isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
+                      strokeWidth: 1,
+                    );
+                  },
+                ),
+                titlesData: FlTitlesData(
+                  leftTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      reservedSize: 28,
+                      interval: (total / 3).ceilToDouble(),
+                      getTitlesWidget: (value, meta) {
+                        if (value == 0 || value == meta.max) return const SizedBox.shrink();
+                        return Text(
+                          value.toInt().toString(),
+                          style: TextStyle(
+                            fontSize: 8,
+                            color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                  bottomTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      reservedSize: 18,
+                      getTitlesWidget: (value, meta) {
+                        const labels = ['Created', 'Review', 'Approved'];
+                        if (value.toInt() >= 0 && value.toInt() < labels.length) {
+                          return Text(
+                            labels[value.toInt()],
+                            style: TextStyle(
+                              fontSize: 7,
+                              color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
+                            ),
+                          );
+                        }
+                        return const SizedBox.shrink();
+                      },
+                    ),
+                  ),
+                  topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                ),
+                borderData: FlBorderData(show: false),
+                lineBarsData: [
+                  LineChartBarData(
+                    isCurved: true,
+                    color: const Color(0xFF10B981),
+                    barWidth: 3,
+                    isStrokeCapRound: true,
+                    dotData: FlDotData(
+                      show: true,
+                      getDotPainter: (spot, percent, barData, index) {
+                        return FlDotCirclePainter(
+                          radius: 4,
+                          color: const Color(0xFF10B981),
+                          strokeWidth: 2,
+                          strokeColor: isDark ? Colors.black : Colors.white,
+                        );
+                      },
+                    ),
+                    belowBarData: BarAreaData(
+                      show: true,
+                      color: const Color(0xFF10B981).withValues(alpha: 0.1),
+                    ),
+                    spots: [
+                      FlSpot(0, breakdown.created.toDouble()),
+                      FlSpot(1, breakdown.underReview.toDouble()),
+                      FlSpot(2, breakdown.approved.toDouble()),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildFunnelBar(String label, int value, int total, Color color, bool isDark) {
-    final percentage = total > 0 ? value / total : 0.0;
-    return Row(
-      children: [
-        SizedBox(
-          width: 50,
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: 9,
-              color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
-            ),
-            overflow: TextOverflow.ellipsis,
-          ),
-        ),
-        Expanded(
-          child: Container(
-            height: 14,
-            decoration: BoxDecoration(
-              color: isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
-              borderRadius: BorderRadius.circular(4),
-            ),
-            child: FractionallySizedBox(
-              alignment: Alignment.centerLeft,
-              widthFactor: percentage,
-              child: Container(
-                decoration: BoxDecoration(
-                  color: color,
-                  borderRadius: BorderRadius.circular(4),
-                ),
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(width: 6),
-        SizedBox(
-          width: 20,
-          child: Text(
-            '$value',
-            style: TextStyle(
-              fontSize: 9,
-              fontWeight: FontWeight.bold,
-              color: isDark ? Colors.white : Colors.black,
-            ),
-            textAlign: TextAlign.right,
-          ),
-        ),
-      ],
     );
   }
 
@@ -506,37 +558,45 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   ),
                 ),
                 const SizedBox(width: 16),
-                // Data on the right
+                // Data on the right - centered
                 Expanded(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
+                      // Visit type name - MAIN HIGHLIGHT
                       Text(
                         popular.$1,
                         style: TextStyle(
-                          fontSize: 13,
+                          fontSize: 20,
                           fontWeight: FontWeight.bold,
-                          color: isDark ? Colors.white : Colors.black,
+                          color: popular.$3,
+                          height: 1.1,
                         ),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.center,
                       ),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 6),
+                      // Visit count - SECONDARY
                       Text(
                         '${popular.$2} visits',
                         style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: popular.$3,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: isDark ? Colors.white : Colors.black,
                         ),
+                        textAlign: TextAlign.center,
                       ),
+                      const SizedBox(height: 2),
+                      // Percentage - TERTIARY
                       Text(
                         '${percentage.toStringAsFixed(0)}% of total',
                         style: TextStyle(
                           fontSize: 10,
                           color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
                         ),
+                        textAlign: TextAlign.center,
                       ),
                     ],
                   ),
@@ -554,13 +614,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
       return const SizedBox.shrink();
     }
 
+    // Sort by time (chronologically)
     final sorted = _stats!.timeSlotDistribution.entries.toList()
-      ..sort((a, b) => b.value.compareTo(a.value));
-    final peak = sorted.first;
-    final maxValue = sorted.first.value;
+      ..sort((a, b) {
+        final hourA = int.tryParse(a.key.split(':')[0]) ?? 0;
+        final hourB = int.tryParse(b.key.split(':')[0]) ?? 0;
+        return hourA.compareTo(hourB);
+      });
 
-    // Get top 5 times for visualization
-    final top5 = sorted.take(5).toList();
+    final maxValue = sorted.fold<int>(0, (max, e) => e.value > max ? e.value : max);
+    final peakEntry = sorted.reduce((a, b) => a.value > b.value ? a : b);
 
     return Container(
       height: 140,
@@ -582,87 +645,128 @@ class _DashboardScreenState extends State<DashboardScreen> {
               color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
             ),
           ),
-          const SizedBox(height: 12),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              // Time display - large and bold
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    peak.key,
-                    style: TextStyle(
-                      fontSize: 32,
-                      fontWeight: FontWeight.bold,
-                      color: const Color(0xFF06B6D4),
-                      height: 1.0,
-                      letterSpacing: -0.5,
-                    ),
+          const SizedBox(height: 8),
+          Expanded(
+            child: BarChart(
+              BarChartData(
+                alignment: BarChartAlignment.spaceAround,
+                maxY: maxValue.toDouble() * 1.2,
+                barTouchData: BarTouchData(
+                  enabled: true,
+                  touchTooltipData: BarTouchTooltipData(
+                    getTooltipColor: (group) => isDark
+                        ? const Color(0xFF27272A)
+                        : const Color(0xFF1F2937),
+                    tooltipPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    tooltipMargin: 4,
+                    getTooltipItem: (group, groupIndex, rod, rodIndex) {
+                      final timeSlot = sorted[group.x.toInt()].key;
+                      final count = sorted[group.x.toInt()].value;
+                      return BarTooltipItem(
+                        '$timeSlot\n$count bookings',
+                        const TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      );
+                    },
                   ),
-                  const SizedBox(height: 2),
-                  Text(
-                    '${peak.value} bookings',
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(width: 20),
-              // Compact horizontal bars
-              Expanded(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: top5.map((item) {
-                    final width = (item.value / maxValue);
-                    final isPeak = item.key == peak.key;
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 2),
-                      child: Row(
-                        children: [
-                          SizedBox(
-                            width: 30,
+                ),
+                titlesData: FlTitlesData(
+                  show: true,
+                  bottomTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      reservedSize: 20,
+                      getTitlesWidget: (value, meta) {
+                        if (value.toInt() >= 0 && value.toInt() < sorted.length) {
+                          final timeSlot = sorted[value.toInt()].key;
+                          final isPeak = timeSlot == peakEntry.key;
+                          return Padding(
+                            padding: const EdgeInsets.only(top: 4),
                             child: Text(
-                              item.key,
+                              timeSlot,
                               style: TextStyle(
-                                fontSize: 8,
-                                color: isPeak
-                                  ? const Color(0xFF06B6D4)
-                                  : (isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280)),
+                                fontSize: 7,
                                 fontWeight: isPeak ? FontWeight.bold : FontWeight.normal,
+                                color: isPeak
+                                    ? const Color(0xFF06B6D4)
+                                    : (isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280)),
                               ),
                             ),
+                          );
+                        }
+                        return const SizedBox.shrink();
+                      },
+                    ),
+                  ),
+                  leftTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      reservedSize: 24,
+                      interval: (maxValue / 3).ceilToDouble(),
+                      getTitlesWidget: (value, meta) {
+                        if (value == 0 || value == meta.max) return const SizedBox.shrink();
+                        return Text(
+                          value.toInt().toString(),
+                          style: TextStyle(
+                            fontSize: 8,
+                            color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
                           ),
-                          Expanded(
-                            child: Container(
-                              height: 6,
-                              decoration: BoxDecoration(
-                                color: isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
-                                borderRadius: BorderRadius.circular(3),
-                              ),
-                              child: FractionallySizedBox(
-                                alignment: Alignment.centerLeft,
-                                widthFactor: width,
-                                child: Container(
-                                  decoration: BoxDecoration(
-                                    color: isPeak
-                                      ? const Color(0xFF06B6D4)
-                                      : (isDark ? const Color(0xFF3F3F46) : const Color(0xFFD1D5DB)),
-                                    borderRadius: BorderRadius.circular(3),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
+                        );
+                      },
+                    ),
+                  ),
+                  topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                ),
+                gridData: FlGridData(
+                  show: true,
+                  drawVerticalLine: false,
+                  horizontalInterval: (maxValue / 3).ceilToDouble(),
+                  getDrawingHorizontalLine: (value) {
+                    return FlLine(
+                      color: isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
+                      strokeWidth: 1,
                     );
-                  }).toList(),
+                  },
+                ),
+                borderData: FlBorderData(show: false),
+                barGroups: List.generate(
+                  sorted.length,
+                  (index) {
+                    final isPeak = sorted[index].key == peakEntry.key;
+                    return BarChartGroupData(
+                      x: index,
+                      barRods: [
+                        BarChartRodData(
+                          toY: sorted[index].value.toDouble(),
+                          gradient: LinearGradient(
+                            begin: Alignment.bottomCenter,
+                            end: Alignment.topCenter,
+                            colors: isPeak
+                                ? [
+                                    const Color(0xFF06B6D4),
+                                    const Color(0xFF0891B2),
+                                  ]
+                                : [
+                                    isDark ? const Color(0xFF3F3F46) : const Color(0xFFD1D5DB),
+                                    isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
+                                  ],
+                          ),
+                          width: 10,
+                          borderRadius: const BorderRadius.only(
+                            topLeft: Radius.circular(3),
+                            topRight: Radius.circular(3),
+                          ),
+                        ),
+                      ],
+                    );
+                  },
                 ),
               ),
-            ],
+            ),
           ),
         ],
       ),
@@ -710,8 +814,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
               _buildMonthlyTrendChart(isDark),
               const SizedBox(height: 16),
 
-              // Row 5: Top Companies (full width)
-              _buildTopCompaniesCard(isDark),
+              // Row 5: Top Companies & Visit Performance Radar (two columns)
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SizedBox(width: columnWidth, child: _buildTopCompaniesCard(isDark)),
+                  const SizedBox(width: 16),
+                  SizedBox(width: columnWidth, child: _buildVisitPerformanceRadar(isDark)),
+                ],
+              ),
             ],
           );
         } else if (isTablet) {
@@ -740,7 +851,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
               const SizedBox(height: 16),
               _buildMonthlyTrendChart(isDark),
               const SizedBox(height: 16),
-              _buildTopCompaniesCard(isDark),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SizedBox(width: columnWidth, child: _buildTopCompaniesCard(isDark)),
+                  const SizedBox(width: 16),
+                  SizedBox(width: columnWidth, child: _buildVisitPerformanceRadar(isDark)),
+                ],
+              ),
             ],
           );
         } else {
@@ -760,6 +878,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
               _buildMonthlyTrendChart(isDark),
               const SizedBox(height: 16),
               _buildTopCompaniesCard(isDark),
+              const SizedBox(height: 16),
+              _buildVisitPerformanceRadar(isDark),
             ],
           );
         }
@@ -1429,7 +1549,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               : SingleChildScrollView(
                   child: Table(
                     columnWidths: const {
-                      0: FixedColumnWidth(60),
+                      0: FixedColumnWidth(70),
                       1: FlexColumnWidth(),
                       2: FixedColumnWidth(80),
                     },
@@ -1472,6 +1592,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       ..._stats!.topCompanies.asMap().entries.map((entry) {
                         final index = entry.key;
                         final company = entry.value;
+                        final rank = index + 1;
+
+                        // Trophy colors for top 3
+                        IconData? trophyIcon;
+                        Color? trophyColor;
+                        if (rank == 1) {
+                          trophyIcon = Icons.emoji_events;
+                          trophyColor = const Color(0xFFFFD700); // Gold
+                        } else if (rank == 2) {
+                          trophyIcon = Icons.emoji_events;
+                          trophyColor = const Color(0xFFC0C0C0); // Silver
+                        } else if (rank == 3) {
+                          trophyIcon = Icons.emoji_events;
+                          trophyColor = const Color(0xFFCD7F32); // Bronze
+                        }
+
                         return TableRow(
                           decoration: BoxDecoration(
                             border: Border(
@@ -1483,11 +1619,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           children: [
                             Padding(
                               padding: const EdgeInsets.all(12),
-                              child: Text(
-                                '${index + 1}',
-                                style: TextStyle(
-                                  color: isDark ? Colors.white : Colors.black,
-                                ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  if (trophyIcon != null) ...[
+                                    Icon(
+                                      trophyIcon,
+                                      size: 18,
+                                      color: trophyColor,
+                                    ),
+                                    const SizedBox(width: 4),
+                                  ],
+                                  Text(
+                                    '$rank',
+                                    style: TextStyle(
+                                      fontWeight: rank <= 3 ? FontWeight.bold : FontWeight.normal,
+                                      color: trophyColor ?? (isDark ? Colors.white : Colors.black),
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                             Padding(
@@ -1495,6 +1645,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               child: Text(
                                 company.company,
                                 style: TextStyle(
+                                  fontWeight: rank <= 3 ? FontWeight.bold : FontWeight.normal,
                                   color: isDark ? Colors.white : Colors.black,
                                 ),
                               ),
@@ -1516,6 +1667,83 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ],
                   ),
                 ),
+    );
+  }
+
+  Widget _buildVisitPerformanceRadar(bool isDark) {
+    return _buildChartContainer(
+      title: 'Visit Type Performance',
+      isDark: isDark,
+      child: _loading || _stats == null
+          ? _buildLoadingIndicator(isDark)
+          : () {
+              final dist = _stats!.visitTypeDistribution;
+              final total = dist.total;
+
+              if (total == 0) {
+                return _buildNoData(isDark);
+              }
+
+              return Center(
+                child: SizedBox(
+                  height: 240,
+                  child: RadarChart(
+                    RadarChartData(
+                      radarShape: RadarShape.polygon,
+                      radarBorderData: BorderSide(
+                        color: isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
+                        width: 2,
+                      ),
+                      gridBorderData: BorderSide(
+                        color: isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
+                        width: 1,
+                      ),
+                      tickBorderData: BorderSide(
+                        color: isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
+                        width: 1,
+                      ),
+                      tickCount: 4,
+                      ticksTextStyle: TextStyle(
+                        fontSize: 8,
+                        color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
+                      ),
+                      radarBackgroundColor: Colors.transparent,
+                      titleTextStyle: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w500,
+                        color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
+                      ),
+                      titlePositionPercentageOffset: 0.15,
+                      dataSets: [
+                        RadarDataSet(
+                          fillColor: const Color(0xFF3B82F6).withValues(alpha: 0.2),
+                          borderColor: const Color(0xFF3B82F6),
+                          borderWidth: 2,
+                          dataEntries: [
+                            RadarEntry(value: dist.paceTour.toDouble()),
+                            RadarEntry(value: dist.paceExperience.toDouble()),
+                            RadarEntry(value: dist.innovationExchange.toDouble()),
+                            RadarEntry(value: dist.quickTour.toDouble()),
+                          ],
+                        ),
+                      ],
+                      getTitle: (index, angle) {
+                        const titles = [
+                          'PACE\nTour',
+                          'PACE\nExperience',
+                          'Innovation\nExchange',
+                          'Quick\nTour',
+                        ];
+                        return RadarChartTitle(
+                          text: titles[index],
+                          angle: angle,
+                        );
+                      },
+                    ),
+                  ),
+                ),
+              );
+            }(),
     );
   }
 

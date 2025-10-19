@@ -21,6 +21,7 @@ class AppLayout extends StatefulWidget {
 class _AppLayoutState extends State<AppLayout> {
   final UnifiedNotificationService _notificationService = UnifiedNotificationService();
   bool _initialized = false;
+  bool _sidebarCollapsed = false;
 
   @override
   void initState() {
@@ -115,28 +116,43 @@ class _AppLayoutState extends State<AppLayout> {
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Row(
         children: [
-          // Logo - Use SVG on all platforms
-          SvgPicture.asset(
-            isDark ? 'assets/logos/tcs-logo-w.svg' : 'assets/logos/tcs-logo-b.svg',
-            height: 24,
-          ),
+          // Menu toggle button (Desktop only)
           if (!isMobile) ...[
-            const SizedBox(width: 16),
-            Container(
-              width: 1,
-              height: 16,
-              color: isDark ? const Color(0xFF27272A) : const Color(0xFFD1D5DB),
-            ),
-            const SizedBox(width: 16),
-            Text(
-              'Scheduler',
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-                color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
+            IconButton(
+              onPressed: () {
+                setState(() {
+                  _sidebarCollapsed = !_sidebarCollapsed;
+                });
+              },
+              icon: Icon(
+                _sidebarCollapsed ? Icons.menu : Icons.menu_open,
+                color: isDark ? Colors.white : Colors.black,
               ),
+              tooltip: _sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar',
             ),
+            const SizedBox(width: 8),
           ],
+
+          // Logo - Column with SVG on top and "Scheduler" below
+          Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              SvgPicture.asset(
+                isDark ? 'assets/logos/tcs-logo-w.svg' : 'assets/logos/tcs-logo-b.svg',
+                height: 28,
+              ),
+              const SizedBox(height: 2),
+              Text(
+                'Scheduler',
+                style: TextStyle(
+                  fontSize: 9,
+                  fontWeight: FontWeight.w500,
+                  letterSpacing: 0.5,
+                  color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
+                ),
+              ),
+            ],
+          ),
 
           const Spacer(),
 
@@ -183,8 +199,10 @@ class _AppLayoutState extends State<AppLayout> {
     final menuItems = _getMenuItems(user);
     final currentPath = GoRouterState.of(context).uri.path;
 
-    return Container(
-      width: 256,
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 250),
+      curve: Curves.easeInOutCubic,
+      width: _sidebarCollapsed ? 72 : 256,
       decoration: BoxDecoration(
         color: isDark ? Colors.black : Colors.white,
         border: Border(
@@ -204,6 +222,7 @@ class _AppLayoutState extends State<AppLayout> {
             item['path'] as String,
             isActive,
             isDark,
+            collapsed: _sidebarCollapsed,
           );
         }).toList(),
       ),
@@ -247,43 +266,62 @@ class _AppLayoutState extends State<AppLayout> {
     IconData icon,
     String path,
     bool isActive,
-    bool isDark,
-  ) {
+    bool isDark, {
+    bool collapsed = false,
+  }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Material(
         color: Colors.transparent,
-        child: InkWell(
-          onTap: () => context.go(path),
-          borderRadius: BorderRadius.circular(12),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: BoxDecoration(
-              color: isActive
-                  ? (isDark ? Colors.white : Colors.black)
-                  : Colors.transparent,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Row(
-              children: [
-                Icon(
-                  icon,
-                  size: 20,
-                  color: isActive
-                      ? (isDark ? Colors.black : Colors.white)
-                      : (isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280)),
-                ),
-                const SizedBox(width: 12),
-                Text(
-                  label,
-                  style: TextStyle(
-                    fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
-                    color: isActive
-                        ? (isDark ? Colors.black : Colors.white)
-                        : (isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280)),
-                  ),
-                ),
-              ],
+        child: Tooltip(
+          message: collapsed ? label : '',
+          child: InkWell(
+            onTap: () => context.go(path),
+            borderRadius: BorderRadius.circular(12),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 250),
+              curve: Curves.easeInOutCubic,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: isActive
+                    ? (isDark ? Colors.white : Colors.black)
+                    : Colors.transparent,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: collapsed
+                  ? Center(
+                      child: Icon(
+                        icon,
+                        size: 20,
+                        color: isActive
+                            ? (isDark ? Colors.black : Colors.white)
+                            : (isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280)),
+                      ),
+                    )
+                  : Row(
+                      children: [
+                        Icon(
+                          icon,
+                          size: 20,
+                          color: isActive
+                              ? (isDark ? Colors.black : Colors.white)
+                              : (isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280)),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            label,
+                            style: TextStyle(
+                              fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
+                              color: isActive
+                                  ? (isDark ? Colors.black : Colors.white)
+                                  : (isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280)),
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
             ),
           ),
         ),

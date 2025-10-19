@@ -370,7 +370,7 @@ class _ProfileDrawerState extends State<ProfileDrawer> {
                       isDark: isDark,
                       child: Column(
                         children: [
-                          const SizedBox(height: 16),
+                          const SizedBox(height: 12),
                           _buildTextField(
                             controller: _nameController,
                             label: 'Full Name',
@@ -378,7 +378,7 @@ class _ProfileDrawerState extends State<ProfileDrawer> {
                             enabled: !_updatingProfile,
                             isDark: isDark,
                           ),
-                          const SizedBox(height: 12),
+                          const SizedBox(height: 10),
                           // Email display (read-only)
                           Container(
                             padding: const EdgeInsets.all(16),
@@ -419,7 +419,7 @@ class _ProfileDrawerState extends State<ProfileDrawer> {
                               ],
                             ),
                           ),
-                          const SizedBox(height: 20),
+                          const SizedBox(height: 14),
                           SizedBox(
                             width: double.infinity,
                             child: ElevatedButton.icon(
@@ -458,7 +458,7 @@ class _ProfileDrawerState extends State<ProfileDrawer> {
                       isDark: isDark,
                       child: Column(
                         children: [
-                          const SizedBox(height: 16),
+                          const SizedBox(height: 12),
                           _buildPasswordField(
                             controller: _currentPasswordController,
                             label: 'Current Password',
@@ -467,7 +467,7 @@ class _ProfileDrawerState extends State<ProfileDrawer> {
                             enabled: !_changingPassword,
                             isDark: isDark,
                           ),
-                          const SizedBox(height: 12),
+                          const SizedBox(height: 10),
                           _buildPasswordField(
                             controller: _newPasswordController,
                             label: 'New Password',
@@ -476,7 +476,7 @@ class _ProfileDrawerState extends State<ProfileDrawer> {
                             enabled: !_changingPassword,
                             isDark: isDark,
                           ),
-                          const SizedBox(height: 12),
+                          const SizedBox(height: 10),
                           _buildPasswordField(
                             controller: _confirmPasswordController,
                             label: 'Confirm New Password',
@@ -485,9 +485,9 @@ class _ProfileDrawerState extends State<ProfileDrawer> {
                             enabled: !_changingPassword,
                             isDark: isDark,
                           ),
-                          const SizedBox(height: 16),
+                          const SizedBox(height: 12),
                           Container(
-                            padding: const EdgeInsets.all(12),
+                            padding: const EdgeInsets.all(10),
                             decoration: BoxDecoration(
                               color: isDark ? const Color(0xFF3F3F46).withValues(alpha: 0.3) : const Color(0xFFF3F4F6),
                               borderRadius: BorderRadius.circular(8),
@@ -508,7 +508,7 @@ class _ProfileDrawerState extends State<ProfileDrawer> {
                               ],
                             ),
                           ),
-                          const SizedBox(height: 20),
+                          const SizedBox(height: 14),
                           SizedBox(
                             width: double.infinity,
                             child: ElevatedButton.icon(
@@ -617,54 +617,84 @@ class _ProfileDrawerState extends State<ProfileDrawer> {
     required bool isDark,
     required Widget child,
   }) {
-    return Container(
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeInOutCubic,
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF27272A) : Colors.white,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: isDark ? const Color(0xFF3F3F46) : const Color(0xFFE5E7EB),
+          color: expanded
+            ? (isDark ? Colors.white.withValues(alpha: 0.2) : Colors.black.withValues(alpha: 0.1))
+            : (isDark ? const Color(0xFF3F3F46) : const Color(0xFFE5E7EB)),
+          width: expanded ? 1.5 : 1,
         ),
       ),
-      child: Column(
-        children: [
-          InkWell(
-            onTap: onTap,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Row(
-                children: [
-                  Icon(icon, size: 24, color: isDark ? Colors.white : Colors.black),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      title,
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: isDark ? Colors.white : Colors.black,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            InkWell(
+              onTap: onTap,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.05),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Icon(icon, size: 20, color: isDark ? Colors.white : Colors.black),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        title,
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: isDark ? Colors.white : Colors.black,
+                        ),
                       ),
                     ),
-                  ),
-                  Icon(
-                    expanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
-                    color: isDark ? Colors.grey[400] : Colors.grey[600],
-                  ),
-                ],
+                    AnimatedRotation(
+                      turns: expanded ? 0.5 : 0,
+                      duration: const Duration(milliseconds: 200),
+                      curve: Curves.easeInOutCubic,
+                      child: Icon(
+                        Icons.keyboard_arrow_down,
+                        color: isDark ? Colors.grey[400] : Colors.grey[600],
+                        size: 24,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
-          if (expanded) ...[
-            Divider(
-              height: 1,
-              color: isDark ? const Color(0xFF3F3F46) : const Color(0xFFE5E7EB),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: child,
+            AnimatedSize(
+              duration: const Duration(milliseconds: 250),
+              curve: Curves.easeInOutCubic,
+              child: expanded
+                  ? Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          height: 1,
+                          color: isDark ? const Color(0xFF3F3F46) : const Color(0xFFE5E7EB),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.all(14),
+                          child: child,
+                        ),
+                      ],
+                    )
+                  : const SizedBox.shrink(),
             ),
           ],
-        ],
+        ),
       ),
     );
   }
