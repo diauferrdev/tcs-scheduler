@@ -20,35 +20,52 @@ import 'screens/my_bookings_screen.dart';
 import 'screens/drawer_route_screen.dart';
 import 'services/navigation_service.dart';
 import 'services/drawer_service.dart';
-import 'dart:html' as html;
+import 'services/web_html_stub.dart'
+    if (dart.library.html) 'dart:html' as html;
 
 /// Helper function to check if running on localhost
 bool _isLocalhost() {
   if (!kIsWeb) return false;
-  final hostname = html.window.location.hostname;
-  return hostname == 'localhost' || hostname == '127.0.0.1';
+  try {
+    final hostname = html.window.location.hostname;
+    return hostname == 'localhost' || hostname == '127.0.0.1';
+  } catch (e) {
+    return false;
+  }
 }
 
 /// Helper function to check if current domain is the main domain (not app subdomain)
 bool _isMainDomain() {
   if (!kIsWeb) return false;
-  final hostname = html.window.location.hostname;
-  return hostname == 'ppspsched.lat' || hostname == 'www.ppspsched.lat';
+  try {
+    final hostname = html.window.location.hostname;
+    return hostname == 'ppspsched.lat' || hostname == 'www.ppspsched.lat';
+  } catch (e) {
+    return false;
+  }
 }
 
 /// Helper function to check if current domain is the app subdomain
 bool _isAppDomain() {
   if (!kIsWeb) return true; // Mobile/desktop apps always use app logic
-  final hostname = html.window.location.hostname;
-  return hostname == 'app.ppspsched.lat';
+  try {
+    final hostname = html.window.location.hostname;
+    return hostname == 'app.ppspsched.lat';
+  } catch (e) {
+    return true;
+  }
 }
 
 /// Helper function to redirect to app subdomain
 void _redirectToAppDomain(String path) {
   if (!kIsWeb) return;
-  final currentUrl = html.window.location.href;
-  final newUrl = currentUrl.replaceFirst('ppspsched.lat', 'app.ppspsched.lat');
-  html.window.location.href = newUrl;
+  try {
+    final currentUrl = html.window.location.href;
+    final newUrl = currentUrl.replaceFirst('ppspsched.lat', 'app.ppspsched.lat');
+    html.window.location.href = newUrl;
+  } catch (e) {
+    // Ignore on non-web platforms
+  }
 }
 
 GoRouter createRouter(AuthProvider authProvider) {
@@ -137,21 +154,8 @@ GoRouter createRouter(AuthProvider authProvider) {
         return _getMainScreenForRole(user.role);
       }
 
-      // Redirect users accessing dashboard or calendar on initial load to their main screen
-      if (isAuthenticated && user != null && (isDashboardRoute || isCalendarRoute)) {
-        final mainScreen = _getMainScreenForRole(user.role);
-        // Only redirect if they're not already on their main screen
-        if (state.uri.path != mainScreen) {
-          return mainScreen;
-        }
-      }
-
-      // Restrict Calendar page: only ADMIN and USER can access
-      if (isAuthenticated && isCalendarRoute && user != null) {
-        if (user.role == UserRole.MANAGER) {
-          return _getMainScreenForRole(user.role);
-        }
-      }
+      // No route restrictions - all authenticated users can access all routes
+      // Role-based UI elements are handled by _getMenuItems in app_layout.dart
 
       return null;
     },

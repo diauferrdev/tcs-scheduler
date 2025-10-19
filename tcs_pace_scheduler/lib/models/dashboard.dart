@@ -99,25 +99,23 @@ class VisitTypeDistribution {
   final int paceTour;
   final int paceExperience;
   final int innovationExchange;
-  final int quickTour;
 
   VisitTypeDistribution({
     required this.paceTour,
     required this.paceExperience,
     required this.innovationExchange,
-    required this.quickTour,
   });
 
   factory VisitTypeDistribution.fromJson(Map<String, dynamic> json) {
     return VisitTypeDistribution(
-      paceTour: json['PACE_TOUR'] as int,
-      paceExperience: json['PACE_EXPERIENCE'] as int,
-      innovationExchange: json['INNOVATION_EXCHANGE'] as int,
-      quickTour: json['QUICK_TOUR'] as int,
+      paceTour: json['PACE_TOUR'] as int? ?? 0,
+      paceExperience: json['PACE_EXPERIENCE'] as int? ?? 0,
+      innovationExchange: json['INNOVATION_EXCHANGE'] as int? ?? 0,
+      // QUICK_TOUR is deprecated and ignored
     );
   }
 
-  int get total => paceTour + paceExperience + innovationExchange + quickTour;
+  int get total => paceTour + paceExperience + innovationExchange;
 }
 
 class MonthlyTrend {

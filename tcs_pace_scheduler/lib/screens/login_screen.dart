@@ -4,7 +4,8 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import '../providers/auth_provider.dart';
-import 'dart:html' as html;
+import '../services/web_html_stub.dart'
+    if (dart.library.html) 'dart:html' as html;
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -41,11 +42,15 @@ class _LoginScreenState extends State<LoginScreen> {
       if (mounted) {
         // Web: redirect directly to app subdomain
         if (kIsWeb) {
-          final hostname = html.window.location.hostname;
-          if (hostname == 'ppspsched.lat' || hostname == 'www.ppspsched.lat') {
-            // Redirect to app subdomain
-            html.window.location.href = 'https://app.ppspsched.lat/calendar';
-            return;
+          try {
+            final hostname = html.window.location.hostname;
+            if (hostname == 'ppspsched.lat' || hostname == 'www.ppspsched.lat') {
+              // Redirect to app subdomain
+              html.window.location.href = 'https://app.ppspsched.lat/calendar';
+              return;
+            }
+          } catch (e) {
+            // Ignore on non-web platforms
           }
         }
 

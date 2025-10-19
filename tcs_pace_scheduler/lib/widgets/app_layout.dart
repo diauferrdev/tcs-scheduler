@@ -116,10 +116,15 @@ class _AppLayoutState extends State<AppLayout> {
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Row(
         children: [
-          // Logo - "Scheduler" em destaque, logo TCS pequena abaixo
+          // Logo - SVG do TCS Pace em cima, Scheduler grande embaixo
           Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
+              SvgPicture.asset(
+                isDark ? 'assets/logos/tcs-logo-w.svg' : 'assets/logos/tcs-logo-b.svg',
+                height: 10,
+              ),
+              const SizedBox(height: 2),
               Text(
                 'Scheduler',
                 style: TextStyle(
@@ -128,11 +133,6 @@ class _AppLayoutState extends State<AppLayout> {
                   letterSpacing: -0.5,
                   color: isDark ? Colors.white : Colors.black,
                 ),
-              ),
-              const SizedBox(height: 2),
-              SvgPicture.asset(
-                isDark ? 'assets/logos/tcs-logo-w.svg' : 'assets/logos/tcs-logo-b.svg',
-                height: 12,
               ),
             ],
           ),
@@ -183,9 +183,9 @@ class _AppLayoutState extends State<AppLayout> {
     final currentPath = GoRouterState.of(context).uri.path;
 
     return AnimatedContainer(
-      duration: const Duration(milliseconds: 250),
-      curve: Curves.easeInOutCubic,
-      width: _sidebarCollapsed ? 72 : 256,
+      duration: const Duration(milliseconds: 350),
+      curve: Curves.easeInOutCubicEmphasized,
+      width: _sidebarCollapsed ? 64 : 205,
       decoration: BoxDecoration(
         color: isDark ? Colors.black : Colors.white,
         border: Border(
@@ -196,9 +196,51 @@ class _AppLayoutState extends State<AppLayout> {
       ),
       child: Column(
         children: [
-          // Toggle button
+          const SizedBox(height: 8),
+          // Menu items with overflow protection
+          Expanded(
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                return SingleChildScrollView(
+                  physics: const BouncingScrollPhysics(),
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      minHeight: constraints.maxHeight,
+                      maxWidth: constraints.maxWidth,
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: menuItems.map((item) {
+                          final isActive = currentPath == item['path'];
+                          return _buildMenuItem(
+                            context,
+                            item['label'] as String,
+                            item['icon'] as IconData,
+                            item['path'] as String,
+                            isActive,
+                            isDark,
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+          // Toggle button at bottom
           Container(
             padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              border: Border(
+                top: BorderSide(
+                  color: isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
+                  width: 1,
+                ),
+              ),
+            ),
             child: Material(
               color: Colors.transparent,
               borderRadius: BorderRadius.circular(8),
@@ -211,37 +253,22 @@ class _AppLayoutState extends State<AppLayout> {
                 borderRadius: BorderRadius.circular(8),
                 child: Container(
                   width: double.infinity,
-                  padding: EdgeInsets.symmetric(
-                    horizontal: _sidebarCollapsed ? 12 : 8,
-                    vertical: 8,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
                   ),
-                  child: Icon(
-                    _sidebarCollapsed ? Icons.chevron_right : Icons.chevron_left,
-                    size: 20,
-                    color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
+                  decoration: BoxDecoration(
+                    color: (isDark ? const Color(0xFF27272A) : const Color(0xFFF3F4F6)),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Center(
+                    child: Icon(
+                      _sidebarCollapsed ? Icons.chevron_right : Icons.chevron_left,
+                      size: 20,
+                      color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
+                    ),
                   ),
                 ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 8),
-          // Menu items
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              child: Column(
-                children: menuItems.map((item) {
-                  final isActive = currentPath == item['path'];
-                  return _buildMenuItem(
-                    context,
-                    item['label'] as String,
-                    item['icon'] as IconData,
-                    item['path'] as String,
-                    isActive,
-                    isDark,
-                    collapsed: _sidebarCollapsed,
-                  );
-                }).toList(),
               ),
             ),
           ),
@@ -287,65 +314,80 @@ class _AppLayoutState extends State<AppLayout> {
     IconData icon,
     String path,
     bool isActive,
-    bool isDark, {
-    bool collapsed = false,
-  }) {
+    bool isDark,
+  ) {
+    final iconColor = isActive
+        ? (isDark ? Colors.black : Colors.white)
+        : (isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280));
+
+    final bgColor = isActive
+        ? (isDark ? Colors.white : Colors.black)
+        : Colors.transparent;
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
-      child: Material(
-        color: Colors.transparent,
-        child: Tooltip(
-          message: collapsed ? label : '',
+      child: Tooltip(
+        message: _sidebarCollapsed ? label : '',
+        waitDuration: const Duration(milliseconds: 600),
+        child: Material(
+          color: Colors.transparent,
+          borderRadius: BorderRadius.circular(12),
           child: InkWell(
             onTap: () => context.go(path),
             borderRadius: BorderRadius.circular(12),
             child: AnimatedContainer(
-              duration: const Duration(milliseconds: 250),
-              curve: Curves.easeInOutCubic,
+              duration: const Duration(milliseconds: 350),
+              curve: Curves.easeInOutCubicEmphasized,
+              height: 44,
               padding: EdgeInsets.symmetric(
-                horizontal: collapsed ? 12 : 16,
-                vertical: 12,
+                horizontal: _sidebarCollapsed ? 0 : 12,
+                vertical: 0,
               ),
               decoration: BoxDecoration(
-                color: isActive
-                    ? (isDark ? Colors.white : Colors.black)
-                    : Colors.transparent,
+                color: bgColor,
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: collapsed
-                  ? Center(
+              clipBehavior: Clip.hardEdge,
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  // Show icon only if width is less than 90px (collapsed state + animation)
+                  if (constraints.maxWidth < 90) {
+                    return Center(
                       child: Icon(
                         icon,
                         size: 20,
-                        color: isActive
-                            ? (isDark ? Colors.black : Colors.white)
-                            : (isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280)),
+                        color: iconColor,
                       ),
-                    )
-                  : Row(
-                      children: [
-                        Icon(
-                          icon,
-                          size: 20,
-                          color: isActive
-                              ? (isDark ? Colors.black : Colors.white)
-                              : (isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280)),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            label,
-                            style: TextStyle(
-                              fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
-                              color: isActive
-                                  ? (isDark ? Colors.black : Colors.white)
-                                  : (isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280)),
-                            ),
-                            overflow: TextOverflow.ellipsis,
+                    );
+                  }
+                  // Show full row when expanded - aligned to left
+                  return Row(
+                    mainAxisSize: MainAxisSize.max,
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Icon(
+                        icon,
+                        size: 20,
+                        color: iconColor,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          label,
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
+                            color: iconColor,
+                            letterSpacing: -0.2,
                           ),
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 1,
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
+                  );
+                },
+              ),
             ),
           ),
         ),

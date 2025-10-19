@@ -65,6 +65,8 @@ dependencies:
 
   # Charts
   fl_chart: ^0.70.1
+  syncfusion_flutter_charts: ^28.1.33
+  syncfusion_flutter_gauges: ^28.1.33
 
   # QR Code & Sharing
   qr_flutter: ^4.1.0
@@ -141,6 +143,7 @@ flutter:
   assets:
     - assets/images/
     - assets/logos/
+    - assets/icons/
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
