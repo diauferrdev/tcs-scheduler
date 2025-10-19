@@ -458,7 +458,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     return Container(
       height: 140,
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF18181B) : Colors.white,
         borderRadius: BorderRadius.circular(12),
@@ -467,57 +467,82 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ),
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             'Most Popular',
             style: TextStyle(
-              fontSize: 10,
+              fontSize: 11,
               color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 16),
           Expanded(
-            child: Stack(
-              alignment: Alignment.center,
+            child: Row(
               children: [
+                // Chart on the left
                 SizedBox(
-                  width: 60,
-                  height: 60,
-                  child: CircularProgressIndicator(
-                    value: popular.$2 / total,
-                    strokeWidth: 6,
-                    backgroundColor: isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
-                    valueColor: AlwaysStoppedAnimation<Color>(popular.$3),
+                  width: 65,
+                  height: 65,
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      SizedBox(
+                        width: 65,
+                        height: 65,
+                        child: CircularProgressIndicator(
+                          value: popular.$2 / total,
+                          strokeWidth: 7,
+                          backgroundColor: isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
+                          valueColor: AlwaysStoppedAnimation<Color>(popular.$3),
+                        ),
+                      ),
+                      Icon(
+                        Icons.star,
+                        size: 28,
+                        color: popular.$3,
+                      ),
+                    ],
                   ),
                 ),
-                Icon(
-                  Icons.star,
-                  size: 24,
-                  color: popular.$3,
+                const SizedBox(width: 16),
+                // Data on the right
+                Expanded(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        popular.$1,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                          color: isDark ? Colors.white : Colors.black,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '${popular.$2} visits',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: popular.$3,
+                        ),
+                      ),
+                      Text(
+                        '${percentage.toStringAsFixed(0)}% of total',
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            popular.$1,
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.bold,
-              color: isDark ? Colors.white : Colors.black,
-            ),
-            textAlign: TextAlign.center,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-          Text(
-            '${popular.$2} visits (${percentage.toStringAsFixed(0)}%)',
-            style: TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
-              color: popular.$3,
-            ),
-            textAlign: TextAlign.center,
           ),
         ],
       ),
@@ -534,12 +559,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final peak = sorted.first;
     final maxValue = sorted.first.value;
 
-    // Get top 3 times for mini chart
-    final top3 = sorted.take(3).toList();
+    // Get top 5 times for visualization
+    final top5 = sorted.take(5).toList();
 
     return Container(
       height: 140,
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF18181B) : Colors.white,
         borderRadius: BorderRadius.circular(12),
@@ -548,76 +573,96 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ),
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Text(
+            'Peak Time',
+            style: TextStyle(
+              fontSize: 11,
+              color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
+            ),
+          ),
+          const SizedBox(height: 12),
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Text(
-                'Peak Time',
-                style: TextStyle(
-                  fontSize: 10,
-                  color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
+              // Time display - large and bold
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    peak.key,
+                    style: TextStyle(
+                      fontSize: 32,
+                      fontWeight: FontWeight.bold,
+                      color: const Color(0xFF06B6D4),
+                      height: 1.0,
+                      letterSpacing: -0.5,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    '${peak.value} bookings',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(width: 20),
+              // Compact horizontal bars
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: top5.map((item) {
+                    final width = (item.value / maxValue);
+                    final isPeak = item.key == peak.key;
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 2),
+                      child: Row(
+                        children: [
+                          SizedBox(
+                            width: 30,
+                            child: Text(
+                              item.key,
+                              style: TextStyle(
+                                fontSize: 8,
+                                color: isPeak
+                                  ? const Color(0xFF06B6D4)
+                                  : (isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280)),
+                                fontWeight: isPeak ? FontWeight.bold : FontWeight.normal,
+                              ),
+                            ),
+                          ),
+                          Expanded(
+                            child: Container(
+                              height: 6,
+                              decoration: BoxDecoration(
+                                color: isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
+                                borderRadius: BorderRadius.circular(3),
+                              ),
+                              child: FractionallySizedBox(
+                                alignment: Alignment.centerLeft,
+                                widthFactor: width,
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    color: isPeak
+                                      ? const Color(0xFF06B6D4)
+                                      : (isDark ? const Color(0xFF3F3F46) : const Color(0xFFD1D5DB)),
+                                    borderRadius: BorderRadius.circular(3),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }).toList(),
                 ),
               ),
-              Icon(
-                Icons.access_time,
-                size: 16,
-                color: const Color(0xFF06B6D4),
-              ),
             ],
-          ),
-          const SizedBox(height: 12),
-          Text(
-            peak.key,
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              color: isDark ? Colors.white : Colors.black,
-              letterSpacing: 1.2,
-            ),
-          ),
-          Text(
-            '${peak.value} bookings',
-            style: const TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              color: Color(0xFF06B6D4),
-            ),
-          ),
-          const SizedBox(height: 12),
-          Expanded(
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: top3.asMap().entries.map((entry) {
-                final index = entry.key;
-                final item = entry.value;
-                final height = (item.value / maxValue * 30).clamp(8.0, 30.0);
-                return Column(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    Container(
-                      width: 16,
-                      height: height,
-                      decoration: BoxDecoration(
-                        color: index == 0
-                          ? const Color(0xFF06B6D4)
-                          : (isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB)),
-                        borderRadius: const BorderRadius.vertical(top: Radius.circular(2)),
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      item.key.substring(0, 2),
-                      style: TextStyle(
-                        fontSize: 8,
-                        color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
-                      ),
-                    ),
-                  ],
-                );
-              }).toList(),
-            ),
           ),
         ],
       ),
