@@ -10,12 +10,11 @@ const isProduction = process.env.NODE_ENV === 'production';
 export const lucia = new Lucia(adapter, {
   sessionCookie: {
     attributes: {
-      // Secure must be true when sameSite is 'none' (required by iOS Safari)
-      // Also enable for production environments
-      secure: isNgrok || isProduction,
-      // SameSite 'none' required for cross-origin cookies (ngrok)
-      // iOS Safari strictly enforces secure=true when sameSite='none'
-      sameSite: isNgrok ? 'none' : 'lax',
+      // Always secure in production
+      secure: isProduction,
+      // SameSite 'none' allows cross-origin cookies (localhost:3005 -> api.ppspsched.lat)
+      // This enables development via localhost while API is on production domain
+      sameSite: 'none',
     },
   },
   getUserAttributes: (attributes) => ({

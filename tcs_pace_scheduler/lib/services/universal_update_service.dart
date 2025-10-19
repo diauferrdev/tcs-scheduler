@@ -20,6 +20,12 @@ class UniversalUpdateService {
   /// Check for updates IMMEDIATELY after login
   /// Blocks UI if app is outdated to prevent bugs
   Future<void> checkForUpdate(BuildContext context) async {
+    // Skip update check for web - web apps auto-update on reload
+    if (kIsWeb) {
+      debugPrint('[Update] Skipping update check on web platform');
+      return;
+    }
+
     if (_isChecking) {
       debugPrint('[Update] Already checking, skipping');
       return;

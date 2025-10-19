@@ -28,26 +28,21 @@ const app = new Hono<AppContext>();
 
 app.use('*', logger());
 
-// CORS Configuration - Strict in production
+// CORS Configuration - Allow production domains and localhost for testing
 const allowedOrigins = [
   process.env.FRONTEND_URL || 'https://ppspsched.lat',
   'https://ppspsched.lat',
   'https://www.ppspsched.lat',
   'https://app.ppspsched.lat',
   'https://api.ppspsched.lat',
+  // Always allow localhost for development and testing
+  'http://localhost:3000',
+  'http://localhost:3005',
+  'http://localhost:5173',
+  'http://127.0.0.1:3000',
+  'http://127.0.0.1:3005',
+  'http://127.0.0.1:5173',
 ];
-
-// Only allow localhost in development
-if (process.env.NODE_ENV !== 'production') {
-  allowedOrigins.push(
-    'http://localhost:3000',
-    'http://localhost:3005',
-    'http://localhost:5173',
-    'http://127.0.0.1:3000',
-    'http://127.0.0.1:3005',
-    'http://127.0.0.1:5173',
-  );
-}
 
 app.use('*', cors({
   origin: (origin) => {
