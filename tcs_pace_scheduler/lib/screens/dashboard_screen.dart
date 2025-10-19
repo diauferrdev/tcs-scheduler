@@ -115,6 +115,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
             _buildStatCardsGrid(isDark, screenWidth),
             const SizedBox(height: 24),
 
+            // Mini Insights Row (Desktop only)
+            if (screenWidth >= 1024) ...[
+              _buildMiniInsightsRow(isDark, screenWidth),
+              const SizedBox(height: 24),
+            ],
+
             // Charts Grid
             _buildChartsGrid(isDark, screenWidth),
             const SizedBox(height: 24),
@@ -256,6 +262,302 @@ class _DashboardScreenState extends State<DashboardScreen> {
           }).toList(),
         );
       },
+    );
+  }
+
+  Widget _buildMiniInsightsRow(bool isDark, double screenWidth) {
+    if (_loading || _stats == null) {
+      return const SizedBox.shrink();
+    }
+
+    final total = _stats!.statusDistribution.pending +
+        _stats!.statusDistribution.approved +
+        _stats!.statusDistribution.notApproved;
+    final approvalRate = total > 0
+        ? (_stats!.statusDistribution.approved / total * 100)
+        : 0.0;
+
+    return Row(
+      children: [
+        Expanded(child: _buildApprovalRateGauge(isDark, approvalRate)),
+        const SizedBox(width: 16),
+        Expanded(child: _buildStatusFunnel(isDark)),
+        const SizedBox(width: 16),
+        Expanded(child: _buildMostPopularVisit(isDark)),
+        const SizedBox(width: 16),
+        Expanded(child: _buildPeakTimeCard(isDark)),
+      ],
+    );
+  }
+
+  Widget _buildApprovalRateGauge(bool isDark, double approvalRate) {
+    return Container(
+      height: 140,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF18181B) : Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
+        ),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(
+            'Approval Rate',
+            style: TextStyle(
+              fontSize: 11,
+              color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Stack(
+            alignment: Alignment.center,
+            children: [
+              SizedBox(
+                width: 70,
+                height: 70,
+                child: CircularProgressIndicator(
+                  value: approvalRate / 100,
+                  strokeWidth: 8,
+                  backgroundColor: isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                    approvalRate >= 70 ? const Color(0xFF10B981) :
+                    approvalRate >= 50 ? const Color(0xFFF59E0B) :
+                    const Color(0xFFEF4444),
+                  ),
+                ),
+              ),
+              Text(
+                '${approvalRate.toStringAsFixed(0)}%',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: isDark ? Colors.white : Colors.black,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatusFunnel(bool isDark) {
+    if (_stats == null) return const SizedBox.shrink();
+
+    final breakdown = _stats!.statusBreakdown;
+    final total = breakdown.created + breakdown.underReview +
+                  breakdown.needEdit + breakdown.needReschedule +
+                  breakdown.approved + breakdown.notApproved;
+
+    return Container(
+      height: 140,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF18181B) : Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Conversion Funnel',
+            style: TextStyle(
+              fontSize: 11,
+              color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Expanded(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                _buildFunnelBar('Created', breakdown.created, total, const Color(0xFF3B82F6), isDark),
+                _buildFunnelBar('Review', breakdown.underReview, total, const Color(0xFF8B5CF6), isDark),
+                _buildFunnelBar('Approved', breakdown.approved, total, const Color(0xFF10B981), isDark),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFunnelBar(String label, int value, int total, Color color, bool isDark) {
+    final percentage = total > 0 ? value / total : 0.0;
+    return Row(
+      children: [
+        SizedBox(
+          width: 50,
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 9,
+              color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
+            ),
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+        Expanded(
+          child: Container(
+            height: 14,
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: FractionallySizedBox(
+              alignment: Alignment.centerLeft,
+              widthFactor: percentage,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: color,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 6),
+        SizedBox(
+          width: 20,
+          child: Text(
+            '$value',
+            style: TextStyle(
+              fontSize: 9,
+              fontWeight: FontWeight.bold,
+              color: isDark ? Colors.white : Colors.black,
+            ),
+            textAlign: TextAlign.right,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMostPopularVisit(bool isDark) {
+    if (_stats == null) return const SizedBox.shrink();
+
+    final dist = _stats!.visitTypeDistribution;
+    final types = [
+      ('PACE Tour', dist.paceTour, const Color(0xFF3B82F6)),
+      ('PACE Experience', dist.paceExperience, const Color(0xFF8B5CF6)),
+      ('Innovation Exch.', dist.innovationExchange, const Color(0xFF10B981)),
+      ('Quick Tour', dist.quickTour, const Color(0xFFF59E0B)),
+    ];
+    types.sort((a, b) => b.$2.compareTo(a.$2));
+    final popular = types.first;
+
+    return Container(
+      height: 140,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF18181B) : Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
+        ),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.star,
+            size: 32,
+            color: popular.$3,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Most Popular',
+            style: TextStyle(
+              fontSize: 10,
+              color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            popular.$1,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+              color: isDark ? Colors.white : Colors.black,
+            ),
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 2),
+          Text(
+            '${popular.$2} visits',
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+              color: popular.$3,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPeakTimeCard(bool isDark) {
+    if (_stats == null || _stats!.timeSlotDistribution.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    final sorted = _stats!.timeSlotDistribution.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    final peak = sorted.first;
+
+    return Container(
+      height: 140,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF18181B) : Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
+        ),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.access_time,
+            size: 32,
+            color: const Color(0xFF06B6D4),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Peak Time',
+            style: TextStyle(
+              fontSize: 10,
+              color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            peak.key,
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: isDark ? Colors.white : Colors.black,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            '${peak.value} bookings',
+            style: const TextStyle(
+              fontSize: 11,
+              color: Color(0xFF06B6D4),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
