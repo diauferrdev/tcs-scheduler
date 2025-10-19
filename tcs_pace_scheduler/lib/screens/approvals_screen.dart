@@ -175,37 +175,18 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
 
     return Container(
       color: isDark ? Colors.black : const Color(0xFFF9FAFB),
-      child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Header
-              Column(
+      child: _loading
+          ? Center(
+              child: CircularProgressIndicator(
+                color: isDark ? Colors.white : Colors.black,
+              ),
+            )
+          : SingleChildScrollView(
+              padding: const EdgeInsets.all(24),
+              child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'Bookings',
-                    style: TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
-                      color: isDark ? Colors.white : Colors.black,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Manage all booking requests',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
-                    ),
-                  ),
-                ],
-              ),
-
-              const SizedBox(height: 32),
-
-              // Error message
+                  // Error message
               if (_error != null)
                 Container(
                   padding: const EdgeInsets.all(16),
@@ -234,30 +215,7 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
                   ),
                 ),
 
-              // Loading state
-              if (_loading)
-                Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(48),
-                    child: Column(
-                      children: [
-                        CircularProgressIndicator(
-                          color: isDark ? Colors.white : Colors.black,
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          'Loading bookings...',
-                          style: TextStyle(
-                            color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                )
-
-              // Content
-              else
+                // Content
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [

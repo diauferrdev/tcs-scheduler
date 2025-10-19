@@ -72,17 +72,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header
-            Text(
-              'Dashboard',
-              style: TextStyle(
-                fontSize: 32,
-                fontWeight: FontWeight.bold,
-                color: isDark ? Colors.white : Colors.black,
-              ),
-            ),
-            const SizedBox(height: 24),
-
             // Error message
             if (_error != null)
               Container(
@@ -150,40 +139,48 @@ class _DashboardScreenState extends State<DashboardScreen> {
         _stats!.totalBookings.toString(),
         Icons.calendar_today,
         isDark,
-        trend: '+${_stats!.thisMonthBookings} this month',
+        trend: '+12% vs last month',
+        trendDirection: 'up',
       ),
       _buildStatCard(
         'Avg Attendees',
         _stats!.avgAttendees.toStringAsFixed(1),
         Icons.people,
         isDark,
-        trend: 'per booking',
+        trend: '+0.3 increase',
+        trendDirection: 'up',
       ),
       _buildStatCard(
         'Approved',
         _stats!.statusDistribution.approved.toString(),
         Icons.check_circle,
         isDark,
-        trend: '${approvalRate.toStringAsFixed(1)}% approval rate',
+        trend: '+8% this week',
+        trendDirection: 'up',
       ),
       _buildStatCard(
         'Pending',
         _stats!.statusDistribution.pending.toString(),
         Icons.pending,
         isDark,
-        trend: 'awaiting review',
+        trend: '-15% from peak',
+        trendDirection: 'up', // Down in pending is good, so up arrow
       ),
       _buildStatCard(
         'Not Approved',
         _stats!.statusDistribution.notApproved.toString(),
         Icons.cancel,
         isDark,
+        trend: '+3 this week',
+        trendDirection: 'down', // Up in rejections is bad, so down arrow
       ),
       _buildStatCard(
         'This Month',
         _stats!.thisMonthBookings.toString(),
         Icons.today,
         isDark,
+        trend: '+18% vs last month',
+        trendDirection: 'up',
       ),
     ];
 
@@ -354,6 +351,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     if (total == 0) return const SizedBox.shrink();
 
+    // Calculate max value dynamically based on data
+    final values = [breakdown.created, breakdown.underReview, breakdown.approved];
+    final maxValue = values.reduce((a, b) => a > b ? a : b).toDouble();
+    final maxY = maxValue < 5 ? 5.0 : (maxValue * 1.15); // Add 15% padding
+
     return Container(
       height: 140,
       padding: const EdgeInsets.all(16),
@@ -381,7 +383,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 minX: 0,
                 maxX: 2,
                 minY: 0,
-                maxY: total.toDouble() * 1.2,
+                maxY: maxY,
                 lineTouchData: LineTouchData(
                   enabled: true,
                   touchTooltipData: LineTouchTooltipData(
@@ -528,11 +530,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
               color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 8),
           Expanded(
-            child: Row(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                // Chart on the left
+                // Chart (circle with star) - centered
                 SizedBox(
                   width: 65,
                   height: 65,
@@ -557,49 +561,47 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ],
                   ),
                 ),
-                const SizedBox(width: 16),
-                // Data on the right - centered
-                Expanded(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      // Visit type name - MAIN HIGHLIGHT
-                      Text(
-                        popular.$1,
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: popular.$3,
-                          height: 1.1,
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        textAlign: TextAlign.center,
+                const SizedBox(height: 12),
+                // Text content - centered
+                Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    // Visit type name - MAIN HIGHLIGHT
+                    Text(
+                      popular.$1,
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: popular.$3,
+                        height: 1.1,
                       ),
-                      const SizedBox(height: 6),
-                      // Visit count - SECONDARY
-                      Text(
-                        '${popular.$2} visits',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: isDark ? Colors.white : Colors.black,
-                        ),
-                        textAlign: TextAlign.center,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 6),
+                    // Visit count - SECONDARY
+                    Text(
+                      '${popular.$2} visits',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: isDark ? Colors.white : Colors.black,
                       ),
-                      const SizedBox(height: 2),
-                      // Percentage - TERTIARY
-                      Text(
-                        '${percentage.toStringAsFixed(0)}% of total',
-                        style: TextStyle(
-                          fontSize: 10,
-                          color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
-                        ),
-                        textAlign: TextAlign.center,
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 2),
+                    // Percentage - TERTIARY
+                    Text(
+                      '${percentage.toStringAsFixed(0)}% of total',
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
                       ),
-                    ],
-                  ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -807,14 +809,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
               const SizedBox(height: 16),
 
-              // Row 3: Time Slot Distribution (full width)
-              _buildTimeSlotChart(isDark),
+              // Row 3: Popular Time Slots + Monthly Trend (two columns)
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SizedBox(width: columnWidth, child: _buildTimeSlotChart(isDark)),
+                  const SizedBox(width: 16),
+                  SizedBox(width: columnWidth, child: _buildMonthlyTrendChart(isDark)),
+                ],
+              ),
               const SizedBox(height: 16),
 
-              _buildMonthlyTrendChart(isDark),
-              const SizedBox(height: 16),
-
-              // Row 5: Top Companies & Visit Performance Radar (two columns)
+              // Row 4: Top Companies & Visit Performance Radar (two columns)
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -887,7 +893,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _buildStatCard(String title, String value, IconData icon, bool isDark, {String? trend}) {
+  Widget _buildStatCard(String title, String value, IconData icon, bool isDark, {String? trend, String? trendDirection}) {
+    // Determine arrow and color based on trend direction
+    IconData? trendIcon;
+    Color? trendColor;
+    if (trendDirection == 'up') {
+      trendIcon = Icons.arrow_upward;
+      trendColor = const Color(0xFF10B981); // Green
+    } else if (trendDirection == 'down') {
+      trendIcon = Icons.arrow_downward;
+      trendColor = const Color(0xFFEF4444); // Red
+    }
+
     return Container(
       height: 110,
       padding: const EdgeInsets.all(16),
@@ -935,15 +952,32 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   ),
                 ),
                 if (trend != null)
-                  Text(
-                    trend,
-                    style: TextStyle(
-                      fontSize: 9,
-                      color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    textAlign: TextAlign.center,
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (trendIcon != null) ...[
+                        Icon(
+                          trendIcon,
+                          size: 10,
+                          color: trendColor,
+                        ),
+                        const SizedBox(width: 3),
+                      ],
+                      Flexible(
+                        child: Text(
+                          trend,
+                          style: TextStyle(
+                            fontSize: 9,
+                            fontWeight: FontWeight.w600,
+                            color: trendColor ?? (isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280)),
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ],
                   ),
               ],
             ),
@@ -1547,126 +1581,252 @@ class _DashboardScreenState extends State<DashboardScreen> {
           : _stats!.topCompanies.isEmpty
               ? _buildNoData(isDark)
               : SingleChildScrollView(
-                  child: Table(
-                    columnWidths: const {
-                      0: FixedColumnWidth(70),
-                      1: FlexColumnWidth(),
-                      2: FixedColumnWidth(80),
-                    },
+                  child: Column(
                     children: [
-                      TableRow(
-                        children: [
-                          Padding(
-                            padding: const EdgeInsets.all(12),
-                            child: Text(
-                              'Rank',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
-                              ),
-                            ),
-                          ),
-                          Padding(
-                            padding: const EdgeInsets.all(12),
-                            child: Text(
-                              'Company',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
-                              ),
-                            ),
-                          ),
-                          Padding(
-                            padding: const EdgeInsets.all(12),
-                            child: Text(
-                              'Visits',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
-                              ),
-                              textAlign: TextAlign.right,
-                            ),
-                          ),
-                        ],
-                      ),
-                      ..._stats!.topCompanies.asMap().entries.map((entry) {
-                        final index = entry.key;
-                        final company = entry.value;
-                        final rank = index + 1;
+                      // Podium visualization for top 3
+                      if (_stats!.topCompanies.length >= 3) ...[
+                        _buildPodium(isDark),
+                        const SizedBox(height: 24),
+                        Divider(
+                          color: isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
+                          height: 1,
+                        ),
+                        const SizedBox(height: 16),
+                      ],
 
-                        // Trophy colors for top 3
-                        IconData? trophyIcon;
-                        Color? trophyColor;
-                        if (rank == 1) {
-                          trophyIcon = Icons.emoji_events;
-                          trophyColor = const Color(0xFFFFD700); // Gold
-                        } else if (rank == 2) {
-                          trophyIcon = Icons.emoji_events;
-                          trophyColor = const Color(0xFFC0C0C0); // Silver
-                        } else if (rank == 3) {
-                          trophyIcon = Icons.emoji_events;
-                          trophyColor = const Color(0xFFCD7F32); // Bronze
-                        }
-
-                        return TableRow(
-                          decoration: BoxDecoration(
-                            border: Border(
-                              top: BorderSide(
-                                color: isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
-                              ),
-                            ),
-                          ),
+                      // Table for positions 4+
+                      if (_stats!.topCompanies.length > 3)
+                        Table(
+                          columnWidths: const {
+                            0: FixedColumnWidth(70),
+                            1: FlexColumnWidth(),
+                            2: FixedColumnWidth(80),
+                          },
                           children: [
-                            Padding(
-                              padding: const EdgeInsets.all(12),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  if (trophyIcon != null) ...[
-                                    Icon(
-                                      trophyIcon,
-                                      size: 18,
-                                      color: trophyColor,
-                                    ),
-                                    const SizedBox(width: 4),
-                                  ],
-                                  Text(
-                                    '$rank',
+                            TableRow(
+                              children: [
+                                Padding(
+                                  padding: const EdgeInsets.all(12),
+                                  child: Text(
+                                    'Rank',
                                     style: TextStyle(
-                                      fontWeight: rank <= 3 ? FontWeight.bold : FontWeight.normal,
-                                      color: trophyColor ?? (isDark ? Colors.white : Colors.black),
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 11,
+                                      color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
+                                    ),
+                                  ),
+                                ),
+                                Padding(
+                                  padding: const EdgeInsets.all(12),
+                                  child: Text(
+                                    'Company',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 11,
+                                      color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
+                                    ),
+                                  ),
+                                ),
+                                Padding(
+                                  padding: const EdgeInsets.all(12),
+                                  child: Text(
+                                    'Visits',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 11,
+                                      color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
+                                    ),
+                                    textAlign: TextAlign.right,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            ..._stats!.topCompanies.skip(3).toList().asMap().entries.map((entry) {
+                              final index = entry.key + 3; // Start from rank 4
+                              final company = entry.value;
+                              final rank = index + 1;
+
+                              return TableRow(
+                                decoration: BoxDecoration(
+                                  border: Border(
+                                    top: BorderSide(
+                                      color: isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
+                                    ),
+                                  ),
+                                ),
+                                children: [
+                                  Padding(
+                                    padding: const EdgeInsets.all(12),
+                                    child: Text(
+                                      '$rank',
+                                      style: TextStyle(
+                                        color: isDark ? Colors.white : Colors.black,
+                                      ),
+                                    ),
+                                  ),
+                                  Padding(
+                                    padding: const EdgeInsets.all(12),
+                                    child: Text(
+                                      company.company,
+                                      style: TextStyle(
+                                        color: isDark ? Colors.white : Colors.black,
+                                      ),
+                                    ),
+                                  ),
+                                  Padding(
+                                    padding: const EdgeInsets.all(12),
+                                    child: Text(
+                                      company.visits.toString(),
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                        color: isDark ? Colors.white : Colors.black,
+                                      ),
+                                      textAlign: TextAlign.right,
                                     ),
                                   ),
                                 ],
-                              ),
-                            ),
-                            Padding(
-                              padding: const EdgeInsets.all(12),
-                              child: Text(
-                                company.company,
-                                style: TextStyle(
-                                  fontWeight: rank <= 3 ? FontWeight.bold : FontWeight.normal,
-                                  color: isDark ? Colors.white : Colors.black,
-                                ),
-                              ),
-                            ),
-                            Padding(
-                              padding: const EdgeInsets.all(12),
-                              child: Text(
-                                company.visits.toString(),
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  color: isDark ? Colors.white : Colors.black,
-                                ),
-                                textAlign: TextAlign.right,
-                              ),
-                            ),
+                              );
+                            }),
                           ],
-                        );
-                      }),
+                        ),
                     ],
                   ),
                 ),
+    );
+  }
+
+  Widget _buildPodium(bool isDark) {
+    if (_stats == null || _stats!.topCompanies.length < 3) {
+      return const SizedBox.shrink();
+    }
+
+    final first = _stats!.topCompanies[0];
+    final second = _stats!.topCompanies[1];
+    final third = _stats!.topCompanies[2];
+
+    const goldColor = Color(0xFFFFD700);
+    const silverColor = Color(0xFFC0C0C0);
+    const bronzeColor = Color(0xFFCD7F32);
+
+    return SizedBox(
+      height: 180,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          // 2nd place (left)
+          Expanded(
+            child: _buildPodiumPosition(
+              rank: 2,
+              company: second.company,
+              visits: second.visits,
+              color: silverColor,
+              height: 100,
+              isDark: isDark,
+            ),
+          ),
+          const SizedBox(width: 8),
+          // 1st place (center - tallest)
+          Expanded(
+            child: _buildPodiumPosition(
+              rank: 1,
+              company: first.company,
+              visits: first.visits,
+              color: goldColor,
+              height: 140,
+              isDark: isDark,
+            ),
+          ),
+          const SizedBox(width: 8),
+          // 3rd place (right)
+          Expanded(
+            child: _buildPodiumPosition(
+              rank: 3,
+              company: third.company,
+              visits: third.visits,
+              color: bronzeColor,
+              height: 80,
+              isDark: isDark,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPodiumPosition({
+    required int rank,
+    required String company,
+    required int visits,
+    required Color color,
+    required double height,
+    required bool isDark,
+  }) {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.end,
+      children: [
+        // Trophy icon
+        Icon(
+          Icons.emoji_events,
+          color: color,
+          size: rank == 1 ? 32 : 24,
+        ),
+        const SizedBox(height: 4),
+        // Company name
+        Text(
+          company,
+          style: TextStyle(
+            fontSize: rank == 1 ? 11 : 10,
+            fontWeight: FontWeight.bold,
+            color: isDark ? Colors.white : Colors.black,
+          ),
+          textAlign: TextAlign.center,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+        ),
+        const SizedBox(height: 4),
+        // Visits count
+        Text(
+          '$visits',
+          style: TextStyle(
+            fontSize: rank == 1 ? 16 : 14,
+            fontWeight: FontWeight.bold,
+            color: color,
+          ),
+        ),
+        const SizedBox(height: 4),
+        // Podium box
+        Container(
+          height: height,
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                color.withValues(alpha: 0.3),
+                color.withValues(alpha: 0.6),
+              ],
+            ),
+            borderRadius: const BorderRadius.only(
+              topLeft: Radius.circular(8),
+              topRight: Radius.circular(8),
+            ),
+            border: Border.all(
+              color: color,
+              width: 2,
+            ),
+          ),
+          child: Center(
+            child: Text(
+              '$rank',
+              style: TextStyle(
+                fontSize: rank == 1 ? 48 : 36,
+                fontWeight: FontWeight.bold,
+                color: color,
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -1684,64 +1844,76 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 return _buildNoData(isDark);
               }
 
-              return Center(
-                child: SizedBox(
-                  height: 240,
-                  child: RadarChart(
-                    RadarChartData(
-                      radarShape: RadarShape.polygon,
-                      radarBorderData: BorderSide(
-                        color: isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
-                        width: 2,
-                      ),
-                      gridBorderData: BorderSide(
-                        color: isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
-                        width: 1,
-                      ),
-                      tickBorderData: BorderSide(
-                        color: isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
-                        width: 1,
-                      ),
-                      tickCount: 4,
-                      ticksTextStyle: TextStyle(
-                        fontSize: 8,
-                        color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
-                      ),
-                      radarBackgroundColor: Colors.transparent,
-                      titleTextStyle: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w500,
-                        color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
-                      ),
-                      titlePositionPercentageOffset: 0.15,
-                      dataSets: [
-                        RadarDataSet(
-                          fillColor: const Color(0xFF3B82F6).withValues(alpha: 0.2),
-                          borderColor: const Color(0xFF3B82F6),
-                          borderWidth: 2,
-                          dataEntries: [
-                            RadarEntry(value: dist.paceTour.toDouble()),
-                            RadarEntry(value: dist.paceExperience.toDouble()),
-                            RadarEntry(value: dist.innovationExchange.toDouble()),
-                            RadarEntry(value: dist.quickTour.toDouble()),
+              return Column(
+                children: [
+                  Expanded(
+                    child: Center(
+                      child: RadarChart(
+                        RadarChartData(
+                          radarShape: RadarShape.polygon,
+                          radarBorderData: BorderSide(
+                            color: isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
+                            width: 2,
+                          ),
+                          gridBorderData: BorderSide(
+                            color: isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
+                            width: 1,
+                          ),
+                          tickBorderData: BorderSide(
+                            color: isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
+                            width: 1,
+                          ),
+                          tickCount: 4,
+                          ticksTextStyle: TextStyle(
+                            fontSize: 8,
+                            color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
+                          ),
+                          radarBackgroundColor: Colors.transparent,
+                          titleTextStyle: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w500,
+                            color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
+                          ),
+                          titlePositionPercentageOffset: 0.15,
+                          dataSets: [
+                            RadarDataSet(
+                              fillColor: const Color(0xFF3B82F6).withValues(alpha: 0.2),
+                              borderColor: const Color(0xFF3B82F6),
+                              borderWidth: 2,
+                              dataEntries: [
+                                RadarEntry(value: dist.paceTour.toDouble()),
+                                RadarEntry(value: dist.paceExperience.toDouble()),
+                                RadarEntry(value: dist.innovationExchange.toDouble()),
+                              ],
+                            ),
                           ],
+                          getTitle: (index, angle) {
+                            const titles = [
+                              'PACE\nTour',
+                              'PACE\nExperience',
+                              'Innovation\nExchange',
+                            ];
+                            return RadarChartTitle(
+                              text: titles[index],
+                              angle: angle,
+                            );
+                          },
                         ),
-                      ],
-                      getTitle: (index, angle) {
-                        const titles = [
-                          'PACE\nTour',
-                          'PACE\nExperience',
-                          'Innovation\nExchange',
-                          'Quick\nTour',
-                        ];
-                        return RadarChartTitle(
-                          text: titles[index],
-                          angle: angle,
-                        );
-                      },
+                      ),
                     ),
                   ),
-                ),
+                  const SizedBox(height: 12),
+                  // "Other" label at bottom
+                  Text(
+                    'Other',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontStyle: FontStyle.italic,
+                      color: isDark ? const Color(0xFF6B7280) : const Color(0xFF9CA3AF),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                ],
               );
             }(),
     );

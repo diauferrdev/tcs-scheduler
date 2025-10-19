@@ -304,22 +304,21 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
 
     return Container(
       color: isDark ? Colors.black : const Color(0xFFF9FAFB),
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: _buildBody(isDark),
-      ),
+      child: _isLoading
+          ? Center(
+              child: CircularProgressIndicator(
+                color: isDark ? Colors.white : Colors.black,
+              ),
+            )
+          : SingleChildScrollView(
+              padding: const EdgeInsets.all(24),
+              child: _buildBody(isDark),
+            ),
     );
   }
 
 
   Widget _buildBody(bool isDark) {
-    if (_isLoading) {
-      return Center(
-        child: CircularProgressIndicator(
-          color: isDark ? Colors.white : Colors.black,
-        ),
-      );
-    }
 
     if (_error != null) {
       return Center(

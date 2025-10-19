@@ -116,40 +116,23 @@ class _AppLayoutState extends State<AppLayout> {
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Row(
         children: [
-          // Menu toggle button (Desktop only)
-          if (!isMobile) ...[
-            IconButton(
-              onPressed: () {
-                setState(() {
-                  _sidebarCollapsed = !_sidebarCollapsed;
-                });
-              },
-              icon: Icon(
-                _sidebarCollapsed ? Icons.menu : Icons.menu_open,
-                color: isDark ? Colors.white : Colors.black,
-              ),
-              tooltip: _sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar',
-            ),
-            const SizedBox(width: 8),
-          ],
-
-          // Logo - Column with SVG on top and "Scheduler" below
+          // Logo - "Scheduler" em destaque, logo TCS pequena abaixo
           Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              SvgPicture.asset(
-                isDark ? 'assets/logos/tcs-logo-w.svg' : 'assets/logos/tcs-logo-b.svg',
-                height: 28,
-              ),
-              const SizedBox(height: 2),
               Text(
                 'Scheduler',
                 style: TextStyle(
-                  fontSize: 9,
-                  fontWeight: FontWeight.w500,
-                  letterSpacing: 0.5,
-                  color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: -0.5,
+                  color: isDark ? Colors.white : Colors.black,
                 ),
+              ),
+              const SizedBox(height: 2),
+              SvgPicture.asset(
+                isDark ? 'assets/logos/tcs-logo-w.svg' : 'assets/logos/tcs-logo-b.svg',
+                height: 12,
               ),
             ],
           ),
@@ -211,20 +194,55 @@ class _AppLayoutState extends State<AppLayout> {
           ),
         ),
       ),
-      padding: const EdgeInsets.all(16),
       child: Column(
-        children: menuItems.map((item) {
-          final isActive = currentPath == item['path'];
-          return _buildMenuItem(
-            context,
-            item['label'] as String,
-            item['icon'] as IconData,
-            item['path'] as String,
-            isActive,
-            isDark,
-            collapsed: _sidebarCollapsed,
-          );
-        }).toList(),
+        children: [
+          // Toggle button
+          Container(
+            padding: const EdgeInsets.all(8),
+            child: Material(
+              color: Colors.transparent,
+              borderRadius: BorderRadius.circular(8),
+              child: InkWell(
+                onTap: () {
+                  setState(() {
+                    _sidebarCollapsed = !_sidebarCollapsed;
+                  });
+                },
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(8),
+                  child: Icon(
+                    _sidebarCollapsed ? Icons.chevron_right : Icons.chevron_left,
+                    size: 20,
+                    color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          // Menu items
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: Column(
+                children: menuItems.map((item) {
+                  final isActive = currentPath == item['path'];
+                  return _buildMenuItem(
+                    context,
+                    item['label'] as String,
+                    item['icon'] as IconData,
+                    item['path'] as String,
+                    isActive,
+                    isDark,
+                    collapsed: _sidebarCollapsed,
+                  );
+                }).toList(),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -281,7 +299,10 @@ class _AppLayoutState extends State<AppLayout> {
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 250),
               curve: Curves.easeInOutCubic,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              padding: EdgeInsets.symmetric(
+                horizontal: collapsed ? 0 : 16,
+                vertical: 12,
+              ),
               decoration: BoxDecoration(
                 color: isActive
                     ? (isDark ? Colors.white : Colors.black)
@@ -289,14 +310,12 @@ class _AppLayoutState extends State<AppLayout> {
                 borderRadius: BorderRadius.circular(12),
               ),
               child: collapsed
-                  ? Center(
-                      child: Icon(
-                        icon,
-                        size: 20,
-                        color: isActive
-                            ? (isDark ? Colors.black : Colors.white)
-                            : (isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280)),
-                      ),
+                  ? Icon(
+                      icon,
+                      size: 20,
+                      color: isActive
+                          ? (isDark ? Colors.black : Colors.white)
+                          : (isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280)),
                     )
                   : Row(
                       children: [
