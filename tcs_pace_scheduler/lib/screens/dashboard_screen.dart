@@ -163,16 +163,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
         _stats!.statusDistribution.pending.toString(),
         Icons.pending,
         isDark,
-        trend: '-15% from peak',
-        trendDirection: 'up', // Down in pending is good, so up arrow
+        trend: '15% below peak',
+        trendDirection: 'down', // Down in pending is good, so down arrow
       ),
       _buildStatCard(
         'Not Approved',
         _stats!.statusDistribution.notApproved.toString(),
         Icons.cancel,
         isDark,
-        trend: '+3 this week',
-        trendDirection: 'down', // Up in rejections is bad, so down arrow
+        trend: '3 rejections',
+        trendDirection: 'neutral',
       ),
       _buildStatCard(
         'This Month',
@@ -345,16 +345,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
     if (_stats == null) return const SizedBox.shrink();
 
     final breakdown = _stats!.statusBreakdown;
-    final total = breakdown.created + breakdown.underReview +
-                  breakdown.needEdit + breakdown.needReschedule +
-                  breakdown.approved + breakdown.notApproved;
+    final data = [
+      ('Created', breakdown.created, const Color(0xFF3B82F6)),
+      ('Review', breakdown.underReview, const Color(0xFFF59E0B)),
+      ('Approved', breakdown.approved, const Color(0xFF10B981)),
+    ];
 
-    if (total == 0) return const SizedBox.shrink();
-
-    // Calculate max value dynamically based on data
-    final values = [breakdown.created, breakdown.underReview, breakdown.approved];
-    final maxValue = values.reduce((a, b) => a > b ? a : b).toDouble();
-    final maxY = maxValue < 5 ? 5.0 : (maxValue * 1.15); // Add 15% padding
+    final maxValue = data.map((e) => e.$2).reduce((a, b) => a > b ? a : b);
+    if (maxValue == 0) return const SizedBox.shrink();
 
     return Container(
       height: 140,
@@ -376,116 +374,60 @@ class _DashboardScreenState extends State<DashboardScreen> {
               color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
             ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 8),
           Expanded(
-            child: LineChart(
-              LineChartData(
-                minX: 0,
-                maxX: 2,
-                minY: 0,
-                maxY: maxY,
-                lineTouchData: LineTouchData(
-                  enabled: true,
-                  touchTooltipData: LineTouchTooltipData(
-                    getTooltipColor: (touchedSpot) => isDark
-                        ? const Color(0xFF27272A)
-                        : const Color(0xFF1F2937),
-                    tooltipPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    getTooltipItem: (group, groupIndex, rod, rodIndex) {
-                      final labels = ['Created', 'Review', 'Approved'];
-                      final values = [breakdown.created, breakdown.underReview, breakdown.approved];
-                      return LineTooltipItem(
-                        '${labels[group.spotIndex]}\n${values[group.spotIndex]}',
-                        const TextStyle(
-                          color: Colors.white,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w500,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: data.map((item) {
+                final percentage = maxValue > 0 ? (item.$2 / maxValue) : 0.0;
+                return Expanded(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      Text(
+                        '${item.$2}',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: item.$3,
                         ),
-                      );
-                    },
-                  ),
-                ),
-                gridData: FlGridData(
-                  show: true,
-                  drawVerticalLine: false,
-                  horizontalInterval: (total / 3).ceilToDouble(),
-                  getDrawingHorizontalLine: (value) {
-                    return FlLine(
-                      color: isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
-                      strokeWidth: 1,
-                    );
-                  },
-                ),
-                titlesData: FlTitlesData(
-                  leftTitles: AxisTitles(
-                    sideTitles: SideTitles(
-                      showTitles: true,
-                      reservedSize: 28,
-                      interval: (total / 3).ceilToDouble(),
-                      getTitlesWidget: (value, meta) {
-                        if (value == 0 || value == meta.max) return const SizedBox.shrink();
-                        return Text(
-                          value.toInt().toString(),
-                          style: TextStyle(
-                            fontSize: 8,
-                            color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                  bottomTitles: AxisTitles(
-                    sideTitles: SideTitles(
-                      showTitles: true,
-                      reservedSize: 18,
-                      getTitlesWidget: (value, meta) {
-                        const labels = ['Created', 'Review', 'Approved'];
-                        if (value.toInt() >= 0 && value.toInt() < labels.length) {
-                          return Text(
-                            labels[value.toInt()],
-                            style: TextStyle(
-                              fontSize: 7,
-                              color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
+                      ),
+                      const SizedBox(height: 4),
+                      Expanded(
+                        child: Container(
+                          width: 32,
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.bottomCenter,
+                              end: Alignment.topCenter,
+                              colors: [
+                                item.$3,
+                                item.$3.withValues(alpha: 0.5),
+                              ],
                             ),
-                          );
-                        }
-                        return const SizedBox.shrink();
-                      },
-                    ),
-                  ),
-                  topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                  rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                ),
-                borderData: FlBorderData(show: false),
-                lineBarsData: [
-                  LineChartBarData(
-                    isCurved: true,
-                    color: const Color(0xFF10B981),
-                    barWidth: 3,
-                    isStrokeCapRound: true,
-                    dotData: FlDotData(
-                      show: true,
-                      getDotPainter: (spot, percent, barData, index) {
-                        return FlDotCirclePainter(
-                          radius: 4,
-                          color: const Color(0xFF10B981),
-                          strokeWidth: 2,
-                          strokeColor: isDark ? Colors.black : Colors.white,
-                        );
-                      },
-                    ),
-                    belowBarData: BarAreaData(
-                      show: true,
-                      color: const Color(0xFF10B981).withValues(alpha: 0.1),
-                    ),
-                    spots: [
-                      FlSpot(0, breakdown.created.toDouble()),
-                      FlSpot(1, breakdown.underReview.toDouble()),
-                      FlSpot(2, breakdown.approved.toDouble()),
+                            borderRadius: const BorderRadius.only(
+                              topLeft: Radius.circular(4),
+                              topRight: Radius.circular(4),
+                            ),
+                          ),
+                          alignment: Alignment.bottomCenter,
+                          margin: EdgeInsets.only(top: (1 - percentage) * 50),
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        item.$1,
+                        style: TextStyle(
+                          fontSize: 9,
+                          color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
                     ],
                   ),
-                ],
-              ),
+                );
+              }).toList(),
             ),
           ),
         ],
@@ -532,76 +474,75 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
           const SizedBox(height: 8),
           Expanded(
-            child: Column(
+            child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                // Chart (circle with star) - centered
+                // Chart (circle with star)
                 SizedBox(
-                  width: 65,
-                  height: 65,
+                  width: 60,
+                  height: 60,
                   child: Stack(
                     alignment: Alignment.center,
                     children: [
                       SizedBox(
-                        width: 65,
-                        height: 65,
+                        width: 60,
+                        height: 60,
                         child: CircularProgressIndicator(
                           value: popular.$2 / total,
-                          strokeWidth: 7,
+                          strokeWidth: 6,
                           backgroundColor: isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
                           valueColor: AlwaysStoppedAnimation<Color>(popular.$3),
                         ),
                       ),
                       Icon(
                         Icons.star,
-                        size: 28,
+                        size: 24,
                         color: popular.$3,
                       ),
                     ],
                   ),
                 ),
-                const SizedBox(height: 12),
-                // Text content - centered
-                Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    // Visit type name - MAIN HIGHLIGHT
-                    Text(
-                      popular.$1,
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: popular.$3,
-                        height: 1.1,
+                const SizedBox(width: 16),
+                // Text content
+                Expanded(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Visit type name
+                      Text(
+                        popular.$1,
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: popular.$3,
+                          height: 1.2,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 6),
-                    // Visit count - SECONDARY
-                    Text(
-                      '${popular.$2} visits',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: isDark ? Colors.white : Colors.black,
+                      const SizedBox(height: 4),
+                      // Visit count
+                      Text(
+                        '${popular.$2} visits',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: isDark ? Colors.white : Colors.black,
+                        ),
                       ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 2),
-                    // Percentage - TERTIARY
-                    Text(
-                      '${percentage.toStringAsFixed(0)}% of total',
-                      style: TextStyle(
-                        fontSize: 10,
-                        color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
+                      const SizedBox(height: 2),
+                      // Percentage
+                      Text(
+                        '${percentage.toStringAsFixed(0)}% of total',
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
+                        ),
                       ),
-                      textAlign: TextAlign.center,
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -902,7 +843,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
       trendColor = const Color(0xFF10B981); // Green
     } else if (trendDirection == 'down') {
       trendIcon = Icons.arrow_downward;
-      trendColor = const Color(0xFFEF4444); // Red
+      trendColor = const Color(0xFF10B981); // Green (down is good for pending)
+    } else if (trendDirection == 'neutral') {
+      trendIcon = null;
+      trendColor = isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280); // Gray
     }
 
     return Container(
@@ -1708,8 +1652,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
     const silverColor = Color(0xFFC0C0C0);
     const bronzeColor = Color(0xFFCD7F32);
 
-    return SizedBox(
-      height: 180,
+    return Container(
+      height: 220,
+      padding: const EdgeInsets.symmetric(vertical: 16),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
@@ -1720,11 +1665,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
               company: second.company,
               visits: second.visits,
               color: silverColor,
-              height: 100,
+              height: 90,
               isDark: isDark,
             ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 12),
           // 1st place (center - tallest)
           Expanded(
             child: _buildPodiumPosition(
@@ -1732,11 +1677,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
               company: first.company,
               visits: first.visits,
               color: goldColor,
-              height: 140,
+              height: 130,
               isDark: isDark,
             ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 12),
           // 3rd place (right)
           Expanded(
             child: _buildPodiumPosition(
@@ -1744,7 +1689,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               company: third.company,
               visits: third.visits,
               color: bronzeColor,
-              height: 80,
+              height: 70,
               isDark: isDark,
             ),
           ),
@@ -1764,18 +1709,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return Column(
       mainAxisAlignment: MainAxisAlignment.end,
       children: [
-        // Trophy icon
-        Icon(
-          Icons.emoji_events,
-          color: color,
-          size: rank == 1 ? 32 : 24,
+        // Trophy icon with glow
+        Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.15),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(
+            Icons.emoji_events,
+            color: color,
+            size: rank == 1 ? 36 : 28,
+          ),
         ),
-        const SizedBox(height: 4),
+        const SizedBox(height: 8),
         // Company name
         Text(
           company,
           style: TextStyle(
-            fontSize: rank == 1 ? 11 : 10,
+            fontSize: rank == 1 ? 12 : 10,
             fontWeight: FontWeight.bold,
             color: isDark ? Colors.white : Colors.black,
           ),
@@ -1786,15 +1738,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
         const SizedBox(height: 4),
         // Visits count
         Text(
-          '$visits',
+          '$visits visits',
           style: TextStyle(
-            fontSize: rank == 1 ? 16 : 14,
-            fontWeight: FontWeight.bold,
+            fontSize: rank == 1 ? 14 : 12,
+            fontWeight: FontWeight.w600,
             color: color,
           ),
         ),
-        const SizedBox(height: 4),
-        // Podium box
+        const SizedBox(height: 8),
+        // Podium box with improved design
         Container(
           height: height,
           decoration: BoxDecoration(
@@ -1802,28 +1754,54 @@ class _DashboardScreenState extends State<DashboardScreen> {
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
               colors: [
-                color.withValues(alpha: 0.3),
-                color.withValues(alpha: 0.6),
+                color.withValues(alpha: 0.4),
+                color.withValues(alpha: 0.7),
               ],
             ),
             borderRadius: const BorderRadius.only(
-              topLeft: Radius.circular(8),
-              topRight: Radius.circular(8),
+              topLeft: Radius.circular(12),
+              topRight: Radius.circular(12),
             ),
             border: Border.all(
               color: color,
-              width: 2,
+              width: 3,
             ),
-          ),
-          child: Center(
-            child: Text(
-              '$rank',
-              style: TextStyle(
-                fontSize: rank == 1 ? 48 : 36,
-                fontWeight: FontWeight.bold,
-                color: color,
+            boxShadow: [
+              BoxShadow(
+                color: color.withValues(alpha: 0.3),
+                blurRadius: 8,
+                spreadRadius: 0,
+                offset: const Offset(0, 4),
               ),
-            ),
+            ],
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              // Rank badge at top
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                decoration: BoxDecoration(
+                  color: color,
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.2),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Text(
+                  '#$rank',
+                  style: TextStyle(
+                    fontSize: rank == 1 ? 24 : 20,
+                    fontWeight: FontWeight.bold,
+                    color: isDark ? Colors.black : Colors.white,
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ],
@@ -1844,76 +1822,73 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 return _buildNoData(isDark);
               }
 
-              return Column(
-                children: [
-                  Expanded(
-                    child: Center(
-                      child: RadarChart(
-                        RadarChartData(
-                          radarShape: RadarShape.polygon,
-                          radarBorderData: BorderSide(
-                            color: isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
-                            width: 2,
-                          ),
-                          gridBorderData: BorderSide(
-                            color: isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
-                            width: 1,
-                          ),
-                          tickBorderData: BorderSide(
-                            color: isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
-                            width: 1,
-                          ),
-                          tickCount: 4,
-                          ticksTextStyle: TextStyle(
-                            fontSize: 8,
-                            color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
-                          ),
-                          radarBackgroundColor: Colors.transparent,
-                          titleTextStyle: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w500,
-                            color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
-                          ),
-                          titlePositionPercentageOffset: 0.15,
-                          dataSets: [
-                            RadarDataSet(
-                              fillColor: const Color(0xFF3B82F6).withValues(alpha: 0.2),
-                              borderColor: const Color(0xFF3B82F6),
-                              borderWidth: 2,
-                              dataEntries: [
-                                RadarEntry(value: dist.paceTour.toDouble()),
-                                RadarEntry(value: dist.paceExperience.toDouble()),
-                                RadarEntry(value: dist.innovationExchange.toDouble()),
-                              ],
-                            ),
-                          ],
-                          getTitle: (index, angle) {
-                            const titles = [
-                              'PACE\nTour',
-                              'PACE\nExperience',
-                              'Innovation\nExchange',
-                            ];
-                            return RadarChartTitle(
-                              text: titles[index],
-                              angle: angle,
-                            );
-                          },
-                        ),
+              // Find max value for scaling
+              final maxValue = [
+                dist.paceTour,
+                dist.paceExperience,
+                dist.innovationExchange,
+              ].reduce((a, b) => a > b ? a : b).toDouble();
+
+              // Other is fake - just for visual balance (25% of max value)
+              final otherValue = maxValue * 0.25;
+
+              return Expanded(
+                child: Center(
+                  child: RadarChart(
+                    RadarChartData(
+                      radarShape: RadarShape.polygon,
+                      radarBorderData: BorderSide(
+                        color: isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
+                        width: 2,
                       ),
+                      gridBorderData: BorderSide(
+                        color: isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
+                        width: 1,
+                      ),
+                      tickBorderData: BorderSide(
+                        color: isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
+                        width: 1,
+                      ),
+                      tickCount: 4,
+                      ticksTextStyle: TextStyle(
+                        fontSize: 8,
+                        color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
+                      ),
+                      radarBackgroundColor: Colors.transparent,
+                      titleTextStyle: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w500,
+                        color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
+                      ),
+                      titlePositionPercentageOffset: 0.15,
+                      dataSets: [
+                        RadarDataSet(
+                          fillColor: const Color(0xFF3B82F6).withValues(alpha: 0.2),
+                          borderColor: const Color(0xFF3B82F6),
+                          borderWidth: 2,
+                          dataEntries: [
+                            RadarEntry(value: dist.paceTour.toDouble()),
+                            RadarEntry(value: dist.paceExperience.toDouble()),
+                            RadarEntry(value: dist.innovationExchange.toDouble()),
+                            RadarEntry(value: otherValue), // Fake "Other" for visual balance
+                          ],
+                        ),
+                      ],
+                      getTitle: (index, angle) {
+                        const titles = [
+                          'PACE\nTour',
+                          'PACE\nExperience',
+                          'Innovation\nExchange',
+                          'Other',
+                        ];
+                        return RadarChartTitle(
+                          text: titles[index],
+                          angle: angle,
+                        );
+                      },
                     ),
                   ),
-                  const SizedBox(height: 12),
-                  // "Other" label at bottom
-                  Text(
-                    'Other',
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontStyle: FontStyle.italic,
-                      color: isDark ? const Color(0xFF6B7280) : const Color(0xFF9CA3AF),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                ],
+                ),
               );
             }(),
     );

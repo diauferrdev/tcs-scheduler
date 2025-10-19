@@ -211,7 +211,10 @@ class _AppLayoutState extends State<AppLayout> {
                 borderRadius: BorderRadius.circular(8),
                 child: Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.all(8),
+                  padding: EdgeInsets.symmetric(
+                    horizontal: _sidebarCollapsed ? 12 : 8,
+                    vertical: 8,
+                  ),
                   child: Icon(
                     _sidebarCollapsed ? Icons.chevron_right : Icons.chevron_left,
                     size: 20,
@@ -300,7 +303,7 @@ class _AppLayoutState extends State<AppLayout> {
               duration: const Duration(milliseconds: 250),
               curve: Curves.easeInOutCubic,
               padding: EdgeInsets.symmetric(
-                horizontal: collapsed ? 0 : 16,
+                horizontal: collapsed ? 12 : 16,
                 vertical: 12,
               ),
               decoration: BoxDecoration(
@@ -310,12 +313,14 @@ class _AppLayoutState extends State<AppLayout> {
                 borderRadius: BorderRadius.circular(12),
               ),
               child: collapsed
-                  ? Icon(
-                      icon,
-                      size: 20,
-                      color: isActive
-                          ? (isDark ? Colors.black : Colors.white)
-                          : (isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280)),
+                  ? Center(
+                      child: Icon(
+                        icon,
+                        size: 20,
+                        color: isActive
+                            ? (isDark ? Colors.black : Colors.white)
+                            : (isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280)),
+                      ),
                     )
                   : Row(
                       children: [
