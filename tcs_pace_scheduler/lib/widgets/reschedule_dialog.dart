@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/booking.dart';
 import '../services/api_service.dart';
+import '../utils/toast_notification.dart';
 
 class RescheduleDialog extends StatefulWidget {
   final Booking booking;
@@ -78,11 +79,10 @@ class _RescheduleDialogState extends State<RescheduleDialog> {
     } catch (e) {
       setState(() => _checkingAvailability = false);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error checking availability: $e'),
-            backgroundColor: Colors.red,
-          ),
+        ToastNotification.show(
+          context,
+          message: 'Error checking availability: $e',
+          type: ToastType.error,
         );
       }
     }
@@ -90,11 +90,10 @@ class _RescheduleDialogState extends State<RescheduleDialog> {
 
   Future<void> _handleReschedule() async {
     if (_selectedDate == null || _selectedTime == null || _selectedDuration == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please select date, time, and duration'),
-          backgroundColor: Colors.orange,
-        ),
+      ToastNotification.show(
+        context,
+        message: 'Please select date, time, and duration',
+        type: ToastType.warning,
       );
       return;
     }
@@ -112,22 +111,20 @@ class _RescheduleDialogState extends State<RescheduleDialog> {
 
       if (mounted) {
         Navigator.of(context).pop();
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Booking rescheduled successfully!'),
-            backgroundColor: Colors.green,
-          ),
+        ToastNotification.show(
+          context,
+          message: 'Booking rescheduled successfully!',
+          type: ToastType.success,
         );
         widget.onRescheduled();
       }
     } catch (e) {
       setState(() => _loading = false);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error rescheduling: $e'),
-            backgroundColor: Colors.red,
-          ),
+        ToastNotification.show(
+          context,
+          message: 'Error rescheduling: $e',
+          type: ToastType.error,
         );
       }
     }

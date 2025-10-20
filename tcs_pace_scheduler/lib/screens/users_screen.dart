@@ -6,6 +6,7 @@ import '../providers/theme_provider.dart';
 import '../providers/auth_provider.dart';
 import '../services/api_service.dart';
 import '../models/user.dart';
+import '../utils/toast_notification.dart';
 
 class UsersScreen extends StatefulWidget {
   final bool skipLayout;
@@ -257,21 +258,19 @@ class _UsersScreenState extends State<UsersScreen> {
       );
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('User created successfully!'),
-            backgroundColor: Colors.green,
-          ),
+        ToastNotification.show(
+          context,
+          message: 'User created successfully!',
+          type: ToastType.success,
         );
         _loadUsers();
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(e.toString()),
-            backgroundColor: Colors.red,
-          ),
+        ToastNotification.show(
+          context,
+          message: e.toString(),
+          type: ToastType.error,
         );
       }
     }
@@ -282,11 +281,10 @@ class _UsersScreenState extends State<UsersScreen> {
     final currentUser = context.read<AuthProvider>().user;
 
     if (currentUser?.id == user.id) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('You cannot delete your own account'),
-          backgroundColor: Colors.orange,
-        ),
+      ToastNotification.show(
+        context,
+        message: 'You cannot delete your own account',
+        type: ToastType.warning,
       );
       return;
     }
@@ -332,21 +330,19 @@ class _UsersScreenState extends State<UsersScreen> {
       await _apiService.deleteUser(userId);
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('User deleted successfully!'),
-            backgroundColor: Colors.green,
-          ),
+        ToastNotification.show(
+          context,
+          message: 'User deleted successfully!',
+          type: ToastType.success,
         );
         _loadUsers();
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(e.toString()),
-            backgroundColor: Colors.red,
-          ),
+        ToastNotification.show(
+          context,
+          message: e.toString(),
+          type: ToastType.error,
         );
       }
     }
@@ -436,20 +432,18 @@ class _UsersScreenState extends State<UsersScreen> {
       await _apiService.resetUserPassword(userId, newPassword);
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Password reset successfully!'),
-            backgroundColor: Colors.green,
-          ),
+        ToastNotification.show(
+          context,
+          message: 'Password reset successfully!',
+          type: ToastType.success,
         );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(e.toString()),
-            backgroundColor: Colors.red,
-          ),
+        ToastNotification.show(
+          context,
+          message: e.toString(),
+          type: ToastType.error,
         );
       }
     }

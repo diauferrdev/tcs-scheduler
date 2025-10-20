@@ -9,6 +9,7 @@ import '../services/api_service.dart';
 import '../providers/auth_provider.dart';
 import '../models/user.dart';
 import 'package:intl/intl.dart';
+import '../utils/toast_notification.dart';
 
 /// Service to manage the multi-step booking flow through separate drawers
 class BookingFlowService {
@@ -191,11 +192,10 @@ class BookingFlowService {
     Function(TimeOfDay startTime) onPeriodSelected,
   ) async {
     if (_selectedDate == null || _loadAvailability == null || _showSlotPicker == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Missing booking configuration'),
-          backgroundColor: Colors.red,
-        ),
+      ToastNotification.show(
+        context,
+        message: 'Missing booking configuration',
+        type: ToastType.error,
       );
       return;
     }
@@ -307,11 +307,10 @@ class BookingFlowService {
 
     if (_selectedDate == null || _startTime == null || _baseInfo == null) {
       debugPrint('🔴 [BookingFlow-$timestamp] ERROR: Missing required data');
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Missing required booking information'),
-          backgroundColor: Colors.red,
-        ),
+      ToastNotification.show(
+        context,
+        message: 'Missing required booking information',
+        type: ToastType.error,
       );
       return;
     }
@@ -388,12 +387,11 @@ class BookingFlowService {
       // Try to show success message if context is still mounted
       if (context.mounted) {
         debugPrint('🟡 [BookingFlow-$timestamp] Step 6: Showing success message');
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Booking created successfully!'),
-            backgroundColor: Colors.green,
-            duration: Duration(seconds: 2),
-          ),
+        ToastNotification.show(
+          context,
+          message: 'Booking created successfully!',
+          type: ToastType.success,
+          duration: const Duration(seconds: 2),
         );
       } else {
         debugPrint('⚠️ [BookingFlow-$timestamp] Context unmounted - skipping snackbar, but navigation will still work');
@@ -454,12 +452,11 @@ class BookingFlowService {
       }
 
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error creating booking: ${e.toString()}'),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 5),
-          ),
+        ToastNotification.show(
+          context,
+          message: 'Error creating booking: ${e.toString()}',
+          type: ToastType.error,
+          duration: const Duration(seconds: 5),
         );
       }
 

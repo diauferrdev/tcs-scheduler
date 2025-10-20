@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:math';
+import '../../utils/toast_notification.dart';
 
 /// Drawer 4 (Conditional): Questionnaire - only for PACE_EXPERIENCE and INNOVATION_EXCHANGE
 class QuestionnaireDrawer extends StatefulWidget {
@@ -82,22 +83,20 @@ class _QuestionnaireDrawerState extends State<QuestionnaireDrawer> {
       _controllers['q5']!.text = selectedMock['q5']!;
     });
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('✅ Questionnaire filled'),
-        duration: Duration(seconds: 1),
-        backgroundColor: Colors.green,
-      ),
+    ToastNotification.show(
+      context,
+      message: '✅ Questionnaire filled',
+      type: ToastType.success,
+      duration: const Duration(seconds: 1),
     );
   }
 
   void _submitForm() {
     if (!_formKey.currentState!.validate()) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please answer all questions'),
-          backgroundColor: Colors.red,
-        ),
+      ToastNotification.show(
+        context,
+        message: 'Please answer all questions',
+        type: ToastType.error,
       );
       return;
     }

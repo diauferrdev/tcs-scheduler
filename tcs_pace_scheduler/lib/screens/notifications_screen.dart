@@ -7,6 +7,7 @@ import '../services/api_service.dart';
 import '../services/unified_notification_service.dart';
 import '../models/notification.dart';
 import '../providers/auth_provider.dart';
+import '../utils/toast_notification.dart';
 
 class NotificationsScreen extends StatefulWidget {
   final bool skipLayout;
@@ -53,14 +54,12 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             _notifications.insert(0, newNotification);
           });
 
-          // Show snackbar feedback
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('New notification: ${newNotification.title}'),
-              duration: const Duration(seconds: 2),
-              backgroundColor: Colors.green,
-              behavior: SnackBarBehavior.floating,
-            ),
+          // Show toast feedback
+          ToastNotification.show(
+            context,
+            message: 'New notification: ${newNotification.title}',
+            type: ToastType.success,
+            duration: const Duration(seconds: 2),
           );
 
           debugPrint('[NotificationsScreen] ✅ Added new notification to list');
@@ -127,7 +126,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     if (!context.mounted) return;
 
     // Use go_router to navigate - will automatically open drawer if configured
-    context.go('/booking/$bookingId');
+    context.go('/app/booking/$bookingId');
   }
 
   Future<void> _navigateToUrl(String url) async {
@@ -145,15 +144,15 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     switch (type) {
       case NotificationType.BOOKING_PENDING_APPROVAL:
         // Navigate to approvals page
-        context.go('/approvals');
+        context.go('/app/approvals');
         break;
       case NotificationType.BOOKING_INVITATION:
         // Navigate to invitations page
-        context.go('/invitations');
+        context.go('/app/invitations');
         break;
       default:
         // Navigate to calendar for booking-related notifications
-        context.go('/calendar');
+        context.go('/app/calendar');
     }
   }
 
@@ -200,11 +199,10 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       await _loadNotifications();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: $e'),
-            backgroundColor: Colors.red,
-          ),
+        ToastNotification.show(
+          context,
+          message: 'Error: $e',
+          type: ToastType.error,
         );
       }
     }
@@ -221,11 +219,10 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: $e'),
-            backgroundColor: Colors.red,
-          ),
+        ToastNotification.show(
+          context,
+          message: 'Error: $e',
+          type: ToastType.error,
         );
       }
     }
@@ -448,12 +445,11 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       );
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Push notification sent to all devices!'),
-            backgroundColor: Colors.green,
-            duration: Duration(seconds: 2),
-          ),
+        ToastNotification.show(
+          context,
+          message: 'Push notification sent to all devices!',
+          type: ToastType.success,
+          duration: const Duration(seconds: 2),
         );
       }
 
@@ -464,11 +460,10 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       debugPrint('[NotificationsScreen] Error sending push: $e');
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: $e'),
-            backgroundColor: Colors.red,
-          ),
+        ToastNotification.show(
+          context,
+          message: 'Error: $e',
+          type: ToastType.error,
         );
       }
     }
@@ -1000,7 +995,7 @@ class _NotificationsDrawerState extends State<NotificationsDrawer> {
     await Future.delayed(const Duration(milliseconds: 350));
 
     // Navigate using the router reference
-    router.go('/booking/$bookingId');
+    router.go('/app/booking/$bookingId');
   }
 
   Future<void> _navigateToUrl(String url) async {
@@ -1034,13 +1029,13 @@ class _NotificationsDrawerState extends State<NotificationsDrawer> {
     // Navigate using the router reference
     switch (type) {
       case NotificationType.BOOKING_PENDING_APPROVAL:
-        router.go('/approvals');
+        router.go('/app/approvals');
         break;
       case NotificationType.BOOKING_INVITATION:
-        router.go('/invitations');
+        router.go('/app/invitations');
         break;
       default:
-        router.go('/calendar');
+        router.go('/app/calendar');
     }
   }
 
@@ -1313,12 +1308,11 @@ class _NotificationsDrawerState extends State<NotificationsDrawer> {
       );
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Push notification sent to all devices!'),
-            backgroundColor: Colors.green,
-            duration: Duration(seconds: 2),
-          ),
+        ToastNotification.show(
+          context,
+          message: 'Push notification sent to all devices!',
+          type: ToastType.success,
+          duration: const Duration(seconds: 2),
         );
       }
 
@@ -1329,11 +1323,10 @@ class _NotificationsDrawerState extends State<NotificationsDrawer> {
       debugPrint('[NotificationsDrawer] Error sending push: $e');
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: $e'),
-            backgroundColor: Colors.red,
-          ),
+        ToastNotification.show(
+          context,
+          message: 'Error: $e',
+          type: ToastType.error,
         );
       }
     }

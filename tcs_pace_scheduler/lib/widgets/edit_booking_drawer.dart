@@ -4,6 +4,7 @@ import 'dart:convert';
 import '../models/booking.dart';
 import '../services/api_service.dart';
 import '../widgets/booking_form_fields.dart';
+import '../utils/toast_notification.dart';
 
 /// Drawer for editing booking details when status is NEED_EDIT
 /// Shows multi-step form: Step 3 (Base Information) → Step 4 (Questionnaire if applicable)
@@ -180,11 +181,10 @@ class _EditBookingDrawerState extends State<EditBookingDrawer> {
     if (_currentStep == 3) {
       // Validate base information
       if (!_formKey.currentState!.validate()) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Please fill in all required fields'),
-            backgroundColor: Colors.red,
-          ),
+        ToastNotification.show(
+          context,
+          message: 'Please fill in all required fields',
+          type: ToastType.error,
         );
         return;
       }
@@ -200,11 +200,10 @@ class _EditBookingDrawerState extends State<EditBookingDrawer> {
       // Validate questionnaire
       bool allAnswered = _questionnaireAnswers.values.every((answer) => answer.trim().isNotEmpty);
       if (!allAnswered) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Please answer all questions'),
-            backgroundColor: Colors.red,
-          ),
+        ToastNotification.show(
+          context,
+          message: 'Please answer all questions',
+          type: ToastType.error,
         );
         return;
       }
@@ -220,22 +219,20 @@ class _EditBookingDrawerState extends State<EditBookingDrawer> {
       await _apiService.updateBooking(widget.booking.id, updateData);
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Booking updated successfully! Status changed to Under Review.'),
-            backgroundColor: Colors.green,
-          ),
+        ToastNotification.show(
+          context,
+          message: 'Booking updated successfully! Status changed to Under Review.',
+          type: ToastType.success,
         );
         widget.onSuccess();
       }
     } catch (e) {
       if (mounted) {
         setState(() => _submitting = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error updating booking: $e'),
-            backgroundColor: Colors.red,
-          ),
+        ToastNotification.show(
+          context,
+          message: 'Error updating booking: $e',
+          type: ToastType.error,
         );
       }
     }
@@ -602,7 +599,7 @@ class _EditBookingDrawerState extends State<EditBookingDrawer> {
         TextFormField(
           controller: _objectiveInterestController,
           decoration: InputDecoration(
-            labelText: 'Objective / Interest in PacePort (optional)',
+            labelText: 'Objective / Interest in Pace (optional)',
             hintText: 'What do you hope to learn or achieve?',
             border: const OutlineInputBorder(),
             alignLabelWithHint: true,

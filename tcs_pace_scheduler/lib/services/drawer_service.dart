@@ -19,7 +19,7 @@ import '../screens/notifications_screen.dart';
 /// );
 ///
 /// // Or via URL (will be intercepted by router)
-/// context.go('/booking/123'); // Opens drawer instead of full page
+/// context.go('/app/booking/123'); // Opens drawer instead of full page
 /// ```
 class DrawerService {
   static final DrawerService instance = DrawerService._internal();
@@ -96,10 +96,10 @@ class DrawerService {
     switch (type) {
       case DrawerType.bookingDetails:
         final bookingId = params?['bookingId'];
-        return bookingId != null ? '/booking/$bookingId' : null;
+        return bookingId != null ? '/app/booking/$bookingId' : null;
 
       case DrawerType.notifications:
-        return '/notifications';
+        return '/app/notifications';
 
       case DrawerType.bookingForm:
         // Booking form typically doesn't need a URL
@@ -314,8 +314,8 @@ class DrawerService {
       String baseRoute = _previousRoute!;
 
       // Remove /booking/:id routes
-      if (baseRoute.startsWith('/booking/')) {
-        baseRoute = '/calendar'; // Default to calendar if coming from booking details
+      if (baseRoute.startsWith('/app/booking/')) {
+        baseRoute = '/app/calendar'; // Default to calendar if coming from booking details
       }
 
       // Remove query params
@@ -331,10 +331,10 @@ class DrawerService {
     // Fallback to default routes
     switch (type) {
       case DrawerType.bookingDetails:
-        context.go('/calendar');
+        context.go('/app/calendar');
         break;
       case DrawerType.notifications:
-        context.go('/calendar');
+        context.go('/app/calendar');
         break;
       case DrawerType.bookingForm:
         // Usually stays on current page

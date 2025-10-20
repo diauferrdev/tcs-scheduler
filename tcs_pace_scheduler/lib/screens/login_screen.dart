@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import '../providers/auth_provider.dart';
 import '../services/web_html_stub.dart'
     if (dart.library.html) 'dart:html' as html;
+import '../utils/toast_notification.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -40,13 +41,31 @@ class _LoginScreenState extends State<LoginScreen> {
       );
 
       if (mounted) {
+        // Get user role to determine redirect destination
+        final authProvider = context.read<AuthProvider>();
+        final user = authProvider.user;
+
+        String destination = '/app/calendar'; // Default for USER
+        if (user != null) {
+          switch (user.role.name) {
+            case 'ADMIN':
+            case 'MANAGER':
+              destination = '/app/dashboard';
+              break;
+            case 'USER':
+            default:
+              destination = '/app/calendar';
+          }
+        }
+
         // Web: redirect directly to app subdomain
         if (kIsWeb) {
           try {
             final hostname = html.window.location.hostname;
             if (hostname == 'ppspsched.lat' || hostname == 'www.ppspsched.lat') {
-              // Redirect to app subdomain
-              html.window.location.href = 'https://app.ppspsched.lat/calendar';
+              // Redirect to app subdomain with correct destination
+              final path = destination.replaceFirst('/app/', '/');
+              html.window.location.href = 'https://app.ppspsched.lat$path';
               return;
             }
           } catch (e) {
@@ -55,12 +74,14 @@ class _LoginScreenState extends State<LoginScreen> {
         }
 
         // Mobile/Desktop or already on app subdomain: use router
-        context.go('/calendar');
+        context.go(destination);
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
+        ToastNotification.show(
+          context,
+          message: e.toString(),
+          type: ToastType.error,
         );
       }
     } finally {
@@ -83,23 +104,8 @@ class _LoginScreenState extends State<LoginScreen> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  // Logo and Title
-                  SvgPicture.asset('assets/logos/tcs-logo-w.svg', height: 40),
-                  const SizedBox(height: 12),
-                  Container(
-                    padding: const EdgeInsets.only(top: 12),
-                    decoration: const BoxDecoration(
-                      border: Border(top: BorderSide(color: Color(0xFF27272A))),
-                    ),
-                    child: const Text(
-                      'Scheduler',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
+                  // Logo - New TCS Pace logo (already includes "Scheduler" text)
+                  SvgPicture.asset('assets/logos/tcs-pace-logo-w.svg', height: 48),
 
                   const SizedBox(height: 32),
 
@@ -256,44 +262,6 @@ class _LoginScreenState extends State<LoginScreen> {
                                         fontWeight: FontWeight.w600,
                                       ),
                                     ),
-                            ),
-                          ),
-
-                          // Demo Credentials
-                          const SizedBox(height: 16),
-                          Container(
-                            padding: const EdgeInsets.only(top: 16),
-                            decoration: const BoxDecoration(
-                              border: Border(
-                                top: BorderSide(color: Color(0xFF27272A)),
-                              ),
-                            ),
-                            child: Column(
-                              children: [
-                                const Text(
-                                  'Demo Credentials:',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: Color(0xFF9CA3AF),
-                                  ),
-                                ),
-                                const SizedBox(height: 6),
-                                Text(
-                                  'Admin: admin@tcs.com / TCSPacePort2024!',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    color: Colors.grey[600],
-                                  ),
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  'Manager: manager@tcs.com / Manager2024!',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    color: Colors.grey[600],
-                                  ),
-                                ),
-                              ],
                             ),
                           ),
                         ],

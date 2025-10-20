@@ -107,14 +107,14 @@ enum QuestionType {
 const List<QuestionnaireQuestion> paceportQuestionnaire = [
   QuestionnaireQuestion(
     id: 'budget_availability',
-    question: 'A sua vertical possui orçamento alocado (R\$ 10.000 - R\$ 15.000) para este evento PacePort?',
+    question: 'A sua vertical possui orçamento alocado (R\$ 10.000 - R\$ 15.000) para este evento Pace?',
     type: QuestionType.yesNo,
     required: true,
     helpText: 'Isso nos ajuda a entender se a visita já foi aprovada financeiramente pela sua vertical.',
   ),
   QuestionnaireQuestion(
     id: 'key_expectations',
-    question: 'Quais são suas principais expectativas para esta visita ao PacePort?',
+    question: 'Quais são suas principais expectativas para esta visita ao Pace?',
     type: QuestionType.multipleChoice,
     options: [
       'Explorar soluções e demos inovadoras da TCS',

@@ -17,6 +17,7 @@ import '../models/booking.dart';
 import '../models/user.dart';
 import '../widgets/access_badge.dart';
 import '../utils/time_formatter.dart';
+import '../utils/toast_notification.dart';
 import 'booking_form_screen.dart';
 import '../services/booking_flow_service.dart';
 
@@ -113,11 +114,10 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
     } catch (e) {
       debugPrint('[Calendar] Error loading draft: $e');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error loading draft: $e'),
-            backgroundColor: Colors.red,
-          ),
+        ToastNotification.show(
+          context,
+          message: 'Error loading draft: $e',
+          type: ToastType.error,
         );
       }
     }
@@ -635,13 +635,11 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
         message = 'Bookings must be made at least 7 business days in advance.\nEarliest available date: $formattedMinDate';
       }
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(message),
-          backgroundColor: Colors.orange,
-          duration: const Duration(seconds: 3),
-          behavior: SnackBarBehavior.floating,
-        ),
+      ToastNotification.show(
+        context,
+        message: message,
+        type: ToastType.warning,
+        duration: const Duration(seconds: 3),
       );
       return;
     }
@@ -1082,8 +1080,10 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
         // Clear availability cache to force fresh data
         _availabilityCache.clear();
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Booking cancelled successfully')),
+        ToastNotification.show(
+          context,
+          message: 'Booking cancelled successfully',
+          type: ToastType.success,
         );
         setState(() {
           _showCancelDialog = false;
@@ -1093,8 +1093,10 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to cancel booking: $e'), backgroundColor: Colors.red),
+        ToastNotification.show(
+          context,
+          message: 'Failed to cancel booking: $e',
+          type: ToastType.error,
         );
       }
     }
@@ -1105,8 +1107,10 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
       final newBooking = await _apiService.createBooking(bookingData);
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Booking created successfully!')),
+        ToastNotification.show(
+          context,
+          message: 'Booking created successfully!',
+          type: ToastType.success,
         );
         setState(() {
           _showBookingForm = false;
@@ -1117,8 +1121,10 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to create booking: $e'), backgroundColor: Colors.red),
+        ToastNotification.show(
+          context,
+          message: 'Failed to create booking: $e',
+          type: ToastType.error,
         );
       }
     }
@@ -3350,16 +3356,18 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
                                 child: OutlinedButton.icon(
                                   onPressed: () async {
                                     final attendee = _selectedBooking!.attendees![_currentBadgeIndex];
-                                    final badgeUrl = 'https://paceportsp.com.br/attendee/${attendee.id ?? _selectedBooking!.id}';
+                                    final badgeUrl = 'https://ppspsched.lat/attendee/${attendee.id ?? _selectedBooking!.id}';
                                     try {
                                       await Share.share(
-                                        'TCS PacePort Access Ticket\n${attendee.name} - ${_selectedBooking!.companyName}\n$badgeUrl',
-                                        subject: 'TCS PacePort Access Ticket',
+                                        'TCS Pace Access Ticket\n${attendee.name} - ${_selectedBooking!.companyName}\n$badgeUrl',
+                                        subject: 'TCS Pace Access Ticket',
                                       );
                                     } catch (e) {
                                       if (context.mounted) {
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          SnackBar(content: Text('Error sharing: $e')),
+                                        ToastNotification.show(
+                                          context,
+                                          message: 'Error sharing: $e',
+                                          type: ToastType.error,
                                         );
                                       }
                                     }
@@ -3380,13 +3388,13 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
                                 child: OutlinedButton.icon(
                                   onPressed: () {
                                     final attendee = _selectedBooking!.attendees![_currentBadgeIndex];
-                                    final badgeUrl = 'https://paceportsp.com.br/attendee/${attendee.id ?? _selectedBooking!.id}';
+                                    final badgeUrl = 'https://ppspsched.lat/attendee/${attendee.id ?? _selectedBooking!.id}';
                                     Clipboard.setData(ClipboardData(text: badgeUrl));
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                        content: Text('Link copied to clipboard'),
-                                        duration: Duration(seconds: 2),
-                                      ),
+                                    ToastNotification.show(
+                                      context,
+                                      message: 'Link copied to clipboard',
+                                      type: ToastType.success,
+                                      duration: const Duration(seconds: 2),
                                     );
                                   },
                                   icon: const Icon(Icons.link, size: 16),
@@ -3810,11 +3818,10 @@ class _BookingFormWidgetState extends State<_BookingFormWidget> {
 
     // Validate required fields
     if (_companySector == null || _companyVertical == null || _interestArea == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Please select Sector, Vertical, and Interest Area'),
-          backgroundColor: Colors.red,
-        ),
+      ToastNotification.show(
+        context,
+        message: 'Please select Sector, Vertical, and Interest Area',
+        type: ToastType.error,
       );
       return;
     }
@@ -3822,11 +3829,10 @@ class _BookingFormWidgetState extends State<_BookingFormWidget> {
     if (_attendees.isEmpty ||
         _attendees[0]['name']?.text.trim().isEmpty != false ||
         _attendees[0]['email']?.text.trim().isEmpty != false) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('First attendee name and email are required'),
-          backgroundColor: Colors.red,
-        ),
+      ToastNotification.show(
+        context,
+        message: 'First attendee name and email are required',
+        type: ToastType.error,
       );
       return;
     }

@@ -116,25 +116,10 @@ class _AppLayoutState extends State<AppLayout> {
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Row(
         children: [
-          // Logo - SVG do TCS Pace em cima, Scheduler grande embaixo
-          Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              SvgPicture.asset(
-                isDark ? 'assets/logos/tcs-logo-w.svg' : 'assets/logos/tcs-logo-b.svg',
-                height: 10,
-              ),
-              const SizedBox(height: 2),
-              Text(
-                'Scheduler',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: -0.5,
-                  color: isDark ? Colors.white : Colors.black,
-                ),
-              ),
-            ],
+          // Logo - New TCS Pace logo (already includes "Scheduler" text)
+          SvgPicture.asset(
+            isDark ? 'assets/logos/tcs-pace-logo-w.svg' : 'assets/logos/tcs-pace-logo-b.svg',
+            height: 32,
           ),
 
           const Spacer(),
@@ -433,13 +418,13 @@ class _AppLayoutState extends State<AppLayout> {
 
   List<Map<String, dynamic>> _getMenuItems(User user) {
     final items = <Map<String, dynamic>>[
-      {'path': '/dashboard', 'label': 'Dashboard', 'icon': Icons.dashboard, 'roles': [UserRole.ADMIN, UserRole.MANAGER]},
-      {'path': '/approvals', 'label': 'Bookings', 'icon': Icons.pending_actions, 'roles': [UserRole.ADMIN, UserRole.MANAGER]},
-      {'path': '/calendar', 'label': 'Calendar', 'icon': Icons.calendar_month, 'roles': [UserRole.ADMIN, UserRole.USER]},
-      {'path': '/agenda', 'label': 'Agenda', 'icon': Icons.view_timeline, 'roles': [UserRole.ADMIN, UserRole.MANAGER]},
-      {'path': '/my-bookings', 'label': 'My Bookings', 'icon': Icons.event_note, 'roles': [UserRole.USER]},
-      {'path': '/users', 'label': 'Users', 'icon': Icons.people, 'roles': [UserRole.ADMIN, UserRole.MANAGER]},
-      {'path': '/activity-logs', 'label': 'Activity', 'icon': Icons.history, 'roles': [UserRole.ADMIN]},
+      {'path': '/app/dashboard', 'label': 'Dashboard', 'icon': Icons.dashboard, 'roles': [UserRole.ADMIN, UserRole.MANAGER]},
+      {'path': '/app/approvals', 'label': 'Bookings', 'icon': Icons.pending_actions, 'roles': [UserRole.ADMIN, UserRole.MANAGER]},
+      {'path': '/app/calendar', 'label': 'Calendar', 'icon': Icons.calendar_month, 'roles': [UserRole.ADMIN, UserRole.USER]},
+      {'path': '/app/agenda', 'label': 'Agenda', 'icon': Icons.view_timeline, 'roles': [UserRole.ADMIN, UserRole.MANAGER]},
+      {'path': '/app/my-bookings', 'label': 'My Bookings', 'icon': Icons.event_note, 'roles': [UserRole.USER]},
+      {'path': '/app/users', 'label': 'Users', 'icon': Icons.people, 'roles': [UserRole.ADMIN, UserRole.MANAGER]},
+      {'path': '/app/activity-logs', 'label': 'Activity', 'icon': Icons.history, 'roles': [UserRole.ADMIN]},
     ];
 
     return items.where((item) {

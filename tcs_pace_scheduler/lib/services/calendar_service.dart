@@ -44,13 +44,13 @@ class CalendarService {
       final Event event = Event(
         title: '🏢 $companyName Visit',
         description: description,
-        location: 'TCS PacePort São Paulo',
+        location: 'TCS Pace São Paulo',
         startDate: startDate,
         endDate: endDate,
         allDay: false,
         iosParams: const IOSParams(
           reminder: Duration(hours: 1), // Remind 1 hour before
-          url: 'https://tcs-paceport.com',
+          url: 'https://ppspsched.lat',
         ),
         androidParams: const AndroidParams(
           emailInvites: [], // Could add attendee emails here
@@ -142,12 +142,12 @@ class CalendarService {
     String? eventType,
   }) {
     final lines = <String>[
-      '📍 Location: TCS PacePort São Paulo',
+      '📍 Location: TCS Pace São Paulo',
       if (sector != null) '🏢 Sector: $sector',
       if (expectedAttendees != null) '👥 Expected Attendees: $expectedAttendees',
       if (eventType != null) '🎯 Type: $eventType',
       '',
-      'This event was added from TCS PacePort Scheduler.',
+      'This event was added from TCS Pace Scheduler.',
     ];
 
     return lines.join('\n');

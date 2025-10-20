@@ -7,6 +7,7 @@ import '../providers/theme_provider.dart';
 import '../services/api_service.dart';
 import '../models/invitation.dart';
 import '../config/api_config.dart';
+import '../utils/toast_notification.dart';
 
 class InvitationsScreen extends StatefulWidget {
   final bool skipLayout;
@@ -62,21 +63,19 @@ class _InvitationsScreenState extends State<InvitationsScreen> {
       );
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Invitation created successfully!'),
-            backgroundColor: Colors.green,
-          ),
+        ToastNotification.show(
+          context,
+          message: 'Invitation created successfully!',
+          type: ToastType.success,
         );
         _loadInvitations();
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(e.toString()),
-            backgroundColor: Colors.red,
-          ),
+        ToastNotification.show(
+          context,
+          message: e.toString(),
+          type: ToastType.error,
         );
       }
     }
@@ -176,11 +175,11 @@ class _InvitationsScreenState extends State<InvitationsScreen> {
   void _copyInvitationLink(String token) {
     final link = '${ApiConfig.baseUrl}/guest-booking/$token';
     Clipboard.setData(ClipboardData(text: link));
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Invitation link copied to clipboard!'),
-        duration: Duration(seconds: 2),
-      ),
+    ToastNotification.show(
+      context,
+      message: 'Invitation link copied to clipboard!',
+      type: ToastType.info,
+      duration: const Duration(seconds: 2),
     );
   }
 

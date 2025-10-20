@@ -418,7 +418,7 @@ class VisitDetailsSection extends StatelessWidget {
           enabled: enabled,
           decoration: const InputDecoration(
             labelText: 'Venue (optional)',
-            hintText: 'e.g., PacePort São Paulo',
+            hintText: 'e.g., Pace São Paulo',
             border: OutlineInputBorder(),
             prefixIcon: Icon(Icons.location_on),
           ),
@@ -477,7 +477,7 @@ class VisitDetailsSection extends StatelessWidget {
               : null,
           child: InputDecorator(
             decoration: const InputDecoration(
-              labelText: 'Date of Last Innovation Day (optional)',
+              labelText: 'Date of Last Pace Experience (optional)',
               border: OutlineInputBorder(),
               prefixIcon: Icon(Icons.event),
             ),

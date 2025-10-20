@@ -89,7 +89,7 @@ class _EngagementTypeDrawerState extends State<EngagementTypeDrawer> {
 
                   _buildEngagementCard(
                     'VISIT',
-                    'PacePort Visit',
+                    'Pace Visit',
                     'Quick tour or full-day experience',
                     Icons.tour,
                     isDark,

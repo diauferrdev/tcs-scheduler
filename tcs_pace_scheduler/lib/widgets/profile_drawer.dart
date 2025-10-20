@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../services/api_service.dart';
+import '../utils/toast_notification.dart';
 
 /// Profile Drawer - User self-service settings
 ///
@@ -24,6 +25,9 @@ class _ProfileDrawerState extends State<ProfileDrawer> {
   bool _accountExpanded = false;
   bool _securityExpanded = false;
 
+  // Draggable sheet controller
+  late DraggableScrollableController _sheetController;
+
   // Form controllers for password change
   final _currentPasswordController = TextEditingController();
   final _newPasswordController = TextEditingController();
@@ -40,6 +44,7 @@ class _ProfileDrawerState extends State<ProfileDrawer> {
   @override
   void initState() {
     super.initState();
+    _sheetController = DraggableScrollableController();
     // Initialize profile fields
     final authProvider = context.read<AuthProvider>();
     _nameController.text = authProvider.user?.name ?? '';
@@ -47,11 +52,25 @@ class _ProfileDrawerState extends State<ProfileDrawer> {
 
   @override
   void dispose() {
+    _sheetController.dispose();
     _currentPasswordController.dispose();
     _newPasswordController.dispose();
     _confirmPasswordController.dispose();
     _nameController.dispose();
     super.dispose();
+  }
+
+  void _animateSheetSize(bool isExpanding) {
+    if (!_sheetController.isAttached) return;
+
+    final targetSize = isExpanding ? 0.82 : 0.62;
+
+    // Animate to target size
+    _sheetController.animateTo(
+      targetSize,
+      duration: const Duration(milliseconds: 350),
+      curve: Curves.fastEaseInToSlowEaseOut,
+    );
   }
 
   Future<void> _changePassword() async {
@@ -99,17 +118,17 @@ class _ProfileDrawerState extends State<ProfileDrawer> {
         _newPasswordController.clear();
         _confirmPasswordController.clear();
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Password changed successfully!'),
-            backgroundColor: Colors.green,
-          ),
+        ToastNotification.show(
+          context,
+          message: 'Password changed successfully!',
+          type: ToastType.success,
         );
 
         setState(() {
           _securityExpanded = false;
           _changingPassword = false;
         });
+        _animateSheetSize(_accountExpanded || _securityExpanded);
       }
     } catch (e) {
       if (mounted) {
@@ -139,17 +158,17 @@ class _ProfileDrawerState extends State<ProfileDrawer> {
         final authProvider = context.read<AuthProvider>();
         authProvider.updateUser(response['user']);
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Profile updated successfully!'),
-            backgroundColor: Colors.green,
-          ),
+        ToastNotification.show(
+          context,
+          message: 'Profile updated successfully!',
+          type: ToastType.success,
         );
 
         setState(() {
           _accountExpanded = false;
           _updatingProfile = false;
         });
+        _animateSheetSize(_accountExpanded || _securityExpanded);
       }
     } catch (e) {
       if (mounted) {
@@ -167,11 +186,10 @@ class _ProfileDrawerState extends State<ProfileDrawer> {
   }
 
   void _showError(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: Colors.red,
-      ),
+    ToastNotification.show(
+      context,
+      message: message,
+      type: ToastType.error,
     );
   }
 
@@ -222,9 +240,10 @@ class _ProfileDrawerState extends State<ProfileDrawer> {
     }
 
     return DraggableScrollableSheet(
-      initialChildSize: 0.85,
-      minChildSize: 0.5,
-      maxChildSize: 0.95,
+      initialChildSize: 0.62,
+      minChildSize: 0.4,
+      maxChildSize: 0.9,
+      controller: _sheetController,
       builder: (context, scrollController) => Container(
         decoration: BoxDecoration(
           color: isDark ? const Color(0xFF18181B) : Colors.white,
@@ -285,36 +304,59 @@ class _ProfileDrawerState extends State<ProfileDrawer> {
                   children: [
                     // User Info Card
                     Container(
-                      padding: const EdgeInsets.all(20),
+                      padding: const EdgeInsets.all(18),
                       decoration: BoxDecoration(
                         color: isDark ? const Color(0xFF27272A) : const Color(0xFFF9FAFB),
-                        borderRadius: BorderRadius.circular(16),
+                        borderRadius: BorderRadius.circular(18),
                         border: Border.all(
                           color: isDark ? const Color(0xFF3F3F46) : const Color(0xFFE5E7EB),
+                          width: 1,
                         ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: (isDark ? Colors.black : Colors.grey).withValues(alpha: 0.05),
+                            blurRadius: 10,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
                       ),
                       child: Row(
                         children: [
                           // Avatar
                           Container(
-                            width: 60,
-                            height: 60,
+                            width: 56,
+                            height: 56,
                             decoration: BoxDecoration(
-                              color: Colors.black,
+                              gradient: LinearGradient(
+                                colors: [
+                                  isDark ? Colors.white : Colors.black,
+                                  isDark ? Colors.grey[300]! : Colors.grey[800]!,
+                                ],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
                               shape: BoxShape.circle,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.2),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
                             ),
                             child: Center(
                               child: Text(
                                 user.name[0].toUpperCase(),
-                                style: const TextStyle(
-                                  fontSize: 24,
+                                style: TextStyle(
+                                  fontSize: 22,
                                   fontWeight: FontWeight.bold,
-                                  color: Colors.white,
+                                  color: isDark ? Colors.black : Colors.white,
+                                  letterSpacing: -0.5,
                                 ),
                               ),
                             ),
                           ),
-                          const SizedBox(width: 16),
+                          const SizedBox(width: 14),
                           // User Info
                           Expanded(
                             child: Column(
@@ -323,32 +365,39 @@ class _ProfileDrawerState extends State<ProfileDrawer> {
                                 Text(
                                   user.name,
                                   style: TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
+                                    fontSize: 17,
+                                    fontWeight: FontWeight.w700,
                                     color: isDark ? Colors.white : Colors.black,
+                                    letterSpacing: -0.3,
                                   ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
-                                const SizedBox(height: 4),
+                                const SizedBox(height: 3),
                                 Text(
                                   user.email,
                                   style: TextStyle(
-                                    fontSize: 14,
+                                    fontSize: 13,
                                     color: isDark ? Colors.grey[400] : Colors.grey[600],
+                                    letterSpacing: -0.1,
                                   ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
-                                const SizedBox(height: 8),
+                                const SizedBox(height: 7),
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                  padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
                                   decoration: BoxDecoration(
-                                    color: Colors.black.withValues(alpha: 0.1),
-                                    borderRadius: BorderRadius.circular(12),
+                                    color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.08),
+                                    borderRadius: BorderRadius.circular(8),
                                   ),
                                   child: Text(
-                                    user.role.name,
+                                    user.role.name.toUpperCase(),
                                     style: TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w600,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w700,
                                       color: isDark ? Colors.white : Colors.black,
+                                      letterSpacing: 0.5,
                                     ),
                                   ),
                                 ),
@@ -359,14 +408,17 @@ class _ProfileDrawerState extends State<ProfileDrawer> {
                       ),
                     ),
 
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 20),
 
                     // Account Settings Section
                     _buildExpandableSection(
                       title: 'Account',
                       icon: Icons.person_outline,
                       expanded: _accountExpanded,
-                      onTap: () => setState(() => _accountExpanded = !_accountExpanded),
+                      onTap: () {
+                        setState(() => _accountExpanded = !_accountExpanded);
+                        _animateSheetSize(_accountExpanded || _securityExpanded);
+                      },
                       isDark: isDark,
                       child: Column(
                         children: [
@@ -447,14 +499,17 @@ class _ProfileDrawerState extends State<ProfileDrawer> {
                       ),
                     ),
 
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 10),
 
                     // Security Settings Section
                     _buildExpandableSection(
                       title: 'Security',
                       icon: Icons.lock_outline,
                       expanded: _securityExpanded,
-                      onTap: () => setState(() => _securityExpanded = !_securityExpanded),
+                      onTap: () {
+                        setState(() => _securityExpanded = !_securityExpanded);
+                        _animateSheetSize(_accountExpanded || _securityExpanded);
+                      },
                       isDark: isDark,
                       child: Column(
                         children: [
@@ -536,69 +591,83 @@ class _ProfileDrawerState extends State<ProfileDrawer> {
                       ),
                     ),
 
-                    const SizedBox(height: 32),
+                    const SizedBox(height: 24),
 
                     // Logout Button
-                    InkWell(
-                      onTap: _handleLogout,
-                      borderRadius: BorderRadius.circular(12),
-                      child: Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: isDark ? const Color(0xFF27272A) : Colors.white,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: isDark ? const Color(0xFF3F3F46) : const Color(0xFFE5E7EB),
+                    Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: _handleLogout,
+                        borderRadius: BorderRadius.circular(16),
+                        child: Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: isDark ? const Color(0xFF27272A) : Colors.white,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: Colors.red.withValues(alpha: 0.2),
+                              width: 1,
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.red.withValues(alpha: 0.05),
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
                           ),
-                        ),
-                        child: Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(10),
-                              decoration: BoxDecoration(
-                                color: Colors.red.withValues(alpha: 0.1),
-                                borderRadius: BorderRadius.circular(10),
+                          child: Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(11),
+                                decoration: BoxDecoration(
+                                  color: Colors.red.withValues(alpha: 0.12),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: const Icon(
+                                  Icons.logout_rounded,
+                                  size: 22,
+                                  color: Colors.red,
+                                ),
                               ),
-                              child: const Icon(
-                                Icons.logout_rounded,
-                                size: 20,
-                                color: Colors.red,
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Logout',
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w600,
-                                      color: isDark ? Colors.white : Colors.black,
+                              const SizedBox(width: 14),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Logout',
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w700,
+                                        color: isDark ? Colors.white : Colors.black,
+                                        letterSpacing: -0.2,
+                                      ),
                                     ),
-                                  ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    'Sign out of your account',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: isDark ? Colors.grey[500] : Colors.grey[600],
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      'Sign out of your account',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: isDark ? Colors.grey[500] : Colors.grey[600],
+                                        letterSpacing: -0.1,
+                                      ),
                                     ),
-                                  ),
-                                ],
+                                  ],
+                                ),
                               ),
-                            ),
-                            Icon(
-                              Icons.chevron_right,
-                              color: isDark ? Colors.grey[600] : Colors.grey[400],
-                            ),
-                          ],
+                              Icon(
+                                Icons.chevron_right_rounded,
+                                color: isDark ? Colors.grey[600] : Colors.grey[400],
+                                size: 24,
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ),
 
-                    const SizedBox(height: 32),
+                    const SizedBox(height: 24),
                   ],
                 ),
               ),
@@ -618,75 +687,109 @@ class _ProfileDrawerState extends State<ProfileDrawer> {
     required Widget child,
   }) {
     return AnimatedContainer(
-      duration: const Duration(milliseconds: 200),
-      curve: Curves.easeInOutCubic,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.fastEaseInToSlowEaseOut,
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF27272A) : Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: expanded
-            ? (isDark ? Colors.white.withValues(alpha: 0.2) : Colors.black.withValues(alpha: 0.1))
+            ? (isDark ? Colors.white.withValues(alpha: 0.2) : Colors.black.withValues(alpha: 0.15))
             : (isDark ? const Color(0xFF3F3F46) : const Color(0xFFE5E7EB)),
-          width: expanded ? 1.5 : 1,
+          width: expanded ? 2 : 1,
         ),
+        boxShadow: expanded
+            ? [
+                BoxShadow(
+                  color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.05),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ]
+            : [],
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            InkWell(
-              onTap: onTap,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.05),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Icon(icon, size: 20, color: isDark ? Colors.white : Colors.black),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        title,
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                          color: isDark ? Colors.white : Colors.black,
+            Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: onTap,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+                  child: Row(
+                    children: [
+                      AnimatedContainer(
+                        duration: const Duration(milliseconds: 300),
+                        curve: Curves.fastEaseInToSlowEaseOut,
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: expanded
+                              ? (isDark ? Colors.white.withValues(alpha: 0.1) : Colors.black.withValues(alpha: 0.08))
+                              : (isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.04)),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Icon(
+                          icon,
+                          size: 22,
+                          color: expanded
+                              ? (isDark ? Colors.white : Colors.black)
+                              : (isDark ? Colors.grey[400] : Colors.grey[600]),
                         ),
                       ),
-                    ),
-                    AnimatedRotation(
-                      turns: expanded ? 0.5 : 0,
-                      duration: const Duration(milliseconds: 200),
-                      curve: Curves.easeInOutCubic,
-                      child: Icon(
-                        Icons.keyboard_arrow_down,
-                        color: isDark ? Colors.grey[400] : Colors.grey[600],
-                        size: 24,
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Text(
+                          title,
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: expanded ? FontWeight.w700 : FontWeight.w600,
+                            color: isDark ? Colors.white : Colors.black,
+                            letterSpacing: -0.2,
+                          ),
+                        ),
                       ),
-                    ),
-                  ],
+                      AnimatedRotation(
+                        turns: expanded ? 0.5 : 0,
+                        duration: const Duration(milliseconds: 300),
+                        curve: Curves.fastEaseInToSlowEaseOut,
+                        child: Icon(
+                          Icons.keyboard_arrow_down_rounded,
+                          color: isDark ? Colors.grey[400] : Colors.grey[600],
+                          size: 26,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
             AnimatedSize(
-              duration: const Duration(milliseconds: 250),
-              curve: Curves.easeInOutCubic,
+              duration: const Duration(milliseconds: 350),
+              curve: Curves.fastEaseInToSlowEaseOut,
+              alignment: Alignment.topCenter,
               child: expanded
                   ? Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Container(
                           height: 1,
-                          color: isDark ? const Color(0xFF3F3F46) : const Color(0xFFE5E7EB),
+                          margin: const EdgeInsets.symmetric(horizontal: 16),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [
+                                Colors.transparent,
+                                (isDark ? Colors.white : Colors.black).withValues(alpha: 0.1),
+                                Colors.transparent,
+                              ],
+                            ),
+                          ),
                         ),
                         Padding(
-                          padding: const EdgeInsets.all(14),
+                          padding: const EdgeInsets.fromLTRB(18, 18, 18, 20),
                           child: child,
                         ),
                       ],

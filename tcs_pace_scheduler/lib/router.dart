@@ -143,10 +143,8 @@ GoRouter createRouter(AuthProvider authProvider) {
           return '/login';
         }
 
-        // Redirect authenticated users from landing to their main screen
-        if (isAuthenticated && isLandingRoute && user != null) {
-          return _getMainScreenForRole(user.role);
-        }
+        // Allow authenticated users to stay on landing page
+        // They will manually click to enter the app
       }
 
       // Redirect authenticated users from login to their main screen
@@ -181,7 +179,7 @@ GoRouter createRouter(AuthProvider authProvider) {
         },
         routes: [
           GoRoute(
-            path: '/dashboard',
+            path: '/app/dashboard',
             pageBuilder: (context, state) => _buildPageWithTransition(
               context,
               state,
@@ -189,7 +187,7 @@ GoRouter createRouter(AuthProvider authProvider) {
             ),
           ),
           GoRoute(
-            path: '/calendar',
+            path: '/app/calendar',
             pageBuilder: (context, state) {
               final draftId = state.uri.queryParameters['draftId'];
               return _buildPageWithTransition(
@@ -203,7 +201,7 @@ GoRouter createRouter(AuthProvider authProvider) {
             },
           ),
           GoRoute(
-            path: '/agenda',
+            path: '/app/agenda',
             pageBuilder: (context, state) => _buildPageWithTransition(
               context,
               state,
@@ -211,7 +209,7 @@ GoRouter createRouter(AuthProvider authProvider) {
             ),
           ),
           GoRoute(
-            path: '/invitations',
+            path: '/app/invitations',
             pageBuilder: (context, state) => _buildPageWithTransition(
               context,
               state,
@@ -219,7 +217,7 @@ GoRouter createRouter(AuthProvider authProvider) {
             ),
           ),
           GoRoute(
-            path: '/users',
+            path: '/app/users',
             pageBuilder: (context, state) => _buildPageWithTransition(
               context,
               state,
@@ -227,7 +225,7 @@ GoRouter createRouter(AuthProvider authProvider) {
             ),
           ),
           GoRoute(
-            path: '/activity-logs',
+            path: '/app/activity-logs',
             pageBuilder: (context, state) => _buildPageWithTransition(
               context,
               state,
@@ -235,18 +233,18 @@ GoRouter createRouter(AuthProvider authProvider) {
             ),
           ),
           GoRoute(
-            path: '/notifications',
+            path: '/app/notifications',
             pageBuilder: (context, state) => _buildPageWithTransition(
               context,
               state,
               const DrawerRouteScreen(
                 drawerType: DrawerType.notifications,
-                baseRoute: '/calendar',
+                baseRoute: '/app/calendar',
               ),
             ),
           ),
           GoRoute(
-            path: '/approvals',
+            path: '/app/approvals',
             pageBuilder: (context, state) {
               final bookingId = state.uri.queryParameters['bookingId'];
               return _buildPageWithTransition(
@@ -257,7 +255,7 @@ GoRouter createRouter(AuthProvider authProvider) {
             },
           ),
           GoRoute(
-            path: '/my-bookings',
+            path: '/app/my-bookings',
             pageBuilder: (context, state) {
               final bookingId = state.uri.queryParameters['bookingId'];
               return _buildPageWithTransition(
@@ -271,7 +269,7 @@ GoRouter createRouter(AuthProvider authProvider) {
             },
           ),
           GoRoute(
-            path: '/booking/:id',
+            path: '/app/booking/:id',
             pageBuilder: (context, state) {
               final bookingId = state.pathParameters['id'];
               if (bookingId == null) {
@@ -283,7 +281,7 @@ GoRouter createRouter(AuthProvider authProvider) {
                 DrawerRouteScreen(
                   drawerType: DrawerType.bookingDetails,
                   params: {'bookingId': bookingId},
-                  baseRoute: '/calendar',
+                  baseRoute: '/app/calendar',
                 ),
               );
             },
@@ -298,11 +296,11 @@ GoRouter createRouter(AuthProvider authProvider) {
 String _getMainScreenForRole(UserRole role) {
   switch (role) {
     case UserRole.ADMIN:
-      return '/dashboard'; // Admin main screen
+      return '/app/dashboard'; // Admin main screen
     case UserRole.MANAGER:
-      return '/dashboard'; // Manager main screen
+      return '/app/dashboard'; // Manager main screen
     case UserRole.USER:
-      return '/calendar'; // User main screen
+      return '/app/calendar'; // User main screen
   }
 }
 

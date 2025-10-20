@@ -10,6 +10,7 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import '../providers/theme_provider.dart';
+import '../utils/toast_notification.dart';
 
 class AccessBadge extends StatelessWidget {
   final String attendeeName;
@@ -58,37 +59,41 @@ class AccessBadge extends StatelessWidget {
   }
 
   void _handleShare(BuildContext context) async {
-    final badgeUrl = 'https://paceportsp.com.br/attendee/${attendeeId ?? bookingId}';
+    final badgeUrl = 'https://ppspsched.lat/attendee/${attendeeId ?? bookingId}';
     try {
       await Share.share(
-        'TCS PacePort Access Ticket\n$attendeeName - $companyName\n$badgeUrl',
-        subject: 'TCS PacePort Access Ticket',
+        'TCS Pace Access Ticket\n$attendeeName - $companyName\n$badgeUrl',
+        subject: 'TCS Pace Access Ticket',
       );
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error sharing: $e')),
+        ToastNotification.show(
+          context,
+          message: 'Error sharing: $e',
+          type: ToastType.error,
         );
       }
     }
   }
 
   void _handleCopyLink(BuildContext context) async {
-    final badgeUrl = 'https://paceportsp.com.br/attendee/${attendeeId ?? bookingId}';
+    final badgeUrl = 'https://ppspsched.lat/attendee/${attendeeId ?? bookingId}';
     try {
       await Clipboard.setData(ClipboardData(text: badgeUrl));
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Link copied to clipboard'),
-            duration: Duration(seconds: 2),
-          ),
+        ToastNotification.show(
+          context,
+          message: 'Link copied to clipboard',
+          type: ToastType.success,
+          duration: const Duration(seconds: 2),
         );
       }
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error copying link: $e')),
+        ToastNotification.show(
+          context,
+          message: 'Error copying link: $e',
+          type: ToastType.error,
         );
       }
     }
@@ -97,8 +102,8 @@ class AccessBadge extends StatelessWidget {
   Future<void> generateAndPrintPDF() async {
     final pdf = pw.Document();
 
-    // Load logo SVG
-    final logoSvg = await rootBundle.loadString('assets/logos/tcs-logo-b.svg');
+    // Load logo SVG - using TCS Pace logo without "Scheduler" text for badges
+    final logoSvg = await rootBundle.loadString('assets/logos/tcs-pace-logo-only-b.svg');
 
     // Generate QR code data
     final qrCode = pw.BarcodeWidget(
@@ -195,7 +200,7 @@ class AccessBadge extends StatelessWidget {
                                 ),
                               ),
                               pw.Text(
-                                'PacePort São Paulo',
+                                'Pace São Paulo',
                                 style: pw.TextStyle(
                                   fontSize: 12,
                                   fontWeight: pw.FontWeight.bold,
@@ -391,7 +396,7 @@ class AccessBadge extends StatelessWidget {
           pw.SvgImage(svg: logoSvg, height: 40),
           pw.SizedBox(height: 8),
           pw.Text(
-            'PacePort São Paulo',
+            'Pace São Paulo',
             style: pw.TextStyle(
               fontSize: 14,
               fontWeight: pw.FontWeight.bold,
@@ -792,14 +797,14 @@ class AccessBadge extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // Logo
+            // Logo - TCS Pace logo without "Scheduler" text for badge display
             SvgPicture.asset(
-              isDark ? 'assets/logos/tcs-logo-w.svg' : 'assets/logos/tcs-logo-b.svg',
+              isDark ? 'assets/logos/tcs-pace-logo-only-w.svg' : 'assets/logos/tcs-pace-logo-only-b.svg',
               height: 40,
             ),
             const SizedBox(height: 8),
             Text(
-              'PacePort São Paulo',
+              'São Paulo Office',
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
@@ -961,7 +966,7 @@ class AccessBadge extends StatelessWidget {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     SvgPicture.asset(
-                                      isDark ? 'assets/logos/tcs-logo-w.svg' : 'assets/logos/tcs-logo-b.svg',
+                                      isDark ? 'assets/logos/tcs-pace-logo-only-w.svg' : 'assets/logos/tcs-pace-logo-only-b.svg',
                                       height: 32,
                                     ),
                                     const SizedBox(height: 4),
@@ -975,7 +980,7 @@ class AccessBadge extends StatelessWidget {
                                       ),
                                     ),
                                     Text(
-                                      'PacePort São Paulo',
+                                      'São Paulo Office',
                                       style: TextStyle(
                                         fontSize: 12,
                                         fontWeight: FontWeight.w600,

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:math';
+import '../../utils/toast_notification.dart';
 
 /// Drawer 3: Base Information with simplified fields
 class BaseInfoDrawer extends StatefulWidget {
@@ -145,12 +146,11 @@ class _BaseInfoDrawerState extends State<BaseInfoDrawer> {
       _selectedTargetAudience = List<String>.from(selectedMock['targetAudience'] as List);
     });
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('✅ ${selectedMock['organizationName']}'),
-        duration: const Duration(seconds: 1),
-        backgroundColor: Colors.green,
-      ),
+    ToastNotification.show(
+      context,
+      message: '✅ ${selectedMock['organizationName']}',
+      type: ToastType.success,
+      duration: const Duration(seconds: 1),
     );
   }
 
@@ -168,11 +168,10 @@ class _BaseInfoDrawerState extends State<BaseInfoDrawer> {
 
   void _submitForm() {
     if (!_formKey.currentState!.validate()) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please fill in all required fields'),
-          backgroundColor: Colors.red,
-        ),
+      ToastNotification.show(
+        context,
+        message: 'Please fill in all required fields',
+        type: ToastType.error,
       );
       return;
     }
@@ -452,7 +451,7 @@ class _BaseInfoDrawerState extends State<BaseInfoDrawer> {
                     TextFormField(
                       controller: _objectiveInterestController,
                       decoration: InputDecoration(
-                        labelText: 'Objective / Interest in PacePort (optional)',
+                        labelText: 'Objective / Interest in Pace (optional)',
                         hintText: 'What do you hope to learn or achieve?',
                         border: const OutlineInputBorder(),
                         alignLabelWithHint: true,

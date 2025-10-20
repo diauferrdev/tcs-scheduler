@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import '../utils/toast_notification.dart';
 
 /// Global Navigation Service
 /// Provides navigation from anywhere in the app, including notification handlers
@@ -70,13 +71,11 @@ class NavigationService {
   /// Show snackbar
   void showSnackBar(String message, {bool isError = false}) {
     if (context != null) {
-      ScaffoldMessenger.of(context!).showSnackBar(
-        SnackBar(
-          content: Text(message),
-          backgroundColor: isError ? Colors.red : Colors.green,
-          duration: const Duration(seconds: 2),
-          behavior: SnackBarBehavior.floating,
-        ),
+      ToastNotification.show(
+        context!,
+        message: message,
+        type: isError ? ToastType.error : ToastType.success,
+        duration: const Duration(seconds: 2),
       );
     }
   }

@@ -1,8 +1,10 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import 'package:share_plus/share_plus.dart';
 import '../services/api_service.dart';
 import '../services/realtime_service.dart';
 import '../models/booking.dart';
@@ -15,6 +17,7 @@ import '../widgets/reschedule_drawer.dart';
 import '../widgets/edit_booking_drawer.dart';
 import '../utils/file_utils.dart';
 import '../utils/document_opener.dart';
+import '../utils/toast_notification.dart';
 import 'booking_form_screen.dart';
 import 'image_viewer_screen.dart';
 
@@ -217,6 +220,74 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
     }
   }
 
+  Future<void> _shareBooking() async {
+    if (_booking == null) return;
+
+    try {
+      final booking = _booking!;
+      final dateFormat = DateFormat('EEEE, MMMM d, yyyy');
+      final timeFormat = DateFormat('HH:mm');
+
+      // Create shareable deep link
+      final bookingUrl = 'https://ppspsched.lat/#/app/booking/${booking.id}';
+
+      // Get engagement type name
+      final engagementTypeName = booking.engagementType?.name ?? 'Visit';
+
+      // Get duration in hours
+      final durationHours = _getDurationFromEnum(booking.duration.name);
+
+      // Get status name
+      final statusName = booking.status.name.replaceAll('_', ' ');
+
+      // Format booking details
+      final shareText = '''
+📅 TCS Pace Scheduler - Booking Details
+
+$engagementTypeName
+${booking.companyName}
+
+📍 Date: ${dateFormat.format(booking.date)}
+🕐 Time: ${timeFormat.format(DateTime(2024, 1, 1, int.parse(booking.startTime.split(':')[0]), int.parse(booking.startTime.split(':')[1])))}
+⏱️ Duration: $durationHours hour(s)
+👥 Attendees: ${(booking.attendees?.length ?? 0) + 1}
+
+Status: $statusName
+
+View full details: $bookingUrl
+
+---
+TCS Pace Scheduler
+Enterprise Office Visit Management
+''';
+
+      // Show share options
+      final result = await Share.share(
+        shareText,
+        subject: 'Booking: ${booking.companyName} - ${dateFormat.format(booking.date)}',
+      );
+
+      if (result.status == ShareResultStatus.success) {
+        if (mounted) {
+          ToastNotification.show(
+            context,
+            message: 'Booking shared successfully',
+            type: ToastType.success,
+            duration: const Duration(seconds: 2),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ToastNotification.show(
+          context,
+          message: 'Failed to share booking',
+          type: ToastType.error,
+        );
+      }
+    }
+  }
+
   void _cancelEdit() {
     setState(() {
       _isEditing = false;
@@ -247,11 +318,10 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
           _processing = false;
         });
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Draft saved successfully!'),
-            backgroundColor: Colors.green,
-          ),
+        ToastNotification.show(
+          context,
+          message: 'Draft saved successfully!',
+          type: ToastType.success,
         );
 
         _loadBookingDetails();
@@ -259,11 +329,10 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
     } catch (e) {
       if (mounted) {
         setState(() => _processing = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error saving draft: $e'),
-            backgroundColor: Colors.red,
-          ),
+        ToastNotification.show(
+          context,
+          message: 'Error saving draft: $e',
+          type: ToastType.error,
         );
       }
     }
@@ -273,11 +342,10 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
     if (_booking == null || _formData == null) return;
 
     if (!_formKey.currentState!.validate()) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please fill in all required fields'),
-          backgroundColor: Colors.red,
-        ),
+      ToastNotification.show(
+        context,
+        message: 'Please fill in all required fields',
+        type: ToastType.error,
       );
       return;
     }
@@ -301,11 +369,10 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
           _processing = false;
         });
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Booking submitted for approval! Managers have been notified.'),
-            backgroundColor: Colors.green,
-          ),
+        ToastNotification.show(
+          context,
+          message: 'Booking submitted for approval! Managers have been notified.',
+          type: ToastType.success,
         );
 
         _loadBookingDetails();
@@ -313,11 +380,10 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
     } catch (e) {
       if (mounted) {
         setState(() => _processing = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error submitting booking: $e'),
-            backgroundColor: Colors.red,
-          ),
+        ToastNotification.show(
+          context,
+          message: 'Error submitting booking: $e',
+          type: ToastType.error,
         );
       }
     }
@@ -331,11 +397,10 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
       await _apiService.approveBooking(_booking!.id);
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Booking approved successfully!'),
-            backgroundColor: Colors.green,
-          ),
+        ToastNotification.show(
+          context,
+          message: 'Booking approved successfully!',
+          type: ToastType.success,
         );
 
         // Just close the drawer/screen
@@ -348,11 +413,10 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
     } catch (e) {
       if (mounted) {
         setState(() => _processing = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error approving booking: $e'),
-            backgroundColor: Colors.red,
-          ),
+        ToastNotification.show(
+          context,
+          message: 'Error approving booking: $e',
+          type: ToastType.error,
         );
       }
     }
@@ -397,11 +461,10 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
       await _apiService.deleteBooking(_booking!.id);
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Booking denied'),
-            backgroundColor: Colors.red,
-          ),
+        ToastNotification.show(
+          context,
+          message: 'Booking denied',
+          type: ToastType.error,
         );
 
         // Just close the drawer/screen
@@ -414,11 +477,10 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
     } catch (e) {
       if (mounted) {
         setState(() => _processing = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error denying booking: $e'),
-            backgroundColor: Colors.red,
-          ),
+        ToastNotification.show(
+          context,
+          message: 'Error denying booking: $e',
+          type: ToastType.error,
         );
       }
     }
@@ -486,11 +548,10 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
       );
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Edit requested successfully'),
-            backgroundColor: Colors.orange,
-          ),
+        ToastNotification.show(
+          context,
+          message: 'Edit requested successfully',
+          type: ToastType.warning,
         );
 
         if (widget.onClose != null) {
@@ -502,11 +563,10 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
     } catch (e) {
       if (mounted) {
         setState(() => _processing = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error requesting edit: $e'),
-            backgroundColor: Colors.red,
-          ),
+        ToastNotification.show(
+          context,
+          message: 'Error requesting edit: $e',
+          type: ToastType.error,
         );
       }
     }
@@ -574,11 +634,10 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
       );
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Reschedule requested successfully'),
-            backgroundColor: Colors.orange,
-          ),
+        ToastNotification.show(
+          context,
+          message: 'Reschedule requested successfully',
+          type: ToastType.warning,
         );
 
         if (widget.onClose != null) {
@@ -590,11 +649,10 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
     } catch (e) {
       if (mounted) {
         setState(() => _processing = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error requesting reschedule: $e'),
-            backgroundColor: Colors.red,
-          ),
+        ToastNotification.show(
+          context,
+          message: 'Error requesting reschedule: $e',
+          type: ToastType.error,
         );
       }
     }
@@ -645,11 +703,10 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
             TextButton(
               onPressed: () {
                 if (reasonController.text.trim().isEmpty) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Please provide a rejection reason'),
-                      backgroundColor: Colors.red,
-                    ),
+                  ToastNotification.show(
+                    context,
+                    message: 'Please provide a rejection reason',
+                    type: ToastType.error,
                   );
                   return;
                 }
@@ -670,11 +727,10 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
       await _apiService.rejectBooking(_booking!.id, reasonController.text);
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Booking rejected'),
-            backgroundColor: Colors.red,
-          ),
+        ToastNotification.show(
+          context,
+          message: 'Booking rejected',
+          type: ToastType.error,
         );
 
         if (widget.onClose != null) {
@@ -686,11 +742,10 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
     } catch (e) {
       if (mounted) {
         setState(() => _processing = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error rejecting booking: $e'),
-            backgroundColor: Colors.red,
-          ),
+        ToastNotification.show(
+          context,
+          message: 'Error rejecting booking: $e',
+          type: ToastType.error,
         );
       }
     }
@@ -741,11 +796,10 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
             TextButton(
               onPressed: () {
                 if (reasonController.text.trim().isEmpty) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Please provide a cancellation reason'),
-                      backgroundColor: Colors.red,
-                    ),
+                  ToastNotification.show(
+                    context,
+                    message: 'Please provide a cancellation reason',
+                    type: ToastType.error,
                   );
                   return;
                 }
@@ -766,11 +820,10 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
       await _apiService.cancelBooking(_booking!.id, reasonController.text);
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Booking cancelled'),
-            backgroundColor: Colors.red,
-          ),
+        ToastNotification.show(
+          context,
+          message: 'Booking cancelled',
+          type: ToastType.error,
         );
 
         if (widget.onClose != null) {
@@ -782,11 +835,10 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
     } catch (e) {
       if (mounted) {
         setState(() => _processing = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error cancelling booking: $e'),
-            backgroundColor: Colors.red,
-          ),
+        ToastNotification.show(
+          context,
+          message: 'Error cancelling booking: $e',
+          type: ToastType.error,
         );
       }
     }
@@ -800,11 +852,10 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
       await _apiService.markBookingAsUnderReview(_booking!.id);
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Booking marked as under review'),
-            backgroundColor: Colors.orange,
-          ),
+        ToastNotification.show(
+          context,
+          message: 'Booking marked as under review',
+          type: ToastType.warning,
         );
 
         _loadBookingDetails();
@@ -813,11 +864,10 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
     } catch (e) {
       if (mounted) {
         setState(() => _processing = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error marking booking as under review: $e'),
-            backgroundColor: Colors.red,
-          ),
+        ToastNotification.show(
+          context,
+          message: 'Error marking booking as under review: $e',
+          type: ToastType.error,
         );
       }
     }
@@ -857,7 +907,7 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
     }
 
     // Navigate to calendar with the draft's date and draft ID
-    context.go('/calendar?draftId=${_booking!.id}');
+    context.go('/app/calendar?draftId=${_booking!.id}');
   }
 
   Future<void> _handleDelete() async {
@@ -901,13 +951,12 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
       await _apiService.deleteBooking(_booking!.id);
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(_booking!.status == BookingStatus.DRAFT
+        ToastNotification.show(
+          context,
+          message: _booking!.status == BookingStatus.DRAFT
                 ? 'Draft deleted successfully'
-                : 'Booking deleted'),
-            backgroundColor: Colors.green,
-          ),
+                : 'Booking deleted',
+          type: ToastType.success,
         );
 
         if (widget.onClose != null) {
@@ -919,11 +968,10 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
     } catch (e) {
       if (mounted) {
         setState(() => _processing = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error deleting ${_booking!.status == BookingStatus.DRAFT ? "draft" : "booking"}: $e'),
-            backgroundColor: Colors.red,
-          ),
+        ToastNotification.show(
+          context,
+          message: 'Error deleting ${_booking!.status == BookingStatus.DRAFT ? "draft" : "booking"}: $e',
+          type: ToastType.error,
         );
       }
     }
@@ -1150,6 +1198,20 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
                   ),
                 ),
                 const Spacer(),
+                // Share button
+                IconButton(
+                  onPressed: _shareBooking,
+                  icon: Icon(
+                    Icons.share_outlined,
+                    size: 20,
+                    color: isDark ? Colors.white : Colors.black,
+                  ),
+                  tooltip: 'Share Booking',
+                  style: IconButton.styleFrom(
+                    backgroundColor: (isDark ? Colors.white : Colors.black).withOpacity(0.05),
+                  ),
+                ),
+                const SizedBox(width: 8),
                 // Edit icon for NEED_EDIT (on the right side)
                 if (canEdit) ...[
                   InkWell(
@@ -1716,12 +1778,12 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
           _buildInfoSection(
             'Access Information',
             [
-              _buildInfoRow(Icons.wifi, 'WiFi Network', 'TCS-PacePort-Guest', isDark),
+              _buildInfoRow(Icons.wifi, 'WiFi Network', 'TCS-Pace-Guest', isDark),
               _buildInfoRow(Icons.lock, 'WiFi Password', 'Innovation2024', isDark),
               _buildInfoRow(
                 Icons.location_on,
                 'Location',
-                'TCS PacePort - Av. Paulista, 1374 - São Paulo',
+                'TCS Pace - Av. Paulista, 1374 - São Paulo',
                 isDark,
               ),
               _buildInfoRow(

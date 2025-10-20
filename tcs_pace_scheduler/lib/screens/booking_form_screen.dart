@@ -7,6 +7,7 @@ import 'dart:math';
 import '../services/api_service.dart';
 import '../models/booking.dart';
 import '../widgets/booking_form_fields.dart';
+import '../utils/toast_notification.dart';
 
 class BookingFormScreen extends StatefulWidget {
   final DateTime selectedDate;
@@ -221,11 +222,10 @@ class BookingFormScreenState extends State<BookingFormScreen> {
 
   Future<void> _submitForm() async {
     if (!_formKey.currentState!.validate()) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please fill in all required fields'),
-          backgroundColor: Colors.red,
-        ),
+      ToastNotification.show(
+        context,
+        message: 'Please fill in all required fields',
+        type: ToastType.error,
       );
       return;
     }
@@ -256,11 +256,10 @@ class BookingFormScreenState extends State<BookingFormScreen> {
           _isSubmitting = false;
         });
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Booking updated successfully! Status changed to Under Review.'),
-            backgroundColor: Colors.green,
-          ),
+        ToastNotification.show(
+          context,
+          message: 'Booking updated successfully! Status changed to Under Review.',
+          type: ToastType.success,
         );
       } else {
         // CREATE MODE: Create new booking
@@ -277,11 +276,10 @@ class BookingFormScreenState extends State<BookingFormScreen> {
           _isSubmitting = false;
         });
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Booking created successfully!'),
-            backgroundColor: Colors.green,
-          ),
+        ToastNotification.show(
+          context,
+          message: 'Booking created successfully!',
+          type: ToastType.success,
         );
       }
 
@@ -293,12 +291,11 @@ class BookingFormScreenState extends State<BookingFormScreen> {
         _isSubmitting = false;
       });
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error: ${e.toString()}'),
-          backgroundColor: Colors.red,
-          duration: const Duration(seconds: 5),
-        ),
+      ToastNotification.show(
+        context,
+        message: 'Error: ${e.toString()}',
+        type: ToastType.error,
+        duration: const Duration(seconds: 5),
       );
     }
   }
@@ -307,11 +304,10 @@ class BookingFormScreenState extends State<BookingFormScreen> {
     if (_currentStep == 1) {
       // Validate engagement type selection
       if (_engagementType == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Please select an engagement type'),
-            backgroundColor: Colors.orange,
-          ),
+        ToastNotification.show(
+          context,
+          message: 'Please select an engagement type',
+          type: ToastType.warning,
         );
         return;
       }
@@ -326,11 +322,10 @@ class BookingFormScreenState extends State<BookingFormScreen> {
     } else if (_currentStep == 2) {
       // Validate visit type selection
       if (_visitType == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Please select a visit type'),
-            backgroundColor: Colors.orange,
-          ),
+        ToastNotification.show(
+          context,
+          message: 'Please select a visit type',
+          type: ToastType.warning,
         );
         return;
       }
@@ -338,11 +333,10 @@ class BookingFormScreenState extends State<BookingFormScreen> {
     } else if (_currentStep == 3) {
       // Validate base information
       if (!_formKey.currentState!.validate()) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Please fill in all required fields'),
-            backgroundColor: Colors.red,
-          ),
+        ToastNotification.show(
+          context,
+          message: 'Please fill in all required fields',
+          type: ToastType.error,
         );
         return;
       }
@@ -358,11 +352,10 @@ class BookingFormScreenState extends State<BookingFormScreen> {
       // Validate questionnaire
       bool allAnswered = _questionnaireAnswers.values.every((answer) => answer.trim().isNotEmpty);
       if (!allAnswered) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Please answer all questions'),
-            backgroundColor: Colors.red,
-          ),
+        ToastNotification.show(
+          context,
+          message: 'Please answer all questions',
+          type: ToastType.error,
         );
         return;
       }
@@ -457,12 +450,11 @@ class BookingFormScreenState extends State<BookingFormScreen> {
       }
     });
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Mock data loaded'),
-        backgroundColor: Colors.green,
-        duration: Duration(seconds: 2),
-      ),
+    ToastNotification.show(
+      context,
+      message: 'Mock data loaded',
+      type: ToastType.success,
+      duration: const Duration(seconds: 2),
     );
   }
 
@@ -711,7 +703,7 @@ class BookingFormScreenState extends State<BookingFormScreen> {
       children: [
         _buildEngagementTypeCard(
           'VISIT',
-          'PacePort Visit',
+          'Pace Visit',
           'Quick tour or full-day experience',
           Icons.tour,
           isDark,
@@ -1155,7 +1147,7 @@ class BookingFormScreenState extends State<BookingFormScreen> {
         TextFormField(
           controller: _objectiveInterestController,
           decoration: InputDecoration(
-            labelText: 'Objective / Interest in PacePort (optional)',
+            labelText: 'Objective / Interest in Pace (optional)',
             hintText: 'What do you hope to learn or achieve?',
             border: const OutlineInputBorder(),
             alignLabelWithHint: true,

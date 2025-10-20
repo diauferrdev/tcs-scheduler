@@ -3,6 +3,7 @@ import '../models/booking.dart';
 import '../services/api_service.dart';
 import '../services/drawer_service.dart';
 import 'booking_card.dart';
+import '../utils/toast_notification.dart';
 
 class PendingApprovalCard extends StatefulWidget {
   final Booking booking;
@@ -28,22 +29,20 @@ class _PendingApprovalCardState extends State<PendingApprovalCard> {
       await _apiService.approveBooking(widget.booking.id);
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Booking approved successfully!'),
-            backgroundColor: Colors.green,
-          ),
+        ToastNotification.show(
+          context,
+          message: 'Booking approved successfully!',
+          type: ToastType.success,
         );
         widget.onApproved();
       }
     } catch (e) {
       if (mounted) {
         setState(() => _processing = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error approving booking: $e'),
-            backgroundColor: Colors.red,
-          ),
+        ToastNotification.show(
+          context,
+          message: 'Error approving booking: $e',
+          type: ToastType.error,
         );
       }
     }
@@ -77,22 +76,20 @@ class _PendingApprovalCardState extends State<PendingApprovalCard> {
       await _apiService.deleteBooking(widget.booking.id);
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Booking denied'),
-            backgroundColor: Colors.red,
-          ),
+        ToastNotification.show(
+          context,
+          message: 'Booking denied',
+          type: ToastType.error,
         );
         widget.onApproved(); // Refresh the list
       }
     } catch (e) {
       if (mounted) {
         setState(() => _processing = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error denying booking: $e'),
-            backgroundColor: Colors.red,
-          ),
+        ToastNotification.show(
+          context,
+          message: 'Error denying booking: $e',
+          type: ToastType.error,
         );
       }
     }

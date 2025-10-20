@@ -6,6 +6,8 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'dart:math' as math;
 import 'package:url_launcher/url_launcher.dart';
+import 'package:provider/provider.dart';
+import '../providers/auth_provider.dart';
 
 class LandingScreen extends StatefulWidget {
   const LandingScreen({super.key});
@@ -122,63 +124,71 @@ class _LandingScreenState extends State<LandingScreen>
   }
 
   Widget _buildHeader(BuildContext context) {
+    final authProvider = context.watch<AuthProvider>();
+    final isAuthenticated = authProvider.isAuthenticated;
+    final user = authProvider.user;
+
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+      height: 64,
+      padding: const EdgeInsets.symmetric(horizontal: 16),
       decoration: BoxDecoration(
-        color: Colors.black.withOpacity(0.8),
+        color: Colors.black.withOpacity(0.95),
         border: const Border(
           bottom: BorderSide(color: Color(0xFF27272A), width: 1),
         ),
       ),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Row(
-            children: [
-              SvgPicture.asset('assets/logos/tcs-logo-w.svg', height: 32),
-              const SizedBox(width: 12),
-              Container(
-                padding: const EdgeInsets.only(left: 12),
-                decoration: const BoxDecoration(
-                  border: Border(left: BorderSide(color: Color(0xFF27272A))),
-                ),
-                child: const Text(
-                  'PacePort Scheduler',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.white,
-                  ),
-                ),
-              ),
-            ],
+          // Logo - New TCS Pace logo (already includes "Scheduler" text)
+          SvgPicture.asset(
+            'assets/logos/tcs-pace-logo-w.svg',
+            height: 32,
           ),
+
+          const Spacer(),
+
+          // Action button
           AnimatedBuilder(
             animation: _pulseController,
             builder: (context, child) {
               return Transform.scale(
-                scale: 1.0 + (_pulseController.value * 0.05),
-                child: TextButton(
-                  onPressed: () => context.go('/login'),
-                  style: TextButton.styleFrom(
+                scale: 1.0 + (_pulseController.value * 0.03),
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    if (isAuthenticated && user != null) {
+                      // Go to their main screen based on role
+                      switch (user.role.name) {
+                        case 'ADMIN':
+                        case 'MANAGER':
+                          context.go('/app/dashboard');
+                          break;
+                        case 'USER':
+                        default:
+                          context.go('/app/calendar');
+                      }
+                    } else {
+                      context.go('/login');
+                    }
+                  },
+                  icon: Icon(
+                    isAuthenticated ? Icons.dashboard_rounded : Icons.login,
+                    size: 18,
+                  ),
+                  label: Text(
+                    isAuthenticated ? 'Enter App' : 'Sign In',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14,
+                    ),
+                  ),
+                  style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.white,
                     foregroundColor: Colors.black,
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                    elevation: 0,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
                     ),
-                  ),
-                  child: const Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.login, size: 18),
-                      SizedBox(width: 8),
-                      Text(
-                        'Sign In',
-                        style: TextStyle(fontWeight: FontWeight.w600),
-                      ),
-                    ],
                   ),
                 ),
               );
@@ -274,7 +284,7 @@ class _LandingScreenState extends State<LandingScreen>
 
           // Subtitle
           const Text(
-            'Enterprise scheduling system for TCS PacePort São Paulo.\nManage bookings, invitations, and office capacity with precision.',
+            'Enterprise scheduling system for TCS Pace São Paulo.\nManage bookings, invitations, and office capacity with precision.',
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 18,
@@ -881,17 +891,8 @@ class _LandingScreenState extends State<LandingScreen>
       ),
       child: Column(
         children: [
-          SvgPicture.asset('assets/logos/tcs-logo-w.svg', height: 32),
+          SvgPicture.asset('assets/logos/tcs-pace-logo-w.svg', height: 32),
           const SizedBox(height: 16),
-          const Text(
-            'TCS PacePort Scheduler',
-            style: TextStyle(
-              fontSize: 16,
-              color: Color(0xFF9CA3AF),
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 8),
           const Text(
             'Internal application for TCS employees',
             style: TextStyle(
