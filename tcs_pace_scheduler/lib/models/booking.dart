@@ -8,14 +8,12 @@ enum VisitDuration {
 }
 
 enum VisitType {
-  QUICK_TOUR,           // DEPRECATED - 2 hours - kept for backwards compatibility
   PACE_TOUR,            // 14h-16h (2 hours) - simple visit, no questionnaire
   PACE_EXPERIENCE,      // 10h-16h (6 hours) - full day, requires questionnaire
   INNOVATION_EXCHANGE,  // 10h-17h (7 hours) - requires questionnaire and alignment call
 }
 
 enum BookingStatus {
-  PENDING_APPROVAL,     // DEPRECATED - kept for backwards compatibility
   CREATED,              // Initial status when booking is submitted
   UNDER_REVIEW,         // Manager/Admin is reviewing the booking
   NEED_EDIT,            // User must edit information (except date)
