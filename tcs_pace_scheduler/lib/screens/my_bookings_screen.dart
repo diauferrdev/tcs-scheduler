@@ -234,8 +234,6 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
 
   Color _getStatusColor(BookingStatus status) {
     switch (status) {
-      case BookingStatus.DRAFT:
-      case BookingStatus.CREATED:
         return const Color(0xFF6B7280);
       case BookingStatus.PENDING_APPROVAL:
       case BookingStatus.UNDER_REVIEW:
@@ -252,8 +250,6 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
 
   String _getStatusText(BookingStatus status) {
     switch (status) {
-      case BookingStatus.DRAFT:
-        return 'Draft';
       case BookingStatus.CREATED:
         return 'Created';
       case BookingStatus.PENDING_APPROVAL:
@@ -275,8 +271,6 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
 
   IconData _getStatusIcon(BookingStatus status) {
     switch (status) {
-      case BookingStatus.DRAFT:
-      case BookingStatus.CREATED:
         return Icons.edit_note;
       case BookingStatus.PENDING_APPROVAL:
       case BookingStatus.UNDER_REVIEW:

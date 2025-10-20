@@ -1816,10 +1816,8 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
     bool shouldPulse = false;
 
     switch (booking.status) {
-      case BookingStatus.DRAFT:
-      case BookingStatus.CREATED:
         statusColor = const Color(0xFF6B7280); // Gray
-        statusLabel = booking.status == BookingStatus.DRAFT ? 'DRAFT' : 'CREATED';
+        statusLabel = false ? 'DRAFT' : 'CREATED';
         break;
       case BookingStatus.PENDING_APPROVAL:
       case BookingStatus.UNDER_REVIEW:

@@ -461,66 +461,63 @@ export async function checkAvailability(date: string, visitType?: 'QUICK_TOUR' |
   };
 }
 
-export async function createBooking(data: BookingCreateInput, createdById?: string, isDraft: boolean = false) {
+export async function createBooking(data: BookingCreateInput, createdById?: string) {
   const bookingDate = new Date(data.date);
 
-  // Skip validations for drafts
-  if (!isDraft) {
-    // 1. Block weekends
-    if (isWeekend(bookingDate)) {
-      throw new Error('Bookings are not allowed on weekends (Saturday/Sunday)');
+  // 1. Block weekends
+  if (isWeekend(bookingDate)) {
+    throw new Error('Bookings are not allowed on weekends (Saturday/Sunday)');
+  }
+
+  // 2. Validate visit type and duration match
+  if (data.visitType === 'QUICK_TOUR') {
+    // Quick Tour must be exactly 2 hours
+    if (data.duration !== 'TWO_HOURS') {
+      throw new Error('Quick Tour must be exactly 2 hours');
     }
 
-    // 2. Validate visit type and duration match
-    if (data.visitType === 'QUICK_TOUR') {
-      // Quick Tour must be exactly 2 hours
-      if (data.duration !== 'TWO_HOURS') {
-        throw new Error('Quick Tour must be exactly 2 hours');
-      }
-
-      // Validate Quick Tour specific rules
-      const quickTourValidation = await validateQuickTour(data.date, data.duration);
-      if (!quickTourValidation.valid) {
-        throw new Error(quickTourValidation.error);
-      }
-    } else if (data.visitType === 'INNOVATION_EXCHANGE') {
-      // Innovation Exchange must be 4-6 hours
-      const durationHours = durationToHours(data.duration);
-      if (durationHours < 4 || durationHours > 6) {
-        throw new Error('Innovation Exchange must be between 4-6 hours');
-      }
-
-      // Validate Innovation Exchange specific rules (prep/teardown)
-      const innovationValidation = await validateInnovationExchange(
-        data.date,
-        data.startTime,
-        data.duration
-      );
-      if (!innovationValidation.valid) {
-        throw new Error(innovationValidation.error);
-      }
+    // Validate Quick Tour specific rules
+    const quickTourValidation = await validateQuickTour(data.date, data.duration);
+    if (!quickTourValidation.valid) {
+      throw new Error(quickTourValidation.error);
+    }
+  } else if (data.visitType === 'INNOVATION_EXCHANGE') {
+    // Innovation Exchange must be 4-6 hours
+    const durationHours = durationToHours(data.duration);
+    if (durationHours < 4 || durationHours > 6) {
+      throw new Error('Innovation Exchange must be between 4-6 hours');
     }
 
-    // 3. Validate availability (general conflict check)
-    const availability = await checkAvailability(data.date);
+    // Validate Innovation Exchange specific rules (prep/teardown)
+    const innovationValidation = await validateInnovationExchange(
+      data.date,
+      data.startTime,
+      data.duration
+    );
+    if (!innovationValidation.valid) {
+      throw new Error(innovationValidation.error);
+    }
+  }
 
-    // Check if requested time and duration are available
-    const requestedStartMinutes = timeToMinutes(data.startTime);
-    const requestedDurationHours = durationToHours(data.duration);
+  // 3. Validate availability (general conflict check)
+  const availability = await checkAvailability(data.date);
 
-    // Check for time conflicts with existing bookings
-    for (const existing of availability.existingBookings) {
-      const existingStart = timeToMinutes(existing.startTime);
-      const existingDuration = durationToHours(existing.duration);
+  // Check if requested time and duration are available
+  const requestedStartMinutes = timeToMinutes(data.startTime);
+  const requestedDurationHours = durationToHours(data.duration);
 
-      if (timeRangesOverlap(
-        requestedStartMinutes,
-        requestedDurationHours,
-        existingStart,
-        existingDuration
-      )) {
-        throw new Error('Booking conflicts with existing booking');
-      }
+  // Check for time conflicts with existing bookings
+  for (const existing of availability.existingBookings) {
+    const existingStart = timeToMinutes(existing.startTime);
+    const existingDuration = durationToHours(existing.duration);
+
+    if (timeRangesOverlap(
+      requestedStartMinutes,
+      requestedDurationHours,
+      existingStart,
+      existingDuration
+    )) {
+      throw new Error('Booking conflicts with existing booking');
     }
   }
 
@@ -537,7 +534,7 @@ export async function createBooking(data: BookingCreateInput, createdById?: stri
       date: new Date(data.date),
       lastInnovationDay: lastInnovationDay ? new Date(lastInnovationDay) : null,
       expectedAttendees: data.expectedAttendees || 1,
-      status: isDraft ? 'DRAFT' : 'CREATED', // Start with CREATED
+      status: 'CREATED', // Start with CREATED
       createdById,
       attendees: attendees
         ? {
@@ -570,9 +567,8 @@ export async function createBooking(data: BookingCreateInput, createdById?: stri
     },
   });
 
-  // Automatically transition from CREATED to UNDER_REVIEW (only if not draft)
-  if (!isDraft) {
-    const updatedBooking = await prisma.booking.update({
+  // Automatically transition from CREATED to UNDER_REVIEW
+  const updatedBooking = await prisma.booking.update({
       where: { id: booking.id },
       data: { status: 'UNDER_REVIEW' },
       include: {
@@ -598,11 +594,10 @@ export async function createBooking(data: BookingCreateInput, createdById?: stri
       console.error('Failed to send manager notifications:', error);
     });
 
-    // Update booking reference to return the updated version
-    booking = updatedBooking;
-  }
+  // Update booking reference to return the updated version
+  booking = updatedBooking;
 
-  // Always broadcast booking creation (including drafts) for real-time UI updates
+  // Broadcast booking creation for real-time UI updates
   websocketService.broadcastBookingCreated(booking);
   console.log('[Booking] Broadcast booking_created to', websocketService.getTotalConnections(), 'connections');
 
@@ -655,7 +650,7 @@ export async function getBookings(month?: string, status?: string, userId?: stri
 export async function getBookingsAvailability(month?: string) {
   const where: any = {
     // Only show APPROVED bookings to public (hide pending/created/under_review/etc)
-    status: { notIn: ['CANCELLED', 'PENDING_APPROVAL', 'CREATED', 'UNDER_REVIEW', 'NEED_EDIT', 'NEED_RESCHEDULE', 'NOT_APPROVED', 'DRAFT'] },
+    status: { notIn: ['CANCELLED', 'PENDING_APPROVAL', 'CREATED', 'UNDER_REVIEW', 'NEED_EDIT', 'NEED_RESCHEDULE', 'NOT_APPROVED'] },
   };
 
   if (month) {
@@ -698,8 +693,8 @@ export async function getBookingsAvailability(month?: string) {
 export async function getBookingsAvailabilityForAdmins(month?: string) {
   const where: any = {
     // Include CREATED, UNDER_REVIEW, NEED_EDIT, NEED_RESCHEDULE, PENDING_APPROVAL, APPROVED, NOT_APPROVED
-    // Exclude only CANCELLED and DRAFT
-    status: { notIn: ['CANCELLED', 'DRAFT'] },
+    // Exclude only CANCELLED
+    status: { notIn: ['CANCELLED'] },
   };
 
   if (month) {

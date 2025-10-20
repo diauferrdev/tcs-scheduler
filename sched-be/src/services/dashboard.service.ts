@@ -1,10 +1,10 @@
 import { prisma } from '../lib/prisma';
 
 export async function getDashboardStatistics() {
-  // Get all bookings (excluding DRAFT and CANCELLED)
+  // Get all bookings (excluding CANCELLED)
   const allBookings = await prisma.booking.findMany({
     where: {
-      status: { notIn: ['DRAFT', 'CANCELLED'] },
+      status: { notIn: ['CANCELLED'] },
     },
     include: {
       createdBy: {

@@ -436,8 +436,6 @@ class _BookingStatusStepperState extends State<BookingStatusStepper>
   int _getStepIndexForStatus(BookingStatus status) {
     switch (status) {
       // Step 0: Created
-      case BookingStatus.DRAFT: // DEPRECATED
-      case BookingStatus.CREATED:
         return 0;
 
       // Step 1: Under Review (includes review, need edit, need reschedule)

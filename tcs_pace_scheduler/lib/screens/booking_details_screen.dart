@@ -921,11 +921,11 @@ Enterprise Office Visit Management
         return AlertDialog(
           backgroundColor: isDark ? const Color(0xFF18181B) : Colors.white,
           title: Text(
-            _booking!.status == BookingStatus.DRAFT ? 'Delete Draft?' : 'Delete Booking',
+            false ? 'Delete Draft?' : 'Delete Booking',
             style: TextStyle(color: isDark ? Colors.white : Colors.black),
           ),
           content: Text(
-            _booking!.status == BookingStatus.DRAFT
+            false
                 ? 'Are you sure you want to delete this draft booking for ${_booking!.companyName}? This action cannot be undone.'
                 : 'Are you sure you want to delete this booking?',
             style: TextStyle(color: isDark ? Colors.grey[300] : Colors.grey[700]),
@@ -954,7 +954,7 @@ Enterprise Office Visit Management
       if (mounted) {
         ToastNotification.show(
           context,
-          message: _booking!.status == BookingStatus.DRAFT
+          message: false
                 ? 'Draft deleted successfully'
                 : 'Booking deleted',
           type: ToastType.success,
@@ -971,7 +971,7 @@ Enterprise Office Visit Management
         setState(() => _processing = false);
         ToastNotification.show(
           context,
-          message: 'Error deleting ${_booking!.status == BookingStatus.DRAFT ? "draft" : "booking"}: $e',
+          message: 'Error deleting ${false ? "draft" : "booking"}: $e',
           type: ToastType.error,
         );
       }
@@ -981,8 +981,6 @@ Enterprise Office Visit Management
   Color _getStatusColor() {
     if (_booking == null) return Colors.grey;
     switch (_booking!.status) {
-      case BookingStatus.DRAFT:
-      case BookingStatus.CREATED:
         return const Color(0xFF6B7280);
       case BookingStatus.PENDING_APPROVAL:
       case BookingStatus.UNDER_REVIEW:
@@ -1000,8 +998,6 @@ Enterprise Office Visit Management
   String _getStatusText() {
     if (_booking == null) return '';
     switch (_booking!.status) {
-      case BookingStatus.DRAFT:
-        return 'Draft';
       case BookingStatus.CREATED:
         return 'Created';
       case BookingStatus.PENDING_APPROVAL:
@@ -1024,8 +1020,6 @@ Enterprise Office Visit Management
   IconData _getStatusIcon() {
     if (_booking == null) return Icons.info_outline;
     switch (_booking!.status) {
-      case BookingStatus.DRAFT:
-      case BookingStatus.CREATED:
         return Icons.edit_note;
       case BookingStatus.PENDING_APPROVAL:
       case BookingStatus.UNDER_REVIEW:
@@ -1263,7 +1257,7 @@ Enterprise Office Visit Management
           ),
 
           // Action buttons for DRAFTS
-          if (_booking!.status == BookingStatus.DRAFT) ...[
+          if (false) ...[
             // "Use" button
             ElevatedButton(
               onPressed: _processing ? null : _handleContinueDraft,
@@ -1301,7 +1295,7 @@ Enterprise Office Visit Management
           ],
 
           // Action buttons for non-drafts (only when in editing mode)
-          if (_booking!.status != BookingStatus.DRAFT && _isEditing) ...[
+          if (true && _isEditing) ...[
             // Cancel button
             IconButton(
               onPressed: _processing ? null : _cancelEdit,

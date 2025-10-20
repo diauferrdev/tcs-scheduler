@@ -10,7 +10,6 @@ export const VisitDurationSchema = z.enum(['ONE_HOUR', 'TWO_HOURS', 'THREE_HOURS
 
 // New Booking Status (updated flow)
 export const BookingStatusSchema = z.enum([
-  'DRAFT',            // DEPRECATED - kept for backwards compatibility
   'PENDING_APPROVAL', // DEPRECATED - kept for backwards compatibility
   'CREATED',          // Initial status when booking is submitted
   'UNDER_REVIEW',     // Manager/Admin is reviewing the booking

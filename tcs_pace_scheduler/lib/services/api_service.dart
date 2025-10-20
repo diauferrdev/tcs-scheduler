@@ -315,9 +315,8 @@ class ApiService {
     return await get('/api/bookings/$id');
   }
 
-  Future<Map<String, dynamic>> createBooking(Map<String, dynamic> data, {bool isDraft = false}) async {
-    final query = isDraft ? '?draft=true' : '';
-    final url = Uri.parse('${ApiConfig.baseUrl}/api/bookings$query');
+  Future<Map<String, dynamic>> createBooking(Map<String, dynamic> data) async {
+    final url = Uri.parse('${ApiConfig.baseUrl}/api/bookings');
     final headers = {...ApiConfig.defaultHeaders};
 
     if (_sessionCookie != null) {

@@ -15,7 +15,6 @@ enum VisitType {
 }
 
 enum BookingStatus {
-  DRAFT,                // DEPRECATED - kept for backwards compatibility
   PENDING_APPROVAL,     // DEPRECATED - kept for backwards compatibility
   CREATED,              // Initial status when booking is submitted
   UNDER_REVIEW,         // Manager/Admin is reviewing the booking

@@ -67,17 +67,14 @@ app.post('/', authMiddleware, zValidator('json', BookingCreateSchema), async (c)
   try {
     const user = c.get('user');
     const data = c.req.valid('json');
-    const isDraft = c.req.query('draft') === 'true';
-    const booking = await bookingService.createBooking(data, user.id, isDraft);
+    const booking = await bookingService.createBooking(data, user.id);
 
-    // Send push notification to all admins and managers (only if not draft)
-    if (!isDraft) {
-      try {
-        await pushService.sendNewBookingNotification(booking.id);
-      } catch (pushError) {
-        console.error('Failed to send push notification:', pushError);
-        // Don't fail the request if notification fails
-      }
+    // Send push notification to all admins and managers
+    try {
+      await pushService.sendNewBookingNotification(booking.id);
+    } catch (pushError) {
+      console.error('Failed to send push notification:', pushError);
+      // Don't fail the request if notification fails
     }
 
     return c.json(booking, 201);
