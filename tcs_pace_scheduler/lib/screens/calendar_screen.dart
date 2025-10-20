@@ -3,9 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
-import 'package:pdf/pdf.dart';
-import 'package:pdf/widgets.dart' as pw;
-import 'package:printing/printing.dart';
 import 'package:share_plus/share_plus.dart';
 import '../widgets/app_layout.dart';
 import '../providers/theme_provider.dart';
@@ -1520,7 +1517,7 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
                                         shape: BoxShape.circle,
                                         border: hasPendingBookings && !hasConfirmedBookings
                                             ? Border.all(
-                                                color: indicatorColor!,
+                                                color: indicatorColor,
                                                 width: 1.5,
                                               )
                                             : null,

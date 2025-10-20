@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
@@ -18,7 +17,6 @@ import '../widgets/edit_booking_drawer.dart';
 import '../utils/file_utils.dart';
 import '../utils/document_opener.dart';
 import '../utils/toast_notification.dart';
-import 'booking_form_screen.dart';
 import 'image_viewer_screen.dart';
 
 /// Booking Details Screen - Shows complete booking information

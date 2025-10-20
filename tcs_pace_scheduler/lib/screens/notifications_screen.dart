@@ -1,12 +1,10 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import '../services/api_service.dart';
 import '../services/unified_notification_service.dart';
 import '../models/notification.dart';
-import '../providers/auth_provider.dart';
 import '../utils/toast_notification.dart';
 
 class NotificationsScreen extends StatefulWidget {

@@ -1,11 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import '../providers/auth_provider.dart';
-import '../services/web_html_stub.dart'
-    if (dart.library.html) 'dart:html' as html;
 import '../utils/toast_notification.dart';
 
 class LoginScreen extends StatefulWidget {

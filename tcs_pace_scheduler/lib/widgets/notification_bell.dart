@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import 'dart:async';
 import '../services/unified_notification_service.dart';
 import '../screens/notifications_screen.dart';

@@ -1,12 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
-import 'package:provider/provider.dart';
 import '../services/api_service.dart';
 import '../models/booking.dart';
 import '../services/realtime_service.dart';
 import '../services/drawer_service.dart';
 import '../widgets/booking_card.dart';
-import '../providers/auth_provider.dart';
 import '../utils/toast_notification.dart';
 
 class MyBookingsScreen extends StatefulWidget {

@@ -1,4 +1,3 @@
-import 'package:intl/intl.dart';
 
 /// Utility class for formatting time with Brazilian timezone and AM/PM format
 class TimeFormatter {

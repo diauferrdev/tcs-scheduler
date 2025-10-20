@@ -150,7 +150,7 @@ class RealtimeService {
       // Add session ID as query parameter for authentication
       final wsBaseUrl = _getWebSocketUrl();
       final wsUrl = '$wsBaseUrl?sessionId=$sessionId';
-      debugPrint('[RealtimeService] Connecting to: ${wsBaseUrl}?sessionId=***');
+      debugPrint('[RealtimeService] Connecting to: $wsBaseUrl?sessionId=***');
 
       // Connect to WebSocket
       _channel = WebSocketChannel.connect(
