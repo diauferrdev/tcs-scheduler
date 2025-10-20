@@ -100,8 +100,7 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
             b.status == BookingStatus.CREATED ||
             b.status == BookingStatus.UNDER_REVIEW ||
             b.status == BookingStatus.NEED_EDIT ||
-            b.status == BookingStatus.NEED_RESCHEDULE ||
-            b.status == BookingStatus.PENDING_APPROVAL) // DEPRECATED
+            b.status == BookingStatus.NEED_RESCHEDULE)
         .toList()
       ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
 

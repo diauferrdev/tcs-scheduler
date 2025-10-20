@@ -74,9 +74,9 @@ class _RescheduleDrawerState extends State<RescheduleDrawer> {
 
   Future<void> _openSlotPickerDrawer(DateTime date, List<AvailablePeriod> allPeriods) async {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final visitTypeLabel = widget.booking.visitType == VisitType.QUICK_TOUR
-        ? 'Quick Tour (2h)'
-        : 'Full Visit (4h)';
+    final visitTypeLabel = widget.booking.visitType == VisitType.PACE_TOUR
+        ? 'Pace Tour (2h)'
+        : 'Full Visit (6h)';
 
     await showModalBottomSheet(
       context: context,

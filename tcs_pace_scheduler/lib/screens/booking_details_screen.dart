@@ -981,8 +981,8 @@ Enterprise Office Visit Management
   Color _getStatusColor() {
     if (_booking == null) return Colors.grey;
     switch (_booking!.status) {
+      case BookingStatus.CREATED:
         return const Color(0xFF6B7280);
-      case BookingStatus.PENDING_APPROVAL:
       case BookingStatus.UNDER_REVIEW:
       case BookingStatus.NEED_EDIT:
       case BookingStatus.NEED_RESCHEDULE:
@@ -1000,8 +1000,6 @@ Enterprise Office Visit Management
     switch (_booking!.status) {
       case BookingStatus.CREATED:
         return 'Created';
-      case BookingStatus.PENDING_APPROVAL:
-        return 'Pending Approval';
       case BookingStatus.UNDER_REVIEW:
         return 'Under Review';
       case BookingStatus.NEED_EDIT:
@@ -1020,8 +1018,8 @@ Enterprise Office Visit Management
   IconData _getStatusIcon() {
     if (_booking == null) return Icons.info_outline;
     switch (_booking!.status) {
+      case BookingStatus.CREATED:
         return Icons.edit_note;
-      case BookingStatus.PENDING_APPROVAL:
       case BookingStatus.UNDER_REVIEW:
         return Icons.pending;
       case BookingStatus.NEED_EDIT:
@@ -2010,8 +2008,7 @@ Enterprise Office Visit Management
         if (_booking!.status == BookingStatus.CREATED ||
             _booking!.status == BookingStatus.UNDER_REVIEW ||
             _booking!.status == BookingStatus.NEED_EDIT ||
-            _booking!.status == BookingStatus.NEED_RESCHEDULE ||
-            _booking!.status == BookingStatus.PENDING_APPROVAL) ...[
+            _booking!.status == BookingStatus.NEED_RESCHEDULE) ...[
           const SizedBox(height: 20),
           Builder(
             builder: (context) {
@@ -2025,10 +2022,9 @@ Enterprise Office Visit Management
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // Action buttons for CREATED, UNDER_REVIEW, PENDING_APPROVAL
+                  // Action buttons for CREATED, UNDER_REVIEW
                   if (_booking!.status == BookingStatus.CREATED ||
-                      _booking!.status == BookingStatus.UNDER_REVIEW ||
-                      _booking!.status == BookingStatus.PENDING_APPROVAL) ...[
+                      _booking!.status == BookingStatus.UNDER_REVIEW) ...[
                     // Secondary actions first
                     Row(
                       children: [

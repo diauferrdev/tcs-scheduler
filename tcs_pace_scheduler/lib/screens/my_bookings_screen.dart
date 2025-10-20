@@ -143,8 +143,7 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
             b.status == BookingStatus.CREATED ||
             b.status == BookingStatus.UNDER_REVIEW ||
             b.status == BookingStatus.NEED_EDIT ||
-            b.status == BookingStatus.NEED_RESCHEDULE ||
-            b.status == BookingStatus.PENDING_APPROVAL) // DEPRECATED
+            b.status == BookingStatus.NEED_RESCHEDULE)
         .toList()
       ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
 
@@ -234,8 +233,8 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
 
   Color _getStatusColor(BookingStatus status) {
     switch (status) {
+      case BookingStatus.CREATED:
         return const Color(0xFF6B7280);
-      case BookingStatus.PENDING_APPROVAL:
       case BookingStatus.UNDER_REVIEW:
       case BookingStatus.NEED_EDIT:
       case BookingStatus.NEED_RESCHEDULE:
@@ -252,8 +251,6 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
     switch (status) {
       case BookingStatus.CREATED:
         return 'Created';
-      case BookingStatus.PENDING_APPROVAL:
-        return 'Pending Approval';
       case BookingStatus.UNDER_REVIEW:
         return 'Under Review';
       case BookingStatus.NEED_EDIT:
@@ -271,8 +268,8 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
 
   IconData _getStatusIcon(BookingStatus status) {
     switch (status) {
+      case BookingStatus.CREATED:
         return Icons.edit_note;
-      case BookingStatus.PENDING_APPROVAL:
       case BookingStatus.UNDER_REVIEW:
         return Icons.pending;
       case BookingStatus.NEED_EDIT:

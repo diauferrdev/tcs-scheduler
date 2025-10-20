@@ -111,7 +111,6 @@ dev_dependencies:
   flutter_launcher_icons: ^0.14.4
 
 # Flutter Launcher Icons Configuration
-  flutter_multiplatform_app: any
 flutter_launcher_icons:
   image_path: "assets/icons/android/play_store_512.png"
   android: true

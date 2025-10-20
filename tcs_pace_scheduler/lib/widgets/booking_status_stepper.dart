@@ -90,8 +90,7 @@ class _BookingStatusStepperState extends State<BookingStatusStepper>
   bool _isUnderReviewStatus(BookingStatus status) {
     return status == BookingStatus.UNDER_REVIEW ||
            status == BookingStatus.NEED_EDIT ||
-           status == BookingStatus.NEED_RESCHEDULE ||
-           status == BookingStatus.PENDING_APPROVAL; // DEPRECATED but kept for compatibility
+           status == BookingStatus.NEED_RESCHEDULE;
   }
 
   @override
@@ -295,8 +294,8 @@ class _BookingStatusStepperState extends State<BookingStatusStepper>
       return const Color(0xFFEF4444); // Red
     } else if (status == BookingStatus.APPROVED) {
       return const Color(0xFF10B981); // Green
-    } else if (status == BookingStatus.UNDER_REVIEW || status == BookingStatus.PENDING_APPROVAL) {
-      return const Color(0xFFF59E0B); // Yellow (only for UNDER_REVIEW)
+    } else if (status == BookingStatus.UNDER_REVIEW) {
+      return const Color(0xFFF59E0B); // Yellow (for UNDER_REVIEW)
     } else if (status == BookingStatus.NEED_EDIT) {
       return const Color(0xFFEA580C); // Orange (needs edit)
     } else if (status == BookingStatus.NEED_RESCHEDULE) {
@@ -436,10 +435,10 @@ class _BookingStatusStepperState extends State<BookingStatusStepper>
   int _getStepIndexForStatus(BookingStatus status) {
     switch (status) {
       // Step 0: Created
+      case BookingStatus.CREATED:
         return 0;
 
       // Step 1: Under Review (includes review, need edit, need reschedule)
-      case BookingStatus.PENDING_APPROVAL: // DEPRECATED
       case BookingStatus.UNDER_REVIEW:
       case BookingStatus.NEED_EDIT:
       case BookingStatus.NEED_RESCHEDULE:

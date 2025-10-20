@@ -62,8 +62,7 @@ class _BookingCardState extends State<BookingCard> with SingleTickerProviderStat
     final isUnderReview = widget.booking.status == BookingStatus.CREATED ||
                           widget.booking.status == BookingStatus.UNDER_REVIEW ||
                           widget.booking.status == BookingStatus.NEED_EDIT ||
-                          widget.booking.status == BookingStatus.NEED_RESCHEDULE ||
-                          widget.booking.status == BookingStatus.PENDING_APPROVAL; // DEPRECATED
+                          widget.booking.status == BookingStatus.NEED_RESCHEDULE;
     final backgroundColor = isUnderReview
         ? (isDark ? const Color(0xFF18181B) : Colors.white)
         : (isDark ? const Color(0xFF0A0A0B) : const Color(0xFFF3F4F6));

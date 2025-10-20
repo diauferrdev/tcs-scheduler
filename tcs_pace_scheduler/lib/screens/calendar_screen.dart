@@ -65,7 +65,7 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
   // Selected time and duration for booking
   String? _selectedStartTime;
   int? _selectedDuration;
-  String? _selectedVisitType; // QUICK_TOUR or INNOVATION_EXCHANGE
+  String? _selectedVisitType; // PACE_TOUR or INNOVATION_EXCHANGE
 
   // Keep listener references for proper cleanup
   late final Function(Map<String, dynamic>) _onBookingCreatedListener;
@@ -356,7 +356,7 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
     final blocks = <String, Map<String, bool>>{};
 
     // Find all APPROVED Innovation Exchange bookings
-    // PENDING_APPROVAL do not block periods
+    // Only APPROVED bookings block periods
     final ieBookings = _bookings.where((b) =>
       b.visitType == VisitType.INNOVATION_EXCHANGE &&
       b.status == BookingStatus.APPROVED
@@ -420,12 +420,10 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
       }
 
       // HIDE pending approval bookings from calendar for ALL roles
-      // Pending bookings only appear in:
+      // Bookings under review appear in:
       // - My Bookings (for USER who created)
       // - Approvals page (for ADMIN/MANAGER to approve)
-      if (b.status == BookingStatus.PENDING_APPROVAL) {
-        return false;
-      }
+      // All statuses should be visible in calendar
 
       return true;
     }).toList();
@@ -546,7 +544,7 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
       return isDark ? const Color(0xFF3F1F1F) : const Color(0xFFFEE2E2);
     }
 
-    // Get ONLY APPROVED bookings for this day (not PENDING_APPROVAL)
+    // Get ONLY APPROVED bookings for this day
     final dateStr = DateFormat('yyyy-MM-dd').format(day);
     final confirmedBookings = _bookings.where((b) {
       final bookingDate = DateFormat('yyyy-MM-dd').format(b.date);
@@ -683,7 +681,7 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final availability = _selectedDayAvailability;
     final allPeriods = availability?.allPeriods ?? [];
-    final visitTypeLabel = _selectedVisitType == 'QUICK_TOUR' ? 'Quick Tour' : 'Innovation Exchange';
+    final visitTypeLabel = _selectedVisitType == 'PACE_TOUR' ? 'Pace Tour' : 'Innovation Exchange';
 
     // Check user role to determine if we should show block details
     final authProvider = context.read<AuthProvider>();
@@ -863,7 +861,7 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
 
   List<AvailableTimeSlot> _calculateAvailableSlotsFromBookings(DateTime date) {
     // Get ONLY APPROVED bookings for availability calculation
-    // PENDING_APPROVAL do not block slots
+    // Only APPROVED bookings block slots
     final dateStr = DateFormat('yyyy-MM-dd').format(date);
     final activeBookings = _bookings.where((b) {
       final bookingDate = DateFormat('yyyy-MM-dd').format(b.date);
@@ -1386,7 +1384,7 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
                       final availableSlots = _getAvailableSlots(day);
 
                       // Check for pending vs confirmed bookings
-                      final hasPendingBookings = dayBookings.any((b) => b.status == BookingStatus.PENDING_APPROVAL);
+                      final hasPendingBookings = dayBookings.any((b) => b.status == BookingStatus.UNDER_REVIEW || b.status == BookingStatus.CREATED || b.status == BookingStatus.NEED_EDIT || b.status == BookingStatus.NEED_RESCHEDULE);
                       final hasConfirmedBookings = dayBookings.any((b) => b.status == BookingStatus.APPROVED);
 
                       // Only APPROVED bookings block periods
@@ -1816,10 +1814,10 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
     bool shouldPulse = false;
 
     switch (booking.status) {
+      case BookingStatus.CREATED:
         statusColor = const Color(0xFF6B7280); // Gray
-        statusLabel = false ? 'DRAFT' : 'CREATED';
+        statusLabel = 'CREATED';
         break;
-      case BookingStatus.PENDING_APPROVAL:
       case BookingStatus.UNDER_REVIEW:
       case BookingStatus.NEED_EDIT:
       case BookingStatus.NEED_RESCHEDULE:
@@ -2665,7 +2663,7 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
         child: InkWell(
           onTap: isAvailable ? () async {
             // Calculate duration based on visit type
-            final duration = _selectedVisitType == 'QUICK_TOUR' ? 2 : 4;
+            final duration = _selectedVisitType == 'PACE_TOUR' ? 2 : 4;
 
             // Parse start time to TimeOfDay
             final timeParts = period.startTime.split(':');
@@ -3048,8 +3046,8 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
                           ),
                         ),
                       ),
-                      // Pending Approval Badge
-                      if (booking.status == BookingStatus.PENDING_APPROVAL)
+                      // Under Review Badge
+                      if (booking.status == BookingStatus.UNDER_REVIEW || booking.status == BookingStatus.CREATED)
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                           decoration: BoxDecoration(
@@ -4776,7 +4774,7 @@ class _SlotPickerContentState extends State<SlotPickerContent> {
     if (_selectedPeriod == null) return;
 
     // Calculate duration based on visit type
-    final duration = widget.selectedVisitType == 'QUICK_TOUR' ? 2 : 4;
+    final duration = widget.selectedVisitType == 'PACE_TOUR' ? 2 : 4;
 
     // Parse start time to TimeOfDay
     final timeParts = _selectedPeriod!.startTime.split(':');
