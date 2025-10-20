@@ -409,7 +409,7 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
     return blocks;
   }
 
-  List<Booking> _getBookingsForDay(DateTime date) {
+  List<Booking> _getBookingsForDay(DateTime date, {bool filterForAdminManager = false}) {
     final dateStr = DateFormat('yyyy-MM-dd').format(date);
     final dayBookings = _bookings.where((b) {
       final bookingDate = DateFormat('yyyy-MM-dd').format(b.date);
@@ -419,12 +419,13 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
         return false;
       }
 
-      // HIDE pending approval bookings from calendar for ALL roles
-      // Bookings under review appear in:
-      // - My Bookings (for USER who created)
-      // - Approvals page (for ADMIN/MANAGER to approve)
-      // All statuses should be visible in calendar
+      // For ADMIN/MANAGER: when clicking a day, show only UNDER_REVIEW and APPROVED
+      if (filterForAdminManager) {
+        return b.status == BookingStatus.UNDER_REVIEW ||
+               b.status == BookingStatus.APPROVED;
+      }
 
+      // For other uses (calendar rendering, etc.): show all statuses
       return true;
     }).toList();
 
@@ -2843,7 +2844,9 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
   }
 
   Widget _buildDayBookingsOverlay(bool isDark, bool isMobile, bool isUserRole) {
-    final dayBookings = _getBookingsForDay(_selectedDate!);
+    // For ADMIN/MANAGER: show only UNDER_REVIEW and APPROVED bookings
+    // For USER: show all bookings (they see their own bookings regardless of status)
+    final dayBookings = _getBookingsForDay(_selectedDate!, filterForAdminManager: !isUserRole);
     final hasBookings = dayBookings.isNotEmpty;
 
     return DraggableScrollableSheet(
