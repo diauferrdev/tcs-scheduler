@@ -444,20 +444,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   ),
                 ],
                 tooltipBehavior: TooltipBehavior(
-                  enable: true,
-                  format: 'point.x: point.y',
-                  color: isDark ? const Color(0xFF27272A) : const Color(0xFF1F2937),
-                  textStyle: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 8,
-                    fontWeight: FontWeight.w500,
-                  ),
-                  borderWidth: 0,
-                  borderColor: Colors.transparent,
-                  elevation: 2,
-                  canShowMarker: false,
-                  duration: 500,
-                  shouldAlwaysShow: false,
+                  enable: false,
                 ),
               ),
             ),
@@ -580,20 +567,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
               ],
               tooltipBehavior: TooltipBehavior(
-                enable: true,
-                format: 'point.x: point.y',
-                color: isDark ? const Color(0xFF27272A) : const Color(0xFF1F2937),
-                textStyle: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 8,
-                  fontWeight: FontWeight.w500,
-                ),
-                borderWidth: 0,
-                borderColor: Colors.transparent,
-                elevation: 2,
-                canShowMarker: false,
-                duration: 500,
-                shouldAlwaysShow: false,
+                enable: false,
               ),
             ),
           ),
@@ -924,8 +898,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       ],
                       tooltipBehavior: TooltipBehavior(
                         enable: true,
-                        format: 'point.x: point.y visits',
-                        textStyle: const TextStyle(fontSize: 10),
+                        format: 'point.x: point.y',
+                        color: isDark ? const Color(0xFF27272A) : const Color(0xFFF9FAFB),
+                        textStyle: TextStyle(
+                          color: isDark ? Colors.white : Colors.black,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w500,
+                        ),
+                        borderWidth: 1,
+                        borderColor: isDark ? const Color(0xFF3F3F46) : const Color(0xFFE5E7EB),
+                        elevation: 2,
+                        canShowMarker: false,
+                        duration: 500,
                       ),
                     ),
                   ),
@@ -1011,7 +995,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       tooltipBehavior: TooltipBehavior(
                         enable: true,
                         format: 'point.x: point.y%',
-                        textStyle: const TextStyle(fontSize: 10),
+                        color: isDark ? const Color(0xFF27272A) : const Color(0xFFF9FAFB),
+                        textStyle: TextStyle(
+                          color: isDark ? Colors.white : Colors.black,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w500,
+                        ),
+                        borderWidth: 1,
+                        borderColor: isDark ? const Color(0xFF3F3F46) : const Color(0xFFE5E7EB),
+                        elevation: 2,
+                        canShowMarker: false,
+                        duration: 500,
                       ),
                     ),
                   ),
@@ -1080,8 +1074,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   ),
                   tooltipBehavior: TooltipBehavior(
                     enable: true,
-                    format: 'point.x: point.y visits',
-                    textStyle: const TextStyle(fontSize: 10),
+                    format: 'point.x: point.y',
+                    color: isDark ? const Color(0xFF27272A) : const Color(0xFFF9FAFB),
+                    textStyle: TextStyle(
+                      color: isDark ? Colors.white : Colors.black,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    borderWidth: 1,
+                    borderColor: isDark ? const Color(0xFF3F3F46) : const Color(0xFFE5E7EB),
+                    elevation: 2,
+                    canShowMarker: false,
+                    duration: 500,
                   ),
                 ),
               );
@@ -1102,9 +1106,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
               }
 
               final sorted = dist.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
-              final top5 = sorted.take(5).toList();
+              final top6 = sorted.take(6).toList();
 
-              final funnelData = top5.asMap().entries.map((entry) {
+              final chartData = top6.asMap().entries.map((entry) {
                 return {
                   'vertical': _formatVertical(entry.value.key),
                   'value': entry.value.value,
@@ -1112,32 +1116,66 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 };
               }).toList();
 
+              final maxValue = chartData.fold<int>(0, (max, item) => (item['value'] as int) > max ? (item['value'] as int) : max);
+
               return SizedBox(
                 height: 240,
-                child: SfFunnelChart(
-                  series: FunnelSeries<Map<String, dynamic>, String>(
-                    dataSource: funnelData,
-                    xValueMapper: (data, _) => data['vertical'] as String,
-                    yValueMapper: (data, _) => (data['value'] as int).toDouble(),
-                    pointColorMapper: (data, _) => data['color'] as Color,
-                    dataLabelSettings: const DataLabelSettings(
-                      isVisible: true,
-                      labelPosition: ChartDataLabelPosition.inside,
-                      textStyle: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
+                child: SfCartesianChart(
+                  plotAreaBorderWidth: 0,
+                  primaryXAxis: CategoryAxis(
+                    majorGridLines: const MajorGridLines(width: 0),
+                    labelStyle: TextStyle(
+                      color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
+                      fontSize: 9,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    axisLine: const AxisLine(width: 0),
+                  ),
+                  primaryYAxis: NumericAxis(
+                    majorGridLines: MajorGridLines(
+                      width: 1,
+                      color: (isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB)).withValues(alpha: 0.5),
+                    ),
+                    axisLine: const AxisLine(width: 0),
+                    labelStyle: TextStyle(
+                      color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
+                      fontSize: 8,
+                    ),
+                    minimum: 0,
+                    maximum: maxValue.toDouble() * 1.1,
+                  ),
+                  series: <CartesianSeries>[
+                    BarSeries<Map<String, dynamic>, String>(
+                      dataSource: chartData,
+                      xValueMapper: (data, _) => data['vertical'] as String,
+                      yValueMapper: (data, _) => (data['value'] as int).toDouble(),
+                      pointColorMapper: (data, _) => data['color'] as Color,
+                      borderRadius: const BorderRadius.horizontal(right: Radius.circular(4)),
+                      dataLabelSettings: DataLabelSettings(
+                        isVisible: true,
+                        labelAlignment: ChartDataLabelAlignment.outer,
+                        textStyle: TextStyle(
+                          fontSize: 9,
+                          fontWeight: FontWeight.bold,
+                          color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
+                        ),
                       ),
                     ),
-                    explode: false,
-                    gapRatio: 0.05,
-                    neckWidth: '25%',
-                    neckHeight: '15%',
-                  ),
+                  ],
                   tooltipBehavior: TooltipBehavior(
                     enable: true,
-                    format: 'point.x: point.y visits',
-                    textStyle: const TextStyle(fontSize: 10),
+                    format: 'point.x: point.y',
+                    color: isDark ? const Color(0xFF27272A) : const Color(0xFFF9FAFB),
+                    textStyle: TextStyle(
+                      color: isDark ? Colors.white : Colors.black,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    borderWidth: 1,
+                    borderColor: isDark ? const Color(0xFF3F3F46) : const Color(0xFFE5E7EB),
+                    elevation: 2,
+                    canShowMarker: false,
+                    duration: 500,
                   ),
                 ),
               );
@@ -1165,7 +1203,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
               return Column(
                 children: [
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 4),
                   ...stages.map((stage) {
                     final value = stage['value'] as int;
                     final label = stage['label'] as String;
@@ -1173,7 +1211,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     final percentage = maxValue > 0 ? (value / maxValue) : 0.0;
 
                     return Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
+                      padding: const EdgeInsets.only(bottom: 8),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -1183,7 +1221,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               Text(
                                 label,
                                 style: TextStyle(
-                                  fontSize: 11,
+                                  fontSize: 10,
                                   fontWeight: FontWeight.w500,
                                   color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
                                 ),
@@ -1191,19 +1229,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               Text(
                                 value.toString(),
                                 style: TextStyle(
-                                  fontSize: 11,
+                                  fontSize: 10,
                                   fontWeight: FontWeight.bold,
                                   color: isDark ? Colors.white : Colors.black,
                                 ),
                               ),
                             ],
                           ),
-                          const SizedBox(height: 6),
+                          const SizedBox(height: 4),
                           ClipRRect(
-                            borderRadius: BorderRadius.circular(4),
+                            borderRadius: BorderRadius.circular(3),
                             child: LinearProgressIndicator(
                               value: percentage,
-                              minHeight: 24,
+                              minHeight: 18,
                               backgroundColor: (isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB)),
                               valueColor: AlwaysStoppedAnimation<Color>(color),
                             ),
@@ -1303,13 +1341,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   ],
                   tooltipBehavior: TooltipBehavior(
                     enable: true,
-                    color: isDark ? const Color(0xFF27272A) : const Color(0xFF1F2937),
-                    textStyle: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 9,
+                    format: 'point.x: point.y',
+                    color: isDark ? const Color(0xFF27272A) : const Color(0xFFF9FAFB),
+                    textStyle: TextStyle(
+                      color: isDark ? Colors.white : Colors.black,
+                      fontSize: 10,
                       fontWeight: FontWeight.w500,
                     ),
-                    format: 'point.x: point.y visits',
+                    borderWidth: 1,
+                    borderColor: isDark ? const Color(0xFF3F3F46) : const Color(0xFFE5E7EB),
+                    elevation: 2,
+                    canShowMarker: false,
+                    duration: 500,
                   ),
                 ),
               );
@@ -1509,8 +1552,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       ],
                       tooltipBehavior: TooltipBehavior(
                         enable: true,
-                        format: 'point.x: point.y events',
-                        textStyle: const TextStyle(fontSize: 10),
+                        format: 'point.x: point.y',
+                        color: isDark ? const Color(0xFF27272A) : const Color(0xFFF9FAFB),
+                        textStyle: TextStyle(
+                          color: isDark ? Colors.white : Colors.black,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w500,
+                        ),
+                        borderWidth: 1,
+                        borderColor: isDark ? const Color(0xFF3F3F46) : const Color(0xFFE5E7EB),
+                        elevation: 2,
+                        canShowMarker: false,
+                        duration: 500,
                       ),
                     ),
                   ),
@@ -1586,8 +1639,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       ],
                       tooltipBehavior: TooltipBehavior(
                         enable: true,
-                        format: 'point.x: point.y deals',
-                        textStyle: const TextStyle(fontSize: 10),
+                        format: 'point.x: point.y',
+                        color: isDark ? const Color(0xFF27272A) : const Color(0xFFF9FAFB),
+                        textStyle: TextStyle(
+                          color: isDark ? Colors.white : Colors.black,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w500,
+                        ),
+                        borderWidth: 1,
+                        borderColor: isDark ? const Color(0xFF3F3F46) : const Color(0xFFE5E7EB),
+                        elevation: 2,
+                        canShowMarker: false,
+                        duration: 500,
                       ),
                     ),
                   ),
@@ -1765,61 +1828,81 @@ class _DashboardScreenState extends State<DashboardScreen> {
               final total = prospects + customers + partners + govt;
               if (total == 0) return _buildNoData(isDark);
 
+              final chartData = [
+                {'type': 'Prospects', 'value': prospects, 'color': const Color(0xFFFBBF24)},
+                {'type': 'Customers', 'value': customers, 'color': const Color(0xFF10B981)},
+                {'type': 'Partners', 'value': partners, 'color': const Color(0xFF3B82F6)},
+                {'type': 'Government', 'value': govt, 'color': const Color(0xFFEF4444)},
+              ];
+
+              final maxValue = [prospects, customers, partners, govt].reduce((a, b) => a > b ? a : b);
+
               return Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                child: Column(
-                  children: [
-                    _buildConversionBar('Prospects', prospects, total, const Color(0xFFFBBF24), isDark),
-                    const SizedBox(height: 12),
-                    _buildConversionBar('Customers', customers, total, const Color(0xFF10B981), isDark),
-                    const SizedBox(height: 12),
-                    _buildConversionBar('Partners', partners, total, const Color(0xFF3B82F6), isDark),
-                    const SizedBox(height: 12),
-                    _buildConversionBar('Government', govt, total, const Color(0xFFEF4444), isDark),
-                  ],
+                padding: const EdgeInsets.only(top: 20),
+                child: SizedBox(
+                  height: 220,
+                  child: SfCartesianChart(
+                    plotAreaBorderWidth: 0,
+                    primaryXAxis: CategoryAxis(
+                      majorGridLines: const MajorGridLines(width: 0),
+                      labelStyle: TextStyle(
+                        color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
+                        fontSize: 9,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      axisLine: const AxisLine(width: 0),
+                    ),
+                    primaryYAxis: NumericAxis(
+                      majorGridLines: MajorGridLines(
+                        width: 1,
+                        color: (isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB)).withValues(alpha: 0.5),
+                      ),
+                      axisLine: const AxisLine(width: 0),
+                      labelStyle: TextStyle(
+                        color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
+                        fontSize: 8,
+                      ),
+                      minimum: 0,
+                      maximum: maxValue.toDouble() * 1.15,
+                    ),
+                    series: <CartesianSeries>[
+                      BarSeries<Map<String, dynamic>, String>(
+                        dataSource: chartData,
+                        xValueMapper: (data, _) => data['type'] as String,
+                        yValueMapper: (data, _) => (data['value'] as int).toDouble(),
+                        pointColorMapper: (data, _) => data['color'] as Color,
+                        borderRadius: const BorderRadius.horizontal(right: Radius.circular(4)),
+                        width: 0.6,
+                        dataLabelSettings: DataLabelSettings(
+                          isVisible: true,
+                          labelAlignment: ChartDataLabelAlignment.outer,
+                          textStyle: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
+                          ),
+                        ),
+                      ),
+                    ],
+                    tooltipBehavior: TooltipBehavior(
+                      enable: true,
+                      format: 'point.x: point.y',
+                      color: isDark ? const Color(0xFF27272A) : const Color(0xFFF9FAFB),
+                      textStyle: TextStyle(
+                        color: isDark ? Colors.white : Colors.black,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      borderWidth: 1,
+                      borderColor: isDark ? const Color(0xFF3F3F46) : const Color(0xFFE5E7EB),
+                      elevation: 2,
+                      canShowMarker: false,
+                      duration: 500,
+                    ),
+                  ),
                 ),
               );
             }(),
-    );
-  }
-
-  Widget _buildConversionBar(String label, int value, int total, Color color, bool isDark) {
-    final percentage = total > 0 ? (value / total) : 0.0;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.w500,
-                color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
-              ),
-            ),
-            Text(
-              value.toString(),
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.bold,
-                color: isDark ? Colors.white : Colors.black,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 4),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(3),
-          child: LinearProgressIndicator(
-            value: percentage,
-            minHeight: 18,
-            backgroundColor: (isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB)),
-            valueColor: AlwaysStoppedAnimation<Color>(color),
-          ),
-        ),
-      ],
     );
   }
 
@@ -1841,9 +1924,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 {'type': 'Innovation\nExch', 'value': (avgAttendees * 1.5).toDouble(), 'color': const Color(0xFF10B981)},
               ];
 
-              return Center(
+              return Padding(
+                padding: const EdgeInsets.only(top: 30),
                 child: SizedBox(
-                  height: 220,
+                  height: 200,
                   child: SfCartesianChart(
                     plotAreaBorderWidth: 0,
                     primaryXAxis: CategoryAxis(
@@ -1905,12 +1989,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
               final questionnaire = (total * 0.35).toInt(); // With questionnaire
               final fullEngagement = (total * 0.25).toInt(); // With alignment call
 
-              return Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  SizedBox(
-                    height: 180,
-                    child: SfCartesianChart(
+              return Padding(
+                padding: const EdgeInsets.only(top: 20),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    SizedBox(
+                      height: 180,
+                      child: SfCartesianChart(
                       plotAreaBorderWidth: 0,
                       primaryXAxis: CategoryAxis(
                         isVisible: false,
@@ -1946,23 +2032,34 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       ],
                       tooltipBehavior: TooltipBehavior(
                         enable: true,
-                        format: 'point.y bookings',
-                        textStyle: const TextStyle(fontSize: 10),
+                        format: 'point.y',
+                        color: isDark ? const Color(0xFF27272A) : const Color(0xFFF9FAFB),
+                        textStyle: TextStyle(
+                          color: isDark ? Colors.white : Colors.black,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w500,
+                        ),
+                        borderWidth: 1,
+                        borderColor: isDark ? const Color(0xFF3F3F46) : const Color(0xFFE5E7EB),
+                        elevation: 2,
+                        canShowMarker: false,
+                        duration: 500,
                       ),
                     ),
                   ),
-                  const SizedBox(height: 12),
-                  Wrap(
-                    spacing: 12,
-                    runSpacing: 8,
-                    alignment: WrapAlignment.center,
-                    children: [
-                      _buildLegendItem('Basic Visit ($basic)', const Color(0xFFFBBF24), isDark),
-                      _buildLegendItem('+ Questionnaire ($questionnaire)', const Color(0xFF10B981), isDark),
-                      _buildLegendItem('+ Alignment Call ($fullEngagement)', const Color(0xFFEF4444), isDark),
-                    ],
-                  ),
-                ],
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 12,
+                      runSpacing: 8,
+                      alignment: WrapAlignment.center,
+                      children: [
+                        _buildLegendItem('Basic Visit ($basic)', const Color(0xFFFBBF24), isDark),
+                        _buildLegendItem('+ Questionnaire ($questionnaire)', const Color(0xFF10B981), isDark),
+                        _buildLegendItem('+ Alignment Call ($fullEngagement)', const Color(0xFFEF4444), isDark),
+                      ],
+                    ),
+                  ],
+                ),
               );
             }(),
     );
