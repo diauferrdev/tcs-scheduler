@@ -8,9 +8,8 @@ export const UserRoleSchema = z.enum(['ADMIN', 'MANAGER', 'USER']);
 // Visit duration (in hours)
 export const VisitDurationSchema = z.enum(['ONE_HOUR', 'TWO_HOURS', 'THREE_HOURS', 'FOUR_HOURS', 'FIVE_HOURS', 'SIX_HOURS']);
 
-// New Booking Status (updated flow)
+// Booking Status Flow
 export const BookingStatusSchema = z.enum([
-  'PENDING_APPROVAL', // DEPRECATED - kept for backwards compatibility
   'CREATED',          // Initial status when booking is submitted
   'UNDER_REVIEW',     // Manager/Admin is reviewing the booking
   'NEED_EDIT',        // User must edit information (except date)
@@ -23,9 +22,8 @@ export const BookingStatusSchema = z.enum([
 // Engagement Type
 export const EngagementTypeSchema = z.enum(['VISIT', 'INNOVATION_EXCHANGE']);
 
-// Visit Type (updated names)
+// Visit Types
 export const VisitTypeSchema = z.enum([
-  'QUICK_TOUR',          // DEPRECATED - kept for backwards compatibility
   'PACE_TOUR',           // 14h-16h (2 hours) - simple visit, no questionnaire
   'PACE_EXPERIENCE',     // 10h-16h (6 hours) - full day, requires questionnaire
   'INNOVATION_EXCHANGE', // 10h-17h (7 hours) - requires questionnaire and alignment call
