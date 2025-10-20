@@ -58,22 +58,7 @@ class _LoginScreenState extends State<LoginScreen> {
           }
         }
 
-        // Web: redirect directly to app subdomain
-        if (kIsWeb) {
-          try {
-            final hostname = html.window.location.hostname;
-            if (hostname == 'ppspsched.lat' || hostname == 'www.ppspsched.lat') {
-              // Redirect to app subdomain with correct destination
-              final path = destination.replaceFirst('/app/', '/');
-              html.window.location.href = 'https://app.ppspsched.lat$path';
-              return;
-            }
-          } catch (e) {
-            // Ignore on non-web platforms
-          }
-        }
-
-        // Mobile/Desktop or already on app subdomain: use router
+        // Use router to navigate (no subdomain redirects)
         context.go(destination);
       }
     } catch (e) {

@@ -4,8 +4,8 @@ const app = new Hono();
 
 app.get('/current', (c) => {
   return c.json({
-    version: '1.0.11',
-    buildNumber: 30,
+    version: '1.1.0',
+    buildNumber: 38,
     minVersion: '1.0.0',
     forceUpdate: false,
     downloadUrl: {
@@ -20,7 +20,7 @@ app.get('/current', (c) => {
       'pt-BR': 'Versão 1.0.10 - CORREÇÃO CRÍTICA: resolvido problema intermitente de loading infinito após criar agendamentos. Agora funciona 100% das vezes. Corrigida navegação automática após criar booking.',
       'en': 'Version 1.0.10 - CRITICAL FIX: resolved intermittent infinite loading issue after creating bookings. Now works 100% of the time. Fixed automatic navigation after booking creation.',
     },
-    releaseDate: '2025-10-18T14:54:51-03:00',
+    releaseDate: '2025-10-20T08:17:43-03:00',
     critical: false,
   });
 });

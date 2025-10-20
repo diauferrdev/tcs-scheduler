@@ -34,46 +34,12 @@ bool _isLocalhost() {
   }
 }
 
-/// Helper function to check if current domain is the main domain (not app subdomain)
-bool _isMainDomain() {
-  if (!kIsWeb) return false;
-  try {
-    final hostname = html.window.location.hostname;
-    return hostname == 'ppspsched.lat' || hostname == 'www.ppspsched.lat';
-  } catch (e) {
-    return false;
-  }
-}
-
-/// Helper function to check if current domain is the app subdomain
-bool _isAppDomain() {
-  if (!kIsWeb) return true; // Mobile/desktop apps always use app logic
-  try {
-    final hostname = html.window.location.hostname;
-    return hostname == 'app.ppspsched.lat';
-  } catch (e) {
-    return true;
-  }
-}
-
-/// Helper function to redirect to app subdomain
-void _redirectToAppDomain(String path) {
-  if (!kIsWeb) return;
-  try {
-    final currentUrl = html.window.location.href;
-    final newUrl = currentUrl.replaceFirst('ppspsched.lat', 'app.ppspsched.lat');
-    html.window.location.href = newUrl;
-  } catch (e) {
-    // Ignore on non-web platforms
-  }
-}
-
 GoRouter createRouter(AuthProvider authProvider) {
   final navigationService = NavigationService();
 
   return GoRouter(
     navigatorKey: navigationService.navigatorKey,
-    initialLocation: '/', // Start at landing, redirect handles routing
+    initialLocation: kIsWeb ? '/' : '/login', // Web: landing, Native: login
     refreshListenable: authProvider,
     redirect: (context, state) {
       final isAuthenticated = authProvider.isAuthenticated;
@@ -82,79 +48,52 @@ GoRouter createRouter(AuthProvider authProvider) {
       final currentPath = state.uri.path;
       final isLandingRoute = currentPath == '/';
       final isLoginRoute = currentPath == '/login';
-      final isCalendarRoute = currentPath == '/calendar';
-      final isDashboardRoute = currentPath == '/dashboard';
 
       // Wait for auth check to complete
       if (isLoading) {
         return null;
       }
 
-      // DOMAIN-BASED ROUTING (Web only)
-      if (kIsWeb) {
-        final isLocalhost = _isLocalhost();
-        final isMainDomain = _isMainDomain();
-        final isAppDomain = _isAppDomain();
-
-        // LOCALHOST: Allow all routes for development, no redirects
-        if (isLocalhost) {
-          // Localhost behaves like mobile/desktop - see MOBILE/DESKTOP ROUTING below
-        } else {
-          // Main domain (ppspsched.lat) logic
-          if (isMainDomain) {
-            // If authenticated and on landing page, redirect to app subdomain
-            if (isAuthenticated && isLandingRoute) {
-              _redirectToAppDomain('/calendar');
-              return null;
-            }
-
-            // Not authenticated: allow landing and login only
-            if (!isAuthenticated && !isLandingRoute && !isLoginRoute) {
-              return '/';
-            }
-
-            // Block app routes on main domain (force them to use app subdomain)
-            if (isAuthenticated && !isLandingRoute && !isLoginRoute) {
-              _redirectToAppDomain(currentPath);
-              return null;
-            }
-          }
-
-          // App subdomain (app.ppspsched.lat) logic
-          if (isAppDomain) {
-            // Not authenticated: redirect to main domain login
-            if (!isAuthenticated) {
-              html.window.location.href = 'https://ppspsched.lat/login';
-              return null;
-            }
-
-            // Don't allow landing page on app domain
-            if (isLandingRoute) {
-              return _getMainScreenForRole(user?.role ?? UserRole.USER);
-            }
-          }
+      // NATIVE APPS (Android, iOS, Desktop)
+      if (!kIsWeb) {
+        // Landing page is not available on native apps
+        if (isLandingRoute) {
+          return isAuthenticated
+            ? _getMainScreenForRole(user?.role ?? UserRole.USER)
+            : '/login';
         }
+
+        // Redirect to login if not authenticated (except on login)
+        if (!isAuthenticated && !isLoginRoute) {
+          return '/login';
+        }
+
+        return null;
       }
 
-      // MOBILE/DESKTOP/LOCALHOST ROUTING
-      if (!kIsWeb || (kIsWeb && _isLocalhost())) {
+      // WEB ROUTING (localhost or ppspsched.lat)
+      final isLocalhost = _isLocalhost();
+
+      // LOCALHOST: Allow all routes for development
+      if (isLocalhost) {
         // Redirect to login if not authenticated (except on landing/login)
         if (!isAuthenticated && !isLoginRoute && !isLandingRoute) {
           return '/login';
         }
-
-        // Allow authenticated users to stay on landing page
-        // They will manually click to enter the app
+        return null;
       }
 
-      // Redirect authenticated users from login to their main screen
-      if (isAuthenticated && isLoginRoute && user != null) {
-        return _getMainScreenForRole(user.role);
+      // PRODUCTION WEB (ppspsched.lat)
+      // Not authenticated: allow landing and login only
+      if (!isAuthenticated) {
+        if (!isLandingRoute && !isLoginRoute) {
+          return '/';
+        }
+        return null;
       }
 
-      // No route restrictions - all authenticated users can access all routes
+      // Authenticated on web: allow all routes
       // Role-based UI elements are handled by _getMenuItems in app_layout.dart
-
       return null;
     },
     routes: [

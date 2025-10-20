@@ -703,7 +703,7 @@ class _LandingScreenState extends State<LandingScreen>
         'platform': 'Web',
         'icon': Icons.language,
         'description': 'Progressive Web App',
-        'url': 'https://app.ppspsched.lat',
+        'url': 'https://ppspsched.lat',
         'available': true,
       },
       {
