@@ -216,133 +216,262 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
                 ),
 
                 // Content
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // NEW REQUESTS SECTION
-                    if (_newRequests.isNotEmpty) ...[
-                      Row(
-                        children: [
-                          Text(
-                            'New Requests',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: isDark ? Colors.white : Colors.black,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFF59E0B),
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Text(
-                              '${_newRequests.length}',
-                              style: const TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      ..._newRequests.map((booking) {
-                        return PendingApprovalCard(
-                          booking: booking,
-                          onApproved: _loadAllBookings,
-                        );
-                      }),
-                      const SizedBox(height: 32),
-                    ],
-
-                    // RECENT HISTORY SECTION
-                    if (_recentHistory.isNotEmpty) ...[
-                      Row(
-                        children: [
-                          Text(
-                            'Recent History',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: isDark ? Colors.grey[400] : Colors.grey[600],
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: isDark ? Colors.grey[700] : Colors.grey[400],
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Text(
-                              '${_recentHistory.length}',
-                              style: const TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      ..._recentHistory.take(10).map((booking) {
-                        return PendingApprovalCard(
-                          booking: booking,
-                          onApproved: _loadAllBookings,
-                        );
-                      }),
-                    ],
-
-                    // Empty state when no bookings at all
-                    if (_newRequests.isEmpty && _recentHistory.isEmpty)
-                      Center(
-                        child: Padding(
-                          padding: const EdgeInsets.all(48),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.inbox_outlined,
-                                size: 80,
-                                color: isDark ? const Color(0xFF374151) : const Color(0xFFD1D5DB),
-                              ),
-                              const SizedBox(height: 24),
-                              Text(
-                                'No Bookings Yet',
-                                style: TextStyle(
-                                  fontSize: 24,
-                                  fontWeight: FontWeight.bold,
-                                  color: isDark ? Colors.white : Colors.black,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                'Booking requests will appear here',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
-                                ),
-                              ),
-                              const SizedBox(height: 24),
-                              TextButton.icon(
-                                onPressed: _loadAllBookings,
-                                icon: const Icon(Icons.refresh),
-                                label: const Text('Refresh'),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
+                _buildBody(isDark),
             ],
           ),
         ),
+    );
+  }
+
+  Widget _buildBody(bool isDark) {
+    if (_newRequests.isEmpty && _recentHistory.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(48),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.inbox_outlined,
+                size: 80,
+                color: isDark ? const Color(0xFF374151) : const Color(0xFFD1D5DB),
+              ),
+              const SizedBox(height: 24),
+              Text(
+                'No Bookings Yet',
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: isDark ? Colors.white : Colors.black,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Booking requests will appear here',
+                style: TextStyle(
+                  fontSize: 16,
+                  color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
+                ),
+              ),
+              const SizedBox(height: 24),
+              TextButton.icon(
+                onPressed: _loadAllBookings,
+                icon: const Icon(Icons.refresh),
+                label: const Text('Refresh'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    // Check if desktop (width >= 1024px) for side-by-side layout
+    final isDesktop = MediaQuery.of(context).size.width >= 1024;
+
+    if (isDesktop) {
+      // Desktop: 2-column layout
+      return Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Left Column: New Requests
+          Expanded(
+            child: _buildNewRequestsSection(isDark),
+          ),
+          const SizedBox(width: 24),
+          // Right Column: Recent History
+          Expanded(
+            child: _buildRecentHistorySection(isDark),
+          ),
+        ],
+      );
+    } else {
+      // Mobile: Vertical stack
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildNewRequestsSection(isDark),
+          const SizedBox(height: 32),
+          _buildRecentHistorySection(isDark),
+        ],
+      );
+    }
+  }
+
+  Widget _buildNewRequestsSection(bool isDark) {
+    if (_newRequests.isEmpty) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'New Requests',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: isDark ? Colors.white : Colors.black,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF18181B) : Colors.white,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
+              ),
+            ),
+            child: Center(
+              child: Column(
+                children: [
+                  Icon(
+                    Icons.check_circle_outline,
+                    size: 48,
+                    color: isDark ? Colors.grey[600] : Colors.grey[400],
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'All caught up!',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: isDark ? Colors.grey[400] : Colors.grey[600],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Text(
+              'New Requests',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: isDark ? Colors.white : Colors.black,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF59E0B),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                '${_newRequests.length}',
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        ..._newRequests.map((booking) {
+          return PendingApprovalCard(
+            booking: booking,
+            onApproved: _loadAllBookings,
+          );
+        }),
+      ],
+    );
+  }
+
+  Widget _buildRecentHistorySection(bool isDark) {
+    if (_recentHistory.isEmpty) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Recent History',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: isDark ? Colors.grey[400] : Colors.grey[600],
+            ),
+          ),
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF18181B) : Colors.white,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
+              ),
+            ),
+            child: Center(
+              child: Column(
+                children: [
+                  Icon(
+                    Icons.history,
+                    size: 48,
+                    color: isDark ? Colors.grey[600] : Colors.grey[400],
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'No history yet',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: isDark ? Colors.grey[400] : Colors.grey[600],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Text(
+              'Recent History',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: isDark ? Colors.grey[400] : Colors.grey[600],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(
+                color: isDark ? Colors.grey[700] : Colors.grey[400],
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                '${_recentHistory.length}',
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        ..._recentHistory.take(10).map((booking) {
+          return PendingApprovalCard(
+            booking: booking,
+            onApproved: _loadAllBookings,
+          );
+        }),
+      ],
     );
   }
 }

@@ -62,6 +62,7 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
   final ApiService _apiService = ApiService();
   final RealtimeService _realtimeService = RealtimeService();
   final _formKey = GlobalKey<FormState>();
+  final PageController _badgePageController = PageController();
 
   Booking? _booking;
   BookingFormData? _formData;
@@ -69,6 +70,7 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
   String? _error;
   bool _processing = false;
   bool _isEditing = false;
+  int _currentBadgePage = 0;
 
   @override
   void initState() {
@@ -124,6 +126,7 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
     _realtimeService.onBookingApproved = null;
     _realtimeService.onBookingDeleted = null;
     _formData?.dispose();
+    _badgePageController.dispose();
     super.dispose();
   }
 
@@ -1798,62 +1801,188 @@ Enterprise Office Visit Management
           ),
           const SizedBox(height: 16),
 
-          // Access Badges (for APPROVED bookings with attendees)
-          if (_booking!.status == BookingStatus.APPROVED &&
-              _booking!.attendees != null &&
-              _booking!.attendees!.isNotEmpty) ...[
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF18181B) : Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
-                ),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Access Badges',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: isDark ? Colors.white : Colors.black,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Print badges for all attendees',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  ..._booking!.attendees!.map((attendee) {
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 24),
-                      child: Center(
-                        child: AccessBadge(
-                          attendeeName: attendee.name,
-                          attendeePosition: attendee.position,
-                          attendeeId: attendee.id,
-                          companyName: _booking!.companyName,
-                          date: _booking!.date,
-                          startTime: _booking!.startTime,
-                          duration: _booking!.duration.name,
-                          bookingId: _booking!.id,
-                          isDark: isDark,
-                          showActions: true,
+          // Access Badges (for APPROVED bookings)
+          // IMPORTANT: Creator always gets a badge, plus all attendees
+          if (_booking!.status == BookingStatus.APPROVED) ...[
+            Builder(
+              builder: (context) {
+                // Build list of all badge data
+                final List<Map<String, dynamic>> badgeData = [];
+
+                // 1. CREATOR BADGE (always first)
+                // The creator (requester) ALWAYS gets a badge, even if not in attendees list
+                if (_booking!.requesterName != null && _booking!.requesterName!.isNotEmpty) {
+                  badgeData.add({
+                    'name': _booking!.requesterName!,
+                    'position': 'Requester',
+                    'id': _booking!.createdById ?? 'CREATOR',
+                  });
+                }
+
+                // 2. ATTENDEE BADGES
+                if (_booking!.attendees != null && _booking!.attendees!.isNotEmpty) {
+                  for (final attendee in _booking!.attendees!) {
+                    badgeData.add({
+                      'name': attendee.name,
+                      'position': attendee.position,
+                      'id': attendee.id,
+                    });
+                  }
+                }
+
+                // Only show section if we have at least one badge
+                if (badgeData.isEmpty) {
+                  return const SizedBox.shrink();
+                }
+
+                final multipleBadges = badgeData.length > 1;
+
+                return Column(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: isDark ? const Color(0xFF18181B) : Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
                         ),
                       ),
-                    );
-                  }).toList(),
-                ],
-              ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Access Badges',
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                        color: isDark ? Colors.white : Colors.black,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      multipleBadges
+                                          ? 'Swipe to see all ${badgeData.length} badges'
+                                          : 'Print badge for requester',
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              if (multipleBadges) ...[
+                                const SizedBox(width: 12),
+                                // Navigation buttons
+                                Row(
+                                  children: [
+                                    IconButton(
+                                      onPressed: _currentBadgePage > 0
+                                          ? () {
+                                              _badgePageController.previousPage(
+                                                duration: const Duration(milliseconds: 300),
+                                                curve: Curves.easeInOut,
+                                              );
+                                            }
+                                          : null,
+                                      icon: Icon(
+                                        Icons.chevron_left,
+                                        color: _currentBadgePage > 0
+                                            ? (isDark ? Colors.white : Colors.black)
+                                            : Colors.grey,
+                                      ),
+                                      tooltip: 'Previous badge',
+                                    ),
+                                    IconButton(
+                                      onPressed: _currentBadgePage < badgeData.length - 1
+                                          ? () {
+                                              _badgePageController.nextPage(
+                                                duration: const Duration(milliseconds: 300),
+                                                curve: Curves.easeInOut,
+                                              );
+                                            }
+                                          : null,
+                                      icon: Icon(
+                                        Icons.chevron_right,
+                                        color: _currentBadgePage < badgeData.length - 1
+                                            ? (isDark ? Colors.white : Colors.black)
+                                            : Colors.grey,
+                                      ),
+                                      tooltip: 'Next badge',
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ],
+                          ),
+                          const SizedBox(height: 24),
+                          // Badge carousel
+                          SizedBox(
+                            height: 520, // Fixed height for badge
+                            child: PageView.builder(
+                              controller: _badgePageController,
+                              itemCount: badgeData.length,
+                              onPageChanged: (index) {
+                                setState(() {
+                                  _currentBadgePage = index;
+                                });
+                              },
+                              itemBuilder: (context, index) {
+                                final badge = badgeData[index];
+                                return Center(
+                                  child: AccessBadge(
+                                    attendeeName: badge['name'],
+                                    attendeePosition: badge['position'],
+                                    attendeeId: badge['id'],
+                                    companyName: _booking!.companyName,
+                                    date: _booking!.date,
+                                    startTime: _booking!.startTime,
+                                    duration: _booking!.duration.name,
+                                    bookingId: _booking!.id,
+                                    isDark: isDark,
+                                    showActions: true,
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                          // Page indicators (dots)
+                          if (multipleBadges) ...[
+                            const SizedBox(height: 16),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: List.generate(
+                                badgeData.length,
+                                (index) => Container(
+                                  margin: const EdgeInsets.symmetric(horizontal: 4),
+                                  width: index == _currentBadgePage ? 24 : 8,
+                                  height: 8,
+                                  decoration: BoxDecoration(
+                                    color: index == _currentBadgePage
+                                        ? (isDark ? Colors.white : Colors.black)
+                                        : (isDark ? Colors.grey[700] : Colors.grey[400]),
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+                );
+              },
             ),
-            const SizedBox(height: 16),
           ],
         ],
 
