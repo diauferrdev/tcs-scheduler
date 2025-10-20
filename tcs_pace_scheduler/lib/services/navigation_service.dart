@@ -27,44 +27,44 @@ class NavigationService {
 
   /// Navigate to calendar with optional date
   void navigateToCalendar({DateTime? date}) {
-    navigateTo('/calendar');
+    navigateTo('/app/calendar');
     debugPrint('[NavigationService] Navigated to calendar${date != null ? ' with date: $date' : ''}');
   }
 
   /// Navigate to notifications
   void navigateToNotifications() {
-    navigateTo('/notifications');
+    navigateTo('/app/notifications');
   }
 
   /// Navigate to dashboard
   void navigateToDashboard() {
-    navigateTo('/dashboard');
+    navigateTo('/app/dashboard');
   }
 
   /// Navigate to approvals
   void navigateToApprovals() {
-    navigateTo('/approvals');
+    navigateTo('/app/approvals');
   }
 
   /// Navigate to agenda
   void navigateToAgenda() {
-    navigateTo('/agenda');
+    navigateTo('/app/agenda');
   }
 
   /// Navigate to my bookings
   void navigateToMyBookings() {
-    navigateTo('/my-bookings');
+    navigateTo('/app/my-bookings');
   }
 
   /// Navigate to booking details (goes to My Bookings first, then opens details drawer)
   void navigateToBookingDetails(String bookingId) {
-    navigateTo('/my-bookings?bookingId=$bookingId');
+    navigateTo('/app/my-bookings?bookingId=$bookingId');
     debugPrint('[NavigationService] Navigated to My Bookings with booking details: $bookingId');
   }
 
   /// Navigate to approvals with booking details (for ADMIN/MANAGER)
   void navigateToApprovalsWithBooking(String bookingId) {
-    navigateTo('/approvals?bookingId=$bookingId');
+    navigateTo('/app/approvals?bookingId=$bookingId');
     debugPrint('[NavigationService] Navigated to Approvals with booking details: $bookingId');
   }
 

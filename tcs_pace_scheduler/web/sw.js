@@ -83,14 +83,14 @@ self.addEventListener('notificationclick', (event) => {
   // Build navigation URL based on screen and bookingId
   let urlToOpen = '/';
   if (screen === 'approvals' && bookingId) {
-    urlToOpen = `/approvals?bookingId=${bookingId}`;
+    urlToOpen = `/app/approvals?bookingId=${bookingId}`;
   } else if (screen === 'my_bookings') {
-    urlToOpen = bookingId ? `/my-bookings?bookingId=${bookingId}` : '/my-bookings';
+    urlToOpen = bookingId ? `/app/my-bookings?bookingId=${bookingId}` : '/app/my-bookings';
   } else if (screen === 'booking_details' && bookingId) {
-    urlToOpen = `/booking/${bookingId}`;
+    urlToOpen = `/app/booking/${bookingId}`;
   } else if (bookingId) {
     // Default: navigate to booking details if we have a bookingId
-    urlToOpen = `/booking/${bookingId}`;
+    urlToOpen = `/app/booking/${bookingId}`;
   }
 
   console.log('[SW] Navigating to:', urlToOpen);
