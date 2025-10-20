@@ -76,7 +76,9 @@ class _RescheduleDrawerState extends State<RescheduleDrawer> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final visitTypeLabel = widget.booking.visitType == VisitType.PACE_TOUR
         ? 'Pace Tour (2h)'
-        : 'Full Visit (6h)';
+        : widget.booking.visitType == VisitType.PACE_EXPERIENCE
+            ? 'Pace Experience (4h)'
+            : 'Innovation Exchange (6h)';
 
     await showModalBottomSheet(
       context: context,

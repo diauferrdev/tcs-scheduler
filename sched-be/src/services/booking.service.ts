@@ -206,7 +206,7 @@ async function isPeriodFreeConsideringIEBlocks(
   return true; // Period is free (no direct bookings and no IE blocks)
 }
 
-// Validate Innovation Exchange booking (needs prep/teardown periods)
+// Validate Innovation Exchange and Pace Experience bookings (need prep/teardown periods)
 async function validateInnovationExchange(
   date: string,
   startTime: string,
@@ -215,11 +215,11 @@ async function validateInnovationExchange(
   const bookingDate = new Date(date);
   const durationHours = durationToHours(duration);
 
-  // Must be 4-6 hours
+  // Must be 4-6 hours (Pace Experience = 4h, Innovation Exchange = 6h)
   if (durationHours < 4 || durationHours > 6) {
     return {
       valid: false,
-      error: 'Innovation Exchange must be between 4-6 hours',
+      error: 'Pace Experience and Innovation Exchange must be between 4-6 hours',
     };
   }
 
@@ -276,8 +276,8 @@ async function validateInnovationExchange(
   return { valid: true };
 }
 
-// Validate Quick Tour booking (max 2 per day, only 2 hours)
-async function validateQuickTour(
+// Validate Pace Tour booking (max 2 per day, only 2 hours, no prep/teardown)
+async function validatePaceTour(
   date: string,
   duration: string
 ): Promise<{ valid: boolean; error?: string }> {
@@ -287,31 +287,31 @@ async function validateQuickTour(
   if (durationHours !== 2) {
     return {
       valid: false,
-      error: 'Quick Tour must be exactly 2 hours',
+      error: 'Pace Tour must be exactly 2 hours',
     };
   }
 
-  // Check how many APPROVED Quick Tours are already booked on this date
+  // Check how many APPROVED Pace Tours are already booked on this date
   // PENDING do not block
-  const existingQuickTours = await prisma.booking.findMany({
+  const existingPaceTours = await prisma.booking.findMany({
     where: {
       date: new Date(date),
-      visitType: 'QUICK_TOUR',
+      visitType: 'PACE_TOUR',
       status: 'APPROVED', // Only count APPROVED bookings
     },
   });
 
-  if (existingQuickTours.length >= 2) {
+  if (existingPaceTours.length >= 2) {
     return {
       valid: false,
-      error: 'Maximum 2 Quick Tours allowed per day (already have 2 confirmed)',
+      error: 'Maximum 2 Pace Tours allowed per day (already have 2 confirmed)',
     };
   }
 
   return { valid: true };
 }
 
-export async function checkAvailability(date: string, visitType?: 'QUICK_TOUR' | 'INNOVATION_EXCHANGE') {
+export async function checkAvailability(date: string, visitType?: 'PACE_TOUR' | 'INNOVATION_EXCHANGE') {
   const bookingDate = new Date(date);
 
   // Get ONLY APPROVED bookings for availability
@@ -357,37 +357,37 @@ export async function checkAvailability(date: string, visitType?: 'QUICK_TOUR' |
   }
 
   // Apply visit type filtering
-  if (visitType === 'QUICK_TOUR') {
-    // Quick Tour: max 1 in morning AND 1 in afternoon
-    const existingQuickTours = await prisma.booking.findMany({
+  if (visitType === 'PACE_TOUR') {
+    // Pace Tour: max 1 in morning AND 1 in afternoon
+    const existingPaceTours = await prisma.booking.findMany({
       where: {
         date: bookingDate,
-        visitType: 'QUICK_TOUR',
+        visitType: 'PACE_TOUR',
         status: 'APPROVED', // Only count APPROVED bookings
       },
     });
 
-    // Mark periods as unavailable if already have a Quick Tour in that period
-    for (const qt of existingQuickTours) {
-      const isMorning = isMorningPeriod(qt.startTime);
+    // Mark periods as unavailable if already have a Pace Tour in that period
+    for (const pt of existingPaceTours) {
+      const isMorning = isMorningPeriod(pt.startTime);
       const periodIndex = isMorning ? 0 : 1;
       periods[periodIndex].available = false;
-      periods[periodIndex].blockedBy = `Quick Tour already confirmed`;
+      periods[periodIndex].blockedBy = `Pace Tour already confirmed`;
     }
 
-    // IMPORTANT: Quick Tours must also respect IE prep/teardown blocks
-    // Check if morning period is blocked by IE prep/teardown
+    // IMPORTANT: Pace Tours must also respect IE/PE prep/teardown blocks
+    // Check if morning period is blocked by IE/PE prep/teardown
     const morningFree = await isPeriodFreeConsideringIEBlocks(bookingDate, true);
     if (!morningFree && periods[0].available) {
       periods[0].available = false;
-      periods[0].blockedBy = 'Period blocked by Innovation Exchange prep/teardown';
+      periods[0].blockedBy = 'Period blocked by Innovation Exchange or Pace Experience prep/teardown';
     }
 
-    // Check if afternoon period is blocked by IE prep/teardown
+    // Check if afternoon period is blocked by IE/PE prep/teardown
     const afternoonFree = await isPeriodFreeConsideringIEBlocks(bookingDate, false);
     if (!afternoonFree && periods[1].available) {
       periods[1].available = false;
-      periods[1].blockedBy = 'Period blocked by Innovation Exchange prep/teardown';
+      periods[1].blockedBy = 'Period blocked by Innovation Exchange or Pace Experience prep/teardown';
     }
   } else if (visitType === 'INNOVATION_EXCHANGE') {
     // Innovation Exchange: only 1 per day
@@ -470,22 +470,36 @@ export async function createBooking(data: BookingCreateInput, createdById?: stri
   }
 
   // 2. Validate visit type and duration match
-  if (data.visitType === 'QUICK_TOUR') {
-    // Quick Tour must be exactly 2 hours
+  if (data.visitType === 'PACE_TOUR') {
+    // Pace Tour must be exactly 2 hours
     if (data.duration !== 'TWO_HOURS') {
-      throw new Error('Quick Tour must be exactly 2 hours');
+      throw new Error('Pace Tour must be exactly 2 hours');
     }
 
-    // Validate Quick Tour specific rules
-    const quickTourValidation = await validateQuickTour(data.date, data.duration);
-    if (!quickTourValidation.valid) {
-      throw new Error(quickTourValidation.error);
+    // Validate Pace Tour specific rules (max 2 per day, no prep/teardown)
+    const paceTourValidation = await validatePaceTour(data.date, data.duration);
+    if (!paceTourValidation.valid) {
+      throw new Error(paceTourValidation.error);
+    }
+  } else if (data.visitType === 'PACE_EXPERIENCE') {
+    // Pace Experience must be exactly 4 hours
+    if (data.duration !== 'FOUR_HOURS') {
+      throw new Error('Pace Experience must be exactly 4 hours');
+    }
+
+    // Validate Pace Experience prep/teardown periods
+    const peValidation = await validateInnovationExchange(
+      data.date,
+      data.startTime,
+      data.duration
+    );
+    if (!peValidation.valid) {
+      throw new Error(peValidation.error);
     }
   } else if (data.visitType === 'INNOVATION_EXCHANGE') {
-    // Innovation Exchange must be 4-6 hours
-    const durationHours = durationToHours(data.duration);
-    if (durationHours < 4 || durationHours > 6) {
-      throw new Error('Innovation Exchange must be between 4-6 hours');
+    // Innovation Exchange must be exactly 6 hours
+    if (data.duration !== 'SIX_HOURS') {
+      throw new Error('Innovation Exchange must be exactly 6 hours');
     }
 
     // Validate Innovation Exchange specific rules (prep/teardown)
@@ -1580,10 +1594,10 @@ export async function userRescheduleBooking(
   }
 
   // Validate visit type specific rules
-  if (booking.visitType === 'QUICK_TOUR' || booking.visitType === 'PACE_TOUR') {
-    const quickTourValidation = await validateQuickTour(newDate, newDuration);
-    if (!quickTourValidation.valid) {
-      throw new Error(quickTourValidation.error);
+  if (booking.visitType === 'PACE_TOUR') {
+    const paceTourValidation = await validatePaceTour(newDate, newDuration);
+    if (!paceTourValidation.valid) {
+      throw new Error(paceTourValidation.error);
     }
   } else if (booking.visitType === 'INNOVATION_EXCHANGE' || booking.visitType === 'PACE_EXPERIENCE') {
     const innovationValidation = await validateInnovationExchange(

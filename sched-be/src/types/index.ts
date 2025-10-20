@@ -24,9 +24,9 @@ export const EngagementTypeSchema = z.enum(['VISIT', 'INNOVATION_EXCHANGE']);
 
 // Visit Types
 export const VisitTypeSchema = z.enum([
-  'PACE_TOUR',           // 14h-16h (2 hours) - simple visit, no questionnaire
-  'PACE_EXPERIENCE',     // 10h-16h (6 hours) - full day, requires questionnaire
-  'INNOVATION_EXCHANGE', // 10h-17h (7 hours) - requires questionnaire and alignment call
+  'PACE_TOUR',           // 10h-12h (manhã) OU 14h-16h (tarde) - 2h evento, bloqueia só o período
+  'PACE_EXPERIENCE',     // 10h-16h - 4h evento real, bloqueia dia todo + prep + teardown
+  'INNOVATION_EXCHANGE', // 10h-16h - 6h evento real, bloqueia dia todo + prep + teardown
 ]);
 
 // Organization Type

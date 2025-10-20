@@ -46,7 +46,6 @@ export async function getDashboardStatistics() {
     PACE_TOUR: allBookings.filter((b) => b.visitType === 'PACE_TOUR').length,
     PACE_EXPERIENCE: allBookings.filter((b) => b.visitType === 'PACE_EXPERIENCE').length,
     INNOVATION_EXCHANGE: allBookings.filter((b) => b.visitType === 'INNOVATION_EXCHANGE').length,
-    QUICK_TOUR: allBookings.filter((b) => b.visitType === 'QUICK_TOUR').length,
   };
 
   // Average attendees

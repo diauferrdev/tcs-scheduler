@@ -2663,7 +2663,8 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
         child: InkWell(
           onTap: isAvailable ? () async {
             // Calculate duration based on visit type
-            final duration = _selectedVisitType == 'PACE_TOUR' ? 2 : 4;
+            // PACE_TOUR: 2h, INNOVATION_EXCHANGE: 6h
+            final duration = _selectedVisitType == 'PACE_TOUR' ? 2 : 6;
 
             // Parse start time to TimeOfDay
             final timeParts = period.startTime.split(':');
@@ -4774,7 +4775,8 @@ class _SlotPickerContentState extends State<SlotPickerContent> {
     if (_selectedPeriod == null) return;
 
     // Calculate duration based on visit type
-    final duration = widget.selectedVisitType == 'PACE_TOUR' ? 2 : 4;
+    // PACE_TOUR: 2h, INNOVATION_EXCHANGE: 6h
+    final duration = widget.selectedVisitType == 'PACE_TOUR' ? 2 : 6;
 
     // Parse start time to TimeOfDay
     final timeParts = _selectedPeriod!.startTime.split(':');

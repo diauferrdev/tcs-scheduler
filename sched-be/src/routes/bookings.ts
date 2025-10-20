@@ -54,8 +54,8 @@ app.get('/availability-admin', authMiddleware, async (c) => {
 app.get('/availability/:date', async (c) => {
   try {
     const date = c.req.param('date');
-    const visitType = c.req.query('visitType'); // Optional: QUICK_TOUR or INNOVATION_EXCHANGE
-    const availability = await bookingService.checkAvailability(date, visitType as 'QUICK_TOUR' | 'INNOVATION_EXCHANGE' | undefined);
+    const visitType = c.req.query('visitType'); // Optional: PACE_TOUR or INNOVATION_EXCHANGE
+    const availability = await bookingService.checkAvailability(date, visitType as 'PACE_TOUR' | 'INNOVATION_EXCHANGE' | undefined);
     return c.json(availability);
   } catch (error: any) {
     return c.json({ error: error.message }, 400);
