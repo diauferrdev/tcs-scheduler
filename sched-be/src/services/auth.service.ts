@@ -36,6 +36,8 @@ export async function login(data: LoginInput) {
       email: user.email,
       name: user.name,
       role: user.role,
+      avatarUrl: user.avatarUrl,
+      createdAt: user.createdAt,
     },
     sessionCookie,
   };
@@ -78,6 +80,8 @@ export async function createUser(email: string, password: string, name: string, 
     email: user.email,
     name: user.name,
     role: user.role,
+    avatarUrl: user.avatarUrl,
+    createdAt: user.createdAt,
   };
 }
 
@@ -91,6 +95,7 @@ export async function getAllUsers() {
       name: true,
       role: true,
       isActive: true,
+      avatarUrl: true,
       createdAt: true,
     },
     orderBy: {
@@ -216,6 +221,7 @@ export async function updateProfile(userId: string, data: ProfileUpdateInput) {
       name: true,
       role: true,
       isActive: true,
+      avatarUrl: true,
       createdAt: true,
     },
   });

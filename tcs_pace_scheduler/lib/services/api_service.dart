@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
 import '../config/api_config.dart';
 import '../config/http_config.dart';
 import 'token_storage.dart';
@@ -539,6 +540,71 @@ class ApiService {
         )
         .timeout(ApiConfig.timeout)
         .then(_handleResponse);
+  }
+
+  /// Upload avatar image (multipart/form-data)
+  /// Works on both mobile and web by accepting bytes directly
+  Future<Map<String, dynamic>> uploadAvatar(List<int> fileBytes, String fileName) async {
+    await initialize();
+
+    final url = Uri.parse('${ApiConfig.baseUrl}/api/upload/avatar');
+    final request = http.MultipartRequest('POST', url);
+
+    // Add all necessary headers
+    request.headers.addAll({
+      ...ApiConfig.defaultHeaders,
+      'Accept': 'application/json',
+    });
+
+    // Remove Content-Type as it will be set automatically by MultipartRequest
+    request.headers.remove('Content-Type');
+
+    // Add session cookie
+    if (_sessionCookie != null) {
+      request.headers['Cookie'] = _sessionCookie!;
+      debugPrint('[API] Sending cookie in multipart request: ${_sessionCookie!.substring(0, 50)}...');
+    } else {
+      debugPrint('[API] WARNING: No session cookie available for upload!');
+    }
+
+    // Detect MIME type from file extension
+    MediaType? contentType;
+    final extension = fileName.toLowerCase().split('.').last;
+    switch (extension) {
+      case 'jpg':
+      case 'jpeg':
+        contentType = MediaType('image', 'jpeg');
+        break;
+      case 'png':
+        contentType = MediaType('image', 'png');
+        break;
+      case 'gif':
+        contentType = MediaType('image', 'gif');
+        break;
+      case 'webp':
+        contentType = MediaType('image', 'webp');
+        break;
+      default:
+        contentType = MediaType('image', 'jpeg'); // fallback
+    }
+
+    // Add file from bytes (works on web and mobile)
+    request.files.add(http.MultipartFile.fromBytes(
+      'file',
+      fileBytes,
+      filename: fileName,
+      contentType: contentType,
+    ));
+
+    debugPrint('[API] Uploading avatar - Size: ${fileBytes.length} bytes, Name: $fileName');
+
+    // Send using the same client to maintain session
+    final streamedResponse = await _client.send(request).timeout(const Duration(minutes: 2));
+    final response = await http.Response.fromStream(streamedResponse);
+
+    debugPrint('[API] Upload response status: ${response.statusCode}');
+
+    return _handleResponse(response);
   }
 }
 

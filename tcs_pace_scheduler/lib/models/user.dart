@@ -6,6 +6,7 @@ class User {
   final String name;
   final UserRole role;
   final DateTime createdAt;
+  final String? avatarUrl;
 
   User({
     required this.id,
@@ -13,6 +14,7 @@ class User {
     required this.name,
     required this.role,
     required this.createdAt,
+    this.avatarUrl,
   });
 
   factory User.fromJson(Map<String, dynamic> json) {
@@ -27,6 +29,7 @@ class User {
       createdAt: json['createdAt'] != null
           ? DateTime.parse(json['createdAt'] as String)
           : DateTime.now(),
+      avatarUrl: json['avatarUrl'] as String?,
     );
   }
 
@@ -36,6 +39,7 @@ class User {
       'email': email,
       'name': name,
       'role': role.name,
+      if (avatarUrl != null) 'avatarUrl': avatarUrl,
     };
   }
 

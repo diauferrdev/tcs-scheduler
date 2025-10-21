@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:image_picker/image_picker.dart';
 import '../providers/auth_provider.dart';
 import '../services/api_service.dart';
 import '../utils/toast_notification.dart';
+import '../config/api_config.dart';
 
 /// Profile Drawer - User self-service settings
 ///
@@ -40,6 +42,10 @@ class _ProfileDrawerState extends State<ProfileDrawer> {
   // Form controllers for profile update
   final _nameController = TextEditingController();
   bool _updatingProfile = false;
+
+  // Avatar upload
+  final ImagePicker _imagePicker = ImagePicker();
+  bool _uploadingAvatar = false;
 
   @override
   void initState() {
@@ -174,6 +180,60 @@ class _ProfileDrawerState extends State<ProfileDrawer> {
       if (mounted) {
         _showError(e.toString());
         setState(() => _updatingProfile = false);
+      }
+    }
+  }
+
+  Future<void> _uploadAvatar() async {
+    try {
+      // Pick image from gallery
+      final XFile? pickedFile = await _imagePicker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 1024,
+        maxHeight: 1024,
+        imageQuality: 85,
+      );
+
+      if (pickedFile == null) return;
+
+      // Read file as bytes (works on both web and mobile)
+      final fileBytes = await pickedFile.readAsBytes();
+
+      // Check file size (max 10MB)
+      if (fileBytes.length > 10 * 1024 * 1024) {
+        if (mounted) {
+          _showError('Image must be less than 10MB');
+        }
+        return;
+      }
+
+      setState(() => _uploadingAvatar = true);
+
+      // Upload avatar using bytes
+      final response = await _apiService.uploadAvatar(
+        fileBytes,
+        pickedFile.name,
+      );
+
+      if (mounted) {
+        // Update auth provider with new avatar URL
+        final authProvider = context.read<AuthProvider>();
+        final updatedUser = {...authProvider.user!.toJson()};
+        updatedUser['avatarUrl'] = response['url'];
+        authProvider.updateUser(updatedUser);
+
+        ToastNotification.show(
+          context,
+          message: 'Avatar updated successfully!',
+          type: ToastType.success,
+        );
+
+        setState(() => _uploadingAvatar = false);
+      }
+    } catch (e) {
+      if (mounted) {
+        _showError(e.toString());
+        setState(() => _uploadingAvatar = false);
       }
     }
   }
@@ -322,39 +382,106 @@ class _ProfileDrawerState extends State<ProfileDrawer> {
                       ),
                       child: Row(
                         children: [
-                          // Avatar
-                          Container(
-                            width: 56,
-                            height: 56,
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                colors: [
-                                  isDark ? Colors.white : Colors.black,
-                                  isDark ? Colors.grey[300]! : Colors.grey[800]!,
-                                ],
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                              ),
-                              shape: BoxShape.circle,
-                              boxShadow: [
-                                BoxShadow(
-                                  color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.2),
-                                  blurRadius: 8,
-                                  offset: const Offset(0, 2),
+                          // Avatar with upload button
+                          Stack(
+                            children: [
+                              Container(
+                                width: 56,
+                                height: 56,
+                                decoration: BoxDecoration(
+                                  gradient: user.avatarUrl == null
+                                      ? LinearGradient(
+                                          colors: [
+                                            isDark ? Colors.white : Colors.black,
+                                            isDark ? Colors.grey[300]! : Colors.grey[800]!,
+                                          ],
+                                          begin: Alignment.topLeft,
+                                          end: Alignment.bottomRight,
+                                        )
+                                      : null,
+                                  color: user.avatarUrl != null ? Colors.grey[300] : null,
+                                  shape: BoxShape.circle,
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.2),
+                                      blurRadius: 8,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ],
+                                  image: user.avatarUrl != null
+                                      ? DecorationImage(
+                                          image: NetworkImage('${ApiConfig.baseUrl}${user.avatarUrl}'),
+                                          fit: BoxFit.cover,
+                                        )
+                                      : null,
                                 ),
-                              ],
-                            ),
-                            child: Center(
-                              child: Text(
-                                user.name[0].toUpperCase(),
-                                style: TextStyle(
-                                  fontSize: 22,
-                                  fontWeight: FontWeight.bold,
-                                  color: isDark ? Colors.black : Colors.white,
-                                  letterSpacing: -0.5,
+                                child: Center(
+                                  child: _uploadingAvatar
+                                      ? Container(
+                                          decoration: BoxDecoration(
+                                            color: Colors.black.withValues(alpha: 0.5),
+                                            shape: BoxShape.circle,
+                                          ),
+                                          child: SizedBox(
+                                            width: 24,
+                                            height: 24,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                              valueColor: AlwaysStoppedAnimation<Color>(
+                                                Colors.white,
+                                              ),
+                                            ),
+                                          ),
+                                        )
+                                      : user.avatarUrl == null
+                                          ? Text(
+                                              user.name[0].toUpperCase(),
+                                              style: TextStyle(
+                                                fontSize: 22,
+                                                fontWeight: FontWeight.bold,
+                                                color: isDark ? Colors.black : Colors.white,
+                                                letterSpacing: -0.5,
+                                              ),
+                                            )
+                                          : const SizedBox.shrink(),
                                 ),
                               ),
-                            ),
+                              // Camera button overlay
+                              Positioned(
+                                bottom: -2,
+                                right: -2,
+                                child: Material(
+                                  color: Colors.transparent,
+                                  child: InkWell(
+                                    onTap: _uploadingAvatar ? null : _uploadAvatar,
+                                    borderRadius: BorderRadius.circular(12),
+                                    child: Container(
+                                      padding: const EdgeInsets.all(6),
+                                      decoration: BoxDecoration(
+                                        color: isDark ? Colors.white : Colors.black,
+                                        shape: BoxShape.circle,
+                                        border: Border.all(
+                                          color: isDark ? const Color(0xFF27272A) : const Color(0xFFF9FAFB),
+                                          width: 2,
+                                        ),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: Colors.black.withValues(alpha: 0.2),
+                                            blurRadius: 4,
+                                            offset: const Offset(0, 1),
+                                          ),
+                                        ],
+                                      ),
+                                      child: Icon(
+                                        Icons.camera_alt,
+                                        size: 12,
+                                        color: isDark ? Colors.black : Colors.white,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                           const SizedBox(width: 14),
                           // User Info

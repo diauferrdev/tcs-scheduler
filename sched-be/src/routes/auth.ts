@@ -6,6 +6,7 @@ import * as authService from '../services/auth.service';
 import * as activityLogService from '../services/activity-log.service';
 import { authMiddleware, requireRole } from '../middleware/auth';
 import type { AppContext } from '../lib/context';
+import { prisma } from '../lib/prisma';
 
 const app = new Hono<AppContext>();
 
@@ -78,7 +79,27 @@ app.post('/logout', authMiddleware, async (c) => {
 });
 
 app.get('/me', authMiddleware, async (c) => {
-  const user = c.get('user');
+  const sessionUser = c.get('user');
+
+  // Fetch fresh user data from database including avatarUrl
+  const user = await prisma.user.findUnique({
+    where: { id: sessionUser.id },
+    select: {
+      id: true,
+      email: true,
+      name: true,
+      role: true,
+      isActive: true,
+      avatarUrl: true,
+      createdAt: true,
+      updatedAt: true,
+    }
+  });
+
+  if (!user) {
+    return c.json({ error: 'User not found' }, 404);
+  }
+
   return c.json({ user });
 });
 

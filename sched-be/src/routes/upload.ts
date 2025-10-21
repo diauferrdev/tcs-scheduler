@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import { authMiddleware } from '../middleware/auth';
 import type { AppContext } from '../lib/context';
+import { prisma } from '../lib/prisma';
 import { writeFile, mkdir } from 'fs/promises';
 import { existsSync } from 'fs';
 import { join } from 'path';
@@ -101,8 +102,16 @@ app.post('/avatar', authMiddleware, async (c) => {
 
     const url = `/uploads/avatars/${filename}`;
 
+    // Update user's avatarUrl in database
+    const userId = c.get('user').id;
+
+    await prisma.user.update({
+      where: { id: userId },
+      data: { avatarUrl: url },
+    });
+
     console.log('[Upload] Avatar uploaded:', {
-      userId: c.get('user').id,
+      userId,
       filename,
       size: file.size,
       type: file.type,
