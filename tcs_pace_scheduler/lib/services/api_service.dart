@@ -606,6 +606,171 @@ class ApiService {
 
     return _handleResponse(response);
   }
+
+  // ==================== BUG REPORTS METHODS ====================
+
+  /// Get all bug reports with optional filters
+  Future<dynamic> getBugReports({
+    String? status,
+    String? platform,
+    String? search,
+    String? sortBy,
+    String? order,
+  }) async {
+    final queryParams = <String>[];
+    if (status != null) queryParams.add('status=$status');
+    if (platform != null) queryParams.add('platform=$platform');
+    if (search != null) queryParams.add('search=$search');
+    if (sortBy != null) queryParams.add('sortBy=$sortBy');
+    if (order != null) queryParams.add('order=$order');
+
+    final query = queryParams.isNotEmpty ? '?${queryParams.join('&')}' : '';
+    return await get('/api/bug-reports$query');
+  }
+
+  /// Get bug report by ID
+  Future<Map<String, dynamic>> getBugReportById(String id) async {
+    return await get('/api/bug-reports/$id');
+  }
+
+  /// Create bug report
+  Future<Map<String, dynamic>> createBugReport({
+    required String title,
+    required String description,
+    required String platform,
+    Map<String, dynamic>? deviceInfo,
+    List<String>? attachments,
+  }) async {
+    return await post('/api/bug-reports', {
+      'title': title,
+      'description': description,
+      'platform': platform,
+      if (deviceInfo != null) 'deviceInfo': deviceInfo,
+      if (attachments != null) 'attachments': attachments,
+    });
+  }
+
+  /// Update bug report (ADMIN/MANAGER only for status changes)
+  Future<Map<String, dynamic>> updateBugReport(
+    String id,
+    Map<String, dynamic> data,
+  ) async {
+    return await _client
+        .patch(
+          Uri.parse('${ApiConfig.baseUrl}/api/bug-reports/$id'),
+          headers: {
+            ...ApiConfig.defaultHeaders,
+            if (_sessionCookie != null) 'Cookie': _sessionCookie!,
+          },
+          body: jsonEncode(data),
+        )
+        .timeout(ApiConfig.timeout)
+        .then(_handleResponse);
+  }
+
+  /// Delete bug report (ADMIN only)
+  Future<Map<String, dynamic>> deleteBugReport(String id) async {
+    return await delete('/api/bug-reports/$id');
+  }
+
+  /// Like a bug report
+  Future<Map<String, dynamic>> likeBugReport(String id) async {
+    return await post('/api/bug-reports/$id/like', {});
+  }
+
+  /// Unlike a bug report
+  Future<Map<String, dynamic>> unlikeBugReport(String id) async {
+    return await delete('/api/bug-reports/$id/like');
+  }
+
+  /// Check if user has liked a bug report
+  Future<bool> hasLikedBug(String id) async {
+    final response = await get('/api/bug-reports/$id/liked');
+    return response['liked'] as bool;
+  }
+
+  /// Get bug statistics (ADMIN/MANAGER only)
+  Future<Map<String, dynamic>> getBugStatistics() async {
+    return await get('/api/bug-reports/stats/overview');
+  }
+
+  /// Upload attachment for bug report (images/videos)
+  Future<Map<String, dynamic>> uploadBugAttachment(
+    List<int> fileBytes,
+    String fileName,
+    String fileType,
+  ) async {
+    await initialize();
+
+    final url = Uri.parse('${ApiConfig.baseUrl}/api/upload/attachment');
+    final request = http.MultipartRequest('POST', url);
+
+    request.headers.addAll({
+      ...ApiConfig.defaultHeaders,
+      'Accept': 'application/json',
+    });
+    request.headers.remove('Content-Type');
+
+    if (_sessionCookie != null) {
+      request.headers['Cookie'] = _sessionCookie!;
+    }
+
+    // Detect MIME type based on fileType parameter
+    MediaType? contentType;
+    if (fileType.startsWith('image/')) {
+      final extension = fileName.toLowerCase().split('.').last;
+      switch (extension) {
+        case 'jpg':
+        case 'jpeg':
+          contentType = MediaType('image', 'jpeg');
+          break;
+        case 'png':
+          contentType = MediaType('image', 'png');
+          break;
+        case 'gif':
+          contentType = MediaType('image', 'gif');
+          break;
+        case 'webp':
+          contentType = MediaType('image', 'webp');
+          break;
+        default:
+          contentType = MediaType('image', 'jpeg');
+      }
+    } else if (fileType.startsWith('video/')) {
+      final extension = fileName.toLowerCase().split('.').last;
+      switch (extension) {
+        case 'mp4':
+          contentType = MediaType('video', 'mp4');
+          break;
+        case 'mov':
+          contentType = MediaType('video', 'quicktime');
+          break;
+        case 'avi':
+          contentType = MediaType('video', 'x-msvideo');
+          break;
+        default:
+          contentType = MediaType('video', 'mp4');
+      }
+    } else {
+      contentType = MediaType('application', 'octet-stream');
+    }
+
+    request.files.add(http.MultipartFile.fromBytes(
+      'file',
+      fileBytes,
+      filename: fileName,
+      contentType: contentType,
+    ));
+
+    debugPrint('[API] Uploading bug attachment - Size: ${fileBytes.length} bytes, Name: $fileName');
+
+    final streamedResponse = await _client.send(request).timeout(const Duration(minutes: 5));
+    final response = await http.Response.fromStream(streamedResponse);
+
+    debugPrint('[API] Bug attachment upload response status: ${response.statusCode}');
+
+    return _handleResponse(response);
+  }
 }
 
 class ApiException implements Exception {

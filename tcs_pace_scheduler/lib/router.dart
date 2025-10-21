@@ -15,6 +15,7 @@ import 'screens/users_screen.dart';
 import 'screens/activity_logs_screen.dart';
 import 'screens/approvals_screen.dart';
 import 'screens/my_bookings_screen.dart';
+import 'screens/bug_reports_screen.dart';
 import 'screens/drawer_route_screen.dart';
 import 'services/navigation_service.dart';
 import 'services/drawer_service.dart';
@@ -204,6 +205,14 @@ GoRouter createRouter(AuthProvider authProvider) {
                 ),
               );
             },
+          ),
+          GoRoute(
+            path: '/app/bug-reports',
+            pageBuilder: (context, state) => _buildPageWithTransition(
+              context,
+              state,
+              const BugReportsScreen(),
+            ),
           ),
           GoRoute(
             path: '/app/booking/:id',

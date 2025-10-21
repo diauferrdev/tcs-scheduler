@@ -423,6 +423,7 @@ class _AppLayoutState extends State<AppLayout> {
       {'path': '/app/calendar', 'label': 'Calendar', 'icon': Icons.calendar_month, 'roles': [UserRole.ADMIN, UserRole.USER]},
       {'path': '/app/agenda', 'label': 'Agenda', 'icon': Icons.view_timeline, 'roles': [UserRole.ADMIN, UserRole.MANAGER]},
       {'path': '/app/my-bookings', 'label': 'My Bookings', 'icon': Icons.event_note, 'roles': [UserRole.USER]},
+      {'path': '/app/bug-reports', 'label': 'Bug Reports', 'icon': Icons.bug_report, 'roles': [UserRole.ADMIN, UserRole.MANAGER, UserRole.USER]},
       {'path': '/app/users', 'label': 'Users', 'icon': Icons.people, 'roles': [UserRole.ADMIN, UserRole.MANAGER]},
       {'path': '/app/activity-logs', 'label': 'Activity', 'icon': Icons.history, 'roles': [UserRole.ADMIN]},
     ];
