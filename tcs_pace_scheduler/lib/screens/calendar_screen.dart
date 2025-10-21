@@ -1561,7 +1561,8 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
       );
     }
 
-    final bookingsList = _getBookingsForDay(_selectedDate!);
+    // For ADMIN/MANAGER: show only UNDER_REVIEW and APPROVED in events section below calendar
+    final bookingsList = _getBookingsForDay(_selectedDate!, filterForAdminManager: !isUserRole);
     final ieBlocks = _getIEBlocksForDay(_selectedDate!);
     final today = DateTime.now();
     final isPast = _selectedDate!.isBefore(DateTime(today.year, today.month, today.day));
@@ -2844,9 +2845,10 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
   }
 
   Widget _buildDayBookingsOverlay(bool isDark, bool isMobile, bool isUserRole) {
-    // For ADMIN/MANAGER: show only UNDER_REVIEW and APPROVED bookings
-    // For USER: show all bookings (they see their own bookings regardless of status)
-    final dayBookings = _getBookingsForDay(_selectedDate!, filterForAdminManager: !isUserRole);
+    // Drawer shows ONLY APPROVED bookings (de fato agendado)
+    // This drawer appears when trying to book on a day that already has bookings
+    final allDayBookings = _getBookingsForDay(_selectedDate!);
+    final dayBookings = allDayBookings.where((b) => b.status == BookingStatus.APPROVED).toList();
     final hasBookings = dayBookings.isNotEmpty;
 
     return DraggableScrollableSheet(
