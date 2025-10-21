@@ -80,6 +80,22 @@ enum TCSSupporter {
   DETRACTOR
 }
 
+enum Platform {
+  WINDOWS
+  LINUX
+  MACOS
+  ANDROID
+  IOS
+  WEB
+}
+
+enum BugStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
 model User {
   id            String    @id @default(cuid())
   email         String    @unique
@@ -100,6 +116,9 @@ model User {
   bookingParticipations BookingParticipant[]
   notifications    Notification[]
   fcmTokens        FCMToken[]
+  bugReportsCreated BugReport[] @relation("ReportedBugs")
+  bugReportsResolved BugReport[] @relation("ResolvedBugs")
+  bugLikes         BugLike[]
 
   @@index([email])
   @@index([role])
@@ -366,6 +385,7 @@ enum NotificationType {
   BOOKING_RESCHEDULED
   PARTICIPANT_CONFIRMED
   PARTICIPANT_REJECTED
+  BUG_REPORT_RESOLVED          // Bug report was marked as resolved
 }
 
 model Notification {
@@ -436,4 +456,73 @@ model FCMAnalytics {
   @@index([sentAt])
   @@index([delivered])
   @@index([clicked])
+}
+
+// ==================== BUG REPORTING SYSTEM ====================
+
+model BugReport {
+  id          String     @id @default(cuid())
+  title       String
+  description String     @db.Text
+  platform    Platform
+  deviceInfo  Json?      // Device/browser info, OS version, app version, etc.
+  status      BugStatus  @default(OPEN)
+
+  // Attachments (images, videos, documents)
+  attachments BugAttachment[]
+
+  // Likes system
+  likes       BugLike[]
+  likeCount   Int        @default(0)  // Denormalized for performance
+
+  // Reporter (who found the bug)
+  reportedById String
+  reportedBy   User      @relation("ReportedBugs", fields: [reportedById], references: [id])
+
+  // Resolver (ADMIN/MANAGER who marked as resolved)
+  resolvedById String?
+  resolvedBy   User?     @relation("ResolvedBugs", fields: [resolvedById], references: [id])
+  resolvedAt   DateTime?
+
+  // Resolution notes (optional message from ADMIN/MANAGER)
+  resolutionNotes String? @db.Text
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([status])
+  @@index([platform])
+  @@index([reportedById])
+  @@index([likeCount])
+  @@index([createdAt])
+}
+
+model BugAttachment {
+  id          String    @id @default(cuid())
+  bugReportId String
+  bugReport   BugReport @relation(fields: [bugReportId], references: [id], onDelete: Cascade)
+
+  fileUrl     String    // URL to uploaded file
+  fileName    String    // Original filename
+  fileSize    Int       // Size in bytes
+  fileType    String    // MIME type
+
+  createdAt   DateTime  @default(now())
+
+  @@index([bugReportId])
+}
+
+model BugLike {
+  id          String    @id @default(cuid())
+  bugReportId String
+  bugReport   BugReport @relation(fields: [bugReportId], references: [id], onDelete: Cascade)
+
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt   DateTime  @default(now())
+
+  @@unique([bugReportId, userId]) // One like per user per bug
+  @@index([bugReportId])
+  @@index([userId])
 }

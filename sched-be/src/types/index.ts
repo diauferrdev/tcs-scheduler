@@ -68,6 +68,12 @@ export const EventTypeSchema = z.enum(['TCS', 'PARTNER']);
 export const DealStatusSchema = z.enum(['SWON', 'WON']);
 export const TCSSupporterSchema = z.enum(['SUPPORTER', 'NEUTRAL', 'DETRACTOR']);
 
+// Platform (for bug reports)
+export const PlatformSchema = z.enum(['WINDOWS', 'LINUX', 'MACOS', 'ANDROID', 'IOS', 'WEB']);
+
+// Bug Status
+export const BugStatusSchema = z.enum(['OPEN', 'IN_PROGRESS', 'RESOLVED', 'CLOSED']);
+
 // ==================== AUTH ====================
 
 export const LoginSchema = z.object({
@@ -251,6 +257,31 @@ export const ProfileUpdateSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters').optional(),
 });
 
+// ==================== BUG REPORTS ====================
+
+export const BugReportCreateSchema = z.object({
+  title: z.string().min(5, 'Title must be at least 5 characters').max(200, 'Title must be less than 200 characters'),
+  description: z.string().min(10, 'Description must be at least 10 characters').max(5000, 'Description must be less than 5000 characters'),
+  platform: PlatformSchema,
+  deviceInfo: z.record(z.any()).optional(), // JSON object with device info
+  attachments: z.array(z.string().url('Invalid attachment URL')).max(6, 'Maximum 6 attachments allowed').optional(),
+});
+
+export const BugReportUpdateSchema = z.object({
+  title: z.string().min(5, 'Title must be at least 5 characters').max(200).optional(),
+  description: z.string().min(10, 'Description must be at least 10 characters').max(5000).optional(),
+  status: BugStatusSchema.optional(),
+  resolutionNotes: z.string().max(2000, 'Resolution notes must be less than 2000 characters').optional(),
+});
+
+export const BugReportFilterSchema = z.object({
+  status: BugStatusSchema.optional(),
+  platform: PlatformSchema.optional(),
+  search: z.string().optional(), // Search in title and description
+  sortBy: z.enum(['createdAt', 'likeCount', 'updatedAt']).optional(),
+  order: z.enum(['asc', 'desc']).optional(),
+});
+
 // ==================== TYPE INFERENCE ====================
 
 export type LoginInput = z.infer<typeof LoginSchema>;
@@ -269,3 +300,6 @@ export type UserCreateInput = z.infer<typeof UserCreateSchema>;
 export type UserUpdateInput = z.infer<typeof UserUpdateSchema>;
 export type PasswordChangeInput = z.infer<typeof PasswordChangeSchema>;
 export type ProfileUpdateInput = z.infer<typeof ProfileUpdateSchema>;
+export type BugReportCreateInput = z.infer<typeof BugReportCreateSchema>;
+export type BugReportUpdateInput = z.infer<typeof BugReportUpdateSchema>;
+export type BugReportFilterInput = z.infer<typeof BugReportFilterSchema>;

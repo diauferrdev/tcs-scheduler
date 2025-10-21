@@ -19,6 +19,7 @@ import fcmRoutes from './routes/fcm';
 import versionRoutes from './routes/version';
 import uploadRoutes from './routes/upload';
 import dashboardRoutes from './routes/dashboard';
+import bugReportRoutes from './routes/bugReports';
 import { errorHandler } from './middleware/errorHandler';
 import type { AppContext } from './lib/context';
 import { lucia } from './lib/lucia';
@@ -87,6 +88,7 @@ app.route('/api/fcm', fcmRoutes);
 app.route('/api/version', versionRoutes);
 app.route('/api/upload', uploadRoutes);
 app.route('/api/dashboard', dashboardRoutes);
+app.route('/api/bug-reports', bugReportRoutes);
 
 app.get('/health', (c) => c.json({
   status: 'ok',
