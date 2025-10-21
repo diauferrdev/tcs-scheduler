@@ -689,9 +689,47 @@ class ApiService {
     return response['liked'] as bool;
   }
 
-  /// Get bug statistics (ADMIN/MANAGER only)
+  /// Get bug statistics (ADMIN only)
   Future<Map<String, dynamic>> getBugStatistics() async {
     return await get('/api/bug-reports/stats/overview');
+  }
+
+  /// Get comments for a bug report
+  Future<dynamic> getBugComments(String bugId) async {
+    return await get('/api/bug-reports/$bugId/comments');
+  }
+
+  /// Create comment on bug report
+  Future<Map<String, dynamic>> createBugComment(
+    String bugId,
+    String content,
+  ) async {
+    return await post('/api/bug-reports/$bugId/comments', {
+      'content': content,
+    });
+  }
+
+  /// Update comment
+  Future<Map<String, dynamic>> updateBugComment(
+    String commentId,
+    String content,
+  ) async {
+    return await _client
+        .patch(
+          Uri.parse('${ApiConfig.baseUrl}/api/bug-reports/comments/$commentId'),
+          headers: {
+            ...ApiConfig.defaultHeaders,
+            if (_sessionCookie != null) 'Cookie': _sessionCookie!,
+          },
+          body: jsonEncode({'content': content}),
+        )
+        .timeout(ApiConfig.timeout)
+        .then(_handleResponse);
+  }
+
+  /// Delete comment
+  Future<Map<String, dynamic>> deleteBugComment(String commentId) async {
+    return await delete('/api/bug-reports/comments/$commentId');
   }
 
   /// Upload attachment for bug report (images/videos)

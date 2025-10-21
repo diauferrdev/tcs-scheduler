@@ -103,6 +103,42 @@ class BugReporter {
   }
 }
 
+class BugComment {
+  final String id;
+  final String content;
+  final BugReporter user;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+
+  BugComment({
+    required this.id,
+    required this.content,
+    required this.user,
+    required this.createdAt,
+    required this.updatedAt,
+  });
+
+  factory BugComment.fromJson(Map<String, dynamic> json) {
+    return BugComment(
+      id: json['id'],
+      content: json['content'],
+      user: BugReporter.fromJson(json['user']),
+      createdAt: DateTime.parse(json['createdAt']),
+      updatedAt: DateTime.parse(json['updatedAt']),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'content': content,
+      'user': user,
+      'createdAt': createdAt.toIso8601String(),
+      'updatedAt': updatedAt.toIso8601String(),
+    };
+  }
+}
+
 class BugReport {
   final String id;
   final String title;
@@ -111,12 +147,15 @@ class BugReport {
   final Map<String, dynamic>? deviceInfo;
   final BugStatus status;
   final List<BugAttachment> attachments;
+  final List<BugComment> comments;
   final List<BugLike> likes;
   final int likeCount;
   final BugReporter reportedBy;
   final BugReporter? resolvedBy;
   final DateTime? resolvedAt;
   final String? resolutionNotes;
+  final BugReporter? closedBy;
+  final DateTime? closedAt;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -128,12 +167,15 @@ class BugReport {
     this.deviceInfo,
     required this.status,
     required this.attachments,
+    required this.comments,
     required this.likes,
     required this.likeCount,
     required this.reportedBy,
     this.resolvedBy,
     this.resolvedAt,
     this.resolutionNotes,
+    this.closedBy,
+    this.closedAt,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -156,6 +198,10 @@ class BugReport {
               ?.map((a) => BugAttachment.fromJson(a))
               .toList() ??
           [],
+      comments: (json['comments'] as List<dynamic>?)
+              ?.map((c) => BugComment.fromJson(c))
+              .toList() ??
+          [],
       likes: (json['likes'] as List<dynamic>?)
               ?.map((l) => BugLike.fromJson(l))
               .toList() ??
@@ -169,6 +215,12 @@ class BugReport {
           ? DateTime.parse(json['resolvedAt'])
           : null,
       resolutionNotes: json['resolutionNotes'],
+      closedBy: json['closedBy'] != null
+          ? BugReporter.fromJson(json['closedBy'])
+          : null,
+      closedAt: json['closedAt'] != null
+          ? DateTime.parse(json['closedAt'])
+          : null,
       createdAt: DateTime.parse(json['createdAt']),
       updatedAt: DateTime.parse(json['updatedAt']),
     );
