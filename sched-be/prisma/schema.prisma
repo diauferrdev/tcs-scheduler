@@ -118,7 +118,9 @@ model User {
   fcmTokens        FCMToken[]
   bugReportsCreated BugReport[] @relation("ReportedBugs")
   bugReportsResolved BugReport[] @relation("ResolvedBugs")
+  bugReportsClosed BugReport[] @relation("ClosedBugs")
   bugLikes         BugLike[]
+  bugComments      BugComment[]
 
   @@index([email])
   @@index([role])
@@ -385,6 +387,7 @@ enum NotificationType {
   BOOKING_RESCHEDULED
   PARTICIPANT_CONFIRMED
   PARTICIPANT_REJECTED
+  BUG_REPORT_CREATED           // New bug report created (notify ADMINs)
   BUG_REPORT_RESOLVED          // Bug report was marked as resolved
 }
 
@@ -471,6 +474,9 @@ model BugReport {
   // Attachments (images, videos, documents)
   attachments BugAttachment[]
 
+  // Comments system (users can add more details)
+  comments    BugComment[]
+
   // Likes system
   likes       BugLike[]
   likeCount   Int        @default(0)  // Denormalized for performance
@@ -479,13 +485,18 @@ model BugReport {
   reportedById String
   reportedBy   User      @relation("ReportedBugs", fields: [reportedById], references: [id])
 
-  // Resolver (ADMIN/MANAGER who marked as resolved)
+  // Resolver (ADMIN who marked as resolved)
   resolvedById String?
   resolvedBy   User?     @relation("ResolvedBugs", fields: [resolvedById], references: [id])
   resolvedAt   DateTime?
 
-  // Resolution notes (optional message from ADMIN/MANAGER)
+  // Resolution notes (optional message from ADMIN)
   resolutionNotes String? @db.Text
+
+  // Closed by (ADMIN who moved to history)
+  closedById String?
+  closedBy   User?     @relation("ClosedBugs", fields: [closedById], references: [id])
+  closedAt   DateTime?
 
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
@@ -525,4 +536,22 @@ model BugLike {
   @@unique([bugReportId, userId]) // One like per user per bug
   @@index([bugReportId])
   @@index([userId])
+}
+
+model BugComment {
+  id          String    @id @default(cuid())
+  bugReportId String
+  bugReport   BugReport @relation(fields: [bugReportId], references: [id], onDelete: Cascade)
+
+  content     String    @db.Text
+
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([bugReportId])
+  @@index([userId])
+  @@index([createdAt])
 }

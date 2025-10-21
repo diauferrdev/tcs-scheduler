@@ -282,6 +282,14 @@ export const BugReportFilterSchema = z.object({
   order: z.enum(['asc', 'desc']).optional(),
 });
 
+export const BugCommentCreateSchema = z.object({
+  content: z.string().min(1, 'Comment cannot be empty').max(2000, 'Comment must be less than 2000 characters'),
+});
+
+export const BugCommentUpdateSchema = z.object({
+  content: z.string().min(1, 'Comment cannot be empty').max(2000, 'Comment must be less than 2000 characters'),
+});
+
 // ==================== TYPE INFERENCE ====================
 
 export type LoginInput = z.infer<typeof LoginSchema>;
@@ -303,3 +311,5 @@ export type ProfileUpdateInput = z.infer<typeof ProfileUpdateSchema>;
 export type BugReportCreateInput = z.infer<typeof BugReportCreateSchema>;
 export type BugReportUpdateInput = z.infer<typeof BugReportUpdateSchema>;
 export type BugReportFilterInput = z.infer<typeof BugReportFilterSchema>;
+export type BugCommentCreateInput = z.infer<typeof BugCommentCreateSchema>;
+export type BugCommentUpdateInput = z.infer<typeof BugCommentUpdateSchema>;

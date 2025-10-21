@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
-import { BugReportCreateSchema, BugReportUpdateSchema, BugReportFilterSchema } from '../types';
+import { BugReportCreateSchema, BugReportUpdateSchema, BugReportFilterSchema, BugCommentCreateSchema, BugCommentUpdateSchema } from '../types';
 import * as bugReportService from '../services/bugReport.service';
 import * as pushService from '../services/push.service';
 import { authMiddleware } from '../middleware/auth';
@@ -16,6 +16,43 @@ app.post('/', authMiddleware, zValidator('json', BugReportCreateSchema), async (
     const data = c.req.valid('json');
 
     const bugReport = await bugReportService.createBugReport(data, user.id);
+
+    // Notify all ADMINs about new bug report
+    try {
+      const admins = await prisma.user.findMany({
+        where: { role: 'ADMIN', isActive: true },
+      });
+
+      for (const admin of admins) {
+        // Create in-app notification
+        await prisma.notification.create({
+          data: {
+            type: 'BUG_REPORT_CREATED',
+            title: 'New Bug Report',
+            message: `${user.name} reported a new bug: "${bugReport.title}"`,
+            userId: admin.id,
+            actionUrl: `/bug-reports/${bugReport.id}`,
+            metadata: {
+              bugReportId: bugReport.id,
+              reportedById: user.id,
+              reportedByName: user.name,
+              platform: bugReport.platform,
+            },
+          },
+        });
+
+        // Send push notification
+        await pushService.sendPushToUser(
+          admin.id,
+          'New Bug Report',
+          `${user.name}: "${bugReport.title}"`,
+          `/bug-reports/${bugReport.id}`
+        );
+      }
+    } catch (notificationError) {
+      console.error('[BugReports] Error sending notifications to ADMINs:', notificationError);
+      // Don't fail the request if notification fails
+    }
 
     return c.json(bugReport, 201);
   } catch (error: any) {
@@ -69,6 +106,30 @@ app.patch('/:id', authMiddleware, zValidator('json', BugReportUpdateSchema), asy
     const data = c.req.valid('json');
 
     const originalBug = await bugReportService.getBugReportById(id);
+
+    // Check permissions
+    const isOwner = originalBug.reportedById === user.id;
+    const isAdmin = user.role === 'ADMIN';
+
+    // Users can only edit their own bugs (title/description) and only if not resolved/closed
+    if (!isAdmin && !isOwner) {
+      return c.json({ error: 'You can only edit your own bug reports' }, 403);
+    }
+
+    if (!isAdmin && (originalBug.status === 'RESOLVED' || originalBug.status === 'CLOSED')) {
+      return c.json({ error: 'Cannot edit resolved or closed bug reports' }, 403);
+    }
+
+    // Only ADMIN can change status
+    if (data.status && !isAdmin) {
+      return c.json({ error: 'Only ADMIN can change bug status' }, 403);
+    }
+
+    // Only ADMIN can add resolution notes
+    if (data.resolutionNotes && !isAdmin) {
+      return c.json({ error: 'Only ADMIN can add resolution notes' }, 403);
+    }
+
     const wasResolved = data.status === 'RESOLVED' && originalBug.status !== 'RESOLVED';
 
     const updatedBug = await bugReportService.updateBugReport(id, data, user.id, user.role);
@@ -172,13 +233,13 @@ app.get('/:id/liked', authMiddleware, async (c) => {
   }
 });
 
-// Get bug statistics (ADMIN/MANAGER only)
+// Get bug statistics (ADMIN only)
 app.get('/stats/overview', authMiddleware, async (c) => {
   try {
     const user = c.get('user');
 
-    if (user.role !== 'ADMIN' && user.role !== 'MANAGER') {
-      return c.json({ error: 'Only ADMIN and MANAGER can view statistics' }, 403);
+    if (user.role !== 'ADMIN') {
+      return c.json({ error: 'Only ADMIN can view statistics' }, 403);
     }
 
     const stats = await bugReportService.getBugStatistics();
@@ -186,6 +247,64 @@ app.get('/stats/overview', authMiddleware, async (c) => {
   } catch (error: any) {
     console.error('[BugReports] Error fetching statistics:', error);
     return c.json({ error: error.message || 'Failed to fetch statistics' }, 400);
+  }
+});
+
+// ==================== BUG COMMENTS ====================
+
+// Get comments for a bug report
+app.get('/:id/comments', authMiddleware, async (c) => {
+  try {
+    const id = c.req.param('id');
+    const comments = await bugReportService.getBugComments(id);
+    return c.json({ comments });
+  } catch (error: any) {
+    console.error('[BugReports] Error fetching comments:', error);
+    return c.json({ error: error.message || 'Failed to fetch comments' }, 400);
+  }
+});
+
+// Create comment on bug report
+app.post('/:id/comments', authMiddleware, zValidator('json', BugCommentCreateSchema), async (c) => {
+  try {
+    const user = c.get('user');
+    const id = c.req.param('id');
+    const { content } = c.req.valid('json');
+
+    const comment = await bugReportService.createBugComment(id, content, user.id);
+    return c.json(comment, 201);
+  } catch (error: any) {
+    console.error('[BugReports] Error creating comment:', error);
+    return c.json({ error: error.message || 'Failed to create comment' }, 400);
+  }
+});
+
+// Update comment
+app.patch('/comments/:commentId', authMiddleware, zValidator('json', BugCommentUpdateSchema), async (c) => {
+  try {
+    const user = c.get('user');
+    const commentId = c.req.param('commentId');
+    const { content } = c.req.valid('json');
+
+    const comment = await bugReportService.updateBugComment(commentId, content, user.id);
+    return c.json(comment);
+  } catch (error: any) {
+    console.error('[BugReports] Error updating comment:', error);
+    return c.json({ error: error.message || 'Failed to update comment' }, 400);
+  }
+});
+
+// Delete comment
+app.delete('/comments/:commentId', authMiddleware, async (c) => {
+  try {
+    const user = c.get('user');
+    const commentId = c.req.param('commentId');
+
+    const result = await bugReportService.deleteBugComment(commentId, user.id, user.role);
+    return c.json(result);
+  } catch (error: any) {
+    console.error('[BugReports] Error deleting comment:', error);
+    return c.json({ error: error.message || 'Failed to delete comment' }, 400);
   }
 });
 

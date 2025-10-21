@@ -179,7 +179,31 @@ export async function getBugReportById(id: string) {
           role: true,
         },
       },
+      closedBy: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          role: true,
+        },
+      },
       attachments: true,
+      comments: {
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              role: true,
+              avatarUrl: true,
+            },
+          },
+        },
+        orderBy: {
+          createdAt: 'asc',
+        },
+      },
       likes: {
         include: {
           user: {
@@ -195,6 +219,7 @@ export async function getBugReportById(id: string) {
         select: {
           likes: true,
           attachments: true,
+          comments: true,
         },
       },
     },
@@ -467,4 +492,136 @@ export async function getBugStatistics() {
     },
     byPlatform: platformStats,
   };
+}
+
+// ==================== BUG COMMENTS ====================
+
+export async function createBugComment(
+  bugReportId: string,
+  content: string,
+  userId: string
+) {
+  // Check if bug exists and is not closed
+  const bug = await prisma.bugReport.findUnique({
+    where: { id: bugReportId },
+  });
+
+  if (!bug) {
+    throw new Error('Bug report not found');
+  }
+
+  if (bug.status === 'CLOSED') {
+    throw new Error('Cannot comment on closed bug reports');
+  }
+
+  const comment = await prisma.bugComment.create({
+    data: {
+      content,
+      bugReportId,
+      userId,
+    },
+    include: {
+      user: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          role: true,
+          avatarUrl: true,
+        },
+      },
+    },
+  });
+
+  console.log('[BugComment] Created:', {
+    id: comment.id,
+    bugReportId,
+    user: comment.user.name,
+  });
+
+  return comment;
+}
+
+export async function getBugComments(bugReportId: string) {
+  return await prisma.bugComment.findMany({
+    where: { bugReportId },
+    include: {
+      user: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          role: true,
+          avatarUrl: true,
+        },
+      },
+    },
+    orderBy: {
+      createdAt: 'asc', // Oldest first (chronological order)
+    },
+  });
+}
+
+export async function updateBugComment(
+  commentId: string,
+  content: string,
+  userId: string
+) {
+  const comment = await prisma.bugComment.findUnique({
+    where: { id: commentId },
+    include: { bugReport: true },
+  });
+
+  if (!comment) {
+    throw new Error('Comment not found');
+  }
+
+  if (comment.userId !== userId) {
+    throw new Error('You can only edit your own comments');
+  }
+
+  if (comment.bugReport.status === 'CLOSED') {
+    throw new Error('Cannot edit comments on closed bug reports');
+  }
+
+  return await prisma.bugComment.update({
+    where: { id: commentId },
+    data: { content },
+    include: {
+      user: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          role: true,
+          avatarUrl: true,
+        },
+      },
+    },
+  });
+}
+
+export async function deleteBugComment(
+  commentId: string,
+  userId: string,
+  userRole: string
+) {
+  const comment = await prisma.bugComment.findUnique({
+    where: { id: commentId },
+  });
+
+  if (!comment) {
+    throw new Error('Comment not found');
+  }
+
+  // Only comment owner or ADMIN can delete
+  if (comment.userId !== userId && userRole !== 'ADMIN') {
+    throw new Error('You can only delete your own comments');
+  }
+
+  await prisma.bugComment.delete({
+    where: { id: commentId },
+  });
+
+  return { success: true, message: 'Comment deleted' };
 }
