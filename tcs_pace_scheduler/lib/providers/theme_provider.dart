@@ -1,6 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+// Theme constants for easy access
+class AppTheme {
+  static const Color primaryBlack = Colors.black;
+  static const Color primaryWhite = Colors.white;
+}
+
 class ThemeProvider with ChangeNotifier {
   static const String _themeKey = 'theme_mode';
   ThemeMode _themeMode = ThemeMode.dark;

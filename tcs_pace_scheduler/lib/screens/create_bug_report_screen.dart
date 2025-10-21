@@ -4,9 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:image_picker/image_picker.dart';
 import '../models/bug_report.dart' as model;
+import '../providers/theme_provider.dart';
 import '../services/api_service.dart';
 import '../utils/device_info_helper.dart';
-import '../config/theme.dart';
 
 class CreateBugReportScreen extends StatefulWidget {
   const CreateBugReportScreen({super.key});

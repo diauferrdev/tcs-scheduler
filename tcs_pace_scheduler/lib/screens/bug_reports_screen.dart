@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/bug_report.dart';
 import '../providers/auth_provider.dart';
+import '../providers/theme_provider.dart';
 import '../services/api_service.dart';
-import '../config/theme.dart';
 import 'bug_detail_screen.dart';
 import 'create_bug_report_screen.dart';
 
@@ -419,6 +419,24 @@ class _BugReportsScreenState extends State<BugReportsScreen> {
                       ],
                     ),
                   ),
+
+                  // Comments count
+                  if (bug.comments.isNotEmpty) ...[
+                    Icon(
+                      Icons.comment_outlined,
+                      size: 14,
+                      color: AppTheme.primaryWhite.withOpacity(0.6),
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      '${bug.comments.length}',
+                      style: TextStyle(
+                        color: AppTheme.primaryWhite.withOpacity(0.6),
+                        fontSize: 12,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                  ],
 
                   // Attachments count
                   if (bug.attachments.isNotEmpty) ...[

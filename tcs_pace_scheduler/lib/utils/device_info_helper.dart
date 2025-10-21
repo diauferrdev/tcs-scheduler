@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'dart:io' as io;
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:flutter/foundation.dart';
@@ -24,7 +24,7 @@ class DeviceInfoHelper {
           'userAgent': webInfo.userAgent,
           'platform': webInfo.platform,
         });
-      } else if (Platform.isAndroid) {
+      } else if (io.Platform.isAndroid) {
         final androidInfo = await deviceInfo.androidInfo;
         info.addAll({
           'manufacturer': androidInfo.manufacturer,
@@ -34,7 +34,7 @@ class DeviceInfoHelper {
           'device': androidInfo.device,
           'brand': androidInfo.brand,
         });
-      } else if (Platform.isIOS) {
+      } else if (io.Platform.isIOS) {
         final iosInfo = await deviceInfo.iosInfo;
         info.addAll({
           'model': iosInfo.model,
@@ -43,7 +43,7 @@ class DeviceInfoHelper {
           'name': iosInfo.name,
           'identifierForVendor': iosInfo.identifierForVendor,
         });
-      } else if (Platform.isWindows) {
+      } else if (io.Platform.isWindows) {
         final windowsInfo = await deviceInfo.windowsInfo;
         info.addAll({
           'computerName': windowsInfo.computerName,
@@ -52,7 +52,7 @@ class DeviceInfoHelper {
           'productName': windowsInfo.productName,
           'displayVersion': windowsInfo.displayVersion,
         });
-      } else if (Platform.isLinux) {
+      } else if (io.Platform.isLinux) {
         final linuxInfo = await deviceInfo.linuxInfo;
         info.addAll({
           'name': linuxInfo.name,
@@ -60,7 +60,7 @@ class DeviceInfoHelper {
           'prettyName': linuxInfo.prettyName,
           'variant': linuxInfo.variant,
         });
-      } else if (Platform.isMacOS) {
+      } else if (io.Platform.isMacOS) {
         final macInfo = await deviceInfo.macOsInfo;
         info.addAll({
           'model': macInfo.model,
@@ -78,11 +78,11 @@ class DeviceInfoHelper {
 
   static Platform _getPlatform() {
     if (kIsWeb) return Platform.WEB;
-    if (Platform.isAndroid) return Platform.ANDROID;
-    if (Platform.isIOS) return Platform.IOS;
-    if (Platform.isWindows) return Platform.WINDOWS;
-    if (Platform.isLinux) return Platform.LINUX;
-    if (Platform.isMacOS) return Platform.MACOS;
+    if (io.Platform.isAndroid) return Platform.ANDROID;
+    if (io.Platform.isIOS) return Platform.IOS;
+    if (io.Platform.isWindows) return Platform.WINDOWS;
+    if (io.Platform.isLinux) return Platform.LINUX;
+    if (io.Platform.isMacOS) return Platform.MACOS;
     return Platform.WEB;
   }
 }
