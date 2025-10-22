@@ -115,7 +115,7 @@ class _BugReportsScreenState extends State<BugReportsScreen> {
         backgroundColor: backgroundColor,
         elevation: 0,
         title: Text(
-          'Bug Reports',
+          'Community Feedback',
           style: TextStyle(
             color: textColor,
             fontSize: 24,
@@ -299,6 +299,10 @@ class _BugReportsScreenState extends State<BugReportsScreen> {
   }
 
   Widget _buildBugCard(BugReport bug) {
+    final hasAttachments = bug.attachments.isNotEmpty;
+    final commentCount = bug.comments?.length ?? 0;
+    final timeAgo = _formatTimeAgo(bug.createdAt);
+
     return Card(
       color: AppTheme.primaryWhite.withOpacity(0.05),
       margin: const EdgeInsets.only(bottom: 12),
@@ -308,109 +312,126 @@ class _BugReportsScreenState extends State<BugReportsScreen> {
         borderRadius: BorderRadius.circular(12),
         child: Padding(
           padding: const EdgeInsets.all(16),
-          child: Column(
+          child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Header: Status Badge + Platform
-              Row(
+              // Left: Upvote column (Discord style)
+              Column(
                 children: [
-                  _buildStatusBadge(bug.status),
-                  const SizedBox(width: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: AppTheme.primaryWhite.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(_getPlatformIcon(bug.platform), size: 14, color: AppTheme.primaryWhite),
-                        const SizedBox(width: 4),
-                        Text(
-                          bug.platformDisplay,
-                          style: const TextStyle(
-                            color: AppTheme.primaryWhite,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
-                    ),
+                  Icon(
+                    Icons.thumb_up,
+                    size: 20,
+                    color: bug.likeCount > 0 ? Colors.blue : AppTheme.primaryWhite.withOpacity(0.3),
                   ),
-                  const Spacer(),
-                  // Upvote Count
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: bug.likeCount > 0
-                          ? Colors.blue.withOpacity(0.15)
-                          : AppTheme.primaryWhite.withOpacity(0.05),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                        color: bug.likeCount > 0
-                            ? Colors.blue.withOpacity(0.3)
-                            : AppTheme.primaryWhite.withOpacity(0.2),
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.thumb_up,
-                          size: 14,
-                          color: bug.likeCount > 0 ? Colors.blue : AppTheme.primaryWhite.withOpacity(0.5),
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          '${bug.likeCount}',
-                          style: TextStyle(
-                            color: bug.likeCount > 0 ? Colors.blue : AppTheme.primaryWhite.withOpacity(0.5),
-                            fontWeight: FontWeight.bold,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
+                  const SizedBox(height: 4),
+                  Text(
+                    '${bug.likeCount}',
+                    style: TextStyle(
+                      color: bug.likeCount > 0 ? Colors.blue : AppTheme.primaryWhite.withOpacity(0.5),
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
                     ),
                   ),
                 ],
               ),
 
-              const SizedBox(height: 12),
+              const SizedBox(width: 16),
 
-              // Title
-              Text(
-                bug.title,
-                style: const TextStyle(
-                  color: AppTheme.primaryWhite,
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-
-              const SizedBox(height: 8),
-
-              // Description (truncated)
-              Text(
-                bug.description,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: AppTheme.primaryWhite.withOpacity(0.7),
-                  fontSize: 14,
-                ),
-              ),
-
-              const SizedBox(height: 12),
-
-              // Footer: Reporter + Date + Attachments
-              Row(
-                children: [
-                  // Reporter
-                  Expanded(
-                    child: Row(
+              // Middle: Content
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Header: Status + Platform + Tags
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
                       children: [
+                        _buildStatusBadge(bug.status),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: AppTheme.primaryWhite.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(_getPlatformIcon(bug.platform), size: 12, color: AppTheme.primaryWhite),
+                              const SizedBox(width: 4),
+                              Text(
+                                bug.platformDisplay,
+                                style: const TextStyle(
+                                  color: AppTheme.primaryWhite,
+                                  fontSize: 11,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        if (hasAttachments)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: Colors.purple.withOpacity(0.15),
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(color: Colors.purple.withOpacity(0.3)),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.attach_file, size: 12, color: Colors.purple),
+                                const SizedBox(width: 2),
+                                Text(
+                                  '${bug.attachments.length}',
+                                  style: const TextStyle(
+                                    color: Colors.purple,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                      ],
+                    ),
+
+                    const SizedBox(height: 10),
+
+                    // Title
+                    Text(
+                      bug.title,
+                      style: const TextStyle(
+                        color: AppTheme.primaryWhite,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+
+                    const SizedBox(height: 6),
+
+                    // Description preview
+                    Text(
+                      bug.description,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: AppTheme.primaryWhite.withOpacity(0.6),
+                        fontSize: 13,
+                        height: 1.4,
+                      ),
+                    ),
+
+                    const SizedBox(height: 10),
+
+                    // Footer: Author + Time + Stats
+                    Row(
+                      children: [
+                        // Author avatar
                         CircleAvatar(
-                          radius: 12,
+                          radius: 10,
                           backgroundColor: AppTheme.primaryWhite.withOpacity(0.2),
                           backgroundImage: bug.reportedBy.avatarUrl != null
                               ? NetworkImage(bug.reportedBy.avatarUrl!)
@@ -420,71 +441,43 @@ class _BugReportsScreenState extends State<BugReportsScreen> {
                                   bug.reportedBy.name[0].toUpperCase(),
                                   style: const TextStyle(
                                     color: AppTheme.primaryWhite,
-                                    fontSize: 10,
+                                    fontSize: 9,
                                   ),
                                 )
                               : null,
                         ),
                         const SizedBox(width: 6),
-                        Expanded(
-                          child: Text(
-                            bug.reportedBy.name,
+                        // Author name + time
+                        Text(
+                          '${bug.reportedBy.name} • $timeAgo',
+                          style: TextStyle(
+                            color: AppTheme.primaryWhite.withOpacity(0.5),
+                            fontSize: 12,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const Spacer(),
+                        // Comment count with icon
+                        if (commentCount > 0) ...[
+                          Icon(
+                            Icons.chat_bubble_outline,
+                            size: 14,
+                            color: AppTheme.primaryWhite.withOpacity(0.5),
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            '$commentCount',
                             style: TextStyle(
                               color: AppTheme.primaryWhite.withOpacity(0.6),
                               fontSize: 12,
+                              fontWeight: FontWeight.w500,
                             ),
-                            overflow: TextOverflow.ellipsis,
                           ),
-                        ),
+                        ],
                       ],
                     ),
-                  ),
-
-                  // Comments count
-                  if (bug.comments.isNotEmpty) ...[
-                    Icon(
-                      Icons.comment_outlined,
-                      size: 14,
-                      color: AppTheme.primaryWhite.withOpacity(0.6),
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      '${bug.comments.length}',
-                      style: TextStyle(
-                        color: AppTheme.primaryWhite.withOpacity(0.6),
-                        fontSize: 12,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
                   ],
-
-                  // Attachments count
-                  if (bug.attachments.isNotEmpty) ...[
-                    Icon(
-                      Icons.attach_file,
-                      size: 14,
-                      color: AppTheme.primaryWhite.withOpacity(0.6),
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      '${bug.attachments.length}',
-                      style: TextStyle(
-                        color: AppTheme.primaryWhite.withOpacity(0.6),
-                        fontSize: 12,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                  ],
-
-                  // Date
-                  Text(
-                    _formatDate(bug.createdAt),
-                    style: TextStyle(
-                      color: AppTheme.primaryWhite.withOpacity(0.6),
-                      fontSize: 12,
-                    ),
-                  ),
-                ],
+                ),
               ),
             ],
           ),
@@ -493,35 +486,62 @@ class _BugReportsScreenState extends State<BugReportsScreen> {
     );
   }
 
+  String _formatTimeAgo(DateTime dateTime) {
+    final now = DateTime.now();
+    final difference = now.difference(dateTime);
+
+    if (difference.inDays > 365) {
+      final years = (difference.inDays / 365).floor();
+      return '${years}y ago';
+    } else if (difference.inDays > 30) {
+      final months = (difference.inDays / 30).floor();
+      return '${months}mo ago';
+    } else if (difference.inDays > 0) {
+      return '${difference.inDays}d ago';
+    } else if (difference.inHours > 0) {
+      return '${difference.inHours}h ago';
+    } else if (difference.inMinutes > 0) {
+      return '${difference.inMinutes}m ago';
+    } else {
+      return 'just now';
+    }
+  }
+
   Widget _buildStatusBadge(BugStatus status) {
     Color color;
+    String label;
+
     switch (status) {
       case BugStatus.OPEN:
-        color = Colors.orange;
+        color = Colors.green;
+        label = 'OPEN';
         break;
       case BugStatus.IN_PROGRESS:
-        color = Colors.blue;
+        color = Colors.orange;
+        label = 'IN PROGRESS';
         break;
       case BugStatus.RESOLVED:
-        color = Colors.green;
+        color = Colors.blue;
+        label = 'RESOLVED';
         break;
       case BugStatus.CLOSED:
         color = Colors.grey;
+        label = 'CLOSED';
         break;
     }
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.2),
+        color: color.withOpacity(0.15),
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: color, width: 1),
+        border: Border.all(color: color.withOpacity(0.3)),
       ),
       child: Text(
-        status.name.replaceAll('_', ' '),
+        label,
         style: TextStyle(
           color: color,
-          fontSize: 12,
+          fontSize: 11,
           fontWeight: FontWeight.bold,
         ),
       ),
@@ -531,35 +551,17 @@ class _BugReportsScreenState extends State<BugReportsScreen> {
   IconData _getPlatformIcon(Platform platform) {
     switch (platform) {
       case Platform.WINDOWS:
-        return Icons.laptop_windows;
-      case Platform.LINUX:
-        return Icons.laptop;
+        return Icons.desktop_windows;
       case Platform.MACOS:
         return Icons.laptop_mac;
+      case Platform.LINUX:
+        return Icons.computer;
       case Platform.ANDROID:
-        return Icons.phone_android;
+        return Icons.android;
       case Platform.IOS:
         return Icons.phone_iphone;
       case Platform.WEB:
         return Icons.web;
-    }
-  }
-
-  String _formatDate(DateTime date) {
-    final now = DateTime.now();
-    final difference = now.difference(date);
-
-    if (difference.inDays == 0) {
-      if (difference.inHours == 0) {
-        return '${difference.inMinutes}m ago';
-      }
-      return '${difference.inHours}h ago';
-    } else if (difference.inDays == 1) {
-      return 'Yesterday';
-    } else if (difference.inDays < 7) {
-      return '${difference.inDays}d ago';
-    } else {
-      return '${date.day}/${date.month}/${date.year}';
     }
   }
 
