@@ -25,7 +25,7 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
 
   BugReport? _bug;
   bool _isLoading = true;
-  bool _isLiked = false;
+  bool _isUpvoted = false;
   String? _errorMessage;
   bool _isSubmittingComment = false;
   String? _editingCommentId;
@@ -51,11 +51,11 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
 
     try {
       final response = await _api.getBugReportById(widget.bugId);
-      final liked = await _api.hasLikedBug(widget.bugId);
+      final upvoted = await _api.hasLikedBug(widget.bugId);
 
       setState(() {
         _bug = BugReport.fromJson(response);
-        _isLiked = liked;
+        _isUpvoted = upvoted;
         _isLoading = false;
       });
     } catch (e) {
@@ -66,18 +66,18 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
     }
   }
 
-  Future<void> _toggleLike() async {
+  Future<void> _toggleUpvote() async {
     if (_bug == null) return;
 
     try {
-      if (_isLiked) {
+      if (_isUpvoted) {
         await _api.unlikeBugReport(widget.bugId);
       } else {
         await _api.likeBugReport(widget.bugId);
       }
 
       setState(() {
-        _isLiked = !_isLiked;
+        _isUpvoted = !_isUpvoted;
         _bug = BugReport(
           id: _bug!.id,
           title: _bug!.title,
@@ -88,7 +88,7 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
           attachments: _bug!.attachments,
           comments: _bug!.comments,
           likes: _bug!.likes,
-          likeCount: _isLiked ? _bug!.likeCount + 1 : _bug!.likeCount - 1,
+          likeCount: _isUpvoted ? _bug!.likeCount + 1 : _bug!.likeCount - 1,
           reportedBy: _bug!.reportedBy,
           resolvedBy: _bug!.resolvedBy,
           resolvedAt: _bug!.resolvedAt,
@@ -390,7 +390,7 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
                         controller: _scrollController,
                         padding: const EdgeInsets.all(16),
                         children: [
-                          // Status Badge + Platform
+                          // Status Badge + Platform + Upvote
                           Row(
                             children: [
                               _buildStatusBadge(_bug!.status),
@@ -410,6 +410,42 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
                                       style: const TextStyle(color: AppTheme.primaryWhite, fontSize: 14),
                                     ),
                                   ],
+                                ),
+                              ),
+                              const Spacer(),
+                              // Compact Upvote Button
+                              GestureDetector(
+                                onTap: _toggleUpvote,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                  decoration: BoxDecoration(
+                                    color: _isUpvoted
+                                        ? Colors.red.withOpacity(0.2)
+                                        : AppTheme.primaryWhite.withOpacity(0.1),
+                                    borderRadius: BorderRadius.circular(20),
+                                    border: Border.all(
+                                      color: _isUpvoted ? Colors.red : AppTheme.primaryWhite.withOpacity(0.3),
+                                    ),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        _isUpvoted ? Icons.favorite : Icons.favorite_border,
+                                        color: _isUpvoted ? Colors.red : AppTheme.primaryWhite,
+                                        size: 16,
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        '${_bug!.likeCount}',
+                                        style: TextStyle(
+                                          color: _isUpvoted ? Colors.red : AppTheme.primaryWhite,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 14,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
                               ),
                             ],
@@ -468,58 +504,6 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
                                 ),
                               ),
                             ],
-                          ),
-
-                          const SizedBox(height: 24),
-
-                          // Like Button
-                          GestureDetector(
-                            onTap: _toggleLike,
-                            child: Container(
-                              padding: const EdgeInsets.all(16),
-                              decoration: BoxDecoration(
-                                color: AppTheme.primaryWhite.withOpacity(0.05),
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(
-                                  color: _isLiked ? Colors.red : AppTheme.primaryWhite.withOpacity(0.2),
-                                  width: _isLiked ? 2 : 1,
-                                ),
-                              ),
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(
-                                    _isLiked ? Icons.favorite : Icons.favorite_border,
-                                    color: _isLiked ? Colors.red : AppTheme.primaryWhite,
-                                    size: 28,
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Text(
-                                    _isLiked ? 'You liked this' : 'Like this bug report',
-                                    style: TextStyle(
-                                      color: _isLiked ? Colors.red : AppTheme.primaryWhite,
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                    decoration: BoxDecoration(
-                                      color: Colors.red.withOpacity(0.2),
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    child: Text(
-                                      '${_bug!.likeCount}',
-                                      style: const TextStyle(
-                                        color: Colors.red,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
                           ),
 
                           const SizedBox(height: 24),
@@ -645,7 +629,7 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
                                     Colors.blue,
                                     () => _updateStatus(BugStatus.IN_PROGRESS),
                                   ),
-                                if (_bug!.status != BugStatus.RESOLVED)
+                                if (_bug!.status == BugStatus.IN_PROGRESS)
                                   _buildActionButton(
                                     'Mark Resolved',
                                     Colors.green,
@@ -653,7 +637,7 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
                                   ),
                                 if (_bug!.status == BugStatus.RESOLVED)
                                   _buildActionButton(
-                                    'Close (Archive)',
+                                    'Close Bug',
                                     Colors.grey,
                                     () => _updateStatus(BugStatus.CLOSED),
                                   ),
@@ -1002,9 +986,10 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 3,
+              crossAxisCount: 2,
               crossAxisSpacing: 8,
               mainAxisSpacing: 8,
+              childAspectRatio: 1.0,
             ),
             itemCount: imageAttachments.length,
             itemBuilder: (context, index) {
@@ -1013,13 +998,48 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
                 onTap: () => _showAttachmentGallery(index),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(8),
-                  child: Image.network(
-                    attachment.fileUrl,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stack) => Container(
-                      color: AppTheme.primaryWhite.withOpacity(0.1),
-                      child: const Icon(Icons.broken_image, color: AppTheme.primaryWhite),
-                    ),
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      Image.network(
+                        attachment.fileUrl,
+                        fit: BoxFit.cover,
+                        loadingBuilder: (context, child, loadingProgress) {
+                          if (loadingProgress == null) return child;
+                          return Container(
+                            color: AppTheme.primaryWhite.withOpacity(0.05),
+                            child: Center(
+                              child: CircularProgressIndicator(
+                                value: loadingProgress.expectedTotalBytes != null
+                                    ? loadingProgress.cumulativeBytesLoaded /
+                                        loadingProgress.expectedTotalBytes!
+                                    : null,
+                                color: AppTheme.primaryWhite,
+                              ),
+                            ),
+                          );
+                        },
+                        errorBuilder: (context, error, stack) => Container(
+                          color: AppTheme.primaryWhite.withOpacity(0.1),
+                          child: const Center(
+                            child: Icon(Icons.broken_image, color: AppTheme.primaryWhite),
+                          ),
+                        ),
+                      ),
+                      // Tap overlay
+                      Container(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [
+                              Colors.transparent,
+                              Colors.black.withOpacity(0.1),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               );
@@ -1034,47 +1054,90 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
   }
 
   Widget _buildVideoTile(BugAttachment attachment) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: AppTheme.primaryWhite.withOpacity(0.05),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        children: [
-          const Icon(Icons.videocam, color: AppTheme.primaryWhite, size: 24),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  attachment.fileName,
-                  style: const TextStyle(color: AppTheme.primaryWhite),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                Text(
-                  _formatBytes(attachment.fileSize),
-                  style: TextStyle(
-                    color: AppTheme.primaryWhite.withOpacity(0.6),
-                    fontSize: 12,
-                  ),
-                ),
-              ],
+    return GestureDetector(
+      onTap: () async {
+        final uri = Uri.parse(attachment.fileUrl);
+        if (await canLaunchUrl(uri)) {
+          await launchUrl(uri, mode: LaunchMode.externalApplication);
+        }
+      },
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: AppTheme.primaryWhite.withOpacity(0.05),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: AppTheme.primaryWhite.withOpacity(0.1),
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: Colors.red.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(
+                Icons.play_circle_fill,
+                color: Colors.red,
+                size: 32,
+              ),
             ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.open_in_new, color: AppTheme.primaryWhite),
-            onPressed: () async {
-              final uri = Uri.parse(attachment.fileUrl);
-              if (await canLaunchUrl(uri)) {
-                await launchUrl(uri, mode: LaunchMode.externalApplication);
-              }
-            },
-          ),
-        ],
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    attachment.fileName,
+                    style: const TextStyle(
+                      color: AppTheme.primaryWhite,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Colors.red.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: const Text(
+                          'VIDEO',
+                          style: TextStyle(
+                            color: Colors.red,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        _formatBytes(attachment.fileSize),
+                        style: TextStyle(
+                          color: AppTheme.primaryWhite.withOpacity(0.6),
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            Icon(
+              Icons.open_in_new,
+              color: AppTheme.primaryWhite.withOpacity(0.6),
+              size: 20,
+            ),
+          ],
+        ),
       ),
     );
   }

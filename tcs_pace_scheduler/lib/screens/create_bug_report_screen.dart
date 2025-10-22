@@ -63,6 +63,67 @@ class _CreateBugReportScreenState extends State<CreateBugReportScreen> {
     }
   }
 
+  Future<void> _showAttachmentOptions() async {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppTheme.primaryBlack,
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40,
+              height: 4,
+              margin: const EdgeInsets.only(bottom: 20),
+              decoration: BoxDecoration(
+                color: AppTheme.primaryWhite.withOpacity(0.3),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library, color: AppTheme.primaryWhite),
+              title: const Text('Choose from Gallery', style: TextStyle(color: AppTheme.primaryWhite)),
+              subtitle: Text(
+                'Images and videos',
+                style: TextStyle(color: AppTheme.primaryWhite.withOpacity(0.6)),
+              ),
+              onTap: () {
+                Navigator.pop(context);
+                _pickImage();
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.videocam, color: AppTheme.primaryWhite),
+              title: const Text('Record Video', style: TextStyle(color: AppTheme.primaryWhite)),
+              subtitle: Text(
+                'Up to 300MB',
+                style: TextStyle(color: AppTheme.primaryWhite.withOpacity(0.6)),
+              ),
+              onTap: () {
+                Navigator.pop(context);
+                _pickVideo();
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.insert_drive_file, color: AppTheme.primaryWhite),
+              title: const Text('Choose File', style: TextStyle(color: AppTheme.primaryWhite)),
+              subtitle: Text(
+                'Images, videos, documents',
+                style: TextStyle(color: AppTheme.primaryWhite.withOpacity(0.6)),
+              ),
+              onTap: () {
+                Navigator.pop(context);
+                _pickFile();
+              },
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+
   Future<void> _pickImage() async {
     if (_attachments.length >= 6) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -451,66 +512,51 @@ class _CreateBugReportScreenState extends State<CreateBugReportScreen> {
                               style: TextStyle(
                                 color: AppTheme.primaryWhite.withOpacity(0.7),
                                 fontSize: 14,
+                                fontWeight: FontWeight.bold,
                               ),
                             ),
-                            const SizedBox(width: 8),
+                            const Spacer(),
                             Text(
-                              '(${_attachments.length}/6)',
+                              '${_attachments.length}/6 files',
                               style: TextStyle(
-                                color: AppTheme.primaryWhite.withOpacity(0.5),
-                                fontSize: 12,
+                                color: AppTheme.primaryWhite.withOpacity(0.6),
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
                               ),
                             ),
                           ],
                         ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Supported: Images, Videos, Documents\nMax size: 30MB per image, 300MB per video',
+                          style: TextStyle(
+                            color: AppTheme.primaryWhite.withOpacity(0.5),
+                            fontSize: 12,
+                            height: 1.4,
+                          ),
+                        ),
                         const SizedBox(height: 12),
 
-                        // Upload Buttons
-                        Row(
-                          children: [
-                            Expanded(
-                              child: OutlinedButton.icon(
-                                onPressed: _attachments.length < 6 ? _pickImage : null,
-                                icon: const Icon(Icons.image),
-                                label: const Text('Image'),
-                                style: OutlinedButton.styleFrom(
-                                  foregroundColor: AppTheme.primaryWhite,
-                                  side: BorderSide(color: AppTheme.primaryWhite.withOpacity(0.3)),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: OutlinedButton.icon(
-                                onPressed: _attachments.length < 6 ? _pickVideo : null,
-                                icon: const Icon(Icons.videocam),
-                                label: const Text('Video'),
-                                style: OutlinedButton.styleFrom(
-                                  foregroundColor: AppTheme.primaryWhite,
-                                  side: BorderSide(color: AppTheme.primaryWhite.withOpacity(0.3)),
-                                ),
-                              ),
-                            ),
-                          ],
+                        // Single Add Attachment Button
+                        OutlinedButton.icon(
+                          onPressed: _attachments.length < 6 ? _showAttachmentOptions : null,
+                          icon: const Icon(Icons.attach_file),
+                          label: Text(_attachments.isEmpty ? 'Add Attachment' : 'Add Another'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: AppTheme.primaryWhite,
+                            side: BorderSide(color: AppTheme.primaryWhite.withOpacity(0.3)),
+                            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                          ),
                         ),
 
                         // Attachment List
                         if (_attachments.isNotEmpty) ...[
-                          const SizedBox(height: 12),
+                          const SizedBox(height: 16),
                           ...List.generate(_attachments.length, (index) {
                             final attachment = _attachments[index];
                             return _buildAttachmentTile(attachment, index);
                           }),
                         ],
-
-                        const SizedBox(height: 8),
-                        Text(
-                          'Max 6 files • Images up to 30MB • Videos up to 300MB',
-                          style: TextStyle(
-                            color: AppTheme.primaryWhite.withOpacity(0.5),
-                            fontSize: 12,
-                          ),
-                        ),
                       ],
                     ),
                   ),
