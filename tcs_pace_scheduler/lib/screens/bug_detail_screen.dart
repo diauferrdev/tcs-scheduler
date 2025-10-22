@@ -7,6 +7,7 @@ import '../models/bug_report.dart';
 import '../providers/auth_provider.dart';
 import '../providers/theme_provider.dart';
 import '../services/api_service.dart';
+import '../widgets/video_player_widget.dart';
 import 'edit_bug_report_screen.dart';
 
 class BugDetailScreen extends StatefulWidget {
@@ -1154,11 +1155,17 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
 
   Widget _buildVideoTile(BugAttachment attachment) {
     return GestureDetector(
-      onTap: () async {
-        final uri = Uri.parse(attachment.fileUrl);
-        if (await canLaunchUrl(uri)) {
-          await launchUrl(uri, mode: LaunchMode.externalApplication);
-        }
+      onTap: () {
+        // Open video player inline
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => VideoPlayerWidget(
+              videoUrl: attachment.fileUrl,
+              title: attachment.fileName,
+            ),
+          ),
+        );
       },
       child: Container(
         margin: const EdgeInsets.only(bottom: 8),
@@ -1244,9 +1251,16 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
   Widget _buildDocumentTile(BugAttachment attachment) {
     return GestureDetector(
       onTap: () async {
+        // Open document externally (browser/file viewer)
         final uri = Uri.parse(attachment.fileUrl);
         if (await canLaunchUrl(uri)) {
           await launchUrl(uri, mode: LaunchMode.externalApplication);
+        } else {
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Could not open ${attachment.fileName}')),
+            );
+          }
         }
       },
       child: Container(
