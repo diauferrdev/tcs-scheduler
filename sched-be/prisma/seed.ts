@@ -14,50 +14,46 @@ async function main() {
     parallelism: 1,
   });
 
-  // Create default admin
-  const admin = await prisma.user.upsert({
-    where: { email: 'admin@tcs.com' },
-    update: {},
-    create: {
-      email: 'admin@tcs.com',
-      passwordHash,
-      name: 'TCS Admin',
-      role: 'ADMIN',
-    },
-  });
+  // Define all users to be created
+  const users = [
+    // ADMINS
+    { email: 'admin@tcs.com', name: 'TCS Admin', role: 'ADMIN' as const },
+    { email: 'diego@tcs.com', name: 'Diego Admin', role: 'ADMIN' as const },
+    { email: 'abinadmin@tcs.com', name: 'Abin Admin', role: 'ADMIN' as const },
 
-  console.log('✅ Created admin user:', admin.email);
-  console.log('🔑 Password: Tata@123');
+    // MANAGERS
+    { email: 'manager@tcs.com', name: 'Test Manager', role: 'MANAGER' as const },
+    { email: 'orestes@tcs.com', name: 'Orestes Manager', role: 'MANAGER' as const },
+    { email: 'ashok@tcs.com', name: 'Ashok Manager', role: 'MANAGER' as const },
+    { email: 'abinmanager@tcs.com', name: 'Abin Manager', role: 'MANAGER' as const },
+    { email: 'tulio@tcs.com', name: 'Tulio Manager', role: 'MANAGER' as const },
+    { email: 'danielle@tcs.com', name: 'Danielle Manager', role: 'MANAGER' as const },
 
-  // Create a manager user for testing
-  const manager = await prisma.user.upsert({
-    where: { email: 'manager@tcs.com' },
-    update: {},
-    create: {
-      email: 'manager@tcs.com',
-      passwordHash,
-      name: 'Test Manager',
-      role: 'MANAGER',
-    },
-  });
+    // USERS
+    { email: 'user@tcs.com', name: 'Test User', role: 'USER' as const },
+    { email: 'abinuser@tcs.com', name: 'Abin User', role: 'USER' as const },
+    { email: 'diegouser@tcs.com', name: 'Diego User', role: 'USER' as const },
+  ];
 
-  console.log('✅ Created manager user:', manager.email);
-  console.log('🔑 Password: Tata@123');
+  // Create all users
+  console.log(`Creating ${users.length} users...`);
 
-  // Create a regular user for testing
-  const user = await prisma.user.upsert({
-    where: { email: 'user@tcs.com' },
-    update: {},
-    create: {
-      email: 'user@tcs.com',
-      passwordHash,
-      name: 'Test User',
-      role: 'USER',
-    },
-  });
+  for (const userData of users) {
+    const user = await prisma.user.upsert({
+      where: { email: userData.email },
+      update: {},
+      create: {
+        email: userData.email,
+        passwordHash,
+        name: userData.name,
+        role: userData.role,
+      },
+    });
+    console.log(`✅ Created ${userData.role.toLowerCase()}: ${user.email}`);
+  }
 
-  console.log('✅ Created user:', user.email);
-  console.log('🔑 Password: Tata@123');
+  console.log('\n🔑 All users password: Tata@123');
+  console.log('✅ Database seeded successfully!');
 }
 
 main()

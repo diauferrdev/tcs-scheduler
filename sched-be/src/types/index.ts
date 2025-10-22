@@ -264,7 +264,7 @@ export const BugReportCreateSchema = z.object({
   description: z.string().min(10, 'Description must be at least 10 characters').max(5000, 'Description must be less than 5000 characters'),
   platform: PlatformSchema,
   deviceInfo: z.record(z.any()).optional(), // JSON object with device info
-  attachments: z.array(z.string().url('Invalid attachment URL')).max(6, 'Maximum 6 attachments allowed').optional(),
+  attachments: z.array(z.string().min(1, 'Attachment path is required')).max(6, 'Maximum 6 attachments allowed').optional(),
 });
 
 export const BugReportUpdateSchema = z.object({

@@ -315,7 +315,7 @@ export async function checkAvailability(date: string, visitType?: 'PACE_TOUR' | 
   const bookingDate = new Date(date);
 
   // Get ONLY APPROVED bookings for availability
-  // PENDING_APPROVAL do not block slots
+  // Pending statuses (CREATED, UNDER_REVIEW, etc) do not block slots
   const bookings = await prisma.booking.findMany({
     where: {
       date: bookingDate,
@@ -664,7 +664,7 @@ export async function getBookings(month?: string, status?: string, userId?: stri
 export async function getBookingsAvailability(month?: string) {
   const where: any = {
     // Only show APPROVED bookings to public (hide pending/created/under_review/etc)
-    status: { notIn: ['CANCELLED', 'PENDING_APPROVAL', 'CREATED', 'UNDER_REVIEW', 'NEED_EDIT', 'NEED_RESCHEDULE', 'NOT_APPROVED'] },
+    status: { notIn: ['CANCELLED', 'CREATED', 'UNDER_REVIEW', 'NEED_EDIT', 'NEED_RESCHEDULE', 'NOT_APPROVED'] },
   };
 
   if (month) {
@@ -706,7 +706,7 @@ export async function getBookingsAvailability(month?: string) {
 // Get bookings availability for Admins/Managers (includes all pending statuses as "intentions")
 export async function getBookingsAvailabilityForAdmins(month?: string) {
   const where: any = {
-    // Include CREATED, UNDER_REVIEW, NEED_EDIT, NEED_RESCHEDULE, PENDING_APPROVAL, APPROVED, NOT_APPROVED
+    // Include CREATED, UNDER_REVIEW, NEED_EDIT, NEED_RESCHEDULE, APPROVED, NOT_APPROVED
     // Exclude only CANCELLED
     status: { notIn: ['CANCELLED'] },
   };
@@ -731,7 +731,7 @@ export async function getBookingsAvailabilityForAdmins(month?: string) {
       startTime: true,
       duration: true,
       visitType: true,
-      status: true, // PENDING_APPROVAL = intention, APPROVED = actual booking
+      status: true, // CREATED/UNDER_REVIEW = intention, APPROVED = actual booking
       // Required fields for Flutter Booking model
       accountName: true,
       companyName: true,
@@ -956,9 +956,9 @@ export async function approveBooking(bookingId: string, managerId: string) {
     throw new Error('Booking not found');
   }
 
-  // Can approve from CREATED, UNDER_REVIEW, or legacy PENDING_APPROVAL
-  if (booking.status !== 'CREATED' && booking.status !== 'UNDER_REVIEW' && booking.status !== 'PENDING_APPROVAL') {
-    throw new Error(`Cannot approve booking with status ${booking.status}. Booking must be in CREATED, UNDER_REVIEW, or PENDING_APPROVAL status.`);
+  // Can approve from CREATED or UNDER_REVIEW
+  if (booking.status !== 'CREATED' && booking.status !== 'UNDER_REVIEW') {
+    throw new Error(`Cannot approve booking with status ${booking.status}. Booking must be in CREATED or UNDER_REVIEW status.`);
   }
 
   // Validate that the slot is still free (considering only APPROVED bookings)
@@ -1016,7 +1016,7 @@ export async function approveBooking(bookingId: string, managerId: string) {
   const conflictingBookings = await prisma.booking.findMany({
     where: {
       id: { not: bookingId }, // Exclude the approved booking
-      status: { in: ['CREATED', 'UNDER_REVIEW', 'NEED_EDIT', 'NEED_RESCHEDULE', 'PENDING_APPROVAL'] }, // All non-final statuses
+      status: { in: ['CREATED', 'UNDER_REVIEW', 'NEED_EDIT', 'NEED_RESCHEDULE'] }, // All non-final statuses
       OR: [
         // Direct time conflict on same date
         {
@@ -1248,7 +1248,7 @@ export async function rescheduleBooking(
       date: new Date(newDate),
       startTime: newStartTime,
       duration: newDuration,
-      status: 'PENDING_APPROVAL',
+      status: 'CREATED',
       originalBookingId: bookingId,
       createdById: userId,
       attendees: {
@@ -1322,9 +1322,9 @@ export async function requestEdit(
     throw new Error('Booking not found');
   }
 
-  // Can only request edit from CREATED, UNDER_REVIEW, or legacy PENDING_APPROVAL
-  if (booking.status !== 'CREATED' && booking.status !== 'UNDER_REVIEW' && booking.status !== 'PENDING_APPROVAL') {
-    throw new Error(`Cannot request edit from status ${booking.status}. Booking must be in CREATED, UNDER_REVIEW, or PENDING_APPROVAL status.`);
+  // Can only request edit from CREATED or UNDER_REVIEW
+  if (booking.status !== 'CREATED' && booking.status !== 'UNDER_REVIEW') {
+    throw new Error(`Cannot request edit from status ${booking.status}. Booking must be in CREATED or UNDER_REVIEW status.`);
   }
 
   const updatedBooking = await prisma.booking.update({
@@ -1382,9 +1382,9 @@ export async function requestReschedule(
     throw new Error('Booking not found');
   }
 
-  // Can only request reschedule from CREATED, UNDER_REVIEW, or legacy PENDING_APPROVAL
-  if (booking.status !== 'CREATED' && booking.status !== 'UNDER_REVIEW' && booking.status !== 'PENDING_APPROVAL') {
-    throw new Error(`Cannot request reschedule from status ${booking.status}. Booking must be in CREATED, UNDER_REVIEW, or PENDING_APPROVAL status.`);
+  // Can only request reschedule from CREATED or UNDER_REVIEW
+  if (booking.status !== 'CREATED' && booking.status !== 'UNDER_REVIEW') {
+    throw new Error(`Cannot request reschedule from status ${booking.status}. Booking must be in CREATED or UNDER_REVIEW status.`);
   }
 
   const updatedBooking = await prisma.booking.update({
@@ -1442,10 +1442,10 @@ export async function rejectBooking(
     throw new Error('Booking not found');
   }
 
-  // Can only reject from CREATED, UNDER_REVIEW, NEED_EDIT, NEED_RESCHEDULE, or legacy PENDING_APPROVAL
-  const allowedStatuses = ['CREATED', 'UNDER_REVIEW', 'NEED_EDIT', 'NEED_RESCHEDULE', 'PENDING_APPROVAL'];
+  // Can only reject from CREATED, UNDER_REVIEW, NEED_EDIT, or NEED_RESCHEDULE
+  const allowedStatuses = ['CREATED', 'UNDER_REVIEW', 'NEED_EDIT', 'NEED_RESCHEDULE'];
   if (!allowedStatuses.includes(booking.status)) {
-    throw new Error(`Cannot reject booking from status ${booking.status}. Booking must be in CREATED, UNDER_REVIEW, NEED_EDIT, NEED_RESCHEDULE, or PENDING_APPROVAL status.`);
+    throw new Error(`Cannot reject booking from status ${booking.status}. Booking must be in CREATED, UNDER_REVIEW, NEED_EDIT, or NEED_RESCHEDULE status.`);
   }
 
   const updatedBooking = await prisma.booking.update({

@@ -166,7 +166,7 @@ app.patch('/:id', authMiddleware, zValidator('json', BookingUpdateSchema), async
     const wasNeedEdit = originalBooking.status === 'NEED_EDIT';
     const wasNeedReschedule = originalBooking.status === 'NEED_RESCHEDULE';
     const isUserEditing = user.role === 'USER' && originalBooking.createdById === user.id;
-    const isChangingToReview = data.status === 'UNDER_REVIEW' || data.status === 'CREATED' || data.status === 'PENDING_APPROVAL';
+    const isChangingToReview = data.status === 'UNDER_REVIEW' || data.status === 'CREATED';
 
     const booking = await bookingService.updateBooking(id, data);
 

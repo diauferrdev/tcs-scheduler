@@ -4654,15 +4654,33 @@ class _SlotPickerContentState extends State<SlotPickerContent> {
             ),
             // Content
             Expanded(
-              child: SingleChildScrollView(
-                controller: scrollController,
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  children: widget.allPeriods.map((period) {
-                    return _buildSelectablePeriodCard(period);
-                  }).toList(),
-                ),
-              ),
+              child: widget.allPeriods.isEmpty
+                  ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          CircularProgressIndicator(
+                            color: widget.isDark ? Colors.white : Colors.black,
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            'Loading available periods...',
+                            style: TextStyle(
+                              color: widget.isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  : SingleChildScrollView(
+                      controller: scrollController,
+                      padding: const EdgeInsets.all(24),
+                      child: Column(
+                        children: widget.allPeriods.map((period) {
+                          return _buildSelectablePeriodCard(period);
+                        }).toList(),
+                      ),
+                    ),
             ),
             // Confirm button
             Container(
@@ -4722,13 +4740,22 @@ class _SlotPickerContentState extends State<SlotPickerContent> {
                   : (widget.isDark ? const Color(0xFF09090B) : const Color(0xFFF3F4F6)),
               border: Border.all(
                 color: isSelected
-                    ? Colors.black
+                    ? (widget.isDark ? const Color(0xFF10B981) : const Color(0xFF059669))
                     : (isAvailable
                         ? (widget.isDark ? const Color(0xFF10B981) : const Color(0xFF059669))
                         : (widget.isDark ? const Color(0xFF3F3F46) : const Color(0xFFD1D5DB))),
                 width: isSelected ? 3 : 2,
               ),
               borderRadius: BorderRadius.circular(12),
+              boxShadow: isSelected
+                  ? [
+                      BoxShadow(
+                        color: (widget.isDark ? const Color(0xFF10B981) : const Color(0xFF059669)).withOpacity(0.3),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ]
+                  : null,
             ),
             child: Row(
               children: [

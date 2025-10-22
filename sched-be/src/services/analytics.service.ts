@@ -35,9 +35,9 @@ export async function getDashboardStats() {
     },
   });
 
-  // Pending bookings
+  // Pending bookings (CREATED or UNDER_REVIEW)
   const pendingBookings = await prisma.booking.count({
-    where: { status: 'PENDING_APPROVAL' },
+    where: { status: { in: ['CREATED', 'UNDER_REVIEW'] } },
   });
 
   // Total companies (unique)

@@ -361,18 +361,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildStatusFunnel(bool isDark) {
-    if (_stats == null) return const SizedBox.shrink();
-
-    final breakdown = _stats!.statusBreakdown;
-    final maxValue = [
-      breakdown.underReview,
-      breakdown.needEdit,
-      breakdown.needReschedule,
-      breakdown.approved,
-      breakdown.notApproved
-    ].reduce((a, b) => a > b ? a : b);
-
-    if (maxValue == 0) return const SizedBox.shrink();
+    final hasData = _stats != null;
+    final breakdown = hasData ? _stats!.statusBreakdown : null;
+    final maxValue = hasData
+        ? [
+            breakdown!.underReview,
+            breakdown.needEdit,
+            breakdown.needReschedule,
+            breakdown.approved,
+            breakdown.notApproved
+          ].reduce((a, b) => a > b ? a : b)
+        : 0;
 
     final borderColor = isDark ? const Color(0xFFF97316) : const Color(0xFFF97316);
 
@@ -398,55 +397,65 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
           const SizedBox(height: 8),
           Expanded(
-            child: Padding(
-              padding: const EdgeInsets.only(right: 12, left: 4),
-              child: SfCartesianChart(
-                plotAreaBorderWidth: 0,
-                primaryXAxis: CategoryAxis(
-                  majorGridLines: const MajorGridLines(width: 0),
-                  labelStyle: TextStyle(
-                    fontSize: 7,
-                    fontWeight: FontWeight.bold,
-                    color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
-                  ),
-                  axisLine: AxisLine(
-                    width: 4,
-                    color: borderColor.withValues(alpha: 0.2),
-                  ),
-                ),
-                primaryYAxis: NumericAxis(
-                  isVisible: false,
-                  minimum: 0,
-                  maximum: maxValue.toDouble() * 1.2,
-                ),
-                series: <CartesianSeries>[
-                  SplineSeries<Map<String, dynamic>, String>(
-                    dataSource: [
-                      {'label': 'Review', 'value': breakdown.underReview},
-                      {'label': 'Changes', 'value': breakdown.needEdit},
-                      {'label': 'Reschedule', 'value': breakdown.needReschedule},
-                      {'label': 'Approved', 'value': breakdown.approved},
-                      {'label': 'Rejected', 'value': breakdown.notApproved},
-                    ],
-                    xValueMapper: (data, _) => data['label'] as String,
-                    yValueMapper: (data, _) => (data['value'] as int).toDouble(),
-                    color: const Color(0xFFF97316),
-                    width: 3,
-                    markerSettings: const MarkerSettings(
-                      isVisible: true,
-                      height: 8,
-                      width: 8,
-                      color: Color(0xFFFB923C),
-                      borderColor: Colors.white,
-                      borderWidth: 2,
+            child: hasData && maxValue > 0
+                ? Padding(
+                    padding: const EdgeInsets.only(right: 12, left: 4),
+                    child: SfCartesianChart(
+                      plotAreaBorderWidth: 0,
+                      primaryXAxis: CategoryAxis(
+                        majorGridLines: const MajorGridLines(width: 0),
+                        labelStyle: TextStyle(
+                          fontSize: 7,
+                          fontWeight: FontWeight.bold,
+                          color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
+                        ),
+                        axisLine: AxisLine(
+                          width: 4,
+                          color: borderColor.withValues(alpha: 0.2),
+                        ),
+                      ),
+                      primaryYAxis: NumericAxis(
+                        isVisible: false,
+                        minimum: 0,
+                        maximum: maxValue.toDouble() * 1.2,
+                      ),
+                      series: <CartesianSeries>[
+                        SplineSeries<Map<String, dynamic>, String>(
+                          dataSource: [
+                            {'label': 'Review', 'value': breakdown!.underReview},
+                            {'label': 'Changes', 'value': breakdown.needEdit},
+                            {'label': 'Reschedule', 'value': breakdown.needReschedule},
+                            {'label': 'Approved', 'value': breakdown.approved},
+                            {'label': 'Rejected', 'value': breakdown.notApproved},
+                          ],
+                          xValueMapper: (data, _) => data['label'] as String,
+                          yValueMapper: (data, _) => (data['value'] as int).toDouble(),
+                          color: const Color(0xFFF97316),
+                          width: 3,
+                          markerSettings: const MarkerSettings(
+                            isVisible: true,
+                            height: 8,
+                            width: 8,
+                            color: Color(0xFFFB923C),
+                            borderColor: Colors.white,
+                            borderWidth: 2,
+                          ),
+                        ),
+                      ],
+                      tooltipBehavior: TooltipBehavior(
+                        enable: false,
+                      ),
+                    ),
+                  )
+                : Center(
+                    child: Text(
+                      'No data',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
+                      ),
                     ),
                   ),
-                ],
-                tooltipBehavior: TooltipBehavior(
-                  enable: false,
-                ),
-              ),
-            ),
           ),
         ],
       ),
@@ -454,11 +463,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildMostPopularVisit(bool isDark) {
-    if (_stats == null) return const SizedBox.shrink();
-
-    final dist = _stats!.visitTypeDistribution;
-    final total = dist.total;
-    if (total == 0) return const SizedBox.shrink();
+    final hasData = _stats != null && _stats!.visitTypeDistribution.total > 0;
 
     return Container(
       height: 140,
@@ -482,7 +487,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
           const SizedBox(height: 4),
           Expanded(
-            child: _ScatterChartWidget(isDark: isDark),
+            child: hasData
+                ? _ScatterChartWidget(isDark: isDark)
+                : Center(
+                    child: Text(
+                      'No data',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
+                      ),
+                    ),
+                  ),
           ),
         ],
       ),
@@ -490,20 +505,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildPeakTimeCard(bool isDark) {
-    if (_stats == null || _stats!.timeSlotDistribution.isEmpty) {
-      return const SizedBox.shrink();
-    }
+    final hasData = _stats != null && _stats!.timeSlotDistribution.isNotEmpty;
 
-    // Sort by time (chronologically)
-    final sorted = _stats!.timeSlotDistribution.entries.toList()
-      ..sort((a, b) {
-        final hourA = int.tryParse(a.key.split(':')[0]) ?? 0;
-        final hourB = int.tryParse(b.key.split(':')[0]) ?? 0;
-        return hourA.compareTo(hourB);
-      });
+    // Sort by time (chronologically) if there's data
+    final sorted = hasData
+        ? (_stats!.timeSlotDistribution.entries.toList()
+          ..sort((a, b) {
+            final hourA = int.tryParse(a.key.split(':')[0]) ?? 0;
+            final hourB = int.tryParse(b.key.split(':')[0]) ?? 0;
+            return hourA.compareTo(hourB);
+          }))
+        : <MapEntry<String, int>>[];
 
-    final maxValue = sorted.fold<int>(0, (max, e) => e.value > max ? e.value : max);
-    final peakEntry = sorted.reduce((a, b) => a.value > b.value ? a : b);
+    final maxValue = hasData ? sorted.fold<int>(0, (max, e) => e.value > max ? e.value : max) : 1;
+    final peakEntry = hasData ? sorted.reduce((a, b) => a.value > b.value ? a : b) : null;
 
     return Container(
       height: 140,
@@ -527,48 +542,58 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
           const SizedBox(height: 8),
           Expanded(
-            child: SfCartesianChart(
-              plotAreaBorderWidth: 0,
-              primaryXAxis: CategoryAxis(
-                majorGridLines: const MajorGridLines(width: 0),
-                labelStyle: TextStyle(
-                  color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
-                  fontSize: 7,
-                ),
-                axisLine: const AxisLine(width: 0),
-              ),
-              primaryYAxis: NumericAxis(
-                majorGridLines: MajorGridLines(
-                  width: 1,
-                  color: (isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB)),
-                ),
-                axisLine: const AxisLine(width: 0),
-                labelStyle: TextStyle(
-                  color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
-                  fontSize: 8,
-                ),
-                minimum: 0,
-                maximum: maxValue.toDouble() * 1.2,
-              ),
-              series: <CartesianSeries>[
-                ColumnSeries<MapEntry<String, int>, String>(
-                  dataSource: sorted,
-                  xValueMapper: (data, _) => data.key,
-                  yValueMapper: (data, _) => data.value.toDouble(),
-                  pointColorMapper: (data, _) {
-                    return data.key == peakEntry.key
-                        ? const Color(0xFF06B6D4)
-                        : (isDark ? const Color(0xFF3F3F46) : const Color(0xFFD1D5DB));
-                  },
-                  borderRadius: const BorderRadius.vertical(top: Radius.circular(3)),
-                  width: 0.6,
-                  dataLabelSettings: const DataLabelSettings(isVisible: false),
-                ),
-              ],
-              tooltipBehavior: TooltipBehavior(
-                enable: false,
-              ),
-            ),
+            child: hasData
+                ? SfCartesianChart(
+                    plotAreaBorderWidth: 0,
+                    primaryXAxis: CategoryAxis(
+                      majorGridLines: const MajorGridLines(width: 0),
+                      labelStyle: TextStyle(
+                        color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
+                        fontSize: 7,
+                      ),
+                      axisLine: const AxisLine(width: 0),
+                    ),
+                    primaryYAxis: NumericAxis(
+                      majorGridLines: MajorGridLines(
+                        width: 1,
+                        color: (isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB)),
+                      ),
+                      axisLine: const AxisLine(width: 0),
+                      labelStyle: TextStyle(
+                        color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
+                        fontSize: 8,
+                      ),
+                      minimum: 0,
+                      maximum: maxValue.toDouble() * 1.2,
+                    ),
+                    series: <CartesianSeries>[
+                      ColumnSeries<MapEntry<String, int>, String>(
+                        dataSource: sorted,
+                        xValueMapper: (data, _) => data.key,
+                        yValueMapper: (data, _) => data.value.toDouble(),
+                        pointColorMapper: (data, _) {
+                          return data.key == peakEntry!.key
+                              ? const Color(0xFF06B6D4)
+                              : (isDark ? const Color(0xFF3F3F46) : const Color(0xFFD1D5DB));
+                        },
+                        borderRadius: const BorderRadius.vertical(top: Radius.circular(3)),
+                        width: 0.6,
+                        dataLabelSettings: const DataLabelSettings(isVisible: false),
+                      ),
+                    ],
+                    tooltipBehavior: TooltipBehavior(
+                      enable: false,
+                    ),
+                  )
+                : Center(
+                    child: Text(
+                      'No data',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
+                      ),
+                    ),
+                  ),
           ),
         ],
       ),

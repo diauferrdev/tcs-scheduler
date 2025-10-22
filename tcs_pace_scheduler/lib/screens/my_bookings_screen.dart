@@ -348,32 +348,35 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
     }
 
     if (_newRequests.isEmpty && _recentHistory.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.event_note,
-              size: 64,
-              color: isDark ? Colors.grey[600] : Colors.grey[400],
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'No Bookings Yet',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-                color: isDark ? Colors.white : Colors.black,
+      return SizedBox(
+        height: MediaQuery.of(context).size.height - 200,
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.event_note,
+                size: 64,
+                color: isDark ? Colors.grey[600] : Colors.grey[400],
               ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Your bookings will appear here',
-              style: TextStyle(
-                color: isDark ? Colors.grey[400] : Colors.grey[600],
+              const SizedBox(height: 16),
+              Text(
+                'No Bookings Yet',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: isDark ? Colors.white : Colors.black,
+                ),
               ),
-            ),
-          ],
+              const SizedBox(height: 8),
+              Text(
+                'Your bookings will appear here',
+                style: TextStyle(
+                  color: isDark ? Colors.grey[400] : Colors.grey[600],
+                ),
+              ),
+            ],
+          ),
         ),
       );
     }

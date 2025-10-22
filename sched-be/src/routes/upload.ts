@@ -25,14 +25,14 @@ const ALLOWED_DOCUMENT_TYPES = [
   'text/plain',
   'text/csv',
 ];
-const ALLOWED_ATTACHMENT_TYPES = [...ALLOWED_IMAGE_TYPES, ...ALLOWED_DOCUMENT_TYPES];
+const ALLOWED_ATTACHMENT_TYPES = [...ALLOWED_IMAGE_TYPES, ...ALLOWED_DOCUMENT_TYPES, ...ALLOWED_VIDEO_TYPES];
 
 // Max file sizes (in bytes)
 const MAX_AVATAR_SIZE = 10 * 1024 * 1024; // 10MB
 const MAX_IMAGE_SIZE = 30 * 1024 * 1024; // 30MB
 const MAX_VIDEO_SIZE = 300 * 1024 * 1024; // 300MB
 const MAX_DOCUMENT_SIZE = 20 * 1024 * 1024; // 20MB
-const MAX_ATTACHMENT_SIZE = 30 * 1024 * 1024; // 30MB (imagens podem ser grandes)
+const MAX_ATTACHMENT_SIZE = 300 * 1024 * 1024; // 300MB (vídeos podem ser grandes)
 
 // Upload directories
 const UPLOAD_BASE_DIR = join(process.cwd(), 'uploads');
@@ -297,21 +297,34 @@ app.post('/attachment', authMiddleware, async (c) => {
   try {
     await ensureUploadDirs();
 
+    console.log('[Upload] Processing attachment upload request');
     const formData = await c.req.formData();
+    console.log('[Upload] FormData keys:', Array.from(formData.keys()));
+
     const file = formData.get('file') as File;
+    console.log('[Upload] File:', file ? {
+      name: file.name,
+      type: file.type,
+      size: file.size
+    } : 'null');
 
     if (!file) {
+      console.log('[Upload] ERROR: No file provided');
       return c.json({ error: 'No file provided' }, 400);
     }
 
     if (!ALLOWED_ATTACHMENT_TYPES.includes(file.type)) {
+      console.log('[Upload] ERROR: Invalid file type:', file.type);
+      console.log('[Upload] Allowed types:', ALLOWED_ATTACHMENT_TYPES);
       return c.json({
-        error: 'Invalid file type. Only images and documents are allowed.',
-        allowedTypes: ALLOWED_ATTACHMENT_TYPES
+        error: 'Invalid file type. Only images, documents, and videos are allowed.',
+        allowedTypes: ALLOWED_ATTACHMENT_TYPES,
+        receivedType: file.type
       }, 400);
     }
 
     if (file.size > MAX_ATTACHMENT_SIZE) {
+      console.log('[Upload] ERROR: File too large:', file.size, 'Max:', MAX_ATTACHMENT_SIZE);
       return c.json({
         error: `File too large. Maximum size is ${MAX_ATTACHMENT_SIZE / (1024 * 1024)}MB`
       }, 400);
@@ -373,7 +386,7 @@ app.post('/attachments', authMiddleware, async (c) => {
     for (const file of files) {
       if (!ALLOWED_ATTACHMENT_TYPES.includes(file.type)) {
         return c.json({
-          error: `Invalid file type for ${file.name}. Only images and documents are allowed.`,
+          error: `Invalid file type for ${file.name}. Only images, documents, and videos are allowed.`,
           allowedTypes: ALLOWED_ATTACHMENT_TYPES
         }, 400);
       }
