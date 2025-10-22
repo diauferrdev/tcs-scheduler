@@ -413,19 +413,20 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
                                 ),
                               ),
                               const Spacer(),
-                              // Upvote Button with Clear Label
+                              // Upvote Button with Clear Label - Fixed width to prevent line breaks
                               Material(
                                 color: Colors.transparent,
                                 child: InkWell(
                                   onTap: _toggleUpvote,
-                                  borderRadius: BorderRadius.circular(24),
+                                  borderRadius: BorderRadius.circular(20),
                                   child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                    constraints: const BoxConstraints(minWidth: 80),
+                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                                     decoration: BoxDecoration(
                                       color: _isUpvoted
                                           ? Colors.blue.withOpacity(0.2)
                                           : AppTheme.primaryWhite.withOpacity(0.1),
-                                      borderRadius: BorderRadius.circular(24),
+                                      borderRadius: BorderRadius.circular(20),
                                       border: Border.all(
                                         color: _isUpvoted ? Colors.blue : AppTheme.primaryWhite.withOpacity(0.3),
                                         width: 1.5,
@@ -433,37 +434,21 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
                                     ),
                                     child: Row(
                                       mainAxisSize: MainAxisSize.min,
+                                      mainAxisAlignment: MainAxisAlignment.center,
                                       children: [
                                         Icon(
                                           _isUpvoted ? Icons.thumb_up : Icons.thumb_up_outlined,
                                           color: _isUpvoted ? Colors.blue : AppTheme.primaryWhite,
-                                          size: 18,
+                                          size: 16,
                                         ),
                                         const SizedBox(width: 6),
-                                        Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            Text(
-                                              'Upvote',
-                                              style: TextStyle(
-                                                color: _isUpvoted ? Colors.blue : AppTheme.primaryWhite,
-                                                fontWeight: FontWeight.w600,
-                                                fontSize: 11,
-                                                height: 1,
-                                              ),
-                                            ),
-                                            const SizedBox(height: 2),
-                                            Text(
-                                              '${_bug!.likeCount}',
-                                              style: TextStyle(
-                                                color: _isUpvoted ? Colors.blue : AppTheme.primaryWhite,
-                                                fontWeight: FontWeight.bold,
-                                                fontSize: 16,
-                                                height: 1,
-                                              ),
-                                            ),
-                                          ],
+                                        Text(
+                                          '${_bug!.likeCount}',
+                                          style: TextStyle(
+                                            color: _isUpvoted ? Colors.blue : AppTheme.primaryWhite,
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 15,
+                                          ),
                                         ),
                                       ],
                                     ),
@@ -864,7 +849,7 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
   Widget _buildCommentCard(BugComment comment, AuthProvider authProvider) {
     final isOwner = authProvider.user?.id == comment.user.id;
     final isAdmin = authProvider.user?.role == 'ADMIN';
-    final canEdit = isOwner && _bug!.status != BugStatus.CLOSED;
+    final canEdit = (isOwner || isAdmin) && _bug!.status != BugStatus.CLOSED;
     final canDelete = (isOwner || isAdmin) && _bug!.status != BugStatus.CLOSED;
 
     return Container(

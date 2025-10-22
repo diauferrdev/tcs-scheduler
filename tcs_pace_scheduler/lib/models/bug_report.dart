@@ -36,8 +36,8 @@ class BugAttachment {
       id: json['id'],
       fileUrl: json['fileUrl'],
       fileName: json['fileName'],
-      fileSize: json['fileSize'],
-      fileType: json['fileType'],
+      fileSize: json['fileSize'] ?? 0,
+      fileType: json['fileType'] ?? 'application/octet-stream',
       createdAt: DateTime.parse(json['createdAt']),
     );
   }

@@ -94,38 +94,42 @@ class _BugReportsScreenState extends State<BugReportsScreen> {
       context,
       MaterialPageRoute(builder: (context) => BugDetailScreen(bugId: bug.id)),
     );
-    if (result == true) {
-      _loadBugReports();
-    }
+    // Always reload to reflect any changes (upvotes, comments, edits, etc)
+    _loadBugReports();
   }
 
   @override
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context);
+    final themeProvider = Provider.of<ThemeProvider>(context);
     final isAdmin = authProvider.user?.role == 'ADMIN';
     final isManager = authProvider.user?.role == 'MANAGER';
 
+    final backgroundColor = themeProvider.isDark ? AppTheme.primaryBlack : const Color(0xFFF9FAFB);
+    final textColor = themeProvider.isDark ? AppTheme.primaryWhite : Colors.black;
+    final cardColor = themeProvider.isDark ? AppTheme.primaryWhite.withOpacity(0.05) : Colors.white;
+
     return Scaffold(
-      backgroundColor: AppTheme.primaryBlack,
+      backgroundColor: backgroundColor,
       appBar: AppBar(
-        backgroundColor: AppTheme.primaryBlack,
+        backgroundColor: backgroundColor,
         elevation: 0,
-        title: const Text(
+        title: Text(
           'Bug Reports',
           style: TextStyle(
-            color: AppTheme.primaryWhite,
+            color: textColor,
             fontSize: 24,
             fontWeight: FontWeight.bold,
           ),
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh, color: AppTheme.primaryWhite),
+            icon: Icon(Icons.refresh, color: textColor),
             onPressed: _loadBugReports,
           ),
           if (_selectedStatus != null || _selectedPlatform != null || _searchController.text.isNotEmpty)
             IconButton(
-              icon: const Icon(Icons.filter_alt_off, color: AppTheme.primaryWhite),
+              icon: Icon(Icons.filter_alt_off, color: textColor),
               onPressed: _clearFilters,
               tooltip: 'Clear Filters',
             ),
