@@ -1,7 +1,7 @@
 import { prisma } from '../lib/prisma';
 import type { BugReportCreateInput, BugReportUpdateInput, BugReportFilterInput } from '../types';
 import type { Platform, BugStatus } from '@prisma/client';
-import { stat } from 'fs/promises';
+import { stat, unlink } from 'fs/promises';
 import { join } from 'path';
 
 /**
@@ -397,6 +397,25 @@ export async function deleteBugReport(id: string, userId: string, userRole: 'ADM
     throw new Error('Only ADMIN can delete bug reports');
   }
 
+  // Get all attachments to delete physical files
+  const attachments = bug.attachments || [];
+
+  // Delete physical files first
+  for (const attachment of attachments) {
+    try {
+      const relativePath = attachment.fileUrl.startsWith('/')
+        ? attachment.fileUrl.substring(1)
+        : attachment.fileUrl;
+      const fullPath = join(process.cwd(), relativePath);
+      await unlink(fullPath);
+      console.log('[BugReport] Deleted file:', attachment.fileName);
+    } catch (error) {
+      console.error('[BugReport] Failed to delete file:', attachment.fileName, error);
+      // Continue with deletion even if file removal fails
+    }
+  }
+
+  // Delete from database (cascade deletes attachments, comments, likes)
   await prisma.bugReport.delete({
     where: { id },
   });
@@ -405,6 +424,7 @@ export async function deleteBugReport(id: string, userId: string, userRole: 'ADM
     id,
     title: bug.title,
     deletedBy: userId,
+    filesDeleted: attachments.length,
   });
 
   return { success: true, message: 'Bug report deleted successfully' };
