@@ -614,6 +614,7 @@ class _CreateBugReportScreenState extends State<CreateBugReportScreen> {
   }
 
   Widget _buildAttachmentTile(AttachmentFile attachment, int index) {
+    final isImage = attachment.type.startsWith('image/');
     final isVideo = attachment.type.startsWith('video/');
     final size = _formatBytes(attachment.bytes.length);
 
@@ -623,14 +624,43 @@ class _CreateBugReportScreenState extends State<CreateBugReportScreen> {
       decoration: BoxDecoration(
         color: AppTheme.primaryWhite.withOpacity(0.1),
         borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: AppTheme.primaryWhite.withOpacity(0.15),
+        ),
       ),
       child: Row(
         children: [
-          Icon(
-            isVideo ? Icons.videocam : Icons.image,
-            color: AppTheme.primaryWhite,
-            size: 20,
-          ),
+          // Thumbnail/Icon
+          if (isImage)
+            ClipRRect(
+              borderRadius: BorderRadius.circular(6),
+              child: Image.memory(
+                attachment.bytes,
+                width: 56,
+                height: 56,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stack) => Container(
+                  width: 56,
+                  height: 56,
+                  color: AppTheme.primaryWhite.withOpacity(0.1),
+                  child: const Icon(Icons.broken_image, color: AppTheme.primaryWhite, size: 24),
+                ),
+              ),
+            )
+          else
+            Container(
+              width: 56,
+              height: 56,
+              decoration: BoxDecoration(
+                color: (isVideo ? Colors.red : Colors.orange).withOpacity(0.2),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Icon(
+                isVideo ? Icons.videocam : Icons.insert_drive_file,
+                color: isVideo ? Colors.red : Colors.orange,
+                size: 28,
+              ),
+            ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -638,17 +668,40 @@ class _CreateBugReportScreenState extends State<CreateBugReportScreen> {
               children: [
                 Text(
                   attachment.name,
-                  style: const TextStyle(color: AppTheme.primaryWhite),
-                  maxLines: 1,
+                  style: const TextStyle(
+                    color: AppTheme.primaryWhite,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  size,
-                  style: TextStyle(
-                    color: AppTheme.primaryWhite.withOpacity(0.6),
-                    fontSize: 12,
-                  ),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: (isImage ? Colors.blue : isVideo ? Colors.red : Colors.orange).withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(3),
+                      ),
+                      child: Text(
+                        isImage ? 'IMAGE' : isVideo ? 'VIDEO' : 'DOC',
+                        style: TextStyle(
+                          color: isImage ? Colors.blue : isVideo ? Colors.red : Colors.orange,
+                          fontSize: 9,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      size,
+                      style: TextStyle(
+                        color: AppTheme.primaryWhite.withOpacity(0.6),
+                        fontSize: 11,
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -656,6 +709,7 @@ class _CreateBugReportScreenState extends State<CreateBugReportScreen> {
           IconButton(
             icon: const Icon(Icons.close, color: Colors.red, size: 20),
             onPressed: () => _removeAttachment(index),
+            tooltip: 'Remove attachment',
           ),
         ],
       ),

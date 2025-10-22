@@ -413,38 +413,60 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
                                 ),
                               ),
                               const Spacer(),
-                              // Compact Upvote Button
-                              GestureDetector(
-                                onTap: _toggleUpvote,
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                  decoration: BoxDecoration(
-                                    color: _isUpvoted
-                                        ? Colors.red.withOpacity(0.2)
-                                        : AppTheme.primaryWhite.withOpacity(0.1),
-                                    borderRadius: BorderRadius.circular(20),
-                                    border: Border.all(
-                                      color: _isUpvoted ? Colors.red : AppTheme.primaryWhite.withOpacity(0.3),
+                              // Upvote Button with Clear Label
+                              Material(
+                                color: Colors.transparent,
+                                child: InkWell(
+                                  onTap: _toggleUpvote,
+                                  borderRadius: BorderRadius.circular(24),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                    decoration: BoxDecoration(
+                                      color: _isUpvoted
+                                          ? Colors.blue.withOpacity(0.2)
+                                          : AppTheme.primaryWhite.withOpacity(0.1),
+                                      borderRadius: BorderRadius.circular(24),
+                                      border: Border.all(
+                                        color: _isUpvoted ? Colors.blue : AppTheme.primaryWhite.withOpacity(0.3),
+                                        width: 1.5,
+                                      ),
                                     ),
-                                  ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Icon(
-                                        _isUpvoted ? Icons.favorite : Icons.favorite_border,
-                                        color: _isUpvoted ? Colors.red : AppTheme.primaryWhite,
-                                        size: 16,
-                                      ),
-                                      const SizedBox(width: 4),
-                                      Text(
-                                        '${_bug!.likeCount}',
-                                        style: TextStyle(
-                                          color: _isUpvoted ? Colors.red : AppTheme.primaryWhite,
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 14,
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          _isUpvoted ? Icons.thumb_up : Icons.thumb_up_outlined,
+                                          color: _isUpvoted ? Colors.blue : AppTheme.primaryWhite,
+                                          size: 18,
                                         ),
-                                      ),
-                                    ],
+                                        const SizedBox(width: 6),
+                                        Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Text(
+                                              'Upvote',
+                                              style: TextStyle(
+                                                color: _isUpvoted ? Colors.blue : AppTheme.primaryWhite,
+                                                fontWeight: FontWeight.w600,
+                                                fontSize: 11,
+                                                height: 1,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 2),
+                                            Text(
+                                              '${_bug!.likeCount}',
+                                              style: TextStyle(
+                                                color: _isUpvoted ? Colors.blue : AppTheme.primaryWhite,
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 16,
+                                                height: 1,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
                                   ),
                                 ),
                               ),
@@ -542,16 +564,57 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
                           // Attachments
                           if (_bug!.attachments.isNotEmpty) ...[
                             const SizedBox(height: 24),
-                            const Text(
-                              'Attachments',
-                              style: TextStyle(
-                                color: AppTheme.primaryWhite,
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
+                            Container(
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: AppTheme.primaryWhite.withOpacity(0.05),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: AppTheme.primaryWhite.withOpacity(0.2),
+                                ),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      const Icon(
+                                        Icons.attach_file,
+                                        color: AppTheme.primaryWhite,
+                                        size: 18,
+                                      ),
+                                      const SizedBox(width: 8),
+                                      const Text(
+                                        'Attachments',
+                                        style: TextStyle(
+                                          color: AppTheme.primaryWhite,
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                        decoration: BoxDecoration(
+                                          color: Colors.blue.withOpacity(0.2),
+                                          borderRadius: BorderRadius.circular(12),
+                                        ),
+                                        child: Text(
+                                          '${_bug!.attachments.length}',
+                                          style: const TextStyle(
+                                            color: Colors.blue,
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 12),
+                                  _buildAttachmentGrid(),
+                                ],
                               ),
                             ),
-                            const SizedBox(height: 12),
-                            _buildAttachmentGrid(),
                           ],
 
                           // Device Info
@@ -977,11 +1040,24 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
     final videoAttachments = _bug!.attachments
         .where((a) => a.fileType.startsWith('video/'))
         .toList();
+    final documentAttachments = _bug!.attachments
+        .where((a) => !a.fileType.startsWith('image/') && !a.fileType.startsWith('video/'))
+        .toList();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (imageAttachments.isNotEmpty)
+        // Images Section
+        if (imageAttachments.isNotEmpty) ...[
+          Text(
+            'Images (${imageAttachments.length})',
+            style: TextStyle(
+              color: AppTheme.primaryWhite.withOpacity(0.7),
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 8),
           GridView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
@@ -1026,7 +1102,7 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
                           ),
                         ),
                       ),
-                      // Tap overlay
+                      // Tap overlay with zoom icon
                       Container(
                         decoration: BoxDecoration(
                           gradient: LinearGradient(
@@ -1034,8 +1110,19 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
                             end: Alignment.bottomCenter,
                             colors: [
                               Colors.transparent,
-                              Colors.black.withOpacity(0.1),
+                              Colors.black.withOpacity(0.3),
                             ],
+                          ),
+                        ),
+                        child: const Align(
+                          alignment: Alignment.bottomRight,
+                          child: Padding(
+                            padding: EdgeInsets.all(8.0),
+                            child: Icon(
+                              Icons.zoom_in,
+                              color: Colors.white,
+                              size: 20,
+                            ),
                           ),
                         ),
                       ),
@@ -1045,9 +1132,36 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
               );
             },
           ),
+        ],
+
+        // Videos Section
         if (videoAttachments.isNotEmpty) ...[
-          if (imageAttachments.isNotEmpty) const SizedBox(height: 12),
+          if (imageAttachments.isNotEmpty) const SizedBox(height: 16),
+          Text(
+            'Videos (${videoAttachments.length})',
+            style: TextStyle(
+              color: AppTheme.primaryWhite.withOpacity(0.7),
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 8),
           ...videoAttachments.map((attachment) => _buildVideoTile(attachment)),
+        ],
+
+        // Documents Section
+        if (documentAttachments.isNotEmpty) ...[
+          if (imageAttachments.isNotEmpty || videoAttachments.isNotEmpty) const SizedBox(height: 16),
+          Text(
+            'Documents (${documentAttachments.length})',
+            style: TextStyle(
+              color: AppTheme.primaryWhite.withOpacity(0.7),
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 8),
+          ...documentAttachments.map((attachment) => _buildDocumentTile(attachment)),
         ],
       ],
     );
@@ -1113,6 +1227,95 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
                           'VIDEO',
                           style: TextStyle(
                             color: Colors.red,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        _formatBytes(attachment.fileSize),
+                        style: TextStyle(
+                          color: AppTheme.primaryWhite.withOpacity(0.6),
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            Icon(
+              Icons.open_in_new,
+              color: AppTheme.primaryWhite.withOpacity(0.6),
+              size: 20,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDocumentTile(BugAttachment attachment) {
+    return GestureDetector(
+      onTap: () async {
+        final uri = Uri.parse(attachment.fileUrl);
+        if (await canLaunchUrl(uri)) {
+          await launchUrl(uri, mode: LaunchMode.externalApplication);
+        }
+      },
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: AppTheme.primaryWhite.withOpacity(0.05),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: AppTheme.primaryWhite.withOpacity(0.1),
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: Colors.orange.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(
+                Icons.insert_drive_file,
+                color: Colors.orange,
+                size: 28,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    attachment.fileName,
+                    style: const TextStyle(
+                      color: AppTheme.primaryWhite,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Colors.orange.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: const Text(
+                          'DOC',
+                          style: TextStyle(
+                            color: Colors.orange,
                             fontSize: 10,
                             fontWeight: FontWeight.bold,
                           ),

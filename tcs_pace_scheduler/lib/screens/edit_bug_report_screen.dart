@@ -531,6 +531,7 @@ class _EditBugReportScreenState extends State<EditBugReportScreen> {
   }
 
   Widget _buildExistingAttachmentTile(BugAttachment attachment) {
+    final isImage = attachment.fileType.startsWith('image/');
     final isVideo = attachment.fileType.startsWith('video/');
 
     return Container(
@@ -545,11 +546,37 @@ class _EditBugReportScreenState extends State<EditBugReportScreen> {
       ),
       child: Row(
         children: [
-          Icon(
-            isVideo ? Icons.videocam : Icons.image,
-            color: AppTheme.primaryWhite,
-            size: 20,
-          ),
+          // Thumbnail/Icon
+          if (isImage)
+            ClipRRect(
+              borderRadius: BorderRadius.circular(6),
+              child: Image.network(
+                attachment.fileUrl,
+                width: 56,
+                height: 56,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stack) => Container(
+                  width: 56,
+                  height: 56,
+                  color: AppTheme.primaryWhite.withOpacity(0.1),
+                  child: const Icon(Icons.broken_image, color: AppTheme.primaryWhite, size: 24),
+                ),
+              ),
+            )
+          else
+            Container(
+              width: 56,
+              height: 56,
+              decoration: BoxDecoration(
+                color: (isVideo ? Colors.red : Colors.orange).withOpacity(0.2),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Icon(
+                isVideo ? Icons.videocam : Icons.insert_drive_file,
+                color: isVideo ? Colors.red : Colors.orange,
+                size: 28,
+              ),
+            ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -557,29 +584,48 @@ class _EditBugReportScreenState extends State<EditBugReportScreen> {
               children: [
                 Text(
                   attachment.fileName,
-                  style: const TextStyle(color: AppTheme.primaryWhite),
-                  maxLines: 1,
+                  style: const TextStyle(
+                    color: AppTheme.primaryWhite,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  _formatBytes(attachment.fileSize),
-                  style: TextStyle(
-                    color: AppTheme.primaryWhite.withOpacity(0.6),
-                    fontSize: 12,
-                  ),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: (isImage ? Colors.green : isVideo ? Colors.red : Colors.orange).withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(3),
+                      ),
+                      child: Text(
+                        isImage ? 'IMAGE' : isVideo ? 'VIDEO' : 'DOC',
+                        style: TextStyle(
+                          color: isImage ? Colors.green : isVideo ? Colors.red : Colors.orange,
+                          fontSize: 9,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      _formatBytes(attachment.fileSize),
+                      style: TextStyle(
+                        color: AppTheme.primaryWhite.withOpacity(0.6),
+                        fontSize: 11,
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
           ),
           IconButton(
             icon: const Icon(Icons.close, color: Colors.red, size: 20),
-            onPressed: () {
-              final shouldDelete = true;
-              if (shouldDelete) {
-                _removeExistingAttachment(attachment.id);
-              }
-            },
+            onPressed: () => _removeExistingAttachment(attachment.id),
+            tooltip: 'Remove attachment',
           ),
         ],
       ),
@@ -587,6 +633,7 @@ class _EditBugReportScreenState extends State<EditBugReportScreen> {
   }
 
   Widget _buildNewAttachmentTile(NewAttachment attachment, int index) {
+    final isImage = attachment.type.startsWith('image/');
     final isVideo = attachment.type.startsWith('video/');
 
     return Container(
@@ -601,11 +648,37 @@ class _EditBugReportScreenState extends State<EditBugReportScreen> {
       ),
       child: Row(
         children: [
-          Icon(
-            isVideo ? Icons.videocam : Icons.image,
-            color: Colors.green,
-            size: 20,
-          ),
+          // Thumbnail/Icon for new attachments
+          if (isImage)
+            ClipRRect(
+              borderRadius: BorderRadius.circular(6),
+              child: Image.memory(
+                attachment.bytes,
+                width: 56,
+                height: 56,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stack) => Container(
+                  width: 56,
+                  height: 56,
+                  color: Colors.green.withOpacity(0.2),
+                  child: const Icon(Icons.broken_image, color: Colors.green, size: 24),
+                ),
+              ),
+            )
+          else
+            Container(
+              width: 56,
+              height: 56,
+              decoration: BoxDecoration(
+                color: (isVideo ? Colors.red : Colors.orange).withOpacity(0.2),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Icon(
+                isVideo ? Icons.videocam : Icons.insert_drive_file,
+                color: isVideo ? Colors.red : Colors.orange,
+                size: 28,
+              ),
+            ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -613,11 +686,14 @@ class _EditBugReportScreenState extends State<EditBugReportScreen> {
               children: [
                 Text(
                   attachment.name,
-                  style: const TextStyle(color: AppTheme.primaryWhite),
-                  maxLines: 1,
+                  style: const TextStyle(
+                    color: AppTheme.primaryWhite,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
-                const SizedBox(height: 2),
+                const SizedBox(height: 4),
                 Row(
                   children: [
                     Container(
@@ -630,17 +706,33 @@ class _EditBugReportScreenState extends State<EditBugReportScreen> {
                         'NEW',
                         style: TextStyle(
                           color: Colors.green,
-                          fontSize: 10,
+                          fontSize: 9,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
                     ),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: (isImage ? Colors.blue : isVideo ? Colors.red : Colors.orange).withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(3),
+                      ),
+                      child: Text(
+                        isImage ? 'IMAGE' : isVideo ? 'VIDEO' : 'DOC',
+                        style: TextStyle(
+                          color: isImage ? Colors.blue : isVideo ? Colors.red : Colors.orange,
+                          fontSize: 9,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
                     Text(
                       _formatBytes(attachment.bytes.length),
                       style: TextStyle(
                         color: AppTheme.primaryWhite.withOpacity(0.6),
-                        fontSize: 12,
+                        fontSize: 11,
                       ),
                     ),
                   ],
@@ -651,6 +743,7 @@ class _EditBugReportScreenState extends State<EditBugReportScreen> {
           IconButton(
             icon: const Icon(Icons.close, color: Colors.red, size: 20),
             onPressed: () => _removeNewAttachment(index),
+            tooltip: 'Remove attachment',
           ),
         ],
       ),

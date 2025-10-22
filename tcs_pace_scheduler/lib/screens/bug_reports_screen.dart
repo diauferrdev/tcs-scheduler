@@ -334,23 +334,39 @@ class _BugReportsScreenState extends State<BugReportsScreen> {
                     ),
                   ),
                   const Spacer(),
-                  // Like Count
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.favorite,
-                        size: 16,
-                        color: bug.likeCount > 0 ? Colors.red : AppTheme.primaryWhite.withOpacity(0.5),
+                  // Upvote Count
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: bug.likeCount > 0
+                          ? Colors.blue.withOpacity(0.15)
+                          : AppTheme.primaryWhite.withOpacity(0.05),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: bug.likeCount > 0
+                            ? Colors.blue.withOpacity(0.3)
+                            : AppTheme.primaryWhite.withOpacity(0.2),
                       ),
-                      const SizedBox(width: 4),
-                      Text(
-                        '${bug.likeCount}',
-                        style: TextStyle(
-                          color: bug.likeCount > 0 ? Colors.red : AppTheme.primaryWhite.withOpacity(0.5),
-                          fontWeight: FontWeight.bold,
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.thumb_up,
+                          size: 14,
+                          color: bug.likeCount > 0 ? Colors.blue : AppTheme.primaryWhite.withOpacity(0.5),
                         ),
-                      ),
-                    ],
+                        const SizedBox(width: 4),
+                        Text(
+                          '${bug.likeCount}',
+                          style: TextStyle(
+                            color: bug.likeCount > 0 ? Colors.blue : AppTheme.primaryWhite.withOpacity(0.5),
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ),
