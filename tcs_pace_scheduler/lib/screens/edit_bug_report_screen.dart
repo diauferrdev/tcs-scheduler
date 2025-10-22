@@ -220,7 +220,7 @@ class _EditBugReportScreenState extends State<EditBugReportScreen> {
       }
 
       // Prepare update data
-      final updateData = {
+      final updateData = <String, dynamic>{
         'title': _titleController.text.trim(),
         'description': _descriptionController.text.trim(),
       };
