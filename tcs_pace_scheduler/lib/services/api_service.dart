@@ -639,7 +639,7 @@ class ApiService {
     required String description,
     required String platform,
     Map<String, dynamic>? deviceInfo,
-    List<String>? attachments,
+    dynamic attachments, // Can be List<String> or List<Map<String, dynamic>>
   }) async {
     return await post('/api/bug-reports', {
       'title': title,

@@ -259,12 +259,23 @@ export const ProfileUpdateSchema = z.object({
 
 // ==================== BUG REPORTS ====================
 
+// Attachment schema for bug reports
+const BugAttachmentSchema = z.union([
+  z.string().min(1, 'Attachment URL is required'), // Legacy: just URL string
+  z.object({
+    url: z.string().min(1, 'Attachment URL is required'),
+    fileName: z.string().optional(),
+    fileSize: z.number().int().min(0).optional(),
+    fileType: z.string().optional(),
+  }),
+]);
+
 export const BugReportCreateSchema = z.object({
   title: z.string().min(5, 'Title must be at least 5 characters').max(200, 'Title must be less than 200 characters'),
   description: z.string().min(10, 'Description must be at least 10 characters').max(5000, 'Description must be less than 5000 characters'),
   platform: PlatformSchema,
   deviceInfo: z.record(z.any()).optional(), // JSON object with device info
-  attachments: z.array(z.string().min(1, 'Attachment path is required')).max(6, 'Maximum 6 attachments allowed').optional(),
+  attachments: z.array(BugAttachmentSchema).max(6, 'Maximum 6 attachments allowed').optional(),
 });
 
 export const BugReportUpdateSchema = z.object({

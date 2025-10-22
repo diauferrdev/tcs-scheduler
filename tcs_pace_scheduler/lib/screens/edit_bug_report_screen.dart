@@ -203,8 +203,8 @@ class _EditBugReportScreenState extends State<EditBugReportScreen> {
     });
 
     try {
-      // Upload new attachments first
-      final newAttachmentUrls = <String>[];
+      // Upload new attachments first and collect metadata
+      final newAttachmentData = <Map<String, dynamic>>[];
       for (final attachment in _newAttachments) {
         try {
           final response = await _api.uploadBugAttachment(
@@ -212,7 +212,13 @@ class _EditBugReportScreenState extends State<EditBugReportScreen> {
             attachment.name,
             attachment.type,
           );
-          newAttachmentUrls.add(response['url']);
+          // Send full metadata instead of just URL
+          newAttachmentData.add({
+            'url': response['url'],
+            'fileName': response['filename'] ?? attachment.name,
+            'fileSize': response['size'] ?? attachment.bytes.length,
+            'fileType': response['type'] ?? attachment.type,
+          });
         } catch (e) {
           debugPrint('[EditBugReport] Error uploading attachment: $e');
           throw Exception('Failed to upload ${attachment.name}');
@@ -226,8 +232,8 @@ class _EditBugReportScreenState extends State<EditBugReportScreen> {
       };
 
       // Add attachments data if there are changes
-      if (newAttachmentUrls.isNotEmpty) {
-        updateData['attachments'] = newAttachmentUrls;
+      if (newAttachmentData.isNotEmpty) {
+        updateData['attachments'] = newAttachmentData;
       }
       if (_attachmentsToDelete.isNotEmpty) {
         updateData['deleteAttachments'] = _attachmentsToDelete;

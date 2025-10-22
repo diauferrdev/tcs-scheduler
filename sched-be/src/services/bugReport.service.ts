@@ -31,15 +31,25 @@ export async function createBugReport(
       reportedById: userId,
       // Create attachments if provided
       attachments: attachments ? {
-        create: attachments.map((url, index) => {
-          // Extract file info from URL
-          const fileName = url.split('/').pop() || `attachment-${index + 1}`;
-          return {
-            fileUrl: url,
-            fileName,
-            fileSize: 0, // Will be updated by frontend if needed
-            fileType: 'application/octet-stream', // Default, will be updated by frontend
-          };
+        create: attachments.map((item, index) => {
+          // Support both string URLs (legacy) and objects with metadata
+          if (typeof item === 'string') {
+            const fileName = item.split('/').pop() || `attachment-${index + 1}`;
+            return {
+              fileUrl: item,
+              fileName,
+              fileSize: 0,
+              fileType: 'application/octet-stream',
+            };
+          } else {
+            // New format: { url, fileName, fileSize, fileType }
+            return {
+              fileUrl: item.url,
+              fileName: item.fileName || item.url.split('/').pop() || `attachment-${index + 1}`,
+              fileSize: item.fileSize || 0,
+              fileType: item.fileType || 'application/octet-stream',
+            };
+          }
         }),
       } : undefined,
     },

@@ -276,8 +276,8 @@ class _CreateBugReportScreenState extends State<CreateBugReportScreen> {
     });
 
     try {
-      // Upload attachments first
-      final attachmentUrls = <String>[];
+      // Upload attachments first and collect metadata
+      final attachmentData = <Map<String, dynamic>>[];
       for (final attachment in _attachments) {
         try {
           final response = await _api.uploadBugAttachment(
@@ -285,20 +285,26 @@ class _CreateBugReportScreenState extends State<CreateBugReportScreen> {
             attachment.name,
             attachment.type,
           );
-          attachmentUrls.add(response['url']);
+          // Send full metadata instead of just URL
+          attachmentData.add({
+            'url': response['url'],
+            'fileName': response['filename'] ?? attachment.name,
+            'fileSize': response['size'] ?? attachment.bytes.length,
+            'fileType': response['type'] ?? attachment.type,
+          });
         } catch (e) {
           debugPrint('[CreateBugReport] Error uploading attachment: $e');
           throw Exception('Failed to upload ${attachment.name}');
         }
       }
 
-      // Create bug report
+      // Create bug report with attachment metadata
       await _api.createBugReport(
         title: _titleController.text.trim(),
         description: _descriptionController.text.trim(),
         platform: _selectedPlatform!.name,
         deviceInfo: _deviceInfo,
-        attachments: attachmentUrls.isNotEmpty ? attachmentUrls : null,
+        attachments: attachmentData.isNotEmpty ? attachmentData : null,
       );
 
       if (mounted) {
