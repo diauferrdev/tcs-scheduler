@@ -1,6 +1,8 @@
 import { prisma } from '../lib/prisma';
 import type { BugReportCreateInput, BugReportUpdateInput, BugReportFilterInput } from '../types';
 import type { Platform, BugStatus } from '@prisma/client';
+import { stat } from 'fs/promises';
+import { join } from 'path';
 
 /**
  * Bug Report Service
@@ -13,6 +15,58 @@ import type { Platform, BugStatus } from '@prisma/client';
  * - Mark bugs as resolved with notifications
  */
 
+// ==================== HELPER FUNCTIONS ====================
+
+/**
+ * Detect MIME type from file extension
+ */
+function getFileTypeFromExtension(fileName: string): string {
+  const ext = fileName.split('.').pop()?.toLowerCase();
+
+  if (!ext) return 'application/octet-stream';
+
+  // Images
+  if (['jpg', 'jpeg'].includes(ext)) return 'image/jpeg';
+  if (ext === 'png') return 'image/png';
+  if (ext === 'gif') return 'image/gif';
+  if (ext === 'webp') return 'image/webp';
+  if (ext === 'svg') return 'image/svg+xml';
+
+  // Videos
+  if (ext === 'mp4') return 'video/mp4';
+  if (ext === 'webm') return 'video/webm';
+  if (ext === 'ogg') return 'video/ogg';
+  if (ext === 'mov') return 'video/quicktime';
+  if (ext === 'avi') return 'video/x-msvideo';
+
+  // Documents
+  if (ext === 'pdf') return 'application/pdf';
+  if (ext === 'doc') return 'application/msword';
+  if (ext === 'docx') return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+  if (ext === 'xls') return 'application/vnd.ms-excel';
+  if (ext === 'xlsx') return 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+  if (ext === 'txt') return 'text/plain';
+  if (ext === 'csv') return 'text/csv';
+
+  return 'application/octet-stream';
+}
+
+/**
+ * Get file size from file system
+ */
+async function getFileSizeFromPath(fileUrl: string): Promise<number> {
+  try {
+    // Remove leading slash and construct full path
+    const relativePath = fileUrl.startsWith('/') ? fileUrl.substring(1) : fileUrl;
+    const fullPath = join(process.cwd(), relativePath);
+    const stats = await stat(fullPath);
+    return stats.size;
+  } catch (error) {
+    console.error('[BugReport] Error getting file size:', error);
+    return 0;
+  }
+}
+
 // ==================== CREATE BUG REPORT ====================
 
 export async function createBugReport(
@@ -20,6 +74,32 @@ export async function createBugReport(
   userId: string
 ) {
   const { title, description, platform, deviceInfo, attachments } = data;
+
+  // Process attachments to get proper metadata
+  const attachmentData = attachments ? await Promise.all(
+    attachments.map(async (item, index) => {
+      let fileUrl: string;
+      let fileName: string;
+      let fileSize: number;
+      let fileType: string;
+
+      // Support both string URLs (legacy) and objects with metadata
+      if (typeof item === 'string') {
+        fileUrl = item;
+        fileName = item.split('/').pop() || `attachment-${index + 1}`;
+        fileSize = await getFileSizeFromPath(fileUrl);
+        fileType = getFileTypeFromExtension(fileName);
+      } else {
+        // New format: { url, fileName, fileSize, fileType }
+        fileUrl = item.url;
+        fileName = item.fileName || item.url.split('/').pop() || `attachment-${index + 1}`;
+        fileSize = item.fileSize || await getFileSizeFromPath(fileUrl);
+        fileType = item.fileType || getFileTypeFromExtension(fileName);
+      }
+
+      return { fileUrl, fileName, fileSize, fileType };
+    })
+  ) : undefined;
 
   // Create bug report with attachments
   const bugReport = await prisma.bugReport.create({
@@ -30,27 +110,8 @@ export async function createBugReport(
       deviceInfo: deviceInfo || {},
       reportedById: userId,
       // Create attachments if provided
-      attachments: attachments ? {
-        create: attachments.map((item, index) => {
-          // Support both string URLs (legacy) and objects with metadata
-          if (typeof item === 'string') {
-            const fileName = item.split('/').pop() || `attachment-${index + 1}`;
-            return {
-              fileUrl: item,
-              fileName,
-              fileSize: 0,
-              fileType: 'application/octet-stream',
-            };
-          } else {
-            // New format: { url, fileName, fileSize, fileType }
-            return {
-              fileUrl: item.url,
-              fileName: item.fileName || item.url.split('/').pop() || `attachment-${index + 1}`,
-              fileSize: item.fileSize || 0,
-              fileType: item.fileType || 'application/octet-stream',
-            };
-          }
-        }),
+      attachments: attachmentData ? {
+        create: attachmentData,
       } : undefined,
     },
     include: {

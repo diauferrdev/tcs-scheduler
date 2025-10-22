@@ -333,7 +333,7 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
     final authProvider = Provider.of<AuthProvider>(context);
     final isAdmin = authProvider.user?.role == 'ADMIN';
     final isOwner = _bug != null && authProvider.user?.id == _bug!.reportedBy.id;
-    final canEdit = isOwner && _bug != null &&
+    final canEdit = (isOwner || isAdmin) && _bug != null &&
         (_bug!.status != BugStatus.RESOLVED && _bug!.status != BugStatus.CLOSED);
     final canComment = _bug != null && _bug!.status != BugStatus.CLOSED;
 
