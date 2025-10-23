@@ -3,6 +3,7 @@ import type { BugReportCreateInput, BugReportUpdateInput, BugReportFilterInput }
 import type { Platform, BugStatus } from '@prisma/client';
 import { stat, unlink } from 'fs/promises';
 import { join } from 'path';
+import * as websocketService from './websocket.service';
 
 /**
  * Bug Report Service
@@ -143,6 +144,9 @@ export async function createBugReport(
     platform: bugReport.platform,
     reportedBy: bugReport.reportedBy.name,
   });
+
+  // Broadcast to all connected users
+  websocketService.broadcastBugCreated(bugReport);
 
   return bugReport;
 }
@@ -390,6 +394,9 @@ export async function updateBugReport(
     updatedBy: userId,
   });
 
+  // Broadcast to all connected users
+  websocketService.broadcastBugUpdated(updatedBug);
+
   return updatedBug;
 }
 
@@ -432,6 +439,9 @@ export async function deleteBugReport(id: string, userId: string, userRole: 'ADM
     deletedBy: userId,
     filesDeleted: attachments.length,
   });
+
+  // Broadcast to all connected users
+  websocketService.broadcastBugDeleted(id);
 
   return { success: true, message: 'Bug report deleted successfully' };
 }

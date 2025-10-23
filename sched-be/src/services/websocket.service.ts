@@ -121,8 +121,49 @@ export type WebSocketMessage =
   | { type: 'booking_deleted'; data: any }
   | { type: 'booking_approved'; data: any }
   | { type: 'participant_response'; data: any }
+  | { type: 'bug_created'; data: any }
+  | { type: 'bug_updated'; data: any }
+  | { type: 'bug_deleted'; data: any }
+  | { type: 'bug_liked'; data: any }
+  | { type: 'bug_unliked'; data: any }
+  | { type: 'bug_comment_created'; data: any }
+  | { type: 'bug_comment_updated'; data: any }
+  | { type: 'bug_comment_deleted'; data: any }
   | { type: 'ping' }
   | { type: 'pong' };
+
+// Bug report real-time events
+export function broadcastBugCreated(bug: any) {
+  return broadcast({ type: 'bug_created', data: bug });
+}
+
+export function broadcastBugUpdated(bug: any) {
+  return broadcast({ type: 'bug_updated', data: bug });
+}
+
+export function broadcastBugDeleted(bugId: string) {
+  return broadcast({ type: 'bug_deleted', data: { id: bugId } });
+}
+
+export function broadcastBugLiked(bugId: string, userId: string, likeCount: number) {
+  return broadcast({ type: 'bug_liked', data: { bugId, userId, likeCount } });
+}
+
+export function broadcastBugUnliked(bugId: string, userId: string, likeCount: number) {
+  return broadcast({ type: 'bug_unliked', data: { bugId, userId, likeCount } });
+}
+
+export function broadcastBugCommentCreated(comment: any) {
+  return broadcast({ type: 'bug_comment_created', data: comment });
+}
+
+export function broadcastBugCommentUpdated(comment: any) {
+  return broadcast({ type: 'bug_comment_updated', data: comment });
+}
+
+export function broadcastBugCommentDeleted(commentId: string, bugReportId: string) {
+  return broadcast({ type: 'bug_comment_deleted', data: { id: commentId, bugReportId } });
+}
 
 export function sendNotification(userId: string, notification: any) {
   return sendToUser(userId, {
