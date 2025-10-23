@@ -1476,84 +1476,82 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
             ),
           ),
           const SizedBox(height: 8),
-          GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              crossAxisSpacing: 8,
-              mainAxisSpacing: 8,
-              childAspectRatio: 1.0,
-            ),
-            itemCount: imageAttachments.length,
-            itemBuilder: (context, index) {
-              final attachment = imageAttachments[index];
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: imageAttachments.map((attachment) {
               return GestureDetector(
                 onTap: () => MediaViewerDialog.show(
                   context,
-                  mediaUrl: attachment.fileUrl,
+                  mediaUrl: getAbsoluteUrl(attachment.fileUrl),
                   fileName: attachment.fileName,
                   fileType: attachment.fileType,
                 ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      Image.network(
-                        attachment.fileUrl,
-                        fit: BoxFit.cover,
-                        loadingBuilder: (context, child, loadingProgress) {
-                          if (loadingProgress == null) return child;
-                          return Container(
-                            color: AppTheme.primaryWhite.withOpacity(0.05),
-                            child: Center(
+                child: Container(
+                  width: 120,
+                  height: 120,
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryWhite.withOpacity(0.05),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: AppTheme.primaryWhite.withOpacity(0.2),
+                    ),
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        Image.network(
+                          getAbsoluteUrl(attachment.fileUrl),
+                          fit: BoxFit.cover,
+                          loadingBuilder: (context, child, loadingProgress) {
+                            if (loadingProgress == null) return child;
+                            return Center(
                               child: CircularProgressIndicator(
                                 value: loadingProgress.expectedTotalBytes != null
                                     ? loadingProgress.cumulativeBytesLoaded /
                                         loadingProgress.expectedTotalBytes!
                                     : null,
+                                strokeWidth: 2,
                                 color: AppTheme.primaryWhite,
                               ),
+                            );
+                          },
+                          errorBuilder: (context, error, stack) => const Center(
+                            child: Icon(Icons.broken_image, color: AppTheme.primaryWhite, size: 32),
+                          ),
+                        ),
+                        // Tap overlay with zoom icon
+                        Container(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                              colors: [
+                                Colors.transparent,
+                                Colors.black.withOpacity(0.4),
+                              ],
                             ),
-                          );
-                        },
-                        errorBuilder: (context, error, stack) => Container(
-                          color: AppTheme.primaryWhite.withOpacity(0.1),
-                          child: const Center(
-                            child: Icon(Icons.broken_image, color: AppTheme.primaryWhite),
                           ),
-                        ),
-                      ),
-                      // Tap overlay with zoom icon
-                      Container(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                            colors: [
-                              Colors.transparent,
-                              Colors.black.withOpacity(0.3),
-                            ],
-                          ),
-                        ),
-                        child: const Align(
-                          alignment: Alignment.bottomRight,
-                          child: Padding(
-                            padding: EdgeInsets.all(8.0),
-                            child: Icon(
-                              Icons.zoom_in,
-                              color: Colors.white,
-                              size: 20,
+                          child: const Align(
+                            alignment: Alignment.bottomRight,
+                            child: Padding(
+                              padding: EdgeInsets.all(6.0),
+                              child: Icon(
+                                Icons.zoom_in,
+                                color: Colors.white,
+                                size: 18,
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               );
-            },
+            }).toList(),
           ),
         ],
 
@@ -1594,7 +1592,7 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
     return GestureDetector(
       onTap: () => MediaViewerDialog.show(
         context,
-        mediaUrl: attachment.fileUrl,
+        mediaUrl: getAbsoluteUrl(attachment.fileUrl),
         fileName: attachment.fileName,
         fileType: attachment.fileType,
       ),
@@ -1683,7 +1681,7 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
     return GestureDetector(
       onTap: () async {
         // Open document externally (browser/file viewer)
-        final uri = Uri.parse(attachment.fileUrl);
+        final uri = Uri.parse(getAbsoluteUrl(attachment.fileUrl));
         if (await canLaunchUrl(uri)) {
           await launchUrl(uri, mode: LaunchMode.externalApplication);
         } else {
@@ -1781,21 +1779,26 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
 
     final parts = <String>[];
 
-    // Get OS
-    if (deviceInfo.containsKey('os')) {
-      parts.add(deviceInfo['os'].toString());
+    // Get platform/OS
+    if (deviceInfo.containsKey('platform')) {
+      parts.add(deviceInfo['platform'].toString());
     }
 
-    // Get browser or device model
-    if (deviceInfo.containsKey('browser')) {
-      parts.add(deviceInfo['browser'].toString());
+    // Get browser name or model
+    if (deviceInfo.containsKey('browserName')) {
+      final browserName = deviceInfo['browserName'].toString();
+      // Clean up browser name (e.g., "BrowserName.chrome" -> "Chrome")
+      final cleanName = browserName.contains('.')
+          ? browserName.split('.').last
+          : browserName;
+      parts.add(cleanName.substring(0, 1).toUpperCase() + cleanName.substring(1));
     } else if (deviceInfo.containsKey('model')) {
       parts.add(deviceInfo['model'].toString());
     }
 
-    // Get version if available
-    if (deviceInfo.containsKey('version') && deviceInfo['version'] != null) {
-      parts.add('v${deviceInfo['version']}');
+    // Get app version
+    if (deviceInfo.containsKey('appVersion') && deviceInfo['appVersion'] != null) {
+      parts.add('v${deviceInfo['appVersion']}');
     }
 
     return parts.join(' • ');
