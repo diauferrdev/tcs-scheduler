@@ -457,23 +457,33 @@ class _BugReportsScreenState extends State<BugReportsScreen> {
                           overflow: TextOverflow.ellipsis,
                         ),
                         const Spacer(),
-                        // Comment count with icon
-                        if (commentCount > 0) ...[
-                          Icon(
-                            Icons.chat_bubble_outline,
-                            size: 14,
-                            color: AppTheme.primaryWhite.withOpacity(0.5),
+                        // Comment count with icon (always visible, Discord style)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: AppTheme.primaryWhite.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(4),
                           ),
-                          const SizedBox(width: 4),
-                          Text(
-                            '$commentCount',
-                            style: TextStyle(
-                              color: AppTheme.primaryWhite.withOpacity(0.6),
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500,
-                            ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.chat_bubble_outline,
+                                size: 14,
+                                color: AppTheme.primaryWhite.withOpacity(0.7),
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                '$commentCount',
+                                style: TextStyle(
+                                  color: AppTheme.primaryWhite.withOpacity(0.8),
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
                           ),
-                        ],
+                        ),
                       ],
                     ),
                   ],
