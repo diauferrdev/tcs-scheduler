@@ -1,13 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:photo_view/photo_view.dart';
-import 'package:photo_view/photo_view_gallery.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../models/bug_report.dart';
 import '../providers/auth_provider.dart';
 import '../providers/theme_provider.dart';
 import '../services/api_service.dart';
-import '../widgets/video_player_widget.dart';
+import '../widgets/media_viewer_dialog.dart';
 import 'edit_bug_report_screen.dart';
 
 class BugDetailScreen extends StatefulWidget {
@@ -295,37 +293,6 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
         SnackBar(content: Text('Error deleting bug report: $e')),
       );
     }
-  }
-
-  void _showAttachmentGallery(int initialIndex) {
-    final imageAttachments = _bug!.attachments
-        .where((a) => a.fileType.startsWith('image/'))
-        .toList();
-
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => Scaffold(
-          backgroundColor: Colors.black,
-          appBar: AppBar(
-            backgroundColor: Colors.black,
-            title: Text('${initialIndex + 1} / ${imageAttachments.length}'),
-          ),
-          body: PhotoViewGallery.builder(
-            itemCount: imageAttachments.length,
-            builder: (context, index) {
-              return PhotoViewGalleryPageOptions(
-                imageProvider: NetworkImage(imageAttachments[index].fileUrl),
-                minScale: PhotoViewComputedScale.contained,
-                maxScale: PhotoViewComputedScale.covered * 2,
-              );
-            },
-            pageController: PageController(initialPage: initialIndex),
-            backgroundDecoration: const BoxDecoration(color: Colors.black),
-          ),
-        ),
-      ),
-    );
   }
 
   @override
@@ -1057,7 +1024,12 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
             itemBuilder: (context, index) {
               final attachment = imageAttachments[index];
               return GestureDetector(
-                onTap: () => _showAttachmentGallery(index),
+                onTap: () => MediaViewerDialog.show(
+                  context,
+                  mediaUrl: attachment.fileUrl,
+                  fileName: attachment.fileName,
+                  fileType: attachment.fileType,
+                ),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(8),
                   child: Stack(
@@ -1155,18 +1127,12 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
 
   Widget _buildVideoTile(BugAttachment attachment) {
     return GestureDetector(
-      onTap: () {
-        // Open video player inline
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => VideoPlayerWidget(
-              videoUrl: attachment.fileUrl,
-              title: attachment.fileName,
-            ),
-          ),
-        );
-      },
+      onTap: () => MediaViewerDialog.show(
+        context,
+        mediaUrl: attachment.fileUrl,
+        fileName: attachment.fileName,
+        fileType: attachment.fileType,
+      ),
       child: Container(
         margin: const EdgeInsets.only(bottom: 8),
         padding: const EdgeInsets.all(12),
