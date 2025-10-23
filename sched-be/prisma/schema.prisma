@@ -544,9 +544,12 @@ model BugComment {
   bugReport   BugReport @relation(fields: [bugReportId], references: [id], onDelete: Cascade)
 
   content     String    @db.Text
+  deviceInfo  Json?     // Device information when comment was made
 
   userId      String
   user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  attachments BugCommentAttachment[]
 
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
@@ -554,4 +557,17 @@ model BugComment {
   @@index([bugReportId])
   @@index([userId])
   @@index([createdAt])
+}
+
+model BugCommentAttachment {
+  id        String     @id @default(cuid())
+  commentId String
+  comment   BugComment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  fileUrl   String
+  fileName  String
+  fileSize  Int
+  fileType  String
+  createdAt DateTime   @default(now())
+
+  @@index([commentId])
 }

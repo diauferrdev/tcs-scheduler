@@ -670,6 +670,28 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
                                         fontSize: 12,
                                       ),
                                     ),
+                                    if (_bug!.deviceInfo != null && _getDeviceInfoString(_bug!.deviceInfo).isNotEmpty)
+                                      Row(
+                                        children: [
+                                          Icon(
+                                            Icons.devices,
+                                            size: 11,
+                                            color: AppTheme.primaryWhite.withOpacity(0.5),
+                                          ),
+                                          const SizedBox(width: 4),
+                                          Expanded(
+                                            child: Text(
+                                              _getDeviceInfoString(_bug!.deviceInfo),
+                                              style: TextStyle(
+                                                color: AppTheme.primaryWhite.withOpacity(0.5),
+                                                fontSize: 11,
+                                              ),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
                                   ],
                                 ),
                               ),
@@ -1467,6 +1489,32 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
     );
   }
 
+  // Helper to get succinct device info string
+  String _getDeviceInfoString(Map<String, dynamic>? deviceInfo) {
+    if (deviceInfo == null) return '';
+
+    final parts = <String>[];
+
+    // Get OS
+    if (deviceInfo.containsKey('os')) {
+      parts.add(deviceInfo['os'].toString());
+    }
+
+    // Get browser or device model
+    if (deviceInfo.containsKey('browser')) {
+      parts.add(deviceInfo['browser'].toString());
+    } else if (deviceInfo.containsKey('model')) {
+      parts.add(deviceInfo['model'].toString());
+    }
+
+    // Get version if available
+    if (deviceInfo.containsKey('version') && deviceInfo['version'] != null) {
+      parts.add('v${deviceInfo['version']}');
+    }
+
+    return parts.join(' • ');
+  }
+
   Widget _buildDeviceInfo() {
     return Container(
       padding: const EdgeInsets.all(16),
@@ -1477,45 +1525,28 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Device Information',
+          Row(
+            children: [
+              Icon(Icons.devices, size: 16, color: AppTheme.primaryWhite.withOpacity(0.7)),
+              const SizedBox(width: 8),
+              const Text(
+                'Device Information',
+                style: TextStyle(
+                  color: AppTheme.primaryWhite,
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            _getDeviceInfoString(_bug!.deviceInfo),
             style: TextStyle(
-              color: AppTheme.primaryWhite,
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
+              color: AppTheme.primaryWhite.withOpacity(0.8),
+              fontSize: 13,
             ),
           ),
-          const SizedBox(height: 12),
-          ..._bug!.deviceInfo!.entries.map((entry) {
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    flex: 2,
-                    child: Text(
-                      entry.key,
-                      style: TextStyle(
-                        color: AppTheme.primaryWhite.withOpacity(0.6),
-                        fontSize: 12,
-                      ),
-                    ),
-                  ),
-                  Expanded(
-                    flex: 3,
-                    child: Text(
-                      entry.value.toString(),
-                      style: const TextStyle(
-                        color: AppTheme.primaryWhite,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            );
-          }),
         ],
       ),
     );
