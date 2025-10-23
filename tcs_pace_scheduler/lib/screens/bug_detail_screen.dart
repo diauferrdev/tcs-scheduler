@@ -484,6 +484,47 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
               onPressed: _deleteBugReport,
               tooltip: 'Delete Bug Report',
             ),
+          if (isAdmin && _bug != null && _bug!.status != BugStatus.CLOSED)
+            PopupMenuButton(
+              icon: const Icon(Icons.admin_panel_settings, color: AppTheme.primaryWhite),
+              tooltip: 'Admin Actions',
+              color: AppTheme.primaryBlack,
+              itemBuilder: (context) => [
+                if (_bug!.status == BugStatus.OPEN)
+                  PopupMenuItem(
+                    child: Row(
+                      children: [
+                        Icon(Icons.play_arrow, size: 18, color: Colors.blue),
+                        const SizedBox(width: 8),
+                        Text('Mark In Progress', style: TextStyle(color: Colors.blue)),
+                      ],
+                    ),
+                    onTap: () => Future.delayed(Duration.zero, () => _updateStatus(BugStatus.IN_PROGRESS)),
+                  ),
+                if (_bug!.status == BugStatus.IN_PROGRESS)
+                  PopupMenuItem(
+                    child: Row(
+                      children: [
+                        Icon(Icons.check_circle, size: 18, color: Colors.green),
+                        const SizedBox(width: 8),
+                        Text('Mark Resolved', style: TextStyle(color: Colors.green)),
+                      ],
+                    ),
+                    onTap: () => Future.delayed(Duration.zero, () => _updateStatus(BugStatus.RESOLVED)),
+                  ),
+                if (_bug!.status == BugStatus.RESOLVED)
+                  PopupMenuItem(
+                    child: Row(
+                      children: [
+                        Icon(Icons.lock, size: 18, color: Colors.grey),
+                        const SizedBox(width: 8),
+                        Text('Close Bug', style: TextStyle(color: Colors.grey)),
+                      ],
+                    ),
+                    onTap: () => Future.delayed(Duration.zero, () => _updateStatus(BugStatus.CLOSED)),
+                  ),
+              ],
+            ),
         ],
       ),
       body: _isLoading
@@ -535,7 +576,7 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
                                 ),
                               ),
                               const Spacer(),
-                              // Upvote Button with Clear Label - Fixed width to prevent line breaks
+                              // Upvote Button (Reddit style)
                               Material(
                                 color: Colors.transparent,
                                 child: InkWell(
@@ -546,11 +587,11 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
                                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                                     decoration: BoxDecoration(
                                       color: _isUpvoted
-                                          ? Colors.blue.withOpacity(0.2)
+                                          ? Colors.orange.withOpacity(0.2)
                                           : AppTheme.primaryWhite.withOpacity(0.1),
                                       borderRadius: BorderRadius.circular(20),
                                       border: Border.all(
-                                        color: _isUpvoted ? Colors.blue : AppTheme.primaryWhite.withOpacity(0.3),
+                                        color: _isUpvoted ? Colors.orange : AppTheme.primaryWhite.withOpacity(0.3),
                                         width: 1.5,
                                       ),
                                     ),
@@ -559,15 +600,15 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
                                       mainAxisAlignment: MainAxisAlignment.center,
                                       children: [
                                         Icon(
-                                          _isUpvoted ? Icons.thumb_up : Icons.thumb_up_outlined,
-                                          color: _isUpvoted ? Colors.blue : AppTheme.primaryWhite,
-                                          size: 16,
+                                          Icons.arrow_upward,
+                                          color: _isUpvoted ? Colors.orange : AppTheme.primaryWhite,
+                                          size: 18,
                                         ),
                                         const SizedBox(width: 6),
                                         Text(
                                           '${_bug!.likeCount}',
                                           style: TextStyle(
-                                            color: _isUpvoted ? Colors.blue : AppTheme.primaryWhite,
+                                            color: _isUpvoted ? Colors.orange : AppTheme.primaryWhite,
                                             fontWeight: FontWeight.bold,
                                             fontSize: 15,
                                           ),
@@ -774,44 +815,6 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
                                   ],
                                 ],
                               ),
-                            ),
-                          ],
-
-                          // Admin Actions
-                          if (isAdmin && _bug!.status != BugStatus.CLOSED) ...[
-                            const SizedBox(height: 24),
-                            const Text(
-                              'Admin Actions',
-                              style: TextStyle(
-                                color: AppTheme.primaryWhite,
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            Wrap(
-                              spacing: 8,
-                              runSpacing: 8,
-                              children: [
-                                if (_bug!.status == BugStatus.OPEN)
-                                  _buildActionButton(
-                                    'Mark In Progress',
-                                    Colors.blue,
-                                    () => _updateStatus(BugStatus.IN_PROGRESS),
-                                  ),
-                                if (_bug!.status == BugStatus.IN_PROGRESS)
-                                  _buildActionButton(
-                                    'Mark Resolved',
-                                    Colors.green,
-                                    () => _updateStatus(BugStatus.RESOLVED),
-                                  ),
-                                if (_bug!.status == BugStatus.RESOLVED)
-                                  _buildActionButton(
-                                    'Close Bug',
-                                    Colors.grey,
-                                    () => _updateStatus(BugStatus.CLOSED),
-                                  ),
-                              ],
                             ),
                           ],
 

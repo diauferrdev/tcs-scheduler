@@ -605,25 +605,43 @@ class _BugReportsScreenState extends State<BugReportsScreen> {
     final isVideo = attachment.fileType.startsWith('video/');
 
     return Container(
-      width: 80,
-      height: 80,
+      width: 120,
+      height: 120,
       decoration: BoxDecoration(
-        color: AppTheme.primaryWhite.withOpacity(0.1),
+        color: AppTheme.primaryWhite.withOpacity(0.05),
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
-          color: AppTheme.primaryWhite.withOpacity(0.2),
+          color: AppTheme.primaryWhite.withOpacity(0.15),
         ),
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(7),
         child: isImage
             ? Image.network(
                 getAbsoluteUrl(attachment.fileUrl),
                 fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) => Icon(
-                  Icons.image,
-                  color: AppTheme.primaryWhite.withOpacity(0.5),
-                ),
+                loadingBuilder: (context, child, loadingProgress) {
+                  if (loadingProgress == null) return child;
+                  return Center(
+                    child: CircularProgressIndicator(
+                      value: loadingProgress.expectedTotalBytes != null
+                          ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
+                          : null,
+                      strokeWidth: 2,
+                      color: AppTheme.primaryWhite.withOpacity(0.5),
+                    ),
+                  );
+                },
+                errorBuilder: (context, error, stackTrace) {
+                  print('[Preview] Error loading image: $error');
+                  return Center(
+                    child: Icon(
+                      Icons.broken_image,
+                      color: AppTheme.primaryWhite.withOpacity(0.3),
+                      size: 40,
+                    ),
+                  );
+                },
               )
             : isVideo
                 ? Stack(
@@ -631,18 +649,22 @@ class _BugReportsScreenState extends State<BugReportsScreen> {
                     children: [
                       Container(
                         color: Colors.black87,
+                      ),
+                      Center(
                         child: Icon(
-                          Icons.play_circle_outline,
-                          size: 40,
-                          color: AppTheme.primaryWhite.withOpacity(0.8),
+                          Icons.play_circle_filled,
+                          size: 48,
+                          color: AppTheme.primaryWhite.withOpacity(0.9),
                         ),
                       ),
                     ],
                   )
-                : Icon(
-                    Icons.insert_drive_file,
-                    color: AppTheme.primaryWhite.withOpacity(0.5),
-                    size: 40,
+                : Center(
+                    child: Icon(
+                      Icons.attach_file,
+                      color: AppTheme.primaryWhite.withOpacity(0.5),
+                      size: 40,
+                    ),
                   ),
       ),
     );
