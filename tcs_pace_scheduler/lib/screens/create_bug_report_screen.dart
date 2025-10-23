@@ -299,7 +299,7 @@ class _CreateBugReportScreenState extends State<CreateBugReportScreen> {
       }
 
       // Create bug report with attachment metadata
-      await _api.createBugReport(
+      final createdBug = await _api.createBugReport(
         title: _titleController.text.trim(),
         description: _descriptionController.text.trim(),
         platform: _selectedPlatform!.name,
@@ -311,7 +311,12 @@ class _CreateBugReportScreenState extends State<CreateBugReportScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Bug report submitted successfully')),
         );
-        Navigator.pop(context, true);
+        // Navigate to bug detail screen instead of going back to list
+        Navigator.pushReplacementNamed(
+          context,
+          '/bug-detail',
+          arguments: createdBug['id'],
+        );
       }
     } catch (e) {
       setState(() {

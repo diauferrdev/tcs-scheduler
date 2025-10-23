@@ -214,6 +214,7 @@ export async function getBugReports(filters?: BugReportFilterInput) {
         select: {
           likes: true,
           attachments: true,
+          comments: true,
         },
       },
     },
@@ -318,13 +319,18 @@ export async function updateBugReport(
     throw new Error('Only ADMIN and MANAGER can update bug status');
   }
 
-  // Only the reporter can update title/description (and only if not resolved)
-  if ((data.title || data.description) && bug.reportedById !== userId) {
-    throw new Error('Only the reporter can update bug details');
+  // Only the reporter or ADMIN can update title/description
+  const isOwner = bug.reportedById === userId;
+  const isAdmin = userRole === 'ADMIN';
+
+  if ((data.title || data.description) && !isOwner && !isAdmin) {
+    throw new Error('Only the reporter or ADMIN can update bug details');
   }
 
-  if ((data.title || data.description) && bug.status === 'RESOLVED') {
-    throw new Error('Cannot update resolved bugs');
+  // Non-admins cannot update resolved/closed bugs
+  if ((data.title || data.description) && !isAdmin &&
+      (bug.status === 'RESOLVED' || bug.status === 'CLOSED')) {
+    throw new Error('Cannot update resolved or closed bugs');
   }
 
   const updateData: any = {};

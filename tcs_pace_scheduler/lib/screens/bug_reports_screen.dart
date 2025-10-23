@@ -300,7 +300,7 @@ class _BugReportsScreenState extends State<BugReportsScreen> {
 
   Widget _buildBugCard(BugReport bug) {
     final hasAttachments = bug.attachments.isNotEmpty;
-    final commentCount = bug.comments?.length ?? 0;
+    final commentCount = bug.commentCount ?? bug.comments?.length ?? 0;
     final timeAgo = _formatTimeAgo(bug.createdAt);
 
     return Card(

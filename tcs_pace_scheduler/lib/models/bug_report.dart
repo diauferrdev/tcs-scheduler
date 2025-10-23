@@ -147,9 +147,10 @@ class BugReport {
   final Map<String, dynamic>? deviceInfo;
   final BugStatus status;
   final List<BugAttachment> attachments;
-  final List<BugComment> comments;
+  final List<BugComment>? comments;
   final List<BugLike> likes;
   final int likeCount;
+  final int? commentCount; // Add count from _count.comments
   final BugReporter reportedBy;
   final BugReporter? resolvedBy;
   final DateTime? resolvedAt;
@@ -167,9 +168,10 @@ class BugReport {
     this.deviceInfo,
     required this.status,
     required this.attachments,
-    required this.comments,
+    this.comments,
     required this.likes,
     required this.likeCount,
+    this.commentCount,
     required this.reportedBy,
     this.resolvedBy,
     this.resolvedAt,
@@ -200,13 +202,13 @@ class BugReport {
           [],
       comments: (json['comments'] as List<dynamic>?)
               ?.map((c) => BugComment.fromJson(c))
-              .toList() ??
-          [],
+              .toList(),
       likes: (json['likes'] as List<dynamic>?)
               ?.map((l) => BugLike.fromJson(l))
               .toList() ??
           [],
       likeCount: json['likeCount'] ?? 0,
+      commentCount: json['_count']?['comments'],
       reportedBy: BugReporter.fromJson(json['reportedBy']),
       resolvedBy: json['resolvedBy'] != null
           ? BugReporter.fromJson(json['resolvedBy'])

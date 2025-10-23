@@ -714,7 +714,7 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                                 child: Text(
-                                  '${_bug!.comments.length}',
+                                  '${_bug!.comments?.length ?? 0}',
                                   style: const TextStyle(
                                     color: AppTheme.primaryWhite,
                                     fontWeight: FontWeight.bold,
@@ -726,7 +726,7 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
                           const SizedBox(height: 16),
 
                           // Comment List
-                          if (_bug!.comments.isEmpty)
+                          if (_bug!.comments?.isEmpty ?? true)
                             Container(
                               padding: const EdgeInsets.all(24),
                               decoration: BoxDecoration(
@@ -760,7 +760,7 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
                               ),
                             )
                           else
-                            ..._bug!.comments.map((comment) => _buildCommentCard(comment, authProvider)),
+                            ...?_bug!.comments?.map((comment) => _buildCommentCard(comment, authProvider)),
 
                           // Comment Input (if allowed)
                           if (canComment) ...[
