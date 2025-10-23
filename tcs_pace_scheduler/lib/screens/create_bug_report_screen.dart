@@ -7,6 +7,7 @@ import '../models/bug_report.dart' as model;
 import '../providers/theme_provider.dart';
 import '../services/api_service.dart';
 import '../utils/device_info_helper.dart';
+import 'bug_detail_screen.dart';
 
 class CreateBugReportScreen extends StatefulWidget {
   const CreateBugReportScreen({super.key});
@@ -312,10 +313,11 @@ class _CreateBugReportScreenState extends State<CreateBugReportScreen> {
           const SnackBar(content: Text('Bug report submitted successfully')),
         );
         // Navigate to bug detail screen instead of going back to list
-        Navigator.pushReplacementNamed(
+        Navigator.pushReplacement(
           context,
-          '/bug-detail',
-          arguments: createdBug['id'],
+          MaterialPageRoute(
+            builder: (context) => BugDetailScreen(bugId: createdBug['id']),
+          ),
         );
       }
     } catch (e) {
