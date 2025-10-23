@@ -114,14 +114,6 @@ class _BugReportsScreenState extends State<BugReportsScreen> {
       appBar: AppBar(
         backgroundColor: backgroundColor,
         elevation: 0,
-        title: Text(
-          'Community Feedback',
-          style: TextStyle(
-            color: textColor,
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
         actions: [
           IconButton(
             icon: Icon(Icons.refresh, color: textColor),
@@ -140,17 +132,17 @@ class _BugReportsScreenState extends State<BugReportsScreen> {
           // Search Bar
           Container(
             padding: const EdgeInsets.all(16),
-            color: AppTheme.primaryBlack,
+            color: backgroundColor,
             child: TextField(
               controller: _searchController,
-              style: const TextStyle(color: AppTheme.primaryWhite),
+              style: TextStyle(color: textColor),
               decoration: InputDecoration(
                 hintText: 'Search by title or description...',
-                hintStyle: TextStyle(color: AppTheme.primaryWhite.withOpacity(0.5)),
-                prefixIcon: const Icon(Icons.search, color: AppTheme.primaryWhite),
+                hintStyle: TextStyle(color: textColor.withOpacity(0.5)),
+                prefixIcon: Icon(Icons.search, color: textColor),
                 suffixIcon: _searchController.text.isNotEmpty
                     ? IconButton(
-                        icon: const Icon(Icons.clear, color: AppTheme.primaryWhite),
+                        icon: Icon(Icons.clear, color: textColor),
                         onPressed: () {
                           _searchController.clear();
                           _loadBugReports();
