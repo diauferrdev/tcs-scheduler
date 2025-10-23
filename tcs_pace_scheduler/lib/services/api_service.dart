@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
+import 'package:file_picker/file_picker.dart';
 import '../config/api_config.dart';
 import '../config/http_config.dart';
 import 'token_storage.dart';
@@ -702,10 +703,12 @@ class ApiService {
   /// Create comment on bug report
   Future<Map<String, dynamic>> createBugComment(
     String bugId,
-    String content,
-  ) async {
+    String content, {
+    Map<String, dynamic>? deviceInfo,
+  }) async {
     return await post('/api/bug-reports/$bugId/comments', {
       'content': content,
+      if (deviceInfo != null) 'deviceInfo': deviceInfo,
     });
   }
 
@@ -730,6 +733,49 @@ class ApiService {
   /// Delete comment
   Future<Map<String, dynamic>> deleteBugComment(String commentId) async {
     return await delete('/api/bug-reports/comments/$commentId');
+  }
+
+  /// Upload attachments for comment (up to 6)
+  Future<Map<String, dynamic>> uploadCommentAttachments(
+    String commentId,
+    List<PlatformFile> files,
+  ) async {
+    await initialize();
+
+    final url = Uri.parse('${ApiConfig.baseUrl}/api/bug-reports/comments/$commentId/attachments');
+    final request = http.MultipartRequest('POST', url);
+
+    request.headers.addAll({
+      ...ApiConfig.defaultHeaders,
+      'Accept': 'application/json',
+    });
+
+    // Remove Content-Type to let browser set multipart boundary
+    request.headers.remove('Content-Type');
+
+    if (_sessionCookie != null) {
+      request.headers['Cookie'] = _sessionCookie!;
+    }
+
+    // Add all files
+    for (var file in files) {
+      if (file.bytes != null) {
+        request.files.add(http.MultipartFile.fromBytes(
+          'files',
+          file.bytes!,
+          filename: file.name,
+        ));
+      }
+    }
+
+    final streamedResponse = await request.send();
+    final response = await http.Response.fromStream(streamedResponse);
+
+    if (response.statusCode == 201 || response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Failed to upload attachments: ${response.body}');
+    }
   }
 
   /// Upload attachment for bug report (images/videos)

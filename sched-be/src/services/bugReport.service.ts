@@ -740,6 +740,7 @@ export async function deleteBugComment(
 ) {
   const comment = await prisma.bugComment.findUnique({
     where: { id: commentId },
+    include: { attachments: true },
   });
 
   if (!comment) {
@@ -753,6 +754,20 @@ export async function deleteBugComment(
 
   const bugReportId = comment.bugReportId;
 
+  // Delete physical files from attachments
+  for (const attachment of comment.attachments) {
+    try {
+      const relativePath = attachment.fileUrl.startsWith('/')
+        ? attachment.fileUrl.substring(1)
+        : attachment.fileUrl;
+      const fullPath = join(process.cwd(), relativePath);
+      await unlink(fullPath);
+      console.log('[BugComment] Deleted attachment file:', attachment.fileName);
+    } catch (error) {
+      console.error('[BugComment] Failed to delete attachment file:', attachment.fileName, error);
+    }
+  }
+
   await prisma.bugComment.delete({
     where: { id: commentId },
   });
@@ -761,4 +776,144 @@ export async function deleteBugComment(
   websocketService.broadcastBugCommentDeleted(commentId, bugReportId);
 
   return { success: true, message: 'Comment deleted' };
+}
+
+// ==================== BUG COMMENT ATTACHMENTS ====================
+
+export async function getBugCommentById(commentId: string) {
+  const comment = await prisma.bugComment.findUnique({
+    where: { id: commentId },
+    include: {
+      user: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          role: true,
+          avatarUrl: true,
+        },
+      },
+      attachments: true,
+    },
+  });
+
+  if (!comment) {
+    throw new Error('Comment not found');
+  }
+
+  return comment;
+}
+
+export async function getBugCommentAttachmentCount(commentId: string): Promise<number> {
+  return await prisma.bugCommentAttachment.count({
+    where: { commentId },
+  });
+}
+
+export async function addCommentAttachments(commentId: string, files: File[]) {
+  const ALLOWED_TYPES = [
+    'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml',
+    'video/mp4', 'video/webm', 'video/ogg', 'video/quicktime', 'video/x-msvideo',
+    'application/pdf', 'text/plain', 'text/csv',
+  ];
+  const MAX_SIZE = 300 * 1024 * 1024; // 300MB
+
+  const ATTACHMENTS_DIR = join(process.cwd(), 'uploads', 'attachments');
+
+  // Process all files
+  const attachmentData = await Promise.all(
+    files.map(async (file) => {
+      // Validate file type
+      if (!ALLOWED_TYPES.includes(file.type)) {
+        throw new Error(`Invalid file type: ${file.type}. Only images, videos, and documents allowed.`);
+      }
+
+      // Validate file size
+      if (file.size > MAX_SIZE) {
+        throw new Error(`File ${file.name} is too large. Maximum size is 300MB.`);
+      }
+
+      // Generate unique filename
+      const ext = file.name.split('.').pop() || '';
+      const randomUUID = crypto.randomUUID();
+      const filename = ext ? `${randomUUID}.${ext}` : randomUUID;
+      const filepath = join(ATTACHMENTS_DIR, filename);
+
+      // Save file
+      const arrayBuffer = await file.arrayBuffer();
+      const { writeFile, mkdir } = await import('fs/promises');
+      const { existsSync } = await import('fs');
+
+      if (!existsSync(ATTACHMENTS_DIR)) {
+        await mkdir(ATTACHMENTS_DIR, { recursive: true });
+      }
+
+      await writeFile(filepath, Buffer.from(arrayBuffer));
+
+      return {
+        fileUrl: `/uploads/attachments/${filename}`,
+        fileName: file.name,
+        fileSize: file.size,
+        fileType: file.type,
+      };
+    })
+  );
+
+  // Create all attachment records
+  const attachments = await Promise.all(
+    attachmentData.map((data) =>
+      prisma.bugCommentAttachment.create({
+        data: {
+          commentId,
+          ...data,
+        },
+      })
+    )
+  );
+
+  console.log('[BugComment] Added attachments:', {
+    commentId,
+    count: attachments.length,
+  });
+
+  // Get updated comment with attachments and broadcast
+  const updatedComment = await getBugCommentById(commentId);
+  websocketService.broadcastBugCommentUpdated(updatedComment);
+
+  return attachments;
+}
+
+export async function deleteCommentAttachment(attachmentId: string) {
+  const attachment = await prisma.bugCommentAttachment.findUnique({
+    where: { id: attachmentId },
+  });
+
+  if (!attachment) {
+    throw new Error('Attachment not found');
+  }
+
+  const commentId = attachment.commentId;
+
+  // Delete physical file
+  try {
+    const relativePath = attachment.fileUrl.startsWith('/')
+      ? attachment.fileUrl.substring(1)
+      : attachment.fileUrl;
+    const fullPath = join(process.cwd(), relativePath);
+    await unlink(fullPath);
+    console.log('[BugComment] Deleted attachment file:', attachment.fileName);
+  } catch (error) {
+    console.error('[BugComment] Failed to delete attachment file:', attachment.fileName, error);
+  }
+
+  // Delete from database
+  await prisma.bugCommentAttachment.delete({
+    where: { id: attachmentId },
+  });
+
+  // Get updated comment and broadcast
+  const updatedComment = await getBugCommentById(commentId);
+  websocketService.broadcastBugCommentUpdated(updatedComment);
+
+  return { success: true, message: 'Attachment deleted' };
 }

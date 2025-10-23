@@ -1,13 +1,16 @@
 import 'dart:async';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:file_picker/file_picker.dart';
 import '../models/bug_report.dart';
 import '../providers/auth_provider.dart';
 import '../providers/theme_provider.dart';
 import '../services/api_service.dart';
 import '../services/websocket_service.dart';
 import '../utils/url_helper.dart';
+import '../utils/device_info_helper.dart';
 import '../widgets/media_viewer_dialog.dart';
 import 'edit_bug_report_screen.dart';
 
@@ -33,6 +36,10 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
   bool _isSubmittingComment = false;
   String? _editingCommentId;
   StreamSubscription? _wsSubscription;
+
+  // File attachments for comments
+  List<PlatformFile> _selectedFiles = [];
+  bool _isUploadingAttachments = false;
 
   @override
   void initState() {
@@ -249,22 +256,90 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
     }
   }
 
+  Future<void> _pickFiles() async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        allowMultiple: true,
+        type: FileType.custom,
+        allowedExtensions: ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'mp4', 'webm', 'pdf', 'txt', 'csv'],
+        withData: true, // For web support
+      );
+
+      if (result != null) {
+        final totalFiles = _selectedFiles.length + result.files.length;
+        if (totalFiles > 6) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Maximum 6 files allowed. You have ${_selectedFiles.length} selected.'),
+                backgroundColor: Colors.orange,
+              ),
+            );
+          }
+          return;
+        }
+
+        setState(() {
+          _selectedFiles.addAll(result.files);
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error selecting files: $e')),
+        );
+      }
+    }
+  }
+
+  void _removeFile(int index) {
+    setState(() {
+      _selectedFiles.removeAt(index);
+    });
+  }
+
   Future<void> _submitComment() async {
     if (_commentController.text.trim().isEmpty) return;
 
     setState(() => _isSubmittingComment = true);
 
     try {
+      String? commentId;
+
       if (_editingCommentId != null) {
-        // Update existing comment
+        // Update existing comment (no device info update on edit)
         await _api.updateBugComment(_editingCommentId!, _commentController.text.trim());
+        commentId = _editingCommentId;
         setState(() => _editingCommentId = null);
       } else {
-        // Create new comment
-        await _api.createBugComment(widget.bugId, _commentController.text.trim());
+        // Create new comment with device info
+        final deviceInfo = await DeviceInfoHelper.getDeviceInfo();
+        final comment = await _api.createBugComment(
+          widget.bugId,
+          _commentController.text.trim(),
+          deviceInfo: deviceInfo,
+        );
+        commentId = comment['id'];
+      }
+
+      // Upload attachments if any (only for new comments or existing ones)
+      if (_selectedFiles.isNotEmpty && commentId != null) {
+        setState(() => _isUploadingAttachments = true);
+        try {
+          await _api.uploadCommentAttachments(commentId, _selectedFiles);
+        } catch (e) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Comment posted but attachments failed: $e')),
+            );
+          }
+        } finally {
+          setState(() => _isUploadingAttachments = false);
+        }
       }
 
       _commentController.clear();
+      _selectedFiles.clear();
       await _loadBugDetails();
 
       // Scroll to bottom to show new comment
@@ -276,9 +351,11 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
         );
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
     } finally {
       setState(() => _isSubmittingComment = false);
     }
@@ -959,13 +1036,91 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
                                       border: InputBorder.none,
                                     ),
                                   ),
+
+                                  // Selected files preview
+                                  if (_selectedFiles.isNotEmpty) ...[
+                                    const SizedBox(height: 12),
+                                    Wrap(
+                                      spacing: 8,
+                                      runSpacing: 8,
+                                      children: _selectedFiles.asMap().entries.map((entry) {
+                                        final index = entry.key;
+                                        final file = entry.value;
+                                        return Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                          decoration: BoxDecoration(
+                                            color: AppTheme.primaryWhite.withOpacity(0.1),
+                                            borderRadius: BorderRadius.circular(8),
+                                            border: Border.all(color: AppTheme.primaryWhite.withOpacity(0.3)),
+                                          ),
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Icon(
+                                                file.extension == 'pdf' ? Icons.picture_as_pdf :
+                                                ['jpg', 'jpeg', 'png', 'gif', 'webp'].contains(file.extension)
+                                                    ? Icons.image : Icons.videocam,
+                                                size: 16,
+                                                color: AppTheme.primaryWhite.withOpacity(0.7),
+                                              ),
+                                              const SizedBox(width: 4),
+                                              ConstrainedBox(
+                                                constraints: const BoxConstraints(maxWidth: 150),
+                                                child: Text(
+                                                  file.name,
+                                                  maxLines: 1,
+                                                  overflow: TextOverflow.ellipsis,
+                                                  style: TextStyle(
+                                                    color: AppTheme.primaryWhite.withOpacity(0.7),
+                                                    fontSize: 12,
+                                                  ),
+                                                ),
+                                              ),
+                                              const SizedBox(width: 4),
+                                              InkWell(
+                                                onTap: () => _removeFile(index),
+                                                child: Icon(
+                                                  Icons.close,
+                                                  size: 16,
+                                                  color: AppTheme.primaryWhite.withOpacity(0.5),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        );
+                                      }).toList(),
+                                    ),
+                                  ],
+
                                   const SizedBox(height: 8),
-                                  Align(
-                                    alignment: Alignment.centerRight,
-                                    child: ElevatedButton.icon(
-                                      onPressed: _isSubmittingComment ? null : _submitComment,
-                                      icon: _isSubmittingComment
-                                          ? const SizedBox(
+                                  Row(
+                                    children: [
+                                      // Attach files button
+                                      IconButton(
+                                        onPressed: _selectedFiles.length >= 6 ? null : _pickFiles,
+                                        icon: Icon(
+                                          Icons.attach_file,
+                                          color: _selectedFiles.length >= 6
+                                              ? AppTheme.primaryWhite.withOpacity(0.3)
+                                              : AppTheme.primaryWhite,
+                                        ),
+                                        tooltip: _selectedFiles.length >= 6
+                                            ? 'Maximum 6 files'
+                                            : 'Attach files (max 6)',
+                                      ),
+                                      if (_selectedFiles.isNotEmpty)
+                                        Text(
+                                          '${_selectedFiles.length}/6',
+                                          style: TextStyle(
+                                            color: AppTheme.primaryWhite.withOpacity(0.6),
+                                            fontSize: 12,
+                                          ),
+                                        ),
+                                      const Spacer(),
+                                      ElevatedButton.icon(
+                                        onPressed: (_isSubmittingComment || _isUploadingAttachments) ? null : _submitComment,
+                                        icon: (_isSubmittingComment || _isUploadingAttachments)
+                                            ? const SizedBox(
                                               width: 16,
                                               height: 16,
                                               child: CircularProgressIndicator(
@@ -974,12 +1129,13 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
                                               ),
                                             )
                                           : Icon(_editingCommentId != null ? Icons.save : Icons.send),
-                                      label: Text(_editingCommentId != null ? 'Update' : 'Comment'),
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: AppTheme.primaryWhite,
-                                        foregroundColor: AppTheme.primaryBlack,
+                                        label: Text(_editingCommentId != null ? 'Update' : 'Comment'),
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: AppTheme.primaryWhite,
+                                          foregroundColor: AppTheme.primaryBlack,
+                                        ),
                                       ),
-                                    ),
+                                    ],
                                   ),
                                 ],
                               ),
@@ -1058,12 +1214,40 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
                           ),
                       ],
                     ),
-                    Text(
-                      _formatDate(comment.createdAt),
-                      style: TextStyle(
-                        color: AppTheme.primaryWhite.withOpacity(0.6),
-                        fontSize: 12,
-                      ),
+                    Row(
+                      children: [
+                        Text(
+                          _formatDate(comment.createdAt),
+                          style: TextStyle(
+                            color: AppTheme.primaryWhite.withOpacity(0.6),
+                            fontSize: 12,
+                          ),
+                        ),
+                        if (comment.deviceInfo != null && _getDeviceInfoString(comment.deviceInfo).isNotEmpty) ...[
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 6),
+                            child: Text(
+                              '•',
+                              style: TextStyle(
+                                color: AppTheme.primaryWhite.withOpacity(0.4),
+                                fontSize: 12,
+                              ),
+                            ),
+                          ),
+                          Icon(Icons.devices, size: 11, color: AppTheme.primaryWhite.withOpacity(0.4)),
+                          const SizedBox(width: 4),
+                          Flexible(
+                            child: Text(
+                              _getDeviceInfoString(comment.deviceInfo),
+                              style: TextStyle(
+                                color: AppTheme.primaryWhite.withOpacity(0.4),
+                                fontSize: 11,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                   ],
                 ),
@@ -1113,6 +1297,108 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
               height: 1.5,
             ),
           ),
+
+          // Comment attachments
+          if (comment.attachments.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: comment.attachments.map((attachment) {
+                final isImage = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp']
+                    .contains(attachment.fileType);
+                final isVideo = attachment.fileType.startsWith('video/');
+
+                if (isImage || isVideo) {
+                  return GestureDetector(
+                    onTap: () {
+                      showDialog(
+                        context: context,
+                        builder: (context) => MediaViewerDialog(
+                          fileUrl: getAbsoluteUrl(attachment.fileUrl),
+                          fileName: attachment.fileName,
+                          fileType: attachment.fileType,
+                        ),
+                      );
+                    },
+                    child: Container(
+                      width: 100,
+                      height: 100,
+                      decoration: BoxDecoration(
+                        color: AppTheme.primaryWhite.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: AppTheme.primaryWhite.withOpacity(0.2)),
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: Stack(
+                          fit: StackFit.expand,
+                          children: [
+                            if (isImage)
+                              Image.network(
+                                getAbsoluteUrl(attachment.fileUrl),
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) => const Center(
+                                  child: Icon(Icons.broken_image, color: AppTheme.primaryWhite),
+                                ),
+                              )
+                            else
+                              Center(
+                                child: Icon(Icons.play_circle_outline, color: AppTheme.primaryWhite, size: 40),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                } else {
+                  // Document/PDF
+                  return GestureDetector(
+                    onTap: () async {
+                      final url = Uri.parse(getAbsoluteUrl(attachment.fileUrl));
+                      if (await canLaunchUrl(url)) {
+                        await launchUrl(url);
+                      }
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: AppTheme.primaryWhite.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: AppTheme.primaryWhite.withOpacity(0.2)),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            attachment.fileType == 'application/pdf'
+                                ? Icons.picture_as_pdf
+                                : Icons.insert_drive_file,
+                            size: 20,
+                            color: AppTheme.primaryWhite.withOpacity(0.7),
+                          ),
+                          const SizedBox(width: 8),
+                          ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 150),
+                            child: Text(
+                              attachment.fileName,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: AppTheme.primaryWhite.withOpacity(0.7),
+                                fontSize: 12,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }
+              }).toList(),
+            ),
+          ],
+
           if (comment.updatedAt.isAfter(comment.createdAt.add(const Duration(seconds: 1))))
             Padding(
               padding: const EdgeInsets.only(top: 8),

@@ -308,4 +308,64 @@ app.delete('/comments/:commentId', authMiddleware, async (c) => {
   }
 });
 
+// Upload attachments for a comment (up to 6)
+app.post('/comments/:commentId/attachments', authMiddleware, async (c) => {
+  try {
+    const user = c.get('user');
+    const commentId = c.req.param('commentId');
+
+    // Verify comment exists and user has permission
+    const comment = await bugReportService.getBugCommentById(commentId);
+    if (comment.userId !== user.id && user.role !== 'ADMIN') {
+      return c.json({ error: 'You can only add attachments to your own comments' }, 403);
+    }
+
+    // Check current attachment count
+    const currentCount = await bugReportService.getBugCommentAttachmentCount(commentId);
+    if (currentCount >= 6) {
+      return c.json({ error: 'Maximum 6 attachments per comment' }, 400);
+    }
+
+    const formData = await c.req.formData();
+    const files = formData.getAll('files') as File[];
+
+    if (!files || files.length === 0) {
+      return c.json({ error: 'No files provided' }, 400);
+    }
+
+    if (currentCount + files.length > 6) {
+      return c.json({
+        error: `Cannot upload ${files.length} files. Only ${6 - currentCount} more attachment(s) allowed.`
+      }, 400);
+    }
+
+    const attachments = await bugReportService.addCommentAttachments(commentId, files);
+    return c.json({ attachments }, 201);
+  } catch (error: any) {
+    console.error('[BugReports] Error uploading comment attachments:', error);
+    return c.json({ error: error.message || 'Failed to upload attachments' }, 400);
+  }
+});
+
+// Delete a comment attachment
+app.delete('/comments/:commentId/attachments/:attachmentId', authMiddleware, async (c) => {
+  try {
+    const user = c.get('user');
+    const commentId = c.req.param('commentId');
+    const attachmentId = c.req.param('attachmentId');
+
+    // Verify comment ownership
+    const comment = await bugReportService.getBugCommentById(commentId);
+    if (comment.userId !== user.id && user.role !== 'ADMIN') {
+      return c.json({ error: 'You can only delete attachments from your own comments' }, 403);
+    }
+
+    const result = await bugReportService.deleteCommentAttachment(attachmentId);
+    return c.json(result);
+  } catch (error: any) {
+    console.error('[BugReports] Error deleting comment attachment:', error);
+    return c.json({ error: error.message || 'Failed to delete attachment' }, 400);
+  }
+});
+
 export default app;

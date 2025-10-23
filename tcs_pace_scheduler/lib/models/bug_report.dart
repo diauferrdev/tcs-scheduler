@@ -103,12 +103,43 @@ class BugReporter {
   }
 }
 
+class BugCommentAttachment {
+  final String id;
+  final String fileUrl;
+  final String fileName;
+  final int fileSize;
+  final String fileType;
+  final DateTime createdAt;
+
+  BugCommentAttachment({
+    required this.id,
+    required this.fileUrl,
+    required this.fileName,
+    required this.fileSize,
+    required this.fileType,
+    required this.createdAt,
+  });
+
+  factory BugCommentAttachment.fromJson(Map<String, dynamic> json) {
+    return BugCommentAttachment(
+      id: json['id'],
+      fileUrl: json['fileUrl'],
+      fileName: json['fileName'],
+      fileSize: json['fileSize'],
+      fileType: json['fileType'],
+      createdAt: DateTime.parse(json['createdAt']),
+    );
+  }
+}
+
 class BugComment {
   final String id;
   final String content;
   final BugReporter user;
   final DateTime createdAt;
   final DateTime updatedAt;
+  final Map<String, dynamic>? deviceInfo;
+  final List<BugCommentAttachment> attachments;
 
   BugComment({
     required this.id,
@@ -116,7 +147,9 @@ class BugComment {
     required this.user,
     required this.createdAt,
     required this.updatedAt,
-  });
+    this.deviceInfo,
+    List<BugCommentAttachment>? attachments,
+  }) : attachments = attachments ?? [];
 
   factory BugComment.fromJson(Map<String, dynamic> json) {
     return BugComment(
@@ -125,6 +158,10 @@ class BugComment {
       user: BugReporter.fromJson(json['user']),
       createdAt: DateTime.parse(json['createdAt']),
       updatedAt: DateTime.parse(json['updatedAt']),
+      deviceInfo: json['deviceInfo'],
+      attachments: (json['attachments'] as List<dynamic>?)
+              ?.map((a) => BugCommentAttachment.fromJson(a))
+              .toList(),
     );
   }
 
@@ -135,6 +172,8 @@ class BugComment {
       'user': user,
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),
+      'deviceInfo': deviceInfo,
+      'attachments': attachments.map((a) => a.fileUrl).toList(),
     };
   }
 }
