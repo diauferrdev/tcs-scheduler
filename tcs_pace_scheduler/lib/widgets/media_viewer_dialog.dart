@@ -1,7 +1,10 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:photo_view/photo_view.dart';
 import 'package:video_player/video_player.dart';
 import '../providers/theme_provider.dart';
+import 'web_video_player_stub.dart'
+    if (dart.library.html) 'web_video_player_web.dart';
 
 /// Media viewer dialog for images and videos
 /// Works on both web and mobile platforms
@@ -116,7 +119,12 @@ class MediaViewerDialog extends StatelessWidget {
   }
 
   Widget _buildVideoViewer() {
-    return _VideoPlayerWidget(videoUrl: mediaUrl);
+    // Use HTML5 video for web, native player for mobile
+    if (kIsWeb) {
+      return createWebVideoPlayer(mediaUrl);
+    } else {
+      return _VideoPlayerWidget(videoUrl: mediaUrl);
+    }
   }
 
   Widget _buildUnsupportedMedia() {
@@ -164,7 +172,7 @@ class MediaViewerDialog extends StatelessWidget {
   }
 }
 
-/// Video player widget for the dialog
+/// Video player widget for the dialog (mobile)
 class _VideoPlayerWidget extends StatefulWidget {
   final String videoUrl;
 
