@@ -1,9 +1,11 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/bug_report.dart';
 import '../providers/auth_provider.dart';
 import '../providers/theme_provider.dart';
 import '../services/api_service.dart';
+import '../utils/url_helper.dart';
 import 'bug_detail_screen.dart';
 import 'create_bug_report_screen.dart';
 
@@ -28,14 +30,21 @@ class _BugReportsScreenState extends State<BugReportsScreen> {
   String _sortBy = 'likeCount';
   String _order = 'desc';
 
+  Timer? _refreshTimer;
+
   @override
   void initState() {
     super.initState();
     _loadBugReports();
+    // Auto-refresh every 30 seconds
+    _refreshTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+      if (mounted) _loadBugReports();
+    });
   }
 
   @override
   void dispose() {
+    _refreshTimer?.cancel();
     _searchController.dispose();
     super.dispose();
   }
@@ -426,7 +435,7 @@ class _BugReportsScreenState extends State<BugReportsScreen> {
                           radius: 10,
                           backgroundColor: AppTheme.primaryWhite.withOpacity(0.2),
                           backgroundImage: bug.reportedBy.avatarUrl != null
-                              ? NetworkImage(bug.reportedBy.avatarUrl!)
+                              ? NetworkImage(getAbsoluteUrl(bug.reportedBy.avatarUrl!))
                               : null,
                           child: bug.reportedBy.avatarUrl == null
                               ? Text(
@@ -481,9 +490,63 @@ class _BugReportsScreenState extends State<BugReportsScreen> {
                   ],
                 ),
               ),
+
+              // Right: Thumbnail preview (if has image/video)
+              if (hasAttachments && bug.attachments.isNotEmpty) ...[
+                const SizedBox(width: 12),
+                _buildThumbnail(bug.attachments.first),
+              ],
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildThumbnail(BugAttachment attachment) {
+    final isImage = attachment.fileType.startsWith('image/');
+    final isVideo = attachment.fileType.startsWith('video/');
+
+    return Container(
+      width: 80,
+      height: 80,
+      decoration: BoxDecoration(
+        color: AppTheme.primaryWhite.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: AppTheme.primaryWhite.withOpacity(0.2),
+        ),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: isImage
+            ? Image.network(
+                getAbsoluteUrl(attachment.fileUrl),
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) => Icon(
+                  Icons.image,
+                  color: AppTheme.primaryWhite.withOpacity(0.5),
+                ),
+              )
+            : isVideo
+                ? Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      Container(
+                        color: Colors.black87,
+                        child: Icon(
+                          Icons.play_circle_outline,
+                          size: 40,
+                          color: AppTheme.primaryWhite.withOpacity(0.8),
+                        ),
+                      ),
+                    ],
+                  )
+                : Icon(
+                    Icons.insert_drive_file,
+                    color: AppTheme.primaryWhite.withOpacity(0.5),
+                    size: 40,
+                  ),
       ),
     );
   }

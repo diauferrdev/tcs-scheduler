@@ -5,6 +5,7 @@ import '../models/bug_report.dart';
 import '../providers/auth_provider.dart';
 import '../providers/theme_provider.dart';
 import '../services/api_service.dart';
+import '../utils/url_helper.dart';
 import '../widgets/media_viewer_dialog.dart';
 import 'edit_bug_report_screen.dart';
 
@@ -450,7 +451,7 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
                                 radius: 20,
                                 backgroundColor: AppTheme.primaryWhite.withOpacity(0.2),
                                 backgroundImage: _bug!.reportedBy.avatarUrl != null
-                                    ? NetworkImage(_bug!.reportedBy.avatarUrl!)
+                                    ? NetworkImage(getAbsoluteUrl(_bug!.reportedBy.avatarUrl!))
                                     : null,
                                 child: _bug!.reportedBy.avatarUrl == null
                                     ? Text(
@@ -842,7 +843,7 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
                 radius: 16,
                 backgroundColor: AppTheme.primaryWhite.withOpacity(0.2),
                 backgroundImage: comment.user.avatarUrl != null
-                    ? NetworkImage(comment.user.avatarUrl!)
+                    ? NetworkImage(getAbsoluteUrl(comment.user.avatarUrl!))
                     : null,
                 child: comment.user.avatarUrl == null
                     ? Text(
