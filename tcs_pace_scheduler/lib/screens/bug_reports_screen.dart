@@ -5,6 +5,7 @@ import '../models/bug_report.dart';
 import '../providers/auth_provider.dart';
 import '../providers/theme_provider.dart';
 import '../services/api_service.dart';
+import '../services/websocket_service.dart';
 import '../utils/url_helper.dart';
 import 'bug_detail_screen.dart';
 import 'create_bug_report_screen.dart';
@@ -18,6 +19,7 @@ class BugReportsScreen extends StatefulWidget {
 
 class _BugReportsScreenState extends State<BugReportsScreen> {
   final ApiService _api = ApiService();
+  final WebSocketService _ws = WebSocketService();
   final TextEditingController _searchController = TextEditingController();
 
   List<BugReport> _bugReports = [];
@@ -30,23 +32,123 @@ class _BugReportsScreenState extends State<BugReportsScreen> {
   String _sortBy = 'likeCount';
   String _order = 'desc';
 
-  Timer? _refreshTimer;
+  StreamSubscription? _wsSubscription;
 
   @override
   void initState() {
     super.initState();
     _loadBugReports();
-    // Auto-refresh every 30 seconds
-    _refreshTimer = Timer.periodic(const Duration(seconds: 30), (_) {
-      if (mounted) _loadBugReports();
-    });
+    _setupWebSocket();
+  }
+
+  void _setupWebSocket() {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final userId = authProvider.user?.id;
+
+    if (userId != null) {
+      _ws.connect(userId);
+
+      _wsSubscription = _ws.messages.listen((message) {
+        if (!mounted) return;
+
+        final type = message['type'] as String?;
+        print('[BugReportsScreen] WS Event: $type');
+
+        switch (type) {
+          case 'bug_created':
+            _handleBugCreated(message['data']);
+            break;
+          case 'bug_updated':
+            _handleBugUpdated(message['data']);
+            break;
+          case 'bug_deleted':
+            _handleBugDeleted(message['data']);
+            break;
+          case 'bug_liked':
+          case 'bug_unliked':
+            _handleBugLikeChanged(message['data']);
+            break;
+          case 'bug_comment_created':
+          case 'bug_comment_updated':
+          case 'bug_comment_deleted':
+            _handleCommentChanged(message['data']);
+            break;
+        }
+      });
+    }
   }
 
   @override
   void dispose() {
-    _refreshTimer?.cancel();
+    _wsSubscription?.cancel();
     _searchController.dispose();
     super.dispose();
+  }
+
+  void _handleBugCreated(dynamic data) {
+    try {
+      final newBug = BugReport.fromJson(data);
+      setState(() {
+        _bugReports.insert(0, newBug);
+      });
+    } catch (e) {
+      print('[BugReportsScreen] Error handling bug_created: $e');
+    }
+  }
+
+  void _handleBugUpdated(dynamic data) {
+    try {
+      final updatedBug = BugReport.fromJson(data);
+      setState(() {
+        final index = _bugReports.indexWhere((b) => b.id == updatedBug.id);
+        if (index != -1) {
+          _bugReports[index] = updatedBug;
+        }
+      });
+    } catch (e) {
+      print('[BugReportsScreen] Error handling bug_updated: $e');
+    }
+  }
+
+  void _handleBugDeleted(dynamic data) {
+    try {
+      final bugId = data['id'] as String;
+      setState(() {
+        _bugReports.removeWhere((b) => b.id == bugId);
+      });
+    } catch (e) {
+      print('[BugReportsScreen] Error handling bug_deleted: $e');
+    }
+  }
+
+  void _handleBugLikeChanged(dynamic data) {
+    try {
+      final bugId = data['bugId'] as String;
+      final likeCount = data['likeCount'] as int;
+      setState(() {
+        final index = _bugReports.indexWhere((b) => b.id == bugId);
+        if (index != -1) {
+          _bugReports[index] = _bugReports[index].copyWith(likeCount: likeCount);
+        }
+      });
+    } catch (e) {
+      print('[BugReportsScreen] Error handling like change: $e');
+    }
+  }
+
+  void _handleCommentChanged(dynamic data) {
+    // Reload the specific bug to get updated comment count
+    // For now, we'll just trigger a refresh of that specific bug
+    try {
+      final bugReportId = data['bugReportId'] as String? ?? data['bugId'] as String?;
+      if (bugReportId != null) {
+        // We could either refetch the entire list or just update comment count
+        // For simplicity, let's just refetch
+        _loadBugReports();
+      }
+    } catch (e) {
+      print('[BugReportsScreen] Error handling comment change: $e');
+    }
   }
 
   Future<void> _loadBugReports() async {

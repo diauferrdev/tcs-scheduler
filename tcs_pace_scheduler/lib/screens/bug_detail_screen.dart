@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -5,6 +6,7 @@ import '../models/bug_report.dart';
 import '../providers/auth_provider.dart';
 import '../providers/theme_provider.dart';
 import '../services/api_service.dart';
+import '../services/websocket_service.dart';
 import '../utils/url_helper.dart';
 import '../widgets/media_viewer_dialog.dart';
 import 'edit_bug_report_screen.dart';
@@ -20,6 +22,7 @@ class BugDetailScreen extends StatefulWidget {
 
 class _BugDetailScreenState extends State<BugDetailScreen> {
   final ApiService _api = ApiService();
+  final WebSocketService _ws = WebSocketService();
   final TextEditingController _commentController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
 
@@ -29,18 +32,158 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
   String? _errorMessage;
   bool _isSubmittingComment = false;
   String? _editingCommentId;
+  StreamSubscription? _wsSubscription;
 
   @override
   void initState() {
     super.initState();
     _loadBugDetails();
+    _setupWebSocket();
+  }
+
+  void _setupWebSocket() {
+    _wsSubscription = _ws.messages.listen((message) {
+      if (!mounted) return;
+
+      final type = message['type'] as String?;
+      final data = message['data'];
+
+      switch (type) {
+        case 'bug_updated':
+          if (data['id'] == widget.bugId) {
+            _handleBugUpdated(data);
+          }
+          break;
+        case 'bug_deleted':
+          if (data['id'] == widget.bugId) {
+            Navigator.pop(context);
+          }
+          break;
+        case 'bug_liked':
+        case 'bug_unliked':
+          if (data['bugId'] == widget.bugId) {
+            _handleLikeChanged(data);
+          }
+          break;
+        case 'bug_comment_created':
+          if (data['bugReportId'] == widget.bugId) {
+            _handleCommentCreated(data);
+          }
+          break;
+        case 'bug_comment_updated':
+          if (data['bugReportId'] == widget.bugId) {
+            _handleCommentUpdated(data);
+          }
+          break;
+        case 'bug_comment_deleted':
+          if (data['bugReportId'] == widget.bugId) {
+            _handleCommentDeleted(data);
+          }
+          break;
+      }
+    });
   }
 
   @override
   void dispose() {
+    _wsSubscription?.cancel();
     _commentController.dispose();
     _scrollController.dispose();
     super.dispose();
+  }
+
+  void _handleBugUpdated(dynamic data) {
+    try {
+      final updatedBug = BugReport.fromJson(data);
+      if (mounted) {
+        setState(() {
+          _bug = updatedBug;
+        });
+      }
+    } catch (e) {
+      print('[BugDetail] Error handling bug_updated: $e');
+    }
+  }
+
+  void _handleLikeChanged(dynamic data) {
+    try {
+      final likeCount = data['likeCount'] as int;
+      final userId = data['userId'] as String;
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+
+      if (mounted && _bug != null) {
+        setState(() {
+          _bug = _bug!.copyWith(likeCount: likeCount);
+          // Update _isUpvoted if the like/unlike was from current user
+          if (userId == authProvider.user?.id) {
+            _isUpvoted = data['type'] == 'bug_liked';
+          }
+        });
+      }
+    } catch (e) {
+      print('[BugDetail] Error handling like change: $e');
+    }
+  }
+
+  void _handleCommentCreated(dynamic data) {
+    try {
+      final comment = BugComment.fromJson(data);
+      if (mounted && _bug != null) {
+        setState(() {
+          _bug = _bug!.copyWith(
+            comments: [...?_bug!.comments, comment],
+            commentCount: (_bug!.commentCount ?? 0) + 1,
+          );
+        });
+        // Scroll to bottom to show new comment
+        Future.delayed(const Duration(milliseconds: 300), () {
+          if (_scrollController.hasClients) {
+            _scrollController.animateTo(
+              _scrollController.position.maxScrollExtent,
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeOut,
+            );
+          }
+        });
+      }
+    } catch (e) {
+      print('[BugDetail] Error handling comment_created: $e');
+    }
+  }
+
+  void _handleCommentUpdated(dynamic data) {
+    try {
+      final updatedComment = BugComment.fromJson(data);
+      if (mounted && _bug != null && _bug!.comments != null) {
+        setState(() {
+          final comments = [..._bug!.comments!];
+          final index = comments.indexWhere((c) => c.id == updatedComment.id);
+          if (index != -1) {
+            comments[index] = updatedComment;
+            _bug = _bug!.copyWith(comments: comments);
+          }
+        });
+      }
+    } catch (e) {
+      print('[BugDetail] Error handling comment_updated: $e');
+    }
+  }
+
+  void _handleCommentDeleted(dynamic data) {
+    try {
+      final commentId = data['id'] as String;
+      if (mounted && _bug != null && _bug!.comments != null) {
+        setState(() {
+          final comments = _bug!.comments!.where((c) => c.id != commentId).toList();
+          _bug = _bug!.copyWith(
+            comments: comments,
+            commentCount: (_bug!.commentCount ?? 1) - 1,
+          );
+        });
+      }
+    } catch (e) {
+      print('[BugDetail] Error handling comment_deleted: $e');
+    }
   }
 
   Future<void> _loadBugDetails() async {

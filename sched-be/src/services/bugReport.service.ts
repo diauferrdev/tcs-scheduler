@@ -498,6 +498,10 @@ export async function likeBugReport(bugId: string, userId: string) {
     userName: like.user.name,
   });
 
+  // Get updated bug to get new like count
+  const updatedBug = await getBugReportById(bugId);
+  websocketService.broadcastBugLiked(bugId, userId, updatedBug.likeCount);
+
   return like;
 }
 
@@ -543,6 +547,10 @@ export async function unlikeBugReport(bugId: string, userId: string) {
     bugId,
     userId,
   });
+
+  // Get updated bug to get new like count
+  const updatedBug = await getBugReportById(bugId);
+  websocketService.broadcastBugUnliked(bugId, userId, updatedBug.likeCount);
 
   return { success: true, message: 'Like removed successfully' };
 }
@@ -646,6 +654,9 @@ export async function createBugComment(
     user: comment.user.name,
   });
 
+  // Broadcast comment creation to all connected users
+  websocketService.broadcastBugCommentCreated(comment);
+
   return comment;
 }
 
@@ -691,7 +702,7 @@ export async function updateBugComment(
     throw new Error('Cannot edit comments on closed bug reports');
   }
 
-  return await prisma.bugComment.update({
+  const updatedComment = await prisma.bugComment.update({
     where: { id: commentId },
     data: { content },
     include: {
@@ -706,6 +717,11 @@ export async function updateBugComment(
       },
     },
   });
+
+  // Broadcast comment update to all connected users
+  websocketService.broadcastBugCommentUpdated(updatedComment);
+
+  return updatedComment;
 }
 
 export async function deleteBugComment(
@@ -726,9 +742,14 @@ export async function deleteBugComment(
     throw new Error('You can only delete your own comments');
   }
 
+  const bugReportId = comment.bugReportId;
+
   await prisma.bugComment.delete({
     where: { id: commentId },
   });
+
+  // Broadcast comment deletion to all connected users
+  websocketService.broadcastBugCommentDeleted(commentId, bugReportId);
 
   return { success: true, message: 'Comment deleted' };
 }

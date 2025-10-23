@@ -243,6 +243,50 @@ class BugReport {
     };
   }
 
+  BugReport copyWith({
+    String? id,
+    String? title,
+    String? description,
+    Platform? platform,
+    Map<String, dynamic>? deviceInfo,
+    BugStatus? status,
+    List<BugAttachment>? attachments,
+    List<BugComment>? comments,
+    List<BugLike>? likes,
+    int? likeCount,
+    int? commentCount,
+    BugReporter? reportedBy,
+    BugReporter? resolvedBy,
+    DateTime? resolvedAt,
+    String? resolutionNotes,
+    BugReporter? closedBy,
+    DateTime? closedAt,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+  }) {
+    return BugReport(
+      id: id ?? this.id,
+      title: title ?? this.title,
+      description: description ?? this.description,
+      platform: platform ?? this.platform,
+      deviceInfo: deviceInfo ?? this.deviceInfo,
+      status: status ?? this.status,
+      attachments: attachments ?? this.attachments,
+      comments: comments ?? this.comments,
+      likes: likes ?? this.likes,
+      likeCount: likeCount ?? this.likeCount,
+      commentCount: commentCount ?? this.commentCount,
+      reportedBy: reportedBy ?? this.reportedBy,
+      resolvedBy: resolvedBy ?? this.resolvedBy,
+      resolvedAt: resolvedAt ?? this.resolvedAt,
+      resolutionNotes: resolutionNotes ?? this.resolutionNotes,
+      closedBy: closedBy ?? this.closedBy,
+      closedAt: closedAt ?? this.closedAt,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+    );
+  }
+
   String get platformDisplay {
     switch (platform) {
       case Platform.WINDOWS:
