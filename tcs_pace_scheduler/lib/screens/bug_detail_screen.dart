@@ -449,6 +449,11 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
       isAdmin ||
       (isOwner && _bug!.status != BugStatus.RESOLVED && _bug!.status != BugStatus.CLOSED)
     );
+    // Admin can always delete, owner can delete if not resolved/closed
+    final canDelete = _bug != null && (
+      isAdmin ||
+      (isOwner && _bug!.status != BugStatus.RESOLVED && _bug!.status != BugStatus.CLOSED)
+    );
     final canComment = _bug != null && _bug!.status != BugStatus.CLOSED;
 
     return Scaffold(
@@ -471,7 +476,7 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
               onPressed: _editBugReport,
               tooltip: 'Edit Bug Report',
             ),
-          if (isAdmin)
+          if (canDelete)
             IconButton(
               icon: const Icon(Icons.delete, color: Colors.red),
               onPressed: _deleteBugReport,

@@ -226,10 +226,6 @@ class _BugReportsScreenState extends State<BugReportsScreen> {
         backgroundColor: backgroundColor,
         elevation: 0,
         actions: [
-          IconButton(
-            icon: Icon(Icons.refresh, color: textColor),
-            onPressed: _loadBugReports,
-          ),
           if (_selectedStatus != null || _selectedPlatform != null || _searchController.text.isNotEmpty)
             IconButton(
               icon: Icon(Icons.filter_alt_off, color: textColor),
@@ -418,21 +414,21 @@ class _BugReportsScreenState extends State<BugReportsScreen> {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Left: Upvote column (Discord style)
+              // Left: Upvote column (Reddit style)
               Column(
                 children: [
                   Icon(
-                    Icons.thumb_up,
+                    Icons.arrow_upward,
                     size: 20,
-                    color: bug.likeCount > 0 ? Colors.blue : AppTheme.primaryWhite.withOpacity(0.3),
+                    color: bug.likeCount > 0 ? Colors.orange : AppTheme.primaryWhite.withOpacity(0.3),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     '${bug.likeCount}',
                     style: TextStyle(
-                      color: bug.likeCount > 0 ? Colors.blue : AppTheme.primaryWhite.withOpacity(0.5),
+                      color: bug.likeCount > 0 ? Colors.orange : AppTheme.primaryWhite.withOpacity(0.5),
                       fontWeight: FontWeight.bold,
-                      fontSize: 16,
+                      fontSize: 14,
                     ),
                   ),
                 ],
@@ -476,19 +472,19 @@ class _BugReportsScreenState extends State<BugReportsScreen> {
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                             decoration: BoxDecoration(
-                              color: Colors.purple.withOpacity(0.15),
+                              color: AppTheme.primaryWhite.withOpacity(0.15),
                               borderRadius: BorderRadius.circular(6),
-                              border: Border.all(color: Colors.purple.withOpacity(0.3)),
+                              border: Border.all(color: AppTheme.primaryWhite.withOpacity(0.3)),
                             ),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                const Icon(Icons.attach_file, size: 12, color: Colors.purple),
+                                Icon(Icons.attach_file, size: 12, color: AppTheme.primaryWhite.withOpacity(0.9)),
                                 const SizedBox(width: 2),
                                 Text(
                                   '${bug.attachments.length}',
-                                  style: const TextStyle(
-                                    color: Colors.purple,
+                                  style: TextStyle(
+                                    color: AppTheme.primaryWhite.withOpacity(0.9),
                                     fontSize: 11,
                                     fontWeight: FontWeight.bold,
                                   ),
@@ -515,15 +511,14 @@ class _BugReportsScreenState extends State<BugReportsScreen> {
 
                     const SizedBox(height: 6),
 
-                    // Description preview
+                    // Description preview (single line)
                     Text(
                       bug.description,
-                      maxLines: 2,
+                      maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         color: AppTheme.primaryWhite.withOpacity(0.6),
                         fontSize: 13,
-                        height: 1.4,
                       ),
                     ),
 
