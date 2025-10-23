@@ -300,8 +300,11 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
     final authProvider = Provider.of<AuthProvider>(context);
     final isAdmin = authProvider.user?.role == 'ADMIN';
     final isOwner = _bug != null && authProvider.user?.id == _bug!.reportedBy.id;
-    final canEdit = (isOwner || isAdmin) && _bug != null &&
-        (_bug!.status != BugStatus.RESOLVED && _bug!.status != BugStatus.CLOSED);
+    // Admin can edit any bug, owner can only edit if not resolved/closed
+    final canEdit = _bug != null && (
+      isAdmin ||
+      (isOwner && _bug!.status != BugStatus.RESOLVED && _bug!.status != BugStatus.CLOSED)
+    );
     final canComment = _bug != null && _bug!.status != BugStatus.CLOSED;
 
     return Scaffold(

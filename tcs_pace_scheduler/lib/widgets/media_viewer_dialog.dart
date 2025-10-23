@@ -2,9 +2,20 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:photo_view/photo_view.dart';
 import 'package:video_player/video_player.dart';
+import '../config/api_config.dart';
 import '../providers/theme_provider.dart';
 import 'web_video_player_stub.dart'
     if (dart.library.html) 'web_video_player_web.dart';
+
+/// Helper to convert relative URLs to absolute
+String _getAbsoluteUrl(String url) {
+  if (url.startsWith('http://') || url.startsWith('https://')) {
+    return url;
+  }
+  // Remove leading slash if present
+  final path = url.startsWith('/') ? url.substring(1) : url;
+  return '${ApiConfig.baseUrl}/$path';
+}
 
 /// Media viewer dialog for images and videos
 /// Works on both web and mobile platforms
@@ -86,8 +97,9 @@ class MediaViewerDialog extends StatelessWidget {
   }
 
   Widget _buildImageViewer() {
+    final absoluteUrl = _getAbsoluteUrl(mediaUrl);
     return PhotoView(
-      imageProvider: NetworkImage(mediaUrl),
+      imageProvider: NetworkImage(absoluteUrl),
       backgroundDecoration: const BoxDecoration(color: Colors.black),
       minScale: PhotoViewComputedScale.contained,
       maxScale: PhotoViewComputedScale.covered * 3,
@@ -119,11 +131,12 @@ class MediaViewerDialog extends StatelessWidget {
   }
 
   Widget _buildVideoViewer() {
+    final absoluteUrl = _getAbsoluteUrl(mediaUrl);
     // Use HTML5 video for web, native player for mobile
     if (kIsWeb) {
-      return createWebVideoPlayer(mediaUrl);
+      return createWebVideoPlayer(absoluteUrl);
     } else {
-      return _VideoPlayerWidget(videoUrl: mediaUrl);
+      return _VideoPlayerWidget(videoUrl: absoluteUrl);
     }
   }
 
