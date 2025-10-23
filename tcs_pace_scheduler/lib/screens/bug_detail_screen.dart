@@ -442,18 +442,20 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context);
-    final isAdmin = authProvider.user?.role == 'ADMIN';
+    final isAdmin = authProvider.user?.isAdmin ?? false;
     final isOwner = _bug != null && authProvider.user?.id == _bug!.reportedBy.id;
+
     // Admin can edit any bug, owner can only edit if not resolved/closed
     final canEdit = _bug != null && (
       isAdmin ||
       (isOwner && _bug!.status != BugStatus.RESOLVED && _bug!.status != BugStatus.CLOSED)
     );
-    // Admin can always delete, owner can delete if not resolved/closed
+    // Admin can ALWAYS delete any bug, owner can delete only if not resolved/closed
     final canDelete = _bug != null && (
-      isAdmin ||
+      isAdmin || // Admin can delete ANY bug regardless of status
       (isOwner && _bug!.status != BugStatus.RESOLVED && _bug!.status != BugStatus.CLOSED)
     );
+
     final canComment = _bug != null && _bug!.status != BugStatus.CLOSED;
 
     return Scaffold(
@@ -968,7 +970,7 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
 
   Widget _buildCommentCard(BugComment comment, AuthProvider authProvider) {
     final isOwner = authProvider.user?.id == comment.user.id;
-    final isAdmin = authProvider.user?.role == 'ADMIN';
+    final isAdmin = authProvider.user?.isAdmin ?? false;
     final canEdit = (isOwner || isAdmin) && _bug!.status != BugStatus.CLOSED;
     final canDelete = (isOwner || isAdmin) && _bug!.status != BugStatus.CLOSED;
 

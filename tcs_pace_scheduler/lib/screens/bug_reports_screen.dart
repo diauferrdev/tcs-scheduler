@@ -213,8 +213,8 @@ class _BugReportsScreenState extends State<BugReportsScreen> {
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context);
     final themeProvider = Provider.of<ThemeProvider>(context);
-    final isAdmin = authProvider.user?.role == 'ADMIN';
-    final isManager = authProvider.user?.role == 'MANAGER';
+    final isAdmin = authProvider.user?.isAdmin ?? false;
+    final isManager = authProvider.user?.isManager ?? false;
 
     final backgroundColor = themeProvider.isDark ? AppTheme.primaryBlack : const Color(0xFFF9FAFB);
     final textColor = themeProvider.isDark ? AppTheme.primaryWhite : Colors.black;
@@ -511,9 +511,9 @@ class _BugReportsScreenState extends State<BugReportsScreen> {
 
                     const SizedBox(height: 6),
 
-                    // Description preview (single line)
+                    // Description preview (single line, remove line breaks)
                     Text(
-                      bug.description,
+                      bug.description.replaceAll('\n', ' ').replaceAll('\r', ' '),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
