@@ -301,16 +301,24 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
   Future<void> _submitComment() async {
     if (_commentController.text.trim().isEmpty) return;
 
-    setState(() => _isSubmittingComment = true);
+    setState(() {
+      _isSubmittingComment = true;
+      _isUploadingAttachments = _selectedFiles.isNotEmpty;
+    });
 
     try {
       String? commentId;
 
       if (_editingCommentId != null) {
-        // Update existing comment (no device info update on edit)
+        // Update existing comment (no attachments on edit for now)
         await _api.updateBugComment(_editingCommentId!, _commentController.text.trim());
         commentId = _editingCommentId;
         setState(() => _editingCommentId = null);
+
+        // Upload attachments if any
+        if (_selectedFiles.isNotEmpty && commentId != null) {
+          await _api.uploadCommentAttachments(commentId, _selectedFiles);
+        }
       } else {
         // Create new comment with device info
         final deviceInfo = await DeviceInfoHelper.getDeviceInfo();
@@ -320,44 +328,52 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
           deviceInfo: deviceInfo,
         );
         commentId = comment['id'];
-      }
 
-      // Upload attachments if any (only for new comments or existing ones)
-      if (_selectedFiles.isNotEmpty && commentId != null) {
-        setState(() => _isUploadingAttachments = true);
-        try {
+        // Upload attachments BEFORE showing success
+        if (_selectedFiles.isNotEmpty && commentId != null) {
           await _api.uploadCommentAttachments(commentId, _selectedFiles);
-        } catch (e) {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Comment posted but attachments failed: $e')),
-            );
-          }
-        } finally {
-          setState(() => _isUploadingAttachments = false);
         }
       }
 
+      // Only clear and reload after EVERYTHING succeeded
       _commentController.clear();
       _selectedFiles.clear();
       await _loadBugDetails();
 
       // Scroll to bottom to show new comment
       if (_scrollController.hasClients) {
+        await Future.delayed(const Duration(milliseconds: 100));
         _scrollController.animateTo(
           _scrollController.position.maxScrollExtent,
           duration: const Duration(milliseconds: 300),
           curve: Curves.easeOut,
         );
       }
+
+      // Show success message
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Comment posted successfully'),
+            duration: Duration(seconds: 2),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
+          SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     } finally {
-      setState(() => _isSubmittingComment = false);
+      setState(() {
+        _isSubmittingComment = false;
+        _isUploadingAttachments = false;
+      });
     }
   }
 
@@ -1129,7 +1145,13 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
                                               ),
                                             )
                                           : Icon(_editingCommentId != null ? Icons.save : Icons.send),
-                                        label: Text(_editingCommentId != null ? 'Update' : 'Comment'),
+                                        label: Text(
+                                          _isUploadingAttachments && _isSubmittingComment
+                                              ? 'Uploading...'
+                                              : _editingCommentId != null
+                                                  ? 'Update'
+                                                  : 'Comment',
+                                        ),
                                         style: ElevatedButton.styleFrom(
                                           backgroundColor: AppTheme.primaryWhite,
                                           foregroundColor: AppTheme.primaryBlack,
