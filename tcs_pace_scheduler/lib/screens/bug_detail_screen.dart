@@ -1315,7 +1315,7 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
                       showDialog(
                         context: context,
                         builder: (context) => MediaViewerDialog(
-                          fileUrl: getAbsoluteUrl(attachment.fileUrl),
+                          mediaUrl: getAbsoluteUrl(attachment.fileUrl),
                           fileName: attachment.fileName,
                           fileType: attachment.fileType,
                         ),
