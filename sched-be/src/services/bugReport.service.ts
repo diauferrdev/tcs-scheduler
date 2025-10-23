@@ -614,7 +614,8 @@ export async function getBugStatistics() {
 export async function createBugComment(
   bugReportId: string,
   content: string,
-  userId: string
+  userId: string,
+  deviceInfo?: any
 ) {
   // Check if bug exists and is not closed
   const bug = await prisma.bugReport.findUnique({
@@ -634,6 +635,7 @@ export async function createBugComment(
       content,
       bugReportId,
       userId,
+      deviceInfo: deviceInfo || null,
     },
     include: {
       user: {
@@ -645,6 +647,7 @@ export async function createBugComment(
           avatarUrl: true,
         },
       },
+      attachments: true,
     },
   });
 
@@ -671,6 +674,11 @@ export async function getBugComments(bugReportId: string) {
           email: true,
           role: true,
           avatarUrl: true,
+        },
+      },
+      attachments: {
+        orderBy: {
+          createdAt: 'asc',
         },
       },
     },
@@ -715,6 +723,7 @@ export async function updateBugComment(
           avatarUrl: true,
         },
       },
+      attachments: true,
     },
   });
 

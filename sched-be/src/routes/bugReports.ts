@@ -269,9 +269,9 @@ app.post('/:id/comments', authMiddleware, zValidator('json', BugCommentCreateSch
   try {
     const user = c.get('user');
     const id = c.req.param('id');
-    const { content } = c.req.valid('json');
+    const { content, deviceInfo } = c.req.valid('json');
 
-    const comment = await bugReportService.createBugComment(id, content, user.id);
+    const comment = await bugReportService.createBugComment(id, content, user.id, deviceInfo);
     return c.json(comment, 201);
   } catch (error: any) {
     console.error('[BugReports] Error creating comment:', error);

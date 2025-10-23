@@ -295,6 +295,7 @@ export const BugReportFilterSchema = z.object({
 
 export const BugCommentCreateSchema = z.object({
   content: z.string().min(1, 'Comment cannot be empty').max(2000, 'Comment must be less than 2000 characters'),
+  deviceInfo: z.any().optional(),
 });
 
 export const BugCommentUpdateSchema = z.object({
