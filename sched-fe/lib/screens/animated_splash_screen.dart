@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:splash_master/splash_master.dart';
 
 /// Animated Splash Screen with TCS Pace logo
@@ -102,8 +101,8 @@ class _AnimatedSplashScreenState extends State<AnimatedSplashScreen>
               opacity: _fadeAnimation,
               child: ScaleTransition(
                 scale: _scaleAnimation,
-                child: SvgPicture.asset(
-                  'assets/logos/tcs-pace-logo-w.svg',
+                child: Image.asset(
+                  'assets/splash/tcs_logo_static.png',
                   width: 300,
                   height: 300,
                   fit: BoxFit.contain,

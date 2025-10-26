@@ -105,6 +105,16 @@ BUILD_SIZE=$(du -sh build/web/ | cut -f1)
 print_success "Web build complete! ($BUILD_SIZE)"
 echo ""
 
+# Fix service worker to handle 206 responses
+print_header "🔧 Fixing Service Worker"
+print_info "Patching service worker to handle partial responses (206)..."
+if [ -f "scripts/fix_service_worker.sh" ]; then
+    bash scripts/fix_service_worker.sh
+else
+    print_warning "Service worker fix script not found, skipping..."
+fi
+echo ""
+
 # Update nginx and reload
 print_header "🔧 Updating Nginx"
 

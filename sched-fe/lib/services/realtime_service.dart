@@ -124,6 +124,9 @@ class RealtimeService {
     }
 
     try {
+      // IMPORTANT: Initialize ApiService first to load session cookie from storage
+      await _apiService.initialize();
+
       final sessionCookie = _apiService.getSessionCookie();
       if (sessionCookie == null) {
         debugPrint('[RealtimeService] No session cookie, cannot connect');

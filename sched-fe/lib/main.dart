@@ -12,7 +12,6 @@ import 'providers/auth_provider.dart';
 import 'providers/theme_provider.dart';
 import 'router.dart';
 import 'services/unified_notification_service.dart';
-import 'screens/animated_splash_screen.dart';
 
 /// Check if Firebase is supported on current platform
 /// Firebase is supported on: Android, iOS, web, macOS
@@ -92,6 +91,10 @@ void main() async {
     ),
   );
 
+  // Resume Flutter frames - native splash will be shown until this is called
+  // For image-based splash screens, we call resume() after initialization
+  SplashMaster.resume();
+
   runApp(const MyApp());
 }
 
@@ -119,7 +122,6 @@ class _AppRouter extends StatefulWidget {
 
 class _AppRouterState extends State<_AppRouter> {
   late final GoRouter _router;
-  bool _showSplash = true;
 
   @override
   void initState() {
@@ -128,31 +130,12 @@ class _AppRouterState extends State<_AppRouter> {
     _router = createRouter(authProvider);
   }
 
-  void _onSplashComplete() {
-    setState(() {
-      _showSplash = false;
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
     return Consumer<ThemeProvider>(
       builder: (context, themeProvider, child) {
-        if (_showSplash) {
-          // Show animated splash screen first
-          return MaterialApp(
-            title: 'TCS Pace Scheduler',
-            debugShowCheckedModeBanner: false,
-            theme: ThemeProvider.darkTheme,
-            themeMode: ThemeMode.dark,
-            home: AnimatedSplashScreen(
-              nextScreen: Container(), // Placeholder, navigation handled internally
-              onAnimationComplete: _onSplashComplete,
-            ),
-          );
-        }
-
-        // Show main app after splash
+        // Native splash screen handled by splash_master
+        // Show main app directly
         return MaterialApp.router(
           title: 'TCS Pace Scheduler | Enterprise Office Visit Scheduling System',
           debugShowCheckedModeBanner: false,
