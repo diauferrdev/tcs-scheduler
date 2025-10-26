@@ -44,4 +44,26 @@ app.get('/tokens', authMiddleware, async (c) => {
   });
 });
 
+// Send test notification to all devices (diego@tcs.com only)
+app.post('/test-notification', authMiddleware, async (c) => {
+  const userEmail = c.get('user').email;
+
+  // Only allow diego@tcs.com to send test notifications
+  if (userEmail !== 'diego@tcs.com') {
+    return c.json({ error: 'Unauthorized. Only diego@tcs.com can send test notifications.' }, 403);
+  }
+
+  try {
+    const result = await pushService.sendTestNotificationToAll();
+    return c.json({
+      success: true,
+      message: `Test notification sent to ${result.deviceCount} device(s)`,
+      deviceCount: result.deviceCount,
+    });
+  } catch (error: any) {
+    console.error('[FCM] Error in test-notification endpoint:', error);
+    return c.json({ error: error.message || 'Failed to send test notification' }, 500);
+  }
+});
+
 export default app;

@@ -71,8 +71,15 @@ app.use('*', cors({
   maxAge: 86400,
 }));
 
-// Serve static files for uploads
-app.use('/uploads/*', serveStatic({ root: './' }));
+// Serve static files for uploads with caching
+app.use('/uploads/*', serveStatic({
+  root: './',
+  onFound: (path, c) => {
+    // Cache static files for 1 year (immutable content with unique filenames)
+    c.header('Cache-Control', 'public, max-age=31536000, immutable');
+    c.header('Access-Control-Allow-Origin', '*');
+  }
+}));
 
 app.route('/api/auth', authRoutes);
 app.route('/api/bookings', bookingRoutes);

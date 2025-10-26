@@ -1119,3 +1119,78 @@ export async function sendBookingCancelledNotification(bookingId: string): Promi
     throw error;
   }
 }
+
+/**
+ * Send test notification to ALL registered devices
+ * Used by admin for testing FCM functionality
+ */
+export async function sendTestNotificationToAll(): Promise<{ deviceCount: number }> {
+  try {
+    console.log('[FCM] Sending test notification to all devices...');
+
+    // Get all active FCM tokens
+    const tokens = await prisma.fCMToken.findMany({
+      where: {
+        active: true,
+      },
+      select: {
+        token: true,
+        userId: true,
+        user: {
+          select: {
+            name: true,
+          },
+        },
+      },
+    });
+
+    if (tokens.length === 0) {
+      console.log('[FCM] No active tokens found');
+      return { deviceCount: 0 };
+    }
+
+    console.log(`[FCM] Found ${tokens.length} active device(s)`);
+
+    // Send notification to all devices
+    const notification: PushNotification = {
+      title: '🔔 Test Notification',
+      body: 'FCM is working correctly! This is a test notification from TCS Pace Scheduler.',
+      data: {
+        type: 'TEST',
+        screen: 'none',
+      },
+    };
+
+    const account = loadServiceAccount();
+    if (!account) {
+      throw new Error('Firebase service account not loaded');
+    }
+
+    // Send to all tokens (in batches to avoid overwhelming)
+    const batchSize = 10;
+    let successCount = 0;
+
+    for (let i = 0; i < tokens.length; i += batchSize) {
+      const batch = tokens.slice(i, i + batchSize);
+
+      await Promise.all(
+        batch.map(async ({ token, userId, user }) => {
+          try {
+            await sendPushToToken(token, notification, account.project_id, userId);
+            console.log(`[FCM] ✅ Sent to ${user?.name || userId}`);
+            successCount++;
+          } catch (error) {
+            console.error(`[FCM] ❌ Failed to send to ${user?.name || userId}:`, error);
+          }
+        })
+      );
+    }
+
+    console.log(`[FCM] ✅ Test notification sent to ${successCount}/${tokens.length} device(s)`);
+
+    return { deviceCount: successCount };
+  } catch (error) {
+    console.error('[FCM] Error sending test notification:', error);
+    throw error;
+  }
+}
