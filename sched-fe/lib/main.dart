@@ -91,11 +91,13 @@ void main() async {
     ),
   );
 
-  // Resume Flutter frames - native splash will be shown until this is called
-  // For image-based splash screens, we call resume() after initialization
-  SplashMaster.resume();
-
+  // Start the app
   runApp(const MyApp());
+
+  // Delay splash screen for better branding visibility (3 seconds)
+  // Resume Flutter frames after delay - native splash will be shown until this is called
+  await Future.delayed(const Duration(seconds: 3));
+  SplashMaster.resume();
 }
 
 class MyApp extends StatelessWidget {

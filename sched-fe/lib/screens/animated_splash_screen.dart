@@ -102,8 +102,8 @@ class _AnimatedSplashScreenState extends State<AnimatedSplashScreen>
               child: ScaleTransition(
                 scale: _scaleAnimation,
                 child: Image.asset(
-                  'assets/splash/tcs_logo_static.png',
-                  width: 220,
+                  'assets/splash/tcs_logo_splash.png',
+                  width: 180,
                   fit: BoxFit.contain,
                 ),
               ),
