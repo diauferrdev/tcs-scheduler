@@ -733,6 +733,7 @@ export async function sendBookingUpdateNotification(bookingId: string): Promise<
 
 /**
  * Send push notification when booking is approved
+ * NOTE: This is handled by notification.service.ts to avoid duplicates
  * @param bookingId - Booking ID
  */
 export async function sendBookingApprovedNotification(bookingId: string): Promise<void> {
@@ -761,7 +762,7 @@ export async function sendBookingApprovedNotification(bookingId: string): Promis
 
     const messageBody = `Your booking for ${booking.companyName} on ${formattedDate} at ${booking.startTime} has been approved`;
 
-    // Create in-app notification (this already sends push via notification.service.ts)
+    // Create in-app notification (this already sends push + websocket via notification.service.ts)
     const notificationService = await import('./notification.service');
     await notificationService.createNotification({
       type: 'BOOKING_APPROVED',
@@ -772,7 +773,7 @@ export async function sendBookingApprovedNotification(bookingId: string): Promis
       screen: 'booking_details',
     });
 
-    console.log(`[FCM] ✅ Booking approved notification sent to user ${booking.createdById}`);
+    console.log(`[FCM] ✅ Booking approved notification sent (via notification.service) to user ${booking.createdById}`);
   } catch (error) {
     console.error('[FCM] Error sending booking approved notification:', error);
     throw error;
@@ -781,6 +782,7 @@ export async function sendBookingApprovedNotification(bookingId: string): Promis
 
 /**
  * Send push notification when manager requests edit
+ * NOTE: This is handled by notification.service.ts to avoid duplicates
  * @param bookingId - Booking ID
  */
 export async function sendEditRequestNotification(bookingId: string): Promise<void> {
@@ -805,7 +807,7 @@ export async function sendEditRequestNotification(bookingId: string): Promise<vo
 
     const messageBody = booking.editRequestMessage || `Your booking for ${booking.organizationName || booking.companyName} needs to be edited. Please review and update the information.`;
 
-    // Create in-app notification (this already sends push via notification.service.ts)
+    // Create in-app notification (this already sends push + websocket via notification.service.ts)
     const notificationService = await import('./notification.service');
     await notificationService.createNotification({
       type: 'BOOKING_NEED_EDIT',
@@ -816,7 +818,7 @@ export async function sendEditRequestNotification(bookingId: string): Promise<vo
       screen: 'my_bookings',
     });
 
-    console.log(`[FCM] ✅ Edit request notification sent to user ${booking.createdById}`);
+    console.log(`[FCM] ✅ Edit request notification sent (via notification.service) to user ${booking.createdById}`);
   } catch (error) {
     console.error('[FCM] Error sending edit request notification:', error);
     throw error;
@@ -825,6 +827,7 @@ export async function sendEditRequestNotification(bookingId: string): Promise<vo
 
 /**
  * Send push notification when manager requests reschedule
+ * NOTE: This is handled by notification.service.ts to avoid duplicates
  * @param bookingId - Booking ID
  */
 export async function sendRescheduleRequestNotification(bookingId: string): Promise<void> {
@@ -849,7 +852,7 @@ export async function sendRescheduleRequestNotification(bookingId: string): Prom
 
     const messageBody = booking.rescheduleRequestMessage || `Your booking for ${booking.organizationName || booking.companyName} needs to be rescheduled. Please choose a new date.`;
 
-    // Create in-app notification (this already sends push via notification.service.ts)
+    // Create in-app notification (this already sends push + websocket via notification.service.ts)
     const notificationService = await import('./notification.service');
     await notificationService.createNotification({
       type: 'BOOKING_NEED_RESCHEDULE',
@@ -860,7 +863,7 @@ export async function sendRescheduleRequestNotification(bookingId: string): Prom
       screen: 'my_bookings',
     });
 
-    console.log(`[FCM] ✅ Reschedule request notification sent to user ${booking.createdById}`);
+    console.log(`[FCM] ✅ Reschedule request notification sent (via notification.service) to user ${booking.createdById}`);
   } catch (error) {
     console.error('[FCM] Error sending reschedule request notification:', error);
     throw error;
@@ -985,6 +988,7 @@ export async function sendBookingRejectedNotification(bookingId: string): Promis
 
 /**
  * CRITICAL: Send push notification when booking is cancelled
+ * NOTE: This is handled by notification.service.ts to avoid duplicates
  * @param bookingId - Booking ID
  */
 export async function sendBookingCancelledNotification(bookingId: string): Promise<void> {
@@ -1033,7 +1037,7 @@ export async function sendBookingCancelledNotification(bookingId: string): Promi
       select: { id: true },
     });
 
-    // Create in-app notification for each user (this also sends push)
+    // Create in-app notification for each user (this already sends push + websocket via notification.service.ts)
     const notificationService = await import('./notification.service');
     for (const user of targetUsers) {
       await notificationService.createNotification({
@@ -1046,7 +1050,7 @@ export async function sendBookingCancelledNotification(bookingId: string): Promi
       });
     }
 
-    console.log(`[FCM] ✅ Booking cancelled notification sent to ${targetUsers.length} user(s)`);
+    console.log(`[FCM] ✅ Booking cancelled notification sent (via notification.service) to ${targetUsers.length} user(s)`);
   } catch (error) {
     console.error('[FCM] Error sending booking cancelled notification:', error);
     throw error;
