@@ -761,29 +761,16 @@ export async function sendBookingApprovedNotification(bookingId: string): Promis
 
     const messageBody = `Your booking for ${booking.companyName} on ${formattedDate} at ${booking.startTime} has been approved`;
 
-    // Create in-app notification first
+    // Create in-app notification (this already sends push via notification.service.ts)
     const notificationService = await import('./notification.service');
     await notificationService.createNotification({
       type: 'BOOKING_APPROVED',
-      title: '✅ Booking Approved!',
+      title: 'Booking Approved!',
       message: messageBody,
       userId: booking.createdById,
       bookingId: booking.id,
       screen: 'booking_details',
     });
-
-    // Then send push notification
-    const notification: PushNotification = {
-      title: '✅ Booking Approved!',
-      body: messageBody,
-      data: {
-        type: 'BOOKING_APPROVED',
-        bookingId: booking.id,
-        screen: 'booking_details',
-      },
-    };
-
-    await sendPushToUser(booking.createdById, notification);
 
     console.log(`[FCM] ✅ Booking approved notification sent to user ${booking.createdById}`);
   } catch (error) {
@@ -818,29 +805,16 @@ export async function sendEditRequestNotification(bookingId: string): Promise<vo
 
     const messageBody = booking.editRequestMessage || `Your booking for ${booking.organizationName || booking.companyName} needs to be edited. Please review and update the information.`;
 
-    // Create in-app notification first
+    // Create in-app notification (this already sends push via notification.service.ts)
     const notificationService = await import('./notification.service');
     await notificationService.createNotification({
       type: 'BOOKING_NEED_EDIT',
-      title: '📝 Booking Needs Editing',
+      title: 'Booking Needs Editing',
       message: messageBody,
       userId: booking.createdById,
       bookingId: booking.id,
       screen: 'my_bookings',
     });
-
-    // Then send push notification
-    const notification: PushNotification = {
-      title: '📝 Booking Needs Editing',
-      body: messageBody,
-      data: {
-        type: 'BOOKING_NEED_EDIT',
-        bookingId: booking.id,
-        screen: 'my_bookings',
-      },
-    };
-
-    await sendPushToUser(booking.createdById, notification);
 
     console.log(`[FCM] ✅ Edit request notification sent to user ${booking.createdById}`);
   } catch (error) {
@@ -875,29 +849,16 @@ export async function sendRescheduleRequestNotification(bookingId: string): Prom
 
     const messageBody = booking.rescheduleRequestMessage || `Your booking for ${booking.organizationName || booking.companyName} needs to be rescheduled. Please choose a new date.`;
 
-    // Create in-app notification first
+    // Create in-app notification (this already sends push via notification.service.ts)
     const notificationService = await import('./notification.service');
     await notificationService.createNotification({
       type: 'BOOKING_NEED_RESCHEDULE',
-      title: '📅 Booking Needs Rescheduling',
+      title: 'Booking Needs Rescheduling',
       message: messageBody,
       userId: booking.createdById,
       bookingId: booking.id,
       screen: 'my_bookings',
     });
-
-    // Then send push notification
-    const notification: PushNotification = {
-      title: '📅 Booking Needs Rescheduling',
-      body: messageBody,
-      data: {
-        type: 'BOOKING_NEED_RESCHEDULE',
-        bookingId: booking.id,
-        screen: 'my_bookings',
-      },
-    };
-
-    await sendPushToUser(booking.createdById, notification);
 
     console.log(`[FCM] ✅ Reschedule request notification sent to user ${booking.createdById}`);
   } catch (error) {
@@ -1128,7 +1089,7 @@ export async function sendBookingCancelledNotification(bookingId: string): Promi
     });
 
     const notification: PushNotification = {
-      title: '🚫 Booking Cancelled',
+      title: 'Booking Cancelled',
       body: booking.cancellationReason
         ? `${booking.companyName} (${formattedDate}) cancelled: ${booking.cancellationReason}`
         : `${booking.companyName} on ${formattedDate} at ${booking.startTime} has been cancelled`,
@@ -1193,7 +1154,7 @@ export async function sendTestNotificationToAll(): Promise<{ deviceCount: number
 
     // Send notification to all devices
     const notification: PushNotification = {
-      title: '🔔 Test Notification',
+      title: 'Test Notification',
       body: 'FCM is working correctly! This is a test notification from TCS Pace Scheduler.',
       data: {
         type: 'TEST',

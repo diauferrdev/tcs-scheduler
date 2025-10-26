@@ -70,6 +70,10 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
     _onBookingCreatedListener = (bookingData) {
       debugPrint('[MyBookings] New booking via WebSocket');
       if (mounted) {
+        // Show loading state immediately for real-time updates
+        setState(() {
+          _isLoading = true;
+        });
         _loadBookings(); // Refresh list
       }
     };
@@ -77,6 +81,10 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
     _onBookingUpdatedListener = (bookingData) {
       debugPrint('[MyBookings] Booking updated via WebSocket');
       if (mounted) {
+        // Show loading state immediately for real-time updates
+        setState(() {
+          _isLoading = true;
+        });
         _loadBookings(); // Refresh list
       }
     };
@@ -84,6 +92,10 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
     _onBookingApprovedListener = (bookingData) {
       debugPrint('[MyBookings] Booking approved via WebSocket');
       if (mounted) {
+        // Show loading state immediately for real-time updates
+        setState(() {
+          _isLoading = true;
+        });
         _loadBookings(); // Refresh list
       }
     };
@@ -91,6 +103,10 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
     _onBookingDeletedListener = (bookingId) {
       debugPrint('[MyBookings] Booking deleted via WebSocket: $bookingId');
       if (mounted) {
+        // Show loading state immediately for real-time updates
+        setState(() {
+          _isLoading = true;
+        });
         _loadBookings(); // Refresh list
       }
     };
@@ -126,11 +142,18 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
 
     _isLoadingInProgress = true;
 
-    // Always clear error state when loading
-    setState(() {
-      _isLoading = true;
-      _error = null;
-    });
+    // Set loading state if not already set (real-time listeners already set it)
+    if (mounted && !_isLoading) {
+      setState(() {
+        _isLoading = true;
+        _error = null;
+      });
+    } else if (mounted) {
+      // Just clear error if already loading
+      setState(() {
+        _error = null;
+      });
+    }
 
     try {
       debugPrint('[MyBookings] Loading user bookings');
