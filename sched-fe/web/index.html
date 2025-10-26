@@ -252,27 +252,18 @@
   </div>
 
   <script>
-    // Remove splash when Flutter renders first frame
-    window.addEventListener('flutter-first-frame', function() {
+    // Remove splash ONLY when app is FULLY ready (after auth check completes)
+    window.addEventListener('app-ready', function() {
+      console.log('[Splash] App ready event received, removing splash');
       const splash = document.getElementById('web-splash');
       if (splash) {
         splash.classList.add('fade-out');
         setTimeout(() => {
           document.body.classList.add('flutter-ready');
+          console.log('[Splash] Splash screen removed');
         }, 500);
       }
     });
-
-    // Fallback: remove splash after 8 seconds
-    setTimeout(function() {
-      const splash = document.getElementById('web-splash');
-      if (splash && !document.body.classList.contains('flutter-ready')) {
-        splash.classList.add('fade-out');
-        setTimeout(() => {
-          document.body.classList.add('flutter-ready');
-        }, 500);
-      }
-    }, 8000);
   </script>
   <!-- Viewer Manager (defer, loads after Babylon.js) -->
   <script src="viewer-manager.js" defer></script>
