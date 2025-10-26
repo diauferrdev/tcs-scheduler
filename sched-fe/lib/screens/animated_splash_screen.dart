@@ -4,7 +4,7 @@ import 'package:splash_master/splash_master.dart';
 
 /// Animated Splash Screen with TCS Pace logo
 /// Features smooth fade-in and scale animations
-/// Duration: ~3 seconds (2.8s animation + 0.2s buffer + 0.5s transition)
+/// Duration: ~4.5 seconds (3.5s animation + 0.5s buffer + 0.5s transition)
 class AnimatedSplashScreen extends StatefulWidget {
   final Widget nextScreen;
   final VoidCallback? onAnimationComplete;
@@ -32,7 +32,7 @@ class _AnimatedSplashScreenState extends State<AnimatedSplashScreen>
 
     // Animation controller for additional Flutter-side effects
     _controller = AnimationController(
-      duration: const Duration(milliseconds: 2800),
+      duration: const Duration(milliseconds: 3500),
       vsync: this,
     );
 
@@ -57,8 +57,8 @@ class _AnimatedSplashScreenState extends State<AnimatedSplashScreen>
     // Start animation
     _controller.forward();
 
-    // Navigate after animation completes (3 seconds total)
-    Timer(const Duration(milliseconds: 3000), () {
+    // Navigate after animation completes (4 seconds total for comfortable viewing)
+    Timer(const Duration(milliseconds: 4000), () {
       if (!_navigated && mounted) {
         _navigated = true;
         widget.onAnimationComplete?.call();
@@ -103,8 +103,7 @@ class _AnimatedSplashScreenState extends State<AnimatedSplashScreen>
                 scale: _scaleAnimation,
                 child: Image.asset(
                   'assets/splash/tcs_logo_static.png',
-                  width: 300,
-                  height: 300,
+                  width: 220,
                   fit: BoxFit.contain,
                 ),
               ),
