@@ -214,28 +214,25 @@
   <!-- DISABLED: Not used anymore, was interfering with login form inputs -->
   <!-- <script src="login-devices-viewer.js"></script> -->
 
-  <!-- Verify Babylon.js and Viewers are loaded -->
-  <script>
-    console.log('[TCS] Babylon.js loaded:', typeof BABYLON !== 'undefined');
-    console.log('[TCS] ViewerManager loaded:', typeof window.viewerManager !== 'undefined');
-    console.log('[TCS] DeviceViewer loaded:', typeof DeviceViewer !== 'undefined');
-    console.log('[TCS] GlobeViewer loaded:', typeof GlobeViewer !== 'undefined');
-    // LoginDevicesViewer disabled - no longer used
-    if (typeof BABYLON === 'undefined') {
-      console.error('[TCS] ❌ BABYLON.js failed to load!');
-    }
-    if (typeof window.viewerManager === 'undefined') {
-      console.error('[TCS] ❌ ViewerManager failed to load!');
-    }
-    if (typeof DeviceViewer === 'undefined') {
-      console.error('[TCS] ❌ DeviceViewer failed to load!');
-    }
-    if (typeof GlobeViewer === 'undefined') {
-      console.error('[TCS] ❌ GlobeViewer failed to load!');
-    }
-    if (typeof BABYLON !== 'undefined' && typeof window.viewerManager !== 'undefined' && typeof DeviceViewer !== 'undefined' && typeof GlobeViewer !== 'undefined') {
-      console.log('[TCS] ✅ Required 3D dependencies loaded successfully');
-    }
+  <!-- Verify 3D dependencies when page is fully loaded (non-blocking) -->
+  <script defer>
+    // Wait for DOMContentLoaded to check 3D dependencies (non-blocking)
+    document.addEventListener('DOMContentLoaded', function() {
+      // Give scripts time to load
+      setTimeout(function() {
+        console.log('[TCS] 3D Dependencies Check:');
+        console.log('[TCS] Babylon.js loaded:', typeof BABYLON !== 'undefined');
+        console.log('[TCS] ViewerManager loaded:', typeof window.viewerManager !== 'undefined');
+        console.log('[TCS] DeviceViewer loaded:', typeof DeviceViewer !== 'undefined');
+        console.log('[TCS] GlobeViewer loaded:', typeof GlobeViewer !== 'undefined');
+
+        if (typeof BABYLON !== 'undefined' && typeof window.viewerManager !== 'undefined' && typeof DeviceViewer !== 'undefined' && typeof GlobeViewer !== 'undefined') {
+          console.log('[TCS] ✅ All 3D dependencies loaded successfully');
+        } else {
+          console.warn('[TCS] ⚠️ Some 3D dependencies still loading (non-critical, will load lazily when needed)');
+        }
+      }, 1000);
+    });
   </script>
 
   <!-- Flutter App -->
