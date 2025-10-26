@@ -13,6 +13,9 @@
 # Flutter build directory (contains all platform builds)
 /build/
 
+# EXCEPTION: Allow build scripts in scripts/build/
+!scripts/build/
+
 # Platform-specific build outputs
 /android/app/debug
 /android/app/profile
