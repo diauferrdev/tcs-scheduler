@@ -48,6 +48,7 @@ function loadServiceAccount(): ServiceAccount | null {
     console.log(`[FCM] Service account loaded: ${serviceAccount.project_id}`);
     return serviceAccount;
   } catch (error) {
+    console.error('[FCM] Error loading service account:', error);
     console.warn('[FCM] Firebase service account not found. Place firebase-service-account.json in project root.');
     console.warn('[FCM] Download from: Firebase Console → Project Settings → Service Accounts → Generate New Private Key');
     return null;
@@ -1131,7 +1132,7 @@ export async function sendTestNotificationToAll(): Promise<{ deviceCount: number
     // Get all active FCM tokens
     const tokens = await prisma.fCMToken.findMany({
       where: {
-        active: true,
+        isValid: true,
       },
       select: {
         token: true,

@@ -44,6 +44,54 @@ app.get('/tokens', authMiddleware, async (c) => {
   });
 });
 
+// Admin: Get all registered FCM tokens (diego@tcs.com only)
+app.get('/tokens/all', authMiddleware, async (c) => {
+  const userEmail = c.get('user').email;
+
+  // Only allow diego@tcs.com
+  if (userEmail !== 'diego@tcs.com') {
+    return c.json({ error: 'Unauthorized. Only diego@tcs.com can view all tokens.' }, 403);
+  }
+
+  try {
+    const { prisma } = await import('../lib/prisma');
+
+    const tokens = await prisma.fCMToken.findMany({
+      where: { isValid: true },
+      select: {
+        id: true,
+        userId: true,
+        deviceInfo: true,
+        createdAt: true,
+        lastUsedAt: true,
+        user: {
+          select: {
+            name: true,
+            email: true,
+            role: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return c.json({
+      totalUsers: tokens.length,
+      tokens: tokens.map(t => ({
+        userName: t.user.name,
+        userEmail: t.user.email,
+        userRole: t.user.role,
+        deviceInfo: t.deviceInfo || 'Unknown device',
+        registeredAt: t.createdAt,
+        lastUsedAt: t.lastUsedAt,
+      })),
+    });
+  } catch (error: any) {
+    console.error('[FCM] Error fetching all tokens:', error);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
 // Send test notification to all devices (diego@tcs.com only)
 app.post('/test-notification', authMiddleware, async (c) => {
   const userEmail = c.get('user').email;

@@ -34,22 +34,21 @@ class FCMService {
       return;
     }
 
-    // Skip FCM on web (web uses its own push API)
-    if (kIsWeb) {
-      debugPrint('[FCM] Skipping FCM initialization on web');
-      return;
-    }
-
-    // Skip FCM on desktop platforms (use local notifications only)
+    // Skip FCM on desktop platforms only (Windows/Linux use local notifications)
     if (!kIsWeb && (Platform.isWindows || Platform.isLinux)) {
-      debugPrint('[FCM] Skipping FCM initialization on desktop');
+      debugPrint('[FCM] Skipping FCM initialization on desktop (Windows/Linux)');
       return;
     }
 
     try {
-      debugPrint('[FCM] Initializing...');
+      debugPrint('[FCM] Initializing on ${kIsWeb ? "Web" : Platform.operatingSystem}...');
 
-      // Request notification permissions (iOS/macOS)
+      // Request notification permissions
+      // IMPORTANT: All platforms need explicit permission now
+      // - Android 13+ (API 33+): Runtime permission required
+      // - iOS/macOS: Always requires permission
+      // - Web: Browser permission dialog
+      debugPrint('[FCM] Requesting notification permissions...');
       final NotificationSettings settings = await _messaging.requestPermission(
         alert: true,
         badge: true,
@@ -64,8 +63,16 @@ class FCMService {
 
       if (settings.authorizationStatus == AuthorizationStatus.denied) {
         debugPrint('[FCM] ❌ Permission denied by user');
+        debugPrint('[FCM] Please enable notifications in device settings');
         return;
       }
+
+      if (settings.authorizationStatus == AuthorizationStatus.notDetermined) {
+        debugPrint('[FCM] ⚠️ Permission not determined - user did not respond');
+        return;
+      }
+
+      debugPrint('[FCM] ✅ Notification permission granted!');
 
       // Get FCM token
       await _refreshFCMToken();
@@ -120,9 +127,23 @@ class FCMService {
     try {
       debugPrint('[FCM] Sending token to backend...');
 
-      await _apiService.registerFCMToken(token);
+      // Get device info for identification
+      String deviceInfo;
+      if (kIsWeb) {
+        deviceInfo = 'Web Browser';
+      } else if (Platform.isAndroid) {
+        deviceInfo = 'Android Device';
+      } else if (Platform.isIOS) {
+        deviceInfo = 'iOS Device';
+      } else if (Platform.isMacOS) {
+        deviceInfo = 'macOS Device';
+      } else {
+        deviceInfo = 'Unknown Device';
+      }
 
-      debugPrint('[FCM] ✅ Token sent to backend');
+      await _apiService.registerFCMToken(token, deviceInfo: deviceInfo);
+
+      debugPrint('[FCM] ✅ Token sent to backend ($deviceInfo)');
     } catch (e) {
       debugPrint('[FCM] Error sending token to backend: $e');
     }

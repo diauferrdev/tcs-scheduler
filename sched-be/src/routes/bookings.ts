@@ -14,6 +14,7 @@ import {
 import * as bookingService from '../services/booking.service';
 import * as invitationService from '../services/invitation.service';
 import * as pushService from '../services/push.service';
+import * as wsService from '../services/websocket.service';
 import { authMiddleware } from '../middleware/auth';
 import type { AppContext } from '../lib/context';
 import { getQuestionnaire } from '../constants/questionnaire';
@@ -77,6 +78,9 @@ app.post('/', authMiddleware, zValidator('json', BookingCreateSchema), async (c)
       // Don't fail the request if notification fails
     }
 
+    // Broadcast WebSocket event for real-time UI updates
+    wsService.broadcastBookingCreated(booking);
+
     return c.json(booking, 201);
   } catch (error: any) {
     return c.json({ error: error.message }, 400);
@@ -108,6 +112,9 @@ app.post('/guest', zValidator('json', BookingGuestCreateSchema), async (c) => {
       console.error('Failed to send push notification:', pushError);
       // Don't fail the request if notification fails
     }
+
+    // Broadcast WebSocket event for real-time UI updates
+    wsService.broadcastBookingCreated(booking);
 
     return c.json(booking, 201);
   } catch (error: any) {
@@ -185,6 +192,9 @@ app.patch('/:id', authMiddleware, zValidator('json', BookingUpdateSchema), async
       // Don't fail the request if notification fails
     }
 
+    // Broadcast WebSocket event for real-time UI updates
+    wsService.broadcastBookingUpdated(booking);
+
     return c.json(booking);
   } catch (error: any) {
     return c.json({ error: error.message }, 400);
@@ -243,6 +253,9 @@ app.post('/:id/approve', authMiddleware, async (c) => {
     } catch (pushError) {
       console.error('Failed to send push notification:', pushError);
     }
+
+    // Broadcast WebSocket event for real-time UI updates
+    wsService.broadcastBookingUpdated(booking);
 
     return c.json(booking);
   } catch (error: any) {

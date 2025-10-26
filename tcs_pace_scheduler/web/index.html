@@ -186,9 +186,9 @@
   <!-- Preload Critical Resources -->
   <link rel="preload" href="flutter_bootstrap.js" as="script">
 
-  <!-- Babylon.js for 3D Device Rendering (loaded before Flutter) -->
-  <script src="https://cdn.babylonjs.com/babylon.js"></script>
-  <script src="https://cdn.babylonjs.com/loaders/babylonjs.loaders.min.js"></script>
+  <!-- Babylon.js for 3D Device Rendering (must load before viewers) -->
+  <script src="https://cdn.babylonjs.com/babylon.js" defer></script>
+  <script src="https://cdn.babylonjs.com/loaders/babylonjs.loaders.min.js" defer></script>
 
   <style>
     /* TCS Brand Fonts - loaded via Flutter */
@@ -201,14 +201,14 @@
   </style>
 </head>
 <body>
-  <!-- Viewer Manager (loaded first) -->
-  <script src="viewer-manager.js"></script>
+  <!-- Viewer Manager (defer, loads after Babylon.js) -->
+  <script src="viewer-manager.js" defer></script>
 
-  <!-- Device Viewer (loaded before Flutter bootstrap) -->
-  <script src="device-viewer.js"></script>
+  <!-- Device Viewer (defer, loads after Babylon.js) -->
+  <script src="device-viewer.js" defer></script>
 
-  <!-- Globe Viewer for Multi-Tenancy Section -->
-  <script src="globe-viewer.js"></script>
+  <!-- Globe Viewer for Multi-Tenancy Section (defer, loads after Babylon.js) -->
+  <script src="globe-viewer.js" defer></script>
 
   <!-- Login Devices Viewer (Notebook + Phone together) -->
   <!-- DISABLED: Not used anymore, was interfering with login form inputs -->

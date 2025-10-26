@@ -2146,8 +2146,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
       final response = await _apiService.sendTestFCMNotification();
 
       // Close loading dialog
-      if (!mounted) return;
-      Navigator.of(context).pop();
+      if (mounted) {
+        try {
+          Navigator.of(context, rootNavigator: true).pop();
+        } catch (e) {
+          debugPrint('[Dashboard] Error closing dialog: $e');
+        }
+      }
 
       // Show success message
       if (!mounted) return;
@@ -2170,9 +2175,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ),
       );
     } catch (e) {
-      // Close loading dialog
-      if (!mounted) return;
-      Navigator.of(context).pop();
+      // Close loading dialog safely
+      if (mounted) {
+        try {
+          Navigator.of(context, rootNavigator: true).pop();
+        } catch (navError) {
+          debugPrint('[Dashboard] Error closing dialog: $navError');
+        }
+      }
 
       // Show error message
       if (!mounted) return;

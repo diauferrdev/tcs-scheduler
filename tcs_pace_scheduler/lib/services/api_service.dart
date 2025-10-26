@@ -500,9 +500,12 @@ class ApiService {
 
   // FCM Methods
   /// Register FCM token with backend
-  Future<void> registerFCMToken(String token) async {
+  Future<void> registerFCMToken(String token, {String? deviceInfo}) async {
     try {
-      final response = await post('/api/fcm/register', {'token': token});
+      final response = await post('/api/fcm/register', {
+        'token': token,
+        if (deviceInfo != null) 'deviceInfo': deviceInfo,
+      });
       debugPrint('[API] FCM token registered: $response');
     } catch (e) {
       debugPrint('[API] Error registering FCM token: $e');

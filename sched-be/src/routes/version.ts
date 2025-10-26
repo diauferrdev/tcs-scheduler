@@ -2,27 +2,35 @@ import { Hono } from 'hono';
 
 const app = new Hono();
 
+const versionData = {
+  version: '1.1.8',
+  buildNumber: 46,
+  minVersion: '1.0.0',
+  forceUpdate: false,
+  downloadUrl: {
+    android: 'https://appdistribution.firebase.google.com/testerapps/1:874457674237:android:81596c5009b03f9a9fa994/releases/3r29h36k36cgg',
+    ios: '',
+    web: 'https://ppspsched.lat',
+    macos: '',
+    windows: '',
+    linux: '',
+  },
+  releaseNotes: {
+    'pt-BR': 'Versão 1.1.8 - Correções de estabilidade e melhorias de performance. WebSocket tempo real funcionando corretamente.',
+    'en': 'Version 1.1.8 - Stability fixes and performance improvements. Real-time WebSocket working correctly.',
+  },
+  releaseDate: '2025-10-26T06:00:00-03:00',
+  critical: false,
+};
+
+// Endpoint usado pelo frontend: GET /version
+app.get('/', (c) => {
+  return c.json(versionData);
+});
+
+// Backward compatibility: GET /current
 app.get('/current', (c) => {
-  return c.json({
-    version: '1.1.8',
-    buildNumber: 46,
-    minVersion: '1.0.0',
-    forceUpdate: false,
-    downloadUrl: {
-      android: 'https://appdistribution.firebase.google.com/testerapps/1:874457674237:android:81596c5009b03f9a9fa994/releases/3r29h36k36cgg',
-      ios: '',
-      web: 'https://ppspsched.lat',
-      macos: '',
-      windows: '',
-      linux: '',
-    },
-    releaseNotes: {
-      'pt-BR': 'Versão 1.0.10 - CORREÇÃO CRÍTICA: resolvido problema intermitente de loading infinito após criar agendamentos. Agora funciona 100% das vezes. Corrigida navegação automática após criar booking.',
-      'en': 'Version 1.0.10 - CRITICAL FIX: resolved intermittent infinite loading issue after creating bookings. Now works 100% of the time. Fixed automatic navigation after booking creation.',
-    },
-    releaseDate: '2025-10-26T02:24:05-03:00',
-    critical: false,
-  });
+  return c.json(versionData);
 });
 
 export default app;
