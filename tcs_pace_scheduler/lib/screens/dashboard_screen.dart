@@ -6,6 +6,7 @@ import 'package:syncfusion_flutter_charts/charts.dart';
 import 'package:syncfusion_flutter_gauges/gauges.dart';
 import '../widgets/app_layout.dart';
 import '../providers/theme_provider.dart';
+import '../providers/auth_provider.dart';
 import '../services/api_service.dart';
 import '../services/universal_update_service.dart';
 import '../models/dashboard.dart';
@@ -116,6 +117,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
             // Charts Grid
             _buildChartsGrid(isDark, screenWidth),
             const SizedBox(height: 24),
+
+            // FCM Test Button (diego@tcs.com only - discrete)
+            _buildDiscreteFCMTestButton(isDark),
           ],
         ),
       ),
@@ -2088,6 +2092,110 @@ class _DashboardScreenState extends State<DashboardScreen> {
             }(),
     );
   }
+
+  /// Build discrete FCM Test Button (diego@tcs.com only)
+  Widget _buildDiscreteFCMTestButton(bool isDark) {
+    // Get current user email
+    final authProvider = context.read<AuthProvider>();
+    final userEmail = authProvider.user?.email;
+
+    // Only show for diego@tcs.com
+    if (userEmail != 'diego@tcs.com') {
+      return const SizedBox.shrink();
+    }
+
+    return Align(
+      alignment: Alignment.centerRight,
+      child: TextButton.icon(
+        onPressed: _sendTestNotification,
+        icon: Icon(
+          Icons.notifications_active_outlined,
+          size: 16,
+          color: isDark ? const Color(0xFF6B7280) : const Color(0xFF9CA3AF),
+        ),
+        label: Text(
+          'Test FCM',
+          style: TextStyle(
+            fontSize: 12,
+            color: isDark ? const Color(0xFF6B7280) : const Color(0xFF9CA3AF),
+          ),
+        ),
+        style: TextButton.styleFrom(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        ),
+      ),
+    );
+  }
+
+  /// Send test FCM notification
+  Future<void> _sendTestNotification() async {
+    try {
+      // Show loading dialog
+      if (!mounted) return;
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(
+          child: CircularProgressIndicator(
+            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+          ),
+        ),
+      );
+
+      // Send test notification
+      final response = await _apiService.sendTestFCMNotification();
+
+      // Close loading dialog
+      if (!mounted) return;
+      Navigator.of(context).pop();
+
+      // Show success message
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.check_circle, color: Colors.white),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'Test notification sent to ${response['deviceCount'] ?? 'all'} devices!',
+                  style: const TextStyle(color: Colors.white),
+                ),
+              ),
+            ],
+          ),
+          backgroundColor: Colors.green,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    } catch (e) {
+      // Close loading dialog
+      if (!mounted) return;
+      Navigator.of(context).pop();
+
+      // Show error message
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.error, color: Colors.white),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'Error sending test notification: ${e.toString()}',
+                  style: const TextStyle(color: Colors.white),
+                ),
+              ),
+            ],
+          ),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 5),
+        ),
+      );
+    }
+  }
 }
 
 // Stacked Area Chart Widget using Syncfusion
@@ -2187,6 +2295,7 @@ class _ScatterChartWidget extends StatelessWidget {
       ),
     );
   }
+
 }
 
 // Data class for stacked area chart

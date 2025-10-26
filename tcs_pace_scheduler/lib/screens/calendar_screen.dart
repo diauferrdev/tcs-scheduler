@@ -680,8 +680,6 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
 
   void _showSlotPickerDrawer(DateTime date, {Function(TimeOfDay, int)? onSlotSelected}) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final availability = _selectedDayAvailability;
-    final allPeriods = availability?.allPeriods ?? [];
     final visitTypeLabel = _selectedVisitType == 'PACE_TOUR' ? 'Pace Tour' : 'Innovation Exchange';
 
     // Check user role to determine if we should show block details
@@ -693,15 +691,16 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       isDismissible: true,
-      builder: (context) => SlotPickerContent(
+      builder: (context) => SlotPickerContentWithLoading(
         date: date,
-        allPeriods: allPeriods,
         visitTypeLabel: visitTypeLabel,
         selectedVisitType: _selectedVisitType,
         isUserRole: isUserRole,
         isDark: isDark,
         onSlotSelected: onSlotSelected,
         onClose: _closeSlotPickerAndClearCache,
+        // Pass callback to get current availability
+        getAvailability: () => _selectedDayAvailability,
       ),
     ).whenComplete(() => _closeSlotPickerAndClearCache());
   }
@@ -1540,6 +1539,10 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
   }
 
   Widget _buildEventsSection(bool isDark, bool isMobile, bool isUserRole) {
+    // Get auth provider to check if user is ADMIN
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final isAdmin = authProvider.user?.role == UserRole.ADMIN;
+
     if (_selectedDate == null) {
       return Container(
         decoration: BoxDecoration(
@@ -1636,7 +1639,8 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      if (hasAvailableSlots)
+                      // Hide "+" button for ADMIN users (they can only view, not create bookings)
+                      if (hasAvailableSlots && !isAdmin)
                         GestureDetector(
                           onTap: () {
                             _handleDayClick(_selectedDate!);
@@ -1655,7 +1659,7 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
                             ),
                           ),
                         )
-                      else
+                      else if (!hasAvailableSlots || isAdmin)
                         Icon(
                           Icons.event_busy,
                           size: 48,
@@ -1665,7 +1669,7 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
                       Text(
                         isPast
                           ? 'Past date'
-                          : hasAvailableSlots
+                          : (hasAvailableSlots && !isAdmin)
                             ? 'No events scheduled\nTap + to create booking'
                             : 'No events',
                         textAlign: TextAlign.center,
@@ -1679,7 +1683,8 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
                 )
               : ListView.builder(
                   padding: EdgeInsets.zero,
-                  itemCount: combinedEvents.length + (hasAvailableSlots ? 1 : 0),
+                  // Show add button only if hasAvailableSlots AND user is NOT admin
+                  itemCount: combinedEvents.length + (hasAvailableSlots && !isAdmin ? 1 : 0),
                   itemBuilder: (context, index) {
                     // Show events in order
                     if (index < combinedEvents.length) {
@@ -1690,7 +1695,7 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
                         return _buildColorfulEventCard(event['data'] as Booking, isDark, isUserRole);
                       }
                     }
-                    // Finally show add button
+                    // Finally show add button (only for non-ADMIN users)
                     else {
                       return Padding(
                         padding: const EdgeInsets.all(8.0),
@@ -2847,6 +2852,9 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
   Widget _buildDayBookingsOverlay(bool isDark, bool isMobile, bool isUserRole) {
     // Drawer shows ONLY APPROVED bookings (de fato agendado)
     // This drawer appears when trying to book on a day that already has bookings
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final isAdmin = authProvider.user?.role == UserRole.ADMIN;
+
     final allDayBookings = _getBookingsForDay(_selectedDate!);
     final dayBookings = allDayBookings.where((b) => b.status == BookingStatus.APPROVED).toList();
     final hasBookings = dayBookings.isNotEmpty;
@@ -2938,8 +2946,9 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
                           ...dayBookings.map((booking) => _buildBookingCard(booking, isDark, isUserRole)),
                           const SizedBox(height: 24),
                         ],
-                        // Add New Booking Button
-                        Container(
+                        // Add New Booking Button (only for USER and MANAGER roles, hide for ADMIN)
+                        if (!isAdmin)
+                          Container(
                             margin: const EdgeInsets.only(bottom: 12),
                             child: Material(
                               color: Colors.transparent,
@@ -4527,6 +4536,75 @@ class _BookingFormWidgetState extends State<_BookingFormWidget> {
           ),
         ),
       ),
+    );
+  }
+}
+
+// Wrapper widget that polls for availability updates
+class SlotPickerContentWithLoading extends StatefulWidget {
+  final DateTime date;
+  final String visitTypeLabel;
+  final String? selectedVisitType;
+  final bool isUserRole;
+  final bool isDark;
+  final Function(TimeOfDay, int)? onSlotSelected;
+  final VoidCallback onClose;
+  final DayAvailability? Function() getAvailability;
+
+  const SlotPickerContentWithLoading({
+    super.key,
+    required this.date,
+    required this.visitTypeLabel,
+    required this.selectedVisitType,
+    required this.isUserRole,
+    required this.isDark,
+    this.onSlotSelected,
+    required this.onClose,
+    required this.getAvailability,
+  });
+
+  @override
+  State<SlotPickerContentWithLoading> createState() => _SlotPickerContentWithLoadingState();
+}
+
+class _SlotPickerContentWithLoadingState extends State<SlotPickerContentWithLoading> {
+  List<AvailablePeriod> _allPeriods = [];
+
+  @override
+  void initState() {
+    super.initState();
+    // Start polling for availability updates every 100ms until data arrives
+    _pollForAvailability();
+  }
+
+  Future<void> _pollForAvailability() async {
+    // Poll every 100ms for up to 30 seconds
+    for (int i = 0; i < 300; i++) {
+      if (!mounted) return;
+
+      final availability = widget.getAvailability();
+      if (availability != null && availability.allPeriods?.isNotEmpty == true) {
+        setState(() {
+          _allPeriods = availability.allPeriods ?? [];
+        });
+        return; // Stop polling once we have data
+      }
+
+      await Future.delayed(const Duration(milliseconds: 100));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SlotPickerContent(
+      date: widget.date,
+      allPeriods: _allPeriods,
+      visitTypeLabel: widget.visitTypeLabel,
+      selectedVisitType: widget.selectedVisitType,
+      isUserRole: widget.isUserRole,
+      isDark: widget.isDark,
+      onSlotSelected: widget.onSlotSelected,
+      onClose: widget.onClose,
     );
   }
 }

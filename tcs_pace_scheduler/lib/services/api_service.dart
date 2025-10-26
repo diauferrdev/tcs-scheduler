@@ -521,6 +521,19 @@ class ApiService {
     }
   }
 
+  /// Send test FCM notification to all devices (ADMIN only)
+  Future<Map<String, dynamic>> sendTestFCMNotification() async {
+    try {
+      debugPrint('[API] Sending test FCM notification to all devices...');
+      final response = await post('/api/fcm/test-notification', {});
+      debugPrint('[API] Test FCM notification sent: $response');
+      return response;
+    } catch (e) {
+      debugPrint('[API] Error sending test FCM notification: $e');
+      rethrow;
+    }
+  }
+
   // User Profile Methods
 
   /// Change current user's password

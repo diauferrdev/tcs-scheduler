@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import 'dart:math' as math;
-import 'package:url_launcher/url_launcher.dart';
 import 'package:provider/provider.dart';
-import '../providers/auth_provider.dart';
+import 'package:tcs_pace_scheduler/widgets/device_3d_section.dart';
+import 'package:tcs_pace_scheduler/widgets/animated_background.dart';
+import 'package:tcs_pace_scheduler/widgets/landing_header.dart';
+import 'package:tcs_pace_scheduler/widgets/scroll_reveal.dart';
+import 'package:tcs_pace_scheduler/widgets/globe_section.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+import 'package:tcs_pace_scheduler/utils/responsive_helper.dart';
+import 'package:tcs_pace_scheduler/providers/auth_provider.dart';
 
 class LandingScreen extends StatefulWidget {
   const LandingScreen({super.key});
@@ -15,51 +19,63 @@ class LandingScreen extends StatefulWidget {
   State<LandingScreen> createState() => _LandingScreenState();
 }
 
-class _LandingScreenState extends State<LandingScreen>
-    with TickerProviderStateMixin {
+class _LandingScreenState extends State<LandingScreen> {
   Map<String, dynamic>? _versionInfo;
   bool _loading = true;
-  late AnimationController _floatController;
-  late AnimationController _rotateController;
-  late AnimationController _pulseController;
+
+  final List<Map<String, dynamic>> _sections = [
+    {
+      'deviceType': 'phone',
+      'animation': 'zoomIn',
+      'deviceOnLeft': false,
+      'title': 'Simplify Your\nOffice Scheduling',
+      'description': 'Enterprise-grade scheduling system for TCS Pace São Paulo.\nManage office visits, invitations, and capacity with real-time\nnotifications across all platforms.',
+      'badge': 'Enterprise Solution',
+    },
+    {
+      'deviceType': 'notebook',
+      'animation': 'dramatic',
+      'deviceOnLeft': true,
+      'title': 'Smart Features\nfor Modern Teams',
+      'description': 'Real-time availability, instant notifications, and\nintelligent scheduling powered by cutting-edge technology.',
+      'badge': 'Feature Rich',
+    },
+    {
+      'deviceType': 'phone',
+      'animation': 'zoomIn',
+      'deviceOnLeft': false,
+      'title': 'Cross-Platform\nExperience',
+      'description': 'Access from anywhere - Web, Windows, macOS, Linux,\niOS, and Android. Your schedule syncs seamlessly.',
+      'badge': 'All Platforms',
+    },
+    {
+      'deviceType': 'notebook',
+      'animation': 'dramatic',
+      'deviceOnLeft': true,
+      'title': 'Built for\nCollaboration',
+      'description': 'Invite guests, manage attendees, and coordinate\noffice visits with powerful team features.',
+      'badge': 'Team Work',
+    },
+    {
+      'deviceType': 'phone',
+      'animation': 'zoomIn',
+      'deviceOnLeft': false,
+      'title': 'Insights &\nAnalytics',
+      'description': 'Track office utilization, booking trends, and\noptimize capacity with powerful analytics.',
+      'badge': 'Data Driven',
+    },
+  ];
 
   @override
   void initState() {
     super.initState();
     _loadVersionInfo();
-
-    // Float animation for 3D cards
-    _floatController = AnimationController(
-      duration: const Duration(seconds: 3),
-      vsync: this,
-    )..repeat(reverse: true);
-
-    // Rotation for 3D elements
-    _rotateController = AnimationController(
-      duration: const Duration(seconds: 20),
-      vsync: this,
-    )..repeat();
-
-    // Pulse for highlights
-    _pulseController = AnimationController(
-      duration: const Duration(seconds: 2),
-      vsync: this,
-    )..repeat(reverse: true);
-  }
-
-  @override
-  void dispose() {
-    _floatController.dispose();
-    _rotateController.dispose();
-    _pulseController.dispose();
-    super.dispose();
   }
 
   Future<void> _loadVersionInfo() async {
     try {
-      final response = await http.get(
-        Uri.parse('https://api.ppspsched.lat/api/version/current'),
-      );
+      const apiUrl = String.fromEnvironment('API_URL', defaultValue: 'https://api.ppspsched.lat');
+      final response = await http.get(Uri.parse('$apiUrl/version'));
 
       if (response.statusCode == 200) {
         setState(() {
@@ -72,722 +88,363 @@ class _LandingScreenState extends State<LandingScreen>
     }
   }
 
-  Future<void> _launchUrl(String url) async {
-    final uri = Uri.parse(url);
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
+    final authProvider = context.watch<AuthProvider>();
+    final isLoggedIn = authProvider.isAuthenticated;
+
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: const Color(0xFF0A0A0A),
       body: Stack(
         children: [
-          // Animated background grid
-          _buildAnimatedBackground(),
+          // Animated background
+          const Positioned.fill(child: AnimatedBackground()),
 
-          // Scrollable content
-          SafeArea(
-            child: SingleChildScrollView(
-              child: Column(
+          // Content
+          Column(
+            children: [
+              // Fixed header
+              LandingHeader(isLoggedIn: isLoggedIn),
+
+              // Scrollable content
+              Expanded(
+                child: SingleChildScrollView(
+                  physics: const ClampingScrollPhysics(),
+                  child: Column(
+                    children: [
+                      ..._sections.asMap().entries.map((entry) {
+                        final index = entry.key;
+                        final section = entry.value;
+                        return Device3DSection(
+                          key: ValueKey('section_$index'),
+                          index: index,
+                          deviceType: section['deviceType'],
+                          animation: section['animation'],
+                          deviceOnLeft: section['deviceOnLeft'],
+                          title: section['title'],
+                          description: section['description'],
+                          badge: section['badge'],
+                          isHero: index == 0,
+                        );
+                      }),
+                      const GlobeSection(
+                        showAtmosphere: true,
+                        enableRotation: true,
+                      ),
+                      _buildDownloadSection(),
+                      _buildFooter(),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMultiTenancySection() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 80, vertical: 120),
+      child: ScrollReveal(
+        child: Column(
+          children: [
+            // Badge
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.blue.withOpacity(0.1),
+                border: Border.all(color: Colors.blue.withOpacity(0.3), width: 1),
+                borderRadius: BorderRadius.circular(100),
+              ),
+              child: const Text(
+                'GLOBAL INFRASTRUCTURE',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: Colors.blue,
+                  fontWeight: FontWeight.w700,
+                  fontFamily: 'NeueHaasGrotesk',
+                  letterSpacing: 1.5,
+                ),
+              ),
+            ),
+            const SizedBox(height: 32),
+
+            // Title
+            const Text(
+              'One Platform,\nUnlimited Locations',
+              style: TextStyle(
+                fontSize: 56,
+                fontWeight: FontWeight.w700,
+                color: Colors.white,
+                letterSpacing: -1.5,
+                fontFamily: 'HouskaPro',
+                height: 1.1,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+
+            // Description
+            Text(
+              'Built for TCS Pace São Paulo, ready for the world.\nOur multi-tenant architecture automatically detects your location\nand connects you to your local Pace Port office.',
+              style: TextStyle(
+                fontSize: 20,
+                color: Colors.white.withOpacity(0.7),
+                height: 1.6,
+                fontFamily: 'NeueHaasGrotesk',
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 80),
+
+            // Features grid
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 1000),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildHeader(context),
-                  _buildHeroSection(),
-                  _buildFeaturesSection(),
-                  _buildDownloadSection(),
-                  _buildFooter(),
+                  Expanded(
+                    child: _buildMultiTenancyFeature(
+                      Icons.location_on,
+                      'Auto-Detection',
+                      'System automatically identifies your location and connects to the nearest Pace Port',
+                    ),
+                  ),
+                  const SizedBox(width: 40),
+                  Expanded(
+                    child: _buildMultiTenancyFeature(
+                      Icons.public,
+                      'Global Ready',
+                      'Infrastructure ready to support Pace Ports worldwide with isolated data per location',
+                    ),
+                  ),
+                  const SizedBox(width: 40),
+                  Expanded(
+                    child: _buildMultiTenancyFeature(
+                      Icons.swap_horiz,
+                      'Easy Switching',
+                      'Manual location selector available on login for users across multiple offices',
+                    ),
+                  ),
                 ],
               ),
             ),
-          ),
-        ],
-      ),
-    );
-  }
 
-  Widget _buildAnimatedBackground() {
-    return Positioned.fill(
-      child: AnimatedBuilder(
-        animation: _rotateController,
-        builder: (context, child) {
-          return CustomPaint(
-            painter: GridBackgroundPainter(
-              progress: _rotateController.value,
-            ),
-          );
-        },
-      ),
-    );
-  }
+            const SizedBox(height: 60),
 
-  Widget _buildHeader(BuildContext context) {
-    final authProvider = context.watch<AuthProvider>();
-    final isAuthenticated = authProvider.isAuthenticated;
-    final user = authProvider.user;
-
-    return Container(
-      height: 64,
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      decoration: BoxDecoration(
-        color: Colors.black.withOpacity(0.95),
-        border: const Border(
-          bottom: BorderSide(color: Color(0xFF27272A), width: 1),
-        ),
-      ),
-      child: Row(
-        children: [
-          // Logo - New TCS Pace logo (already includes "Scheduler" text)
-          SvgPicture.asset(
-            'assets/logos/tcs-pace-logo-w.svg',
-            height: 32,
-          ),
-
-          const Spacer(),
-
-          // Action button
-          AnimatedBuilder(
-            animation: _pulseController,
-            builder: (context, child) {
-              return Transform.scale(
-                scale: 1.0 + (_pulseController.value * 0.03),
-                child: ElevatedButton.icon(
-                  onPressed: () {
-                    if (isAuthenticated && user != null) {
-                      // Go to their main screen based on role
-                      switch (user.role.name) {
-                        case 'ADMIN':
-                        case 'MANAGER':
-                          context.go('/app/dashboard');
-                          break;
-                        case 'USER':
-                        default:
-                          context.go('/app/calendar');
-                      }
-                    } else {
-                      context.go('/login');
-                    }
-                  },
-                  icon: Icon(
-                    isAuthenticated ? Icons.dashboard_rounded : Icons.login,
-                    size: 18,
-                  ),
-                  label: Text(
-                    isAuthenticated ? 'Enter App' : 'Sign In',
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w600,
-                      fontSize: 14,
-                    ),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.white,
-                    foregroundColor: Colors.black,
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                ),
-              );
-            },
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildHeroSection() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 120),
-      constraints: const BoxConstraints(maxWidth: 1400),
-      child: Column(
-        children: [
-          // Floating 3D badge
-          AnimatedBuilder(
-            animation: _floatController,
-            builder: (context, child) {
-              return Transform.translate(
-                offset: Offset(0, math.sin(_floatController.value * math.pi) * 10),
-                child: Transform(
-                  transform: Matrix4.identity()
-                    ..setEntry(3, 2, 0.001)
-                    ..rotateX(math.sin(_floatController.value * math.pi) * 0.1)
-                    ..rotateY(math.cos(_floatController.value * math.pi) * 0.1),
-                  alignment: Alignment.center,
-                  child: Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            // Current location
+            Container(
+              padding: const EdgeInsets.all(32),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.05),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.white.withOpacity(0.1), width: 1),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 12,
+                    height: 12,
                     decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [
-                          Colors.white.withOpacity(0.1),
-                          Colors.white.withOpacity(0.05),
-                        ],
-                      ),
-                      border: Border.all(color: Colors.white24, width: 1.5),
-                      borderRadius: BorderRadius.circular(100),
+                      color: Colors.green,
+                      shape: BoxShape.circle,
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.white.withOpacity(0.1),
-                          blurRadius: 20,
+                          color: Colors.green.withOpacity(0.5),
+                          blurRadius: 8,
                           spreadRadius: 2,
                         ),
                       ],
                     ),
-                    child: const Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.business_center,
-                            size: 16, color: Colors.white),
-                        SizedBox(width: 8),
-                        Text(
-                          'Internal Application',
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: Colors.white,
-                            fontWeight: FontWeight.w600,
-                            letterSpacing: 0.5,
-                          ),
-                        ),
-                      ],
+                  ),
+                  const SizedBox(width: 16),
+                  const Text(
+                    'Currently serving: ',
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: Colors.white70,
+                      fontFamily: 'NeueHaasGrotesk',
                     ),
                   ),
-                ),
-              );
-            },
-          ),
-          const SizedBox(height: 40),
-
-          // Main title with gradient
-          ShaderMask(
-            shaderCallback: (bounds) => const LinearGradient(
-              colors: [Colors.white, Color(0xFFD1D5DB)],
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-            ).createShader(bounds),
-            child: const Text(
-              'Simplified Office Visit\nScheduling',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 72,
-                fontWeight: FontWeight.w900,
-                color: Colors.white,
-                height: 1.1,
-                letterSpacing: -2,
+                  const Text(
+                    'TCS Pace São Paulo',
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: Colors.white,
+                      fontWeight: FontWeight.w700,
+                      fontFamily: 'HouskaPro',
+                    ),
+                  ),
+                ],
               ),
             ),
-          ),
-          const SizedBox(height: 24),
-
-          // Subtitle
-          const Text(
-            'Enterprise scheduling system for TCS Pace São Paulo.\nManage bookings, invitations, and office capacity with precision.',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 18,
-              color: Color(0xFF9CA3AF),
-              height: 1.6,
-            ),
-          ),
-          const SizedBox(height: 48),
-
-          // CTA Buttons with 3D effect
-          Wrap(
-            spacing: 16,
-            runSpacing: 16,
-            alignment: WrapAlignment.center,
-            children: [
-              _build3DButton(
-                label: 'Get Started',
-                icon: Icons.arrow_forward,
-                isPrimary: true,
-                onPressed: () => context.go('/login'),
-              ),
-              _build3DButton(
-                label: 'View Downloads',
-                icon: Icons.download,
-                isPrimary: false,
-                onPressed: () {
-                  // Scroll to downloads section
-                },
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 80),
-
-          // 3D Floating cards preview
-          _build3DCardsPreview(),
-        ],
-      ),
-    );
-  }
-
-  Widget _build3DButton({
-    required String label,
-    required IconData icon,
-    required bool isPrimary,
-    required VoidCallback onPressed,
-  }) {
-    return AnimatedBuilder(
-      animation: _floatController,
-      builder: (context, child) {
-        return Transform(
-          transform: Matrix4.identity()
-            ..setEntry(3, 2, 0.001)
-            ..rotateX(math.sin(_floatController.value * math.pi) * 0.05),
-          alignment: Alignment.center,
-          child: Container(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
-              boxShadow: isPrimary
-                  ? [
-                      BoxShadow(
-                        color: Colors.white.withOpacity(0.2),
-                        blurRadius: 30,
-                        spreadRadius: 5,
-                        offset: const Offset(0, 10),
-                      ),
-                    ]
-                  : null,
-            ),
-            child: ElevatedButton.icon(
-              onPressed: onPressed,
-              icon: Icon(icon, size: 20),
-              label: Text(label),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: isPrimary ? Colors.white : const Color(0xFF18181B),
-                foregroundColor: isPrimary ? Colors.black : Colors.white,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 32, vertical: 20),
-                textStyle: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0.5,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  side: isPrimary
-                      ? BorderSide.none
-                      : const BorderSide(color: Color(0xFF27272A), width: 1.5),
-                ),
-                elevation: isPrimary ? 8 : 0,
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _build3DCardsPreview() {
-    return SizedBox(
-      height: 400,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          // Card 1 - Left
-          AnimatedBuilder(
-            animation: _floatController,
-            builder: (context, child) {
-              return Transform(
-                transform: Matrix4.identity()
-                  ..setEntry(3, 2, 0.001)
-                  ..translate(
-                    -200.0 + math.sin(_floatController.value * math.pi) * 20,
-                    math.cos(_floatController.value * math.pi) * 15,
-                    0.0,
-                  )
-                  ..rotateY(-0.3)
-                  ..rotateZ(-0.05),
-                alignment: Alignment.center,
-                child: _build3DCard(
-                  icon: Icons.calendar_today,
-                  title: 'Smart Calendar',
-                  color: Colors.white.withOpacity(0.1),
-                ),
-              );
-            },
-          ),
-
-          // Card 2 - Center (larger)
-          AnimatedBuilder(
-            animation: _floatController,
-            builder: (context, child) {
-              return Transform(
-                transform: Matrix4.identity()
-                  ..setEntry(3, 2, 0.001)
-                  ..translate(
-                    0.0,
-                    math.sin(_floatController.value * math.pi + 1) * 20,
-                    50.0,
-                  )
-                  ..scale(1.2),
-                alignment: Alignment.center,
-                child: _build3DCard(
-                  icon: Icons.notifications_active,
-                  title: 'Real-time Notifications',
-                  color: Colors.white.withOpacity(0.15),
-                  highlight: true,
-                ),
-              );
-            },
-          ),
-
-          // Card 3 - Right
-          AnimatedBuilder(
-            animation: _floatController,
-            builder: (context, child) {
-              return Transform(
-                transform: Matrix4.identity()
-                  ..setEntry(3, 2, 0.001)
-                  ..translate(
-                    200.0 - math.sin(_floatController.value * math.pi) * 20,
-                    math.cos(_floatController.value * math.pi + 2) * 15,
-                    0.0,
-                  )
-                  ..rotateY(0.3)
-                  ..rotateZ(0.05),
-                alignment: Alignment.center,
-                child: _build3DCard(
-                  icon: Icons.analytics,
-                  title: 'Analytics',
-                  color: Colors.white.withOpacity(0.1),
-                ),
-              );
-            },
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _build3DCard({
-    required IconData icon,
-    required String title,
-    required Color color,
-    bool highlight = false,
-  }) {
-    return Container(
-      width: 200,
-      height: 240,
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            color,
-            color.withOpacity(0.5),
           ],
         ),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: highlight ? Colors.white38 : Colors.white24,
-          width: highlight ? 2 : 1,
-        ),
-        boxShadow: [
-          if (highlight)
-            BoxShadow(
-              color: Colors.white.withOpacity(0.2),
-              blurRadius: 40,
-              spreadRadius: 10,
-            ),
-          BoxShadow(
-            color: Colors.black.withOpacity(0.5),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
-          ),
-        ],
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Icon(icon, color: Colors.black, size: 32),
-          ),
-          const SizedBox(height: 20),
-          Text(
-            title,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
-            ),
-          ),
-        ],
       ),
     );
   }
 
-  Widget _buildFeaturesSection() {
-    final features = [
-      {
-        'icon': Icons.calendar_today,
-        'title': 'Smart Calendar',
-        'description':
-            'Intuitive calendar with real-time availability and capacity management.',
-      },
-      {
-        'icon': Icons.notifications_active,
-        'title': 'Instant Notifications',
-        'description':
-            'Push notifications for bookings, approvals, and updates across platforms.',
-      },
-      {
-        'icon': Icons.people,
-        'title': 'Guest Management',
-        'description':
-            'Invite external guests with QR badges and automated invitations.',
-      },
-      {
-        'icon': Icons.admin_panel_settings,
-        'title': 'Role-Based Access',
-        'description':
-            'Granular permissions with Admin, Manager, and User roles.',
-      },
-      {
-        'icon': Icons.analytics,
-        'title': 'Analytics Dashboard',
-        'description':
-            'Comprehensive insights on office utilization and booking patterns.',
-      },
-      {
-        'icon': Icons.devices,
-        'title': 'Cross-Platform',
-        'description':
-            'Web, Android, iOS, Windows, macOS, and Linux with synced data.',
-      },
-    ];
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 100),
-      decoration: const BoxDecoration(
-        border: Border(
-          top: BorderSide(color: Color(0xFF27272A)),
+  Widget _buildMultiTenancyFeature(IconData icon, String title, String description) {
+    return Column(
+      children: [
+        Container(
+          width: 64,
+          height: 64,
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.05),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Colors.white.withOpacity(0.1), width: 1),
+          ),
+          child: Icon(
+            icon,
+            size: 32,
+            color: Colors.white,
+          ),
         ),
-      ),
-      child: Column(
-        children: [
-          const Text(
-            'Everything You Need',
-            style: TextStyle(
-              fontSize: 48,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
-              letterSpacing: -1,
-            ),
+        const SizedBox(height: 24),
+        Text(
+          title,
+          style: const TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.w700,
+            color: Colors.white,
+            fontFamily: 'HouskaPro',
           ),
-          const SizedBox(height: 16),
-          const Text(
-            'Built for scale, designed for simplicity',
-            style: TextStyle(
-              fontSize: 18,
-              color: Color(0xFF9CA3AF),
-            ),
-          ),
-          const SizedBox(height: 64),
-          Container(
-            constraints: const BoxConstraints(maxWidth: 1200),
-            child: Wrap(
-              spacing: 24,
-              runSpacing: 24,
-              children: features.asMap().entries.map((entry) {
-                final index = entry.key;
-                final feature = entry.value;
-                return AnimatedBuilder(
-                  animation: _floatController,
-                  builder: (context, child) {
-                    final delay = index * 0.2;
-                    final animation = (_floatController.value + delay) % 1.0;
-                    return Transform.translate(
-                      offset: Offset(0, math.sin(animation * math.pi * 2) * 8),
-                      child: _buildFeatureCard(feature),
-                    );
-                  },
-                );
-              }).toList(),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildFeatureCard(Map<String, dynamic> feature) {
-    return Container(
-      width: 360,
-      padding: const EdgeInsets.all(32),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            const Color(0xFF18181B),
-            const Color(0xFF18181B).withOpacity(0.8),
-          ],
+          textAlign: TextAlign.center,
         ),
-        border: Border.all(color: const Color(0xFF27272A), width: 1.5),
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.3),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
+        const SizedBox(height: 12),
+        Text(
+          description,
+          style: TextStyle(
+            fontSize: 15,
+            color: Colors.white.withOpacity(0.6),
+            height: 1.6,
+            fontFamily: 'NeueHaasGrotesk',
           ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(
-              feature['icon'] as IconData,
-              color: Colors.black,
-              size: 28,
-            ),
-          ),
-          const SizedBox(height: 20),
-          Text(
-            feature['title'] as String,
-            style: const TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
-            ),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            feature['description'] as String,
-            style: const TextStyle(
-              fontSize: 15,
-              color: Color(0xFF9CA3AF),
-              height: 1.6,
-            ),
-          ),
-        ],
-      ),
+          textAlign: TextAlign.center,
+        ),
+      ],
     );
   }
 
   Widget _buildDownloadSection() {
-    final downloads = [
-      {
-        'platform': 'Android',
-        'icon': Icons.android,
-        'description': 'APK for Android 5.0+',
-        'url': _versionInfo?['downloadUrl']?['android'] ?? '',
-        'available': (_versionInfo?['downloadUrl']?['android'] ?? '').isNotEmpty,
-      },
-      {
-        'platform': 'iOS',
-        'icon': Icons.apple,
-        'description': 'TestFlight for iOS 13+',
-        'url': _versionInfo?['downloadUrl']?['ios'] ?? '',
-        'available': (_versionInfo?['downloadUrl']?['ios'] ?? '').isNotEmpty,
-      },
-      {
-        'platform': 'Web',
-        'icon': Icons.language,
-        'description': 'Progressive Web App',
-        'url': 'https://ppspsched.lat',
-        'available': true,
-      },
-      {
-        'platform': 'Windows',
-        'icon': Icons.window,
-        'description': 'Installer for Windows 10+',
-        'url': _versionInfo?['downloadUrl']?['windows'] ?? '',
-        'available': (_versionInfo?['downloadUrl']?['windows'] ?? '').isNotEmpty,
-      },
-      {
-        'platform': 'macOS',
-        'icon': Icons.laptop_mac,
-        'description': 'DMG for macOS 11+',
-        'url': _versionInfo?['downloadUrl']?['macos'] ?? '',
-        'available': (_versionInfo?['downloadUrl']?['macos'] ?? '').isNotEmpty,
-      },
-      {
-        'platform': 'Linux',
-        'icon': Icons.computer,
-        'description': 'AppImage for Linux',
-        'url': _versionInfo?['downloadUrl']?['linux'] ?? '',
-        'available': (_versionInfo?['downloadUrl']?['linux'] ?? '').isNotEmpty,
-      },
-    ];
+    final isMobile = ResponsiveHelper.isMobile(context);
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 100),
-      decoration: const BoxDecoration(
-        border: Border(
-          top: BorderSide(color: Color(0xFF27272A)),
-        ),
+      width: double.infinity,
+      padding: EdgeInsets.symmetric(
+        horizontal: isMobile ? 24 : 80,
+        vertical: isMobile ? 60 : 120,
       ),
       child: Column(
         children: [
-          const Text(
-            'Download Now',
-            style: TextStyle(
-              fontSize: 48,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
-              letterSpacing: -1,
+          ScrollReveal(
+            child: Text(
+              'Download for Your Platform',
+              style: TextStyle(
+                fontSize: isMobile ? 32 : 56,
+                fontWeight: FontWeight.w700,
+                color: Colors.white,
+                letterSpacing: isMobile ? -0.8 : -1.5,
+                fontFamily: 'HouskaPro',
+              ),
+              textAlign: TextAlign.center,
             ),
           ),
-          const SizedBox(height: 16),
-          if (_versionInfo != null)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(100),
-                border: Border.all(color: Colors.white24),
+          SizedBox(height: isMobile ? 12 : 16),
+          ScrollReveal(
+            delay: const Duration(milliseconds: 200),
+            child: Text(
+              'One app, every device. Seamless synchronization across all platforms.',
+              style: TextStyle(
+                fontSize: isMobile ? 16 : 20,
+                color: Colors.white.withOpacity(0.7),
+                height: 1.6,
+                fontFamily: 'NeueHaasGrotesk',
               ),
-              child: Text(
-                'Version ${_versionInfo!['version']} • Build ${_versionInfo!['buildNumber']}',
-                style: const TextStyle(
-                  fontSize: 14,
-                  color: Colors.white70,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
+              textAlign: TextAlign.center,
             ),
-          const SizedBox(height: 64),
-          Container(
-            constraints: const BoxConstraints(maxWidth: 1200),
-            child: Wrap(
-              spacing: 20,
-              runSpacing: 20,
-              children: downloads.asMap().entries.map((entry) {
-                final index = entry.key;
-                final download = entry.value;
-                return AnimatedBuilder(
-                  animation: _rotateController,
-                  builder: (context, child) {
-                    final rotation =
-                        (_rotateController.value + index * 0.1) * 2 * math.pi;
-                    return Transform(
-                      transform: Matrix4.identity()
-                        ..setEntry(3, 2, 0.002)
-                        ..rotateY(math.sin(rotation) * 0.05),
-                      alignment: Alignment.center,
-                      child: _buildDownloadCard(download),
-                    );
-                  },
-                );
-              }).toList(),
+          ),
+          SizedBox(height: isMobile ? 40 : 80),
+
+          ScrollReveal(
+            delay: const Duration(milliseconds: 400),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 1000),
+              child: GridView.count(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                crossAxisCount: isMobile ? 1 : 3,
+                mainAxisSpacing: 16,
+                crossAxisSpacing: 16,
+                childAspectRatio: isMobile ? 2.5 : 1.4,
+                children: [
+                  _buildPlatformCard(
+                    'Web Application',
+                    Icons.language,
+                    'Access instantly from any browser',
+                    '12.5 MB',
+                    'Available Now',
+                    true,
+                    () => context.go('/login'),
+                    isMobile,
+                  ),
+                  _buildPlatformCard(
+                    'Windows',
+                    Icons.window,
+                    'Native desktop experience',
+                    '85 MB',
+                    'Windows 10+',
+                    true,
+                    () {},
+                    isMobile,
+                  ),
+                  _buildPlatformCard(
+                    'Android',
+                    Icons.android,
+                    'Download from Google Play',
+                    '32 MB',
+                    'Android 8.0+',
+                    true,
+                    () {},
+                    isMobile,
+                  ),
+                  _buildPlatformCard(
+                    'macOS',
+                    Icons.laptop_mac,
+                    'Coming soon to Mac',
+                    'TBA',
+                    'macOS 12+',
+                    false,
+                    null,
+                    isMobile,
+                  ),
+                  _buildPlatformCard(
+                    'Linux',
+                    Icons.computer,
+                    'AppImage & Snap packages',
+                    '78 MB',
+                    'Ubuntu 20.04+',
+                    true,
+                    () {},
+                    isMobile,
+                  ),
+                  _buildPlatformCard(
+                    'iOS',
+                    Icons.apple,
+                    'Coming soon to App Store',
+                    'TBA',
+                    'iOS 14+',
+                    false,
+                    null,
+                    isMobile,
+                  ),
+                ],
+              ),
             ),
           ),
         ],
@@ -795,184 +452,392 @@ class _LandingScreenState extends State<LandingScreen>
     );
   }
 
-  Widget _buildDownloadCard(Map<String, dynamic> download) {
-    final available = download['available'] as bool;
-
+  Widget _buildPlatformCard(
+    String platform,
+    IconData icon,
+    String description,
+    String size,
+    String version,
+    bool enabled,
+    VoidCallback? onPressed,
+    bool isMobile,
+  ) {
     return Container(
-      width: 280,
-      padding: const EdgeInsets.all(28),
       decoration: BoxDecoration(
-        gradient: available
-            ? LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  const Color(0xFF18181B),
-                  const Color(0xFF18181B).withOpacity(0.9),
-                ],
-              )
-            : null,
-        color: available ? null : const Color(0xFF0A0A0A),
+        color: enabled
+            ? Colors.white.withOpacity(0.05)
+            : Colors.white.withOpacity(0.02),
         border: Border.all(
-          color: available ? const Color(0xFF27272A) : const Color(0xFF18181B),
-          width: 1.5,
+          color: enabled
+              ? Colors.white.withOpacity(0.1)
+              : Colors.white.withOpacity(0.05),
+          width: 1,
         ),
         borderRadius: BorderRadius.circular(16),
-        boxShadow: available
-            ? [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.4),
-                  blurRadius: 20,
-                  offset: const Offset(0, 10),
-                ),
-              ]
-            : null,
       ),
-      child: Column(
-        children: [
-          Icon(
-            download['icon'] as IconData,
-            size: 48,
-            color: available ? Colors.white : Colors.white24,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: enabled ? onPressed : null,
+          borderRadius: BorderRadius.circular(16),
+          child: Padding(
+            padding: EdgeInsets.all(isMobile ? 16 : 20),
+            child: isMobile
+                ? Row(
+                    children: [
+                      Icon(
+                        icon,
+                        size: 32,
+                        color: enabled
+                            ? Colors.white
+                            : Colors.white.withOpacity(0.3),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Row(
+                              children: [
+                                Text(
+                                  platform,
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w700,
+                                    color: enabled
+                                        ? Colors.white
+                                        : Colors.white.withOpacity(0.3),
+                                    fontFamily: 'HouskaPro',
+                                  ),
+                                ),
+                                if (!enabled) ...[
+                                  const SizedBox(width: 8),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: Colors.orange.withOpacity(0.1),
+                                      borderRadius: BorderRadius.circular(20),
+                                      border: Border.all(
+                                        color: Colors.orange.withOpacity(0.3),
+                                        width: 1,
+                                      ),
+                                    ),
+                                    child: Text(
+                                      'SOON',
+                                      style: TextStyle(
+                                        fontSize: 8,
+                                        fontWeight: FontWeight.w700,
+                                        color: Colors.orange.withOpacity(0.7),
+                                        letterSpacing: 0.5,
+                                        fontFamily: 'NeueHaasGrotesk',
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              description,
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: enabled
+                                    ? Colors.white.withOpacity(0.6)
+                                    : Colors.white.withOpacity(0.2),
+                                height: 1.4,
+                                fontFamily: 'NeueHaasGrotesk',
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 6),
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.file_download,
+                                  size: 10,
+                                  color: enabled
+                                      ? Colors.white.withOpacity(0.5)
+                                      : Colors.white.withOpacity(0.2),
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  size,
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    color: enabled
+                                        ? Colors.white.withOpacity(0.5)
+                                        : Colors.white.withOpacity(0.2),
+                                    fontFamily: 'NeueHaasGrotesk',
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Icon(
+                                  Icons.info_outline,
+                                  size: 10,
+                                  color: enabled
+                                      ? Colors.white.withOpacity(0.5)
+                                      : Colors.white.withOpacity(0.2),
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  version,
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    color: enabled
+                                        ? Colors.white.withOpacity(0.5)
+                                        : Colors.white.withOpacity(0.2),
+                                    fontFamily: 'NeueHaasGrotesk',
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  )
+                : Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        icon,
+                        size: 40,
+                        color: enabled
+                            ? Colors.white
+                            : Colors.white.withOpacity(0.3),
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        platform,
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                          color: enabled
+                              ? Colors.white
+                              : Colors.white.withOpacity(0.3),
+                          fontFamily: 'HouskaPro',
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        description,
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: enabled
+                              ? Colors.white.withOpacity(0.6)
+                              : Colors.white.withOpacity(0.2),
+                          height: 1.4,
+                          fontFamily: 'NeueHaasGrotesk',
+                        ),
+                        textAlign: TextAlign.center,
+                        maxLines: 2,
+                      ),
+                      const Spacer(),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.file_download,
+                            size: 12,
+                            color: enabled
+                                ? Colors.white.withOpacity(0.5)
+                                : Colors.white.withOpacity(0.2),
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            size,
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: enabled
+                                  ? Colors.white.withOpacity(0.5)
+                                  : Colors.white.withOpacity(0.2),
+                              fontFamily: 'NeueHaasGrotesk',
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Icon(
+                            Icons.info_outline,
+                            size: 12,
+                            color: enabled
+                                ? Colors.white.withOpacity(0.5)
+                                : Colors.white.withOpacity(0.2),
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            version,
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: enabled
+                                  ? Colors.white.withOpacity(0.5)
+                                  : Colors.white.withOpacity(0.2),
+                              fontFamily: 'NeueHaasGrotesk',
+                            ),
+                          ),
+                        ],
+                      ),
+                      if (!enabled) ...[
+                        const SizedBox(height: 12),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.orange.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                              color: Colors.orange.withOpacity(0.3),
+                              width: 1,
+                            ),
+                          ),
+                          child: Text(
+                            'COMING SOON',
+                            style: TextStyle(
+                              fontSize: 9,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.orange.withOpacity(0.7),
+                              letterSpacing: 0.8,
+                              fontFamily: 'NeueHaasGrotesk',
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
           ),
-          const SizedBox(height: 16),
-          Text(
-            download['platform'] as String,
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: available ? Colors.white : Colors.white38,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            download['description'] as String,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 14,
-              color: available ? const Color(0xFF9CA3AF) : Colors.white24,
-            ),
-          ),
-          const SizedBox(height: 20),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              onPressed:
-                  available ? () => _launchUrl(download['url'] as String) : null,
-              icon: Icon(
-                available ? Icons.download : Icons.schedule,
-                size: 18,
-              ),
-              label: Text(available ? 'Download' : 'Coming Soon'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor:
-                    available ? Colors.white : const Color(0xFF27272A),
-                foregroundColor: available ? Colors.black : Colors.white38,
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
 
   Widget _buildFooter() {
+    final isMobile = ResponsiveHelper.isMobile(context);
+
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 48),
-      decoration: const BoxDecoration(
+      width: double.infinity,
+      padding: EdgeInsets.symmetric(
+        horizontal: isMobile ? 24 : 80,
+        vertical: isMobile ? 32 : 40,
+      ),
+      decoration: BoxDecoration(
         border: Border(
-          top: BorderSide(color: Color(0xFF27272A)),
+          top: BorderSide(color: Colors.white.withOpacity(0.1), width: 1),
         ),
       ),
-      child: Column(
-        children: [
-          SvgPicture.asset('assets/logos/tcs-pace-logo-w.svg', height: 32),
-          const SizedBox(height: 16),
-          const Text(
-            'Internal application for TCS employees',
-            style: TextStyle(
-              fontSize: 13,
-              color: Color(0xFF6B7280),
+      child: isMobile
+          ? Column(
+              children: [
+                // Brand and version
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    SvgPicture.asset(
+                      'assets/logos/tcs-pace-logo-w.svg',
+                      height: 24,
+                    ),
+                    if (!_loading && _versionInfo != null) ...[
+                      const SizedBox(width: 12),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.05),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: Colors.white.withOpacity(0.1),
+                            width: 1,
+                          ),
+                        ),
+                        child: Text(
+                          'v${_versionInfo!['version']} • ${_versionInfo!['environment']}',
+                          style: TextStyle(
+                            fontSize: 9,
+                            color: Colors.white.withOpacity(0.5),
+                            fontWeight: FontWeight.w500,
+                            fontFamily: 'NeueHaasGrotesk',
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+                const SizedBox(height: 16),
+
+                // Copyright
+                Text(
+                  '© 2025 Tata Consultancy Services',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Colors.white.withOpacity(0.4),
+                    fontFamily: 'NeueHaasGrotesk',
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Internal Project',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Colors.white.withOpacity(0.4),
+                    fontFamily: 'NeueHaasGrotesk',
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            )
+          : Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                // Brand and version
+                Row(
+                  children: [
+                    SvgPicture.asset(
+                      'assets/logos/tcs-pace-logo-w.svg',
+                      height: 32,
+                    ),
+                    if (!_loading && _versionInfo != null) ...[
+                      const SizedBox(width: 20),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.05),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: Colors.white.withOpacity(0.1),
+                            width: 1,
+                          ),
+                        ),
+                        child: Text(
+                          'v${_versionInfo!['version']} • ${_versionInfo!['environment']}',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Colors.white.withOpacity(0.5),
+                            fontWeight: FontWeight.w500,
+                            fontFamily: 'NeueHaasGrotesk',
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+
+                // Copyright
+                Text(
+                  '© 2025 Tata Consultancy Services - Internal Project',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Colors.white.withOpacity(0.4),
+                    fontFamily: 'NeueHaasGrotesk',
+                  ),
+                ),
+              ],
             ),
-          ),
-          const SizedBox(height: 24),
-          const Text(
-            '© 2025 Tata Consultancy Services. All rights reserved.',
-            style: TextStyle(
-              fontSize: 12,
-              color: Color(0xFF4B5563),
-            ),
-          ),
-        ],
-      ),
     );
   }
-}
 
-// Custom painter for animated background grid
-class GridBackgroundPainter extends CustomPainter {
-  final double progress;
-
-  GridBackgroundPainter({required this.progress});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = Colors.white.withOpacity(0.02)
-      ..strokeWidth = 1
-      ..style = PaintingStyle.stroke;
-
-    const gridSize = 50.0;
-    final offset = progress * gridSize;
-
-    // Draw vertical lines
-    for (double x = -offset; x < size.width + gridSize; x += gridSize) {
-      canvas.drawLine(
-        Offset(x, 0),
-        Offset(x, size.height),
-        paint,
-      );
-    }
-
-    // Draw horizontal lines
-    for (double y = -offset; y < size.height + gridSize; y += gridSize) {
-      canvas.drawLine(
-        Offset(0, y),
-        Offset(size.width, y),
-        paint,
-      );
-    }
-
-    // Draw glowing dots at intersections
-    final glowPaint = Paint()
-      ..color = Colors.white.withOpacity(0.1)
-      ..style = PaintingStyle.fill;
-
-    for (double x = -offset; x < size.width + gridSize; x += gridSize) {
-      for (double y = -offset; y < size.height + gridSize; y += gridSize) {
-        final distance = math.sqrt(
-          math.pow((x - size.width / 2), 2) + math.pow((y - size.height / 2), 2),
-        );
-        final normalizedDistance = (distance / (size.width / 2)).clamp(0.0, 1.0);
-        final opacity = (1 - normalizedDistance) * 0.3;
-
-        canvas.drawCircle(
-          Offset(x, y),
-          2,
-          Paint()
-            ..color = Colors.white.withOpacity(opacity)
-            ..style = PaintingStyle.fill,
-        );
-      }
-    }
-  }
-
-  @override
-  bool shouldRepaint(GridBackgroundPainter oldDelegate) {
-    return oldDelegate.progress != progress;
-  }
 }

@@ -167,15 +167,19 @@ class _BugReportsScreenState extends State<BugReportsScreen> {
       );
 
       final bugsList = response['bugs'] as List<dynamic>;
-      setState(() {
-        _bugReports = bugsList.map((json) => BugReport.fromJson(json)).toList();
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _bugReports = bugsList.map((json) => BugReport.fromJson(json)).toList();
+          _isLoading = false;
+        });
+      }
     } catch (e) {
-      setState(() {
-        _errorMessage = 'Failed to load bug reports: $e';
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _errorMessage = 'Failed to load bug reports: $e';
+          _isLoading = false;
+        });
+      }
     }
   }
 

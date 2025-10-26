@@ -209,10 +209,7 @@ class BookingFlowService {
       apiVisitType = 'INNOVATION_EXCHANGE';
     }
 
-    // Load availability for the selected date and visit type - WAIT for it to complete
-    await _loadAvailability!(_selectedDate!, apiVisitType);
-
-    // Show the slot picker drawer and capture the selected time
+    // Show the slot picker drawer IMMEDIATELY (it will show loading state)
     _showSlotPicker!(_selectedDate!, (TimeOfDay startTime, int duration) {
       _startTime = startTime;
 
@@ -224,6 +221,9 @@ class BookingFlowService {
         _showBaseInfoDrawer(_rootContext!);
       }
     });
+
+    // Load availability AFTER drawer is shown (async, drawer will update when data arrives)
+    _loadAvailability!(_selectedDate!, apiVisitType);
   }
 
   /// Step 3: Show Base Info drawer

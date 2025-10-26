@@ -5,7 +5,6 @@
 
   <!-- Primary Meta Tags -->
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
 
   <title>TCS Pace Scheduler | Enterprise Office Visit Scheduling System</title>
@@ -187,6 +186,10 @@
   <!-- Preload Critical Resources -->
   <link rel="preload" href="flutter_bootstrap.js" as="script">
 
+  <!-- Babylon.js for 3D Device Rendering (loaded before Flutter) -->
+  <script src="https://cdn.babylonjs.com/babylon.js"></script>
+  <script src="https://cdn.babylonjs.com/loaders/babylonjs.loaders.min.js"></script>
+
   <style>
     /* TCS Brand Fonts - loaded via Flutter */
     body {
@@ -198,6 +201,43 @@
   </style>
 </head>
 <body>
+  <!-- Viewer Manager (loaded first) -->
+  <script src="viewer-manager.js"></script>
+
+  <!-- Device Viewer (loaded before Flutter bootstrap) -->
+  <script src="device-viewer.js"></script>
+
+  <!-- Globe Viewer for Multi-Tenancy Section -->
+  <script src="globe-viewer.js"></script>
+
+  <!-- Login Devices Viewer (Notebook + Phone together) -->
+  <!-- DISABLED: Not used anymore, was interfering with login form inputs -->
+  <!-- <script src="login-devices-viewer.js"></script> -->
+
+  <!-- Verify Babylon.js and Viewers are loaded -->
+  <script>
+    console.log('[TCS] Babylon.js loaded:', typeof BABYLON !== 'undefined');
+    console.log('[TCS] ViewerManager loaded:', typeof window.viewerManager !== 'undefined');
+    console.log('[TCS] DeviceViewer loaded:', typeof DeviceViewer !== 'undefined');
+    console.log('[TCS] GlobeViewer loaded:', typeof GlobeViewer !== 'undefined');
+    // LoginDevicesViewer disabled - no longer used
+    if (typeof BABYLON === 'undefined') {
+      console.error('[TCS] ❌ BABYLON.js failed to load!');
+    }
+    if (typeof window.viewerManager === 'undefined') {
+      console.error('[TCS] ❌ ViewerManager failed to load!');
+    }
+    if (typeof DeviceViewer === 'undefined') {
+      console.error('[TCS] ❌ DeviceViewer failed to load!');
+    }
+    if (typeof GlobeViewer === 'undefined') {
+      console.error('[TCS] ❌ GlobeViewer failed to load!');
+    }
+    if (typeof BABYLON !== 'undefined' && typeof window.viewerManager !== 'undefined' && typeof DeviceViewer !== 'undefined' && typeof GlobeViewer !== 'undefined') {
+      console.log('[TCS] ✅ Required 3D dependencies loaded successfully');
+    }
+  </script>
+
   <!-- Flutter App -->
   <script src="flutter_bootstrap.js" async></script>
 

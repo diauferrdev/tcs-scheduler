@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../models/bug_report.dart';
 import '../providers/auth_provider.dart';
 import '../providers/theme_provider.dart';
@@ -1357,10 +1358,16 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
                           fit: StackFit.expand,
                           children: [
                             if (isImage)
-                              Image.network(
-                                getAbsoluteUrl(attachment.fileUrl),
+                              CachedNetworkImage(
+                                imageUrl: getAbsoluteUrl(attachment.fileUrl),
                                 fit: BoxFit.cover,
-                                errorBuilder: (context, error, stackTrace) => const Center(
+                                placeholder: (context, url) => Center(
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: AppTheme.primaryWhite,
+                                  ),
+                                ),
+                                errorWidget: (context, url, error) => const Center(
                                   child: Icon(Icons.broken_image, color: AppTheme.primaryWhite),
                                 ),
                               )
@@ -1524,23 +1531,16 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
                     child: Stack(
                       fit: StackFit.expand,
                       children: [
-                        Image.network(
-                          getAbsoluteUrl(attachment.fileUrl),
+                        CachedNetworkImage(
+                          imageUrl: getAbsoluteUrl(attachment.fileUrl),
                           fit: BoxFit.cover,
-                          loadingBuilder: (context, child, loadingProgress) {
-                            if (loadingProgress == null) return child;
-                            return Center(
-                              child: CircularProgressIndicator(
-                                value: loadingProgress.expectedTotalBytes != null
-                                    ? loadingProgress.cumulativeBytesLoaded /
-                                        loadingProgress.expectedTotalBytes!
-                                    : null,
-                                strokeWidth: 2,
-                                color: AppTheme.primaryWhite,
-                              ),
-                            );
-                          },
-                          errorBuilder: (context, error, stack) => const Center(
+                          placeholder: (context, url) => Center(
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: AppTheme.primaryWhite,
+                            ),
+                          ),
+                          errorWidget: (context, url, error) => const Center(
                             child: Icon(Icons.broken_image, color: AppTheme.primaryWhite, size: 32),
                           ),
                         ),

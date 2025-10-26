@@ -1,0 +1,54 @@
+<svg width="400" height="400" viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="400" height="400" fill="#1e3a8a"/>
+
+  <!-- Intel text -->
+  <text x="50" y="150" font-family="Arial, sans-serif" font-size="100" font-weight="700" fill="white">intel</text>
+
+  <!-- Blue dot after intel -->
+  <circle cx="380" cy="120" r="8" fill="#60a5fa"/>
+
+  <!-- Core text -->
+  <text x="50" y="270" font-family="Arial, sans-serif" font-size="100" font-weight="700" fill="white">core</text>
+
+  <!-- Blue gradient dots pattern (right side) -->
+  <circle cx="340" cy="140" r="6" fill="#3b82f6"/>
+  <circle cx="365" cy="140" r="6" fill="#3b82f6"/>
+
+  <circle cx="340" cy="170" r="6" fill="#3b82f6"/>
+  <circle cx="365" cy="170" r="6" fill="#3b82f6"/>
+
+  <circle cx="340" cy="200" r="6" fill="#60a5fa"/>
+  <circle cx="365" cy="200" r="6" fill="#60a5fa"/>
+
+  <!-- Middle dots row -->
+  <circle cx="225" cy="325" r="5" fill="#3b82f6"/>
+  <circle cx="255" cy="325" r="5" fill="#3b82f6"/>
+  <circle cx="285" cy="325" r="5" fill="#60a5fa"/>
+  <circle cx="315" cy="325" r="5" fill="#60a5fa"/>
+  <circle cx="345" cy="325" r="5" fill="#7dd3fc"/>
+  <circle cx="375" cy="325" r="5" fill="#7dd3fc"/>
+
+  <!-- Bottom dots row -->
+  <circle cx="175" cy="375" r="5" fill="#3b82f6"/>
+  <circle cx="205" cy="375" r="5" fill="#3b82f6"/>
+  <circle cx="235" cy="375" r="5" fill="#60a5fa"/>
+  <circle cx="265" cy="375" r="5" fill="#60a5fa"/>
+  <circle cx="295" cy="375" r="5" fill="#7dd3fc"/>
+  <circle cx="325" cy="375" r="5" fill="#7dd3fc"/>
+  <circle cx="355" cy="375" r="5" fill="#67e8f9"/>
+
+  <!-- ULTRA text -->
+  <text x="50" y="360" font-family="Arial, sans-serif" font-size="60" font-weight="700" fill="white">ULTRA</text>
+
+  <!-- Number 9 -->
+  <text x="340" y="360" font-family="Arial, sans-serif" font-size="80" font-weight="700" fill="white">9</text>
+
+  <!-- More blue dots on right side (middle section) -->
+  <circle cx="335" cy="230" r="6" fill="#60a5fa"/>
+  <circle cx="360" cy="230" r="6" fill="#60a5fa"/>
+
+  <circle cx="330" cy="260" r="6" fill="#7dd3fc"/>
+  <circle cx="355" cy="260" r="6" fill="#7dd3fc"/>
+  <circle cx="380" cy="260" r="6" fill="#7dd3fc"/>
+</svg>

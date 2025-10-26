@@ -62,6 +62,11 @@ GoRouter createRouter(AuthProvider authProvider) {
             : '/login';
         }
 
+        // If authenticated and trying to access login, redirect to main screen
+        if (isAuthenticated && isLoginRoute) {
+          return _getMainScreenForRole(user?.role ?? UserRole.USER);
+        }
+
         // Redirect to login if not authenticated (except on login)
         if (!isAuthenticated && !isLoginRoute) {
           return '/login';
@@ -75,6 +80,11 @@ GoRouter createRouter(AuthProvider authProvider) {
 
       // LOCALHOST: Allow all routes for development
       if (isLocalhost) {
+        // If authenticated and trying to access login, redirect to app
+        if (isAuthenticated && isLoginRoute) {
+          return '/app';
+        }
+
         // Redirect to login if not authenticated (except on landing/login)
         if (!isAuthenticated && !isLoginRoute && !isLandingRoute) {
           return '/login';
@@ -83,6 +93,11 @@ GoRouter createRouter(AuthProvider authProvider) {
       }
 
       // PRODUCTION WEB (ppspsched.lat)
+      // If authenticated and trying to access login, redirect to app
+      if (isAuthenticated && isLoginRoute) {
+        return '/app';
+      }
+
       // Not authenticated: allow landing and login only
       if (!isAuthenticated) {
         if (!isLandingRoute && !isLoginRoute) {
@@ -106,6 +121,18 @@ GoRouter createRouter(AuthProvider authProvider) {
       GoRoute(
         path: '/login',
         builder: (context, state) => const LoginScreen(),
+      ),
+
+      // Redirect /app to the appropriate screen based on user role
+      GoRoute(
+        path: '/app',
+        redirect: (context, state) {
+          final user = authProvider.user;
+          if (user == null) {
+            return '/login';
+          }
+          return _getMainScreenForRole(user.role);
+        },
       ),
 
       // Shell route with AppLayout for authenticated pages

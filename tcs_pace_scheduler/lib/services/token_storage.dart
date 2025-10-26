@@ -1,5 +1,5 @@
 import 'dart:io' show Platform;
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show kIsWeb, kDebugMode;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
@@ -157,10 +157,4 @@ class TokenStorage {
       print(message);
     }
   }
-}
-
-bool get kDebugMode {
-  bool debug = false;
-  assert(debug = true);
-  return debug;
 }
