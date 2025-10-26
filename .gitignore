@@ -72,3 +72,5 @@ sched-be/prisma/migrations/**/migration.sql
 # Scripts & temporary files
 fix-*.sh
 deploy-*.sh
+deployed/
+tcs_pace_scheduler/

@@ -4,8 +4,8 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:splash_master/splash_master.dart';
 
 /// Animated Splash Screen with TCS Pace logo
-/// Uses custom SVG animation with CSS keyframes
-/// Duration: ~3 seconds (0.8s delay + 2s animation)
+/// Features smooth fade-in and scale animations
+/// Duration: ~3 seconds (2.8s animation + 0.2s buffer + 0.5s transition)
 class AnimatedSplashScreen extends StatefulWidget {
   final Widget nextScreen;
   final VoidCallback? onAnimationComplete;
@@ -103,11 +103,10 @@ class _AnimatedSplashScreenState extends State<AnimatedSplashScreen>
               child: ScaleTransition(
                 scale: _scaleAnimation,
                 child: SvgPicture.asset(
-                  'assets/splash/stpace-logo-animation.svg',
-                  width: 246, // 2x original size (123 * 2)
-                  height: 60, // 2x original size (30 * 2)
+                  'assets/logos/tcs-pace-logo-w.svg',
+                  width: 300,
+                  height: 300,
                   fit: BoxFit.contain,
-                  // The SVG has embedded CSS animations that will play automatically
                 ),
               ),
             );
