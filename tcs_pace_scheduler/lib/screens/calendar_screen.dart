@@ -4868,6 +4868,16 @@ class _SlotPickerContentState extends State<SlotPickerContent> {
                               : (widget.isDark ? const Color(0xFF6B7280) : const Color(0xFF9CA3AF)),
                         ),
                       ),
+                      if (!isAvailable && period.blockedBy != null) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          period.blockedBy!,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: widget.isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),
