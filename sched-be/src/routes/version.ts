@@ -3,8 +3,8 @@ import { Hono } from 'hono';
 const app = new Hono();
 
 const versionData = {
-  version: '1.1.13',
-  buildNumber: 51,
+  version: '1.1.14',
+  buildNumber: 52,
   minVersion: '1.0.0',
   forceUpdate: false,
   downloadUrl: {
@@ -19,7 +19,7 @@ const versionData = {
     'pt-BR': 'Versão 1.1.8 - Correções de estabilidade e melhorias de performance. WebSocket tempo real funcionando corretamente.',
     'en': 'Version 1.1.8 - Stability fixes and performance improvements. Real-time WebSocket working correctly.',
   },
-  releaseDate: '2025-10-26T05:10:08-03:00',
+  releaseDate: '2025-10-26T05:34:43-03:00',
   critical: false,
 };
 

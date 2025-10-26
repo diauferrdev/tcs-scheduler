@@ -1174,28 +1174,8 @@ export async function approveBooking(bookingId: string, managerId: string) {
     console.log(`[Approval] Successfully marked ${conflictingCount} conflicting bookings as NEED_RESCHEDULE`);
   }
 
-  // Notify the approved booking creator
-  if (booking.createdById) {
-    notificationService.createNotification({
-      type: 'BOOKING_APPROVED',
-      title: 'Booking Approved',
-      message: `Your booking for ${booking.companyName} on ${new Date(booking.date).toLocaleDateString()} at ${booking.startTime} has been approved!`,
-      userId: booking.createdById,
-      bookingId: booking.id,
-      screen: 'booking_details',
-      metadata: {
-        companyName: booking.companyName,
-        date: new Date(booking.date).toLocaleDateString(),
-        time: booking.startTime,
-        sector: booking.companySector || undefined,
-        expectedAttendees: booking.expectedAttendees,
-        eventType: booking.eventType || undefined,
-        approvedBy: updatedBooking.approvedBy?.name,
-      },
-    }).catch((error: any) => {
-      console.error('Failed to send approval notification to creator:', error);
-    });
-  }
+  // NOTE: Notification is sent via push.service.sendBookingApprovedNotification() in routes/bookings.ts
+  // No need to create duplicate notification here
 
   // Notify all other managers that the booking was approved
   notificationService.notifyAllManagers(
