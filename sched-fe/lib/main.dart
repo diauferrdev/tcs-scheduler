@@ -6,11 +6,13 @@ import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:splash_master/splash_master.dart';
 import 'firebase_options.dart';
 import 'providers/auth_provider.dart';
 import 'providers/theme_provider.dart';
 import 'router.dart';
 import 'services/unified_notification_service.dart';
+import 'screens/animated_splash_screen.dart';
 
 /// Check if Firebase is supported on current platform
 /// Firebase is supported on: Android, iOS, web, macOS
@@ -49,6 +51,9 @@ void notificationTapBackgroundHandler(NotificationResponse details) {
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize SplashMaster to prevent Flutter frames until splash completes
+  SplashMaster.initialize();
 
   // Initialize Firebase ONLY on supported platforms (Android, iOS, web, macOS)
   // Windows and Linux desktop use local_notifier instead
@@ -114,6 +119,7 @@ class _AppRouter extends StatefulWidget {
 
 class _AppRouterState extends State<_AppRouter> {
   late final GoRouter _router;
+  bool _showSplash = true;
 
   @override
   void initState() {
@@ -122,10 +128,31 @@ class _AppRouterState extends State<_AppRouter> {
     _router = createRouter(authProvider);
   }
 
+  void _onSplashComplete() {
+    setState(() {
+      _showSplash = false;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Consumer<ThemeProvider>(
       builder: (context, themeProvider, child) {
+        if (_showSplash) {
+          // Show animated splash screen first
+          return MaterialApp(
+            title: 'TCS Pace Scheduler',
+            debugShowCheckedModeBanner: false,
+            theme: ThemeProvider.darkTheme,
+            themeMode: ThemeMode.dark,
+            home: AnimatedSplashScreen(
+              nextScreen: Container(), // Placeholder, navigation handled internally
+              onAnimationComplete: _onSplashComplete,
+            ),
+          );
+        }
+
+        // Show main app after splash
         return MaterialApp.router(
           title: 'TCS Pace Scheduler | Enterprise Office Visit Scheduling System',
           debugShowCheckedModeBanner: false,

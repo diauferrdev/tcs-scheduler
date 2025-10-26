@@ -103,6 +103,10 @@ dependencies:
   cached_network_image: ^3.4.1
   visibility_detector: ^0.4.0+2
 
+  # Splash Screen
+  splash_master: ^0.0.3
+  lottie: ^3.1.3
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -136,6 +140,17 @@ flutter_launcher_icons:
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
 
+# Splash Screen Configuration for splash_master
+splash_master:
+  color: '#000000'  # Black background
+  image: 'assets/splash/tcs_logo_static.png'
+  ios_content_mode: 'center'
+  android_gravity: 'center'
+  color_dark_android: '#000000'
+  android_12_and_above:
+    color: '#000000'
+    image: 'assets/splash/tcs_logo_static.png'
+
 # The following section is specific to Flutter packages.
 flutter:
 
@@ -149,6 +164,7 @@ flutter:
     - assets/images/
     - assets/logos/
     - assets/icons/
+    - assets/splash/
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
