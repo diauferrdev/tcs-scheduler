@@ -140,10 +140,6 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     if (!context.mounted) return;
 
     switch (type) {
-      case NotificationType.BOOKING_PENDING_APPROVAL:
-        // Navigate to approvals page
-        context.go('/app/approvals');
-        break;
       case NotificationType.BOOKING_INVITATION:
         // Navigate to invitations page
         context.go('/app/invitations');
@@ -366,23 +362,6 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                           'date': 'Oct 22, 2025',
                           'time': '10:30 AM',
                           'approvedBy': 'John Silva (Manager)',
-                        },
-                      ),
-                    ),
-                    _buildNotificationOption(
-                      icon: Icons.pending,
-                      color: Colors.orange,
-                      title: 'Pending Approval',
-                      subtitle: 'Request admin attention',
-                      onTap: () => _sendPushNotification(
-                        type: 'BOOKING_PENDING_APPROVAL',
-                        title: 'Booking Needs Approval',
-                        message: 'Oracle visit requires your approval',
-                        metadata: {
-                          'companyName': 'Oracle',
-                          'date': 'Oct 25, 2025',
-                          'time': '15:30',
-                          'expectedAttendees': 20,
                         },
                       ),
                     ),
@@ -779,10 +758,6 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         icon = Icons.cancel_outlined;
         color = Colors.red;
         break;
-      case NotificationType.BOOKING_PENDING_APPROVAL:
-        icon = Icons.pending_actions;
-        color = const Color(0xFFF59E0B);
-        break;
       case NotificationType.BOOKING_IMPORTANT_CHANGE:
         icon = Icons.priority_high;
         color = Colors.deepOrange;
@@ -1026,9 +1001,6 @@ class _NotificationsDrawerState extends State<NotificationsDrawer> {
 
     // Navigate using the router reference
     switch (type) {
-      case NotificationType.BOOKING_PENDING_APPROVAL:
-        router.go('/app/approvals');
-        break;
       case NotificationType.BOOKING_INVITATION:
         router.go('/app/invitations');
         break;
@@ -1229,23 +1201,6 @@ class _NotificationsDrawerState extends State<NotificationsDrawer> {
                           'date': 'Oct 22, 2025',
                           'time': '10:30 AM',
                           'approvedBy': 'John Silva (Manager)',
-                        },
-                      ),
-                    ),
-                    _buildNotificationOption(
-                      icon: Icons.pending,
-                      color: Colors.orange,
-                      title: 'Pending Approval',
-                      subtitle: 'Request admin attention',
-                      onTap: () => _sendPushNotification(
-                        type: 'BOOKING_PENDING_APPROVAL',
-                        title: 'Booking Needs Approval',
-                        message: 'Oracle visit requires your approval',
-                        metadata: {
-                          'companyName': 'Oracle',
-                          'date': 'Oct 25, 2025',
-                          'time': '15:30',
-                          'expectedAttendees': 20,
                         },
                       ),
                     ),
@@ -1721,10 +1676,6 @@ class _NotificationsDrawerState extends State<NotificationsDrawer> {
       case NotificationType.BOOKING_CANCELLED:
         icon = Icons.cancel_outlined;
         color = Colors.red;
-        break;
-      case NotificationType.BOOKING_PENDING_APPROVAL:
-        icon = Icons.pending_actions;
-        color = const Color(0xFFF59E0B);
         break;
       case NotificationType.BOOKING_IMPORTANT_CHANGE:
         icon = Icons.priority_high;

@@ -165,8 +165,8 @@ class _EditBookingDrawerState extends State<EditBookingDrawer> {
         'attendees': _attendees.map((a) => a.toJson()).toList(),
       'expectedAttendees': _attendees.isNotEmpty ? _attendees.length : 1,
 
-      // Status change: After editing a NEED_EDIT booking, return to PENDING_APPROVAL
-      'status': 'PENDING_APPROVAL',
+      // Status change: After editing a NEED_EDIT booking, return to UNDER_REVIEW for manager approval
+      'status': 'UNDER_REVIEW',
 
       // Legacy compatibility
       'companyName': _organizationNameController.text.trim(),

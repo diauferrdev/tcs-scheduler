@@ -18,7 +18,7 @@ Complete redesign of the booking system flow, introducing new engagement types, 
 | Full Day Visit | **Pace Experience** | 6 hours (10h-16h) | Yes |
 | Innovation Exchange | **Innovation Exchange** | 7 hours (10h-17h) | Yes + Alignment Call |
 
-**Note**: Old enum values (`QUICK_TOUR`, `DRAFT`, `PENDING_APPROVAL`) are kept for backward compatibility but marked as DEPRECATED.
+**Note**: Old enum values (`QUICK_TOUR`, `DRAFT`) are kept for backward compatibility but marked as DEPRECATED.
 
 ---
 
@@ -26,7 +26,7 @@ Complete redesign of the booking system flow, introducing new engagement types, 
 
 ### Previous Flow (DEPRECATED)
 ```
-DRAFT → PENDING_APPROVAL → APPROVED/CANCELLED
+DRAFT → APPROVED/CANCELLED
 ```
 
 ### New Flow
@@ -462,7 +462,6 @@ enum VisitType {
 
 enum BookingStatus {
   DRAFT,                // DEPRECATED
-  PENDING_APPROVAL,     // DEPRECATED
   CREATED,              // New
   UNDER_REVIEW,         // New
   NEED_EDIT,            // New
@@ -540,7 +539,7 @@ Two-step migration process to handle PostgreSQL enum constraints:
 
 ### Backward Compatibility
 
-- Old enum values (`QUICK_TOUR`, `DRAFT`, `PENDING_APPROVAL`) are kept in database
+- Old enum values (`QUICK_TOUR`, `DRAFT`) are kept in database
 - Old booking records will continue to work
 - New bookings should use new flow
 
@@ -648,7 +647,7 @@ CANCELLED → Step 3 (Cancelled, gray)
 ## 17. Next Steps
 
 ### Critical (Backend)
-1. ✅ Update `createBooking` to set status = CREATED (instead of PENDING_APPROVAL)
+1. ✅ Update `createBooking` to set status = CREATED
 2. ✅ Update `approveBooking` to handle new status values
 3. ✅ Test all new routes with Postman/Insomnia
 

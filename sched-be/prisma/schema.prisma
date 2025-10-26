@@ -373,7 +373,6 @@ model BookingParticipant {
 
 enum NotificationType {
   BOOKING_INVITATION
-  BOOKING_PENDING_APPROVAL     // DEPRECATED - kept for backwards compatibility
   BOOKING_CONFIRMED            // DEPRECATED - kept for backwards compatibility
   BOOKING_CREATED              // New booking submitted (CREATED status)
   BOOKING_UNDER_REVIEW         // Booking moved to under review
