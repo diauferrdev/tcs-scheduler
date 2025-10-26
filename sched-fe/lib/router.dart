@@ -19,6 +19,7 @@ import 'screens/bug_reports_screen.dart';
 import 'screens/drawer_route_screen.dart';
 import 'services/navigation_service.dart';
 import 'services/drawer_service.dart';
+import 'utils/seo_helper.dart';
 import 'services/web_html_stub.dart'
     if (dart.library.html) 'dart:html' as html;
 
@@ -30,6 +31,36 @@ bool _isLocalhost() {
     return hostname == 'localhost' || hostname == '127.0.0.1';
   } catch (e) {
     return false;
+  }
+}
+
+/// Update SEO meta tags based on the current route
+void _updateSeoForRoute(String path) {
+  if (!kIsWeb) return;
+
+  // Extract page key from path (e.g., /app/dashboard -> dashboard)
+  String pageKey = 'landing';
+
+  if (path.startsWith('/app/')) {
+    final segments = path.split('/');
+    if (segments.length >= 3) {
+      pageKey = segments[2];
+    }
+  } else if (path == '/login') {
+    pageKey = 'login';
+  } else if (path == '/') {
+    pageKey = 'landing';
+  }
+
+  // Update SEO using preset configurations
+  SeoHelper.setPageMeta(pageKey);
+
+  // Update canonical URL
+  try {
+    final fullUrl = 'https://ppspsched.lat$path';
+    SeoHelper.updateCanonicalUrl(fullUrl);
+  } catch (e) {
+    // Silently fail
   }
 }
 
@@ -47,6 +78,9 @@ GoRouter createRouter(AuthProvider authProvider) {
       final currentPath = state.uri.path;
       final isLandingRoute = currentPath == '/';
       final isLoginRoute = currentPath == '/login';
+
+      // Update SEO for current route (web only)
+      _updateSeoForRoute(currentPath);
 
       // Wait for auth check to complete
       if (isLoading) {
