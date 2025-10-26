@@ -28,6 +28,9 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
   List<Booking> _recentHistory = [];
   bool _isLoading = true;
   String? _error;
+  bool _isLoadingInProgress = false; // Prevent concurrent loads
+  int _retryCount = 0;
+  static const int _maxRetries = 3;
 
   // Keep listener references for proper cleanup
   late final Function(Map<String, dynamic>) _onBookingCreatedListener;
@@ -66,22 +69,30 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
     // Create listener references
     _onBookingCreatedListener = (bookingData) {
       debugPrint('[MyBookings] New booking via WebSocket');
-      _loadBookings(); // Refresh list
+      if (mounted) {
+        _loadBookings(); // Refresh list
+      }
     };
 
     _onBookingUpdatedListener = (bookingData) {
       debugPrint('[MyBookings] Booking updated via WebSocket');
-      _loadBookings(); // Refresh list
+      if (mounted) {
+        _loadBookings(); // Refresh list
+      }
     };
 
     _onBookingApprovedListener = (bookingData) {
       debugPrint('[MyBookings] Booking approved via WebSocket');
-      _loadBookings(); // Refresh list
+      if (mounted) {
+        _loadBookings(); // Refresh list
+      }
     };
 
     _onBookingDeletedListener = (bookingId) {
       debugPrint('[MyBookings] Booking deleted via WebSocket: $bookingId');
-      _loadBookings(); // Refresh list
+      if (mounted) {
+        _loadBookings(); // Refresh list
+      }
     };
 
     // Add listeners to service
@@ -102,13 +113,24 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
   }
 
   Future<void> _loadBookings() async {
-    // Only show loading on initial load, not on auto-refresh
-    if (_allBookings.isEmpty) {
-      setState(() {
-        _isLoading = true;
-        _error = null;
-      });
+    // Prevent concurrent loads
+    if (_isLoadingInProgress) {
+      debugPrint('[MyBookings] Load already in progress, skipping');
+      return;
     }
+
+    if (!mounted) {
+      debugPrint('[MyBookings] Widget not mounted, skipping load');
+      return;
+    }
+
+    _isLoadingInProgress = true;
+
+    // Always clear error state when loading
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
 
     try {
       debugPrint('[MyBookings] Loading user bookings');
@@ -121,16 +143,47 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
               .toList();
           _categorizeBookings();
           _isLoading = false;
+          _error = null; // Ensure error is cleared on success
+          _retryCount = 0; // Reset retry count on success
         });
         debugPrint('[MyBookings] Loaded ${_allBookings.length} bookings');
       }
     } catch (e) {
-      debugPrint('[MyBookings] Error loading bookings: $e');
-      if (mounted) {
-        setState(() {
-          _error = e.toString();
-          _isLoading = false;
-        });
+      debugPrint('[MyBookings] Error loading bookings (attempt ${_retryCount + 1}): $e');
+
+      // Check if error is a connection abort or timeout
+      final isConnectionError = e.toString().contains('connection abort') ||
+                                 e.toString().contains('Connection closed') ||
+                                 e.toString().contains('SocketException') ||
+                                 e.toString().contains('TimeoutException');
+
+      if (isConnectionError && _retryCount < _maxRetries && mounted) {
+        // Seamless retry with exponential backoff
+        _retryCount++;
+        final delayMs = 500 * _retryCount; // 500ms, 1000ms, 1500ms
+        debugPrint('[MyBookings] Retrying in ${delayMs}ms (retry $_retryCount/$_maxRetries)');
+
+        _isLoadingInProgress = false; // Allow retry
+        await Future.delayed(Duration(milliseconds: delayMs));
+
+        if (mounted) {
+          _loadBookings(); // Retry seamlessly
+        }
+      } else {
+        // Show error after max retries or non-connection errors
+        if (mounted) {
+          setState(() {
+            _error = e.toString();
+            _isLoading = false;
+            _retryCount = 0; // Reset for next manual retry
+          });
+        }
+        _isLoadingInProgress = false;
+      }
+    } finally {
+      // Only reset if not retrying
+      if (_retryCount == 0 || _retryCount >= _maxRetries) {
+        _isLoadingInProgress = false;
       }
     }
   }
