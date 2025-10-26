@@ -885,30 +885,8 @@ export async function deleteBooking(id: string) {
     },
   });
 
-  // Notify all managers about the cancellation/denial
-  const notificationService = await import('./notification.service');
-  notificationService.notifyAllManagers(
-    'BOOKING_CANCELLED',
-    'Booking Cancelled',
-    `${booking.companyName} visit on ${new Date(booking.date).toLocaleDateString()} at ${booking.startTime} has been cancelled.`,
-    booking.id
-  ).catch((error: any) => {
-    console.error('Failed to send cancellation notifications:', error);
-  });
-
-  // Notify the booking creator if exists
-  if (booking.createdById) {
-    notificationService.createNotification({
-      type: 'BOOKING_CANCELLED',
-      title: 'Booking Cancelled',
-      message: `Your booking for ${booking.companyName} on ${new Date(booking.date).toLocaleDateString()} at ${booking.startTime} has been cancelled.`,
-      userId: booking.createdById,
-      bookingId: booking.id,
-      screen: 'my_bookings',
-    }).catch((error: any) => {
-      console.error('Failed to send cancellation notification to creator:', error);
-    });
-  }
+  // NOTE: Notification sent via pushService.sendBookingCancelledNotification() in routes/bookings.ts
+  // This handles both user and managers notifications to avoid duplicates
 
   // Broadcast booking deletion to all connected clients for real-time calendar updates
   websocketService.broadcastBookingDeleted(id);

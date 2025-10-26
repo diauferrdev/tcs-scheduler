@@ -107,6 +107,9 @@ app.get('/health', (c) => c.json({
   }
 }));
 
+// Version endpoint (redirect to /api/version for consistency)
+app.get('/version', (c) => c.redirect('/api/version', 301));
+
 app.onError(errorHandler);
 
 const port = process.env.PORT || 7777;

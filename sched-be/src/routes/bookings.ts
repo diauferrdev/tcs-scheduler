@@ -70,13 +70,8 @@ app.post('/', authMiddleware, zValidator('json', BookingCreateSchema), async (c)
     const data = c.req.valid('json');
     const booking = await bookingService.createBooking(data, user.id);
 
-    // Send push notification to all admins and managers
-    try {
-      await pushService.sendNewBookingNotification(booking.id);
-    } catch (pushError) {
-      console.error('Failed to send push notification:', pushError);
-      // Don't fail the request if notification fails
-    }
+    // NOTE: Notification sent via notifyAllManagers() in booking.service.ts
+    // This avoids duplicate notifications
 
     // Broadcast WebSocket event for real-time UI updates
     wsService.broadcastBookingCreated(booking);
@@ -105,13 +100,8 @@ app.post('/guest', zValidator('json', BookingGuestCreateSchema), async (c) => {
     // Mark invitation as used and link to booking
     await invitationService.markInvitationUsed(token);
 
-    // Send push notification to all admins and managers
-    try {
-      await pushService.sendNewBookingNotification(booking.id);
-    } catch (pushError) {
-      console.error('Failed to send push notification:', pushError);
-      // Don't fail the request if notification fails
-    }
+    // NOTE: Notification sent via notifyAllManagers() in booking.service.ts
+    // This avoids duplicate notifications
 
     // Broadcast WebSocket event for real-time UI updates
     wsService.broadcastBookingCreated(booking);

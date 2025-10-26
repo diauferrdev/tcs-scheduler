@@ -894,44 +894,9 @@ export async function sendUserRescheduledNotification(bookingId: string): Promis
       return;
     }
 
-    const formattedDate = new Date(booking.date).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-    });
-
-    const notification: PushNotification = {
-      title: 'Booking Rescheduled - Ready for Review',
-      body: `${booking.organizationName || booking.companyName} has been rescheduled to ${formattedDate} at ${booking.startTime} and is ready for review.`,
-      data: {
-        type: 'BOOKING_UNDER_REVIEW',
-        bookingId: booking.id,
-        screen: 'approvals',
-      },
-    };
-
-    // Send to all admins and managers
-    const admins = await prisma.user.findMany({
-      where: {
-        role: { in: ['ADMIN', 'MANAGER'] },
-        isActive: true,
-      },
-      select: { id: true },
-    });
-
-    const adminIds = admins.map(a => a.id);
-    await sendPushToMultipleUsers(adminIds, notification);
-
-    // IMPORTANT: Also create in-app notifications for managers
-    const notificationService = await import('./notification.service');
-    await notificationService.notifyAllManagers(
-      'BOOKING_UNDER_REVIEW',
-      'Booking Rescheduled - Ready for Review',
-      `${booking.organizationName || booking.companyName} has been rescheduled to ${formattedDate} at ${booking.startTime} and is ready for review.`,
-      booking.id
-    );
-
-    console.log(`[FCM] ✅ User rescheduled notification sent to ${adminIds.length} admin(s)/manager(s)`);
+    // NOTE: Notification sent via notifyAllManagers() in booking.service.ts:1628
+    // This avoids duplicate notifications
+    console.log(`[FCM] ✅ User rescheduled notification handled by booking.service`);
   } catch (error) {
     console.error('[FCM] Error sending user rescheduled notification:', error);
     throw error;
@@ -965,44 +930,9 @@ export async function sendUserEditedNotification(bookingId: string): Promise<voi
       return;
     }
 
-    const formattedDate = new Date(booking.date).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-    });
-
-    const notification: PushNotification = {
-      title: 'Booking Edited - Ready for Review',
-      body: `${booking.organizationName || booking.companyName} has been edited and is ready for review.`,
-      data: {
-        type: 'BOOKING_UNDER_REVIEW',
-        bookingId: booking.id,
-        screen: 'approvals',
-      },
-    };
-
-    // Send to all admins and managers
-    const admins = await prisma.user.findMany({
-      where: {
-        role: { in: ['ADMIN', 'MANAGER'] },
-        isActive: true,
-      },
-      select: { id: true },
-    });
-
-    const adminIds = admins.map(a => a.id);
-    await sendPushToMultipleUsers(adminIds, notification);
-
-    // IMPORTANT: Also create in-app notifications for managers
-    const notificationService = await import('./notification.service');
-    await notificationService.notifyAllManagers(
-      'BOOKING_UNDER_REVIEW',
-      'Booking Edited - Ready for Review',
-      `${booking.organizationName || booking.companyName} has been edited and is ready for review.`,
-      booking.id
-    );
-
-    console.log(`[FCM] ✅ User edited notification sent to ${adminIds.length} admin(s)/manager(s)`);
+    // NOTE: Notification sent via notifyAllManagers() in booking.service.ts:1678
+    // This avoids duplicate notifications
+    console.log(`[FCM] ✅ User edited notification handled by booking.service`);
   } catch (error) {
     console.error('[FCM] Error sending user edited notification:', error);
     throw error;
@@ -1088,19 +1018,11 @@ export async function sendBookingCancelledNotification(bookingId: string): Promi
       year: 'numeric',
     });
 
-    const notification: PushNotification = {
-      title: 'Booking Cancelled',
-      body: booking.cancellationReason
-        ? `${booking.companyName} (${formattedDate}) cancelled: ${booking.cancellationReason}`
-        : `${booking.companyName} on ${formattedDate} at ${booking.startTime} has been cancelled`,
-      data: {
-        type: 'BOOKING_CANCELLED',
-        bookingId: booking.id,
-        screen: 'my_bookings',
-      },
-    };
+    const messageBody = booking.cancellationReason
+      ? `${booking.companyName} (${formattedDate}) cancelled: ${booking.cancellationReason}`
+      : `${booking.companyName} on ${formattedDate} at ${booking.startTime} has been cancelled`;
 
-    // Send to booking creator + all admins/managers
+    // Get booking creator + all admins/managers
     const targetUsers = await prisma.user.findMany({
       where: {
         OR: [
@@ -1111,10 +1033,20 @@ export async function sendBookingCancelledNotification(bookingId: string): Promi
       select: { id: true },
     });
 
-    const userIds = targetUsers.map(u => u.id);
-    await sendPushToMultipleUsers(userIds, notification);
+    // Create in-app notification for each user (this also sends push)
+    const notificationService = await import('./notification.service');
+    for (const user of targetUsers) {
+      await notificationService.createNotification({
+        type: 'BOOKING_CANCELLED',
+        title: 'Booking Cancelled',
+        message: messageBody,
+        userId: user.id,
+        bookingId: booking.id,
+        screen: 'my_bookings',
+      });
+    }
 
-    console.log(`[FCM] ✅ Booking cancelled notification sent to ${userIds.length} user(s)`);
+    console.log(`[FCM] ✅ Booking cancelled notification sent to ${targetUsers.length} user(s)`);
   } catch (error) {
     console.error('[FCM] Error sending booking cancelled notification:', error);
     throw error;
