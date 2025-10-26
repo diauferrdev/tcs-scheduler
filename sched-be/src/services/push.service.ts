@@ -759,9 +759,23 @@ export async function sendBookingApprovedNotification(bookingId: string): Promis
       year: 'numeric',
     });
 
+    const messageBody = `Your booking for ${booking.companyName} on ${formattedDate} at ${booking.startTime} has been approved`;
+
+    // Create in-app notification first
+    const notificationService = await import('./notification.service');
+    await notificationService.createNotification({
+      type: 'BOOKING_APPROVED',
+      title: '✅ Booking Approved!',
+      message: messageBody,
+      userId: booking.createdById,
+      bookingId: booking.id,
+      screen: 'booking_details',
+    });
+
+    // Then send push notification
     const notification: PushNotification = {
       title: '✅ Booking Approved!',
-      body: `Your booking for ${booking.companyName} on ${formattedDate} at ${booking.startTime} has been approved`,
+      body: messageBody,
       data: {
         type: 'BOOKING_APPROVED',
         bookingId: booking.id,
@@ -769,7 +783,6 @@ export async function sendBookingApprovedNotification(bookingId: string): Promis
       },
     };
 
-    // Send only to booking creator
     await sendPushToUser(booking.createdById, notification);
 
     console.log(`[FCM] ✅ Booking approved notification sent to user ${booking.createdById}`);
@@ -803,17 +816,30 @@ export async function sendEditRequestNotification(bookingId: string): Promise<vo
       return;
     }
 
+    const messageBody = booking.editRequestMessage || `Your booking for ${booking.organizationName || booking.companyName} needs to be edited. Please review and update the information.`;
+
+    // Create in-app notification first
+    const notificationService = await import('./notification.service');
+    await notificationService.createNotification({
+      type: 'BOOKING_NEED_EDIT',
+      title: '📝 Booking Needs Editing',
+      message: messageBody,
+      userId: booking.createdById,
+      bookingId: booking.id,
+      screen: 'my_bookings',
+    });
+
+    // Then send push notification
     const notification: PushNotification = {
-      title: 'Booking Needs Editing',
-      body: booking.editRequestMessage || `Your booking for ${booking.organizationName || booking.companyName} needs to be edited. Please review and update the information.`,
+      title: '📝 Booking Needs Editing',
+      body: messageBody,
       data: {
         type: 'BOOKING_NEED_EDIT',
         bookingId: booking.id,
-        screen: 'booking_details',
+        screen: 'my_bookings',
       },
     };
 
-    // Send only to booking creator
     await sendPushToUser(booking.createdById, notification);
 
     console.log(`[FCM] ✅ Edit request notification sent to user ${booking.createdById}`);
@@ -847,17 +873,30 @@ export async function sendRescheduleRequestNotification(bookingId: string): Prom
       return;
     }
 
+    const messageBody = booking.rescheduleRequestMessage || `Your booking for ${booking.organizationName || booking.companyName} needs to be rescheduled. Please choose a new date.`;
+
+    // Create in-app notification first
+    const notificationService = await import('./notification.service');
+    await notificationService.createNotification({
+      type: 'BOOKING_NEED_RESCHEDULE',
+      title: '📅 Booking Needs Rescheduling',
+      message: messageBody,
+      userId: booking.createdById,
+      bookingId: booking.id,
+      screen: 'my_bookings',
+    });
+
+    // Then send push notification
     const notification: PushNotification = {
-      title: 'Booking Needs Rescheduling',
-      body: booking.rescheduleRequestMessage || `Your booking for ${booking.organizationName || booking.companyName} needs to be rescheduled. Please choose a new date.`,
+      title: '📅 Booking Needs Rescheduling',
+      body: messageBody,
       data: {
         type: 'BOOKING_NEED_RESCHEDULE',
         bookingId: booking.id,
-        screen: 'booking_details',
+        screen: 'my_bookings',
       },
     };
 
-    // Send only to booking creator
     await sendPushToUser(booking.createdById, notification);
 
     console.log(`[FCM] ✅ Reschedule request notification sent to user ${booking.createdById}`);

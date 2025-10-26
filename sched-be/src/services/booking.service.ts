@@ -142,62 +142,62 @@ async function isPeriodFreeConsideringIEBlocks(
     return false;
   }
 
-  // 2. Check if this period is blocked by prep/teardown of existing APPROVED IEs
-  // Get all APPROVED Innovation Exchange bookings
-  const confirmedIEs = await prisma.booking.findMany({
+  // 2. Check if this period is blocked by prep/teardown of existing APPROVED IEs/PEs
+  // Get all APPROVED Innovation Exchange and Pace Experience bookings
+  const confirmedFullDayEvents = await prisma.booking.findMany({
     where: {
-      visitType: 'INNOVATION_EXCHANGE',
+      visitType: { in: ['INNOVATION_EXCHANGE', 'PACE_EXPERIENCE'] },
       status: 'APPROVED',
       ...(excludeBookingId ? { id: { not: excludeBookingId } } : {}),
     },
   });
 
-  console.log(`[IE Block Check] Found ${confirmedIEs.length} confirmed IEs to check against`);
+  console.log(`[IE/PE Block Check] Found ${confirmedFullDayEvents.length} confirmed IE/PE events to check against`);
 
-  for (const ie of confirmedIEs) {
-    const ieDate = ie.date;
-    const ieDateStr = ieDate.toISOString().split('T')[0];
-    const isIEInMorning = isMorningPeriod(ie.startTime);
-    const ieTimeLabel = isIEInMorning ? 'morning' : 'afternoon';
+  for (const event of confirmedFullDayEvents) {
+    const eventDate = event.date;
+    const eventDateStr = eventDate.toISOString().split('T')[0];
+    const isEventInMorning = isMorningPeriod(event.startTime);
+    const eventTimeLabel = isEventInMorning ? 'morning' : 'afternoon';
 
-    console.log(`[IE Block Check] Checking IE on ${ieDateStr} ${ieTimeLabel} (${ie.companyName})`);
+    console.log(`[IE/PE Block Check] Checking ${event.visitType} on ${eventDateStr} ${eventTimeLabel} (${event.companyName})`);
 
-    // Check if this IE blocks the period we're checking
-    if (isIEInMorning) {
-      // IE morning blocks:
+    // Check if this IE/PE blocks the period we're checking
+    if (isEventInMorning) {
+      // IE/PE morning blocks:
       // - Previous day afternoon (prep)
       // - Same day morning (event)
       // - Same day afternoon (teardown)
 
       // Check if we're checking the prep period (prev day afternoon)
-      const prevDayStr = getPreviousBusinessDay(ieDate).toISOString().split('T')[0];
+      const prevDayStr = getPreviousBusinessDay(eventDate).toISOString().split('T')[0];
       if (dateStr === prevDayStr && !isMorning) {
-        console.log(`[IE Block Check] ❌ ${dateStr} afternoon is blocked as PREP for IE on ${ieDateStr} morning`);
-        return false; // This afternoon is blocked as prep for IE
+        console.log(`[IE/PE Block Check] ❌ ${dateStr} afternoon is blocked as PREP for ${event.visitType} on ${eventDateStr} morning`);
+        return false; // This afternoon is blocked as prep for IE/PE
       }
 
       // Check if we're checking the event or teardown period (same day)
-      if (dateStr === ieDateStr) {
-        console.log(`[IE Block Check] ❌ ${dateStr} ${periodLabel} is blocked by IE EVENT+TEARDOWN on same day`);
-        return false; // Both morning and afternoon blocked by IE
+      if (dateStr === eventDateStr) {
+        console.log(`[IE/PE Block Check] ❌ ${dateStr} ${periodLabel} is blocked by ${event.visitType} EVENT+TEARDOWN on same day`);
+        return false; // Both morning and afternoon blocked by IE/PE
       }
     } else {
-      // IE afternoon blocks:
+      // IE/PE afternoon blocks:
       // - Same day morning (prep)
       // - Same day afternoon (event)
       // - Next day morning (teardown)
 
       // Check if we're checking the prep or event period (same day)
-      if (dateStr === ieDateStr) {
-        console.log(`[IE Block Check] ❌ ${dateStr} ${periodLabel} is blocked by IE PREP+EVENT on same day`);
-        return false; // Both morning and afternoon blocked by IE
+      if (dateStr === eventDateStr) {
+        console.log(`[IE/PE Block Check] ❌ ${dateStr} ${periodLabel} is blocked by ${event.visitType} PREP+EVENT on same day`);
+        return false; // Both morning and afternoon blocked by IE/PE
       }
 
       // Check if we're checking the teardown period (next day morning)
-      const nextDayStr = getNextBusinessDay(ieDate).toISOString().split('T')[0];
+      const nextDayStr = getNextBusinessDay(eventDate).toISOString().split('T')[0];
       if (dateStr === nextDayStr && isMorning) {
-        console.log(`[IE Block Check] ❌ ${dateStr} morning is blocked as TEARDOWN for IE on ${ieDateStr} afternoon`);
-        return false; // This morning is blocked as teardown for IE
+        console.log(`[IE/PE Block Check] ❌ ${dateStr} morning is blocked as TEARDOWN for ${event.visitType} on ${eventDateStr} afternoon`);
+        return false; // This morning is blocked as teardown for IE/PE
       }
     }
   }
@@ -311,7 +311,7 @@ async function validatePaceTour(
   return { valid: true };
 }
 
-export async function checkAvailability(date: string, visitType?: 'PACE_TOUR' | 'INNOVATION_EXCHANGE') {
+export async function checkAvailability(date: string, visitType?: 'PACE_TOUR' | 'INNOVATION_EXCHANGE' | 'PACE_EXPERIENCE') {
   const bookingDate = new Date(date);
 
   // Get ONLY APPROVED bookings for availability
@@ -389,22 +389,23 @@ export async function checkAvailability(date: string, visitType?: 'PACE_TOUR' | 
       periods[1].available = false;
       periods[1].blockedBy = 'Period blocked by Innovation Exchange or Pace Experience prep/teardown';
     }
-  } else if (visitType === 'INNOVATION_EXCHANGE') {
-    // Innovation Exchange: only 1 per day
-    const existingIE = await prisma.booking.findMany({
+  } else if (visitType === 'INNOVATION_EXCHANGE' || visitType === 'PACE_EXPERIENCE') {
+    // Innovation Exchange and Pace Experience: only 1 per day, need prep/teardown
+    const existingFullDay = await prisma.booking.findMany({
       where: {
         date: bookingDate,
-        visitType: 'INNOVATION_EXCHANGE',
+        visitType: { in: ['INNOVATION_EXCHANGE', 'PACE_EXPERIENCE'] },
         status: 'APPROVED', // Only count APPROVED bookings
       },
     });
 
-    if (existingIE.length > 0) {
-      // Already have an Innovation Exchange, no periods available
+    if (existingFullDay.length > 0) {
+      // Already have an IE/PE, no periods available
+      const typeLabel = visitType === 'INNOVATION_EXCHANGE' ? 'Innovation Exchange' : 'Pace Experience';
       periods[0].available = false;
-      periods[0].blockedBy = 'Innovation Exchange already confirmed for this day';
+      periods[0].blockedBy = `${typeLabel} already confirmed for this day`;
       periods[1].available = false;
-      periods[1].blockedBy = 'Innovation Exchange already confirmed for this day';
+      periods[1].blockedBy = `${typeLabel} already confirmed for this day`;
     } else {
       // Check prep/teardown availability for each period (considering IE blocks)
 
@@ -447,6 +448,19 @@ export async function checkAvailability(date: string, visitType?: 'PACE_TOUR' | 
           { date: nextDay.toISOString().split('T')[0], period: 'Morning (teardown)' },
         ];
       }
+    }
+  } else {
+    // No specific visit type filter: check IE/PE blocks for general availability
+    const morningFree = await isPeriodFreeConsideringIEBlocks(bookingDate, true);
+    if (!morningFree && periods[0].available) {
+      periods[0].available = false;
+      periods[0].blockedBy = 'Period blocked by Innovation Exchange or Pace Experience prep/teardown';
+    }
+
+    const afternoonFree = await isPeriodFreeConsideringIEBlocks(bookingDate, false);
+    if (!afternoonFree && periods[1].available) {
+      periods[1].available = false;
+      periods[1].blockedBy = 'Period blocked by Innovation Exchange or Pace Experience prep/teardown';
     }
   }
 
@@ -1344,20 +1358,8 @@ export async function requestEdit(
     },
   });
 
-  // Notify the booking creator
-  if (booking.createdById) {
-    const notificationService = await import('./notification.service');
-    notificationService.createNotification({
-      type: 'BOOKING_NEED_EDIT',
-      title: 'Booking Needs Editing',
-      message: message || `Your booking for ${booking.organizationName || booking.companyName} needs to be edited. Please review and update the information.`,
-      userId: booking.createdById,
-      bookingId: booking.id,
-      screen: 'my_bookings', // ✅ Changed to my_bookings for better UX
-    }).catch((error: any) => {
-      console.error('Failed to send edit request notification:', error);
-    });
-  }
+  // NOTE: Notification is sent via push.service.sendEditRequestNotification() in routes/bookings.ts
+  // No need to create duplicate notification here
 
   // Broadcast update
   websocketService.broadcastBookingUpdated(updatedBooking);
@@ -1404,20 +1406,8 @@ export async function requestReschedule(
     },
   });
 
-  // Notify the booking creator
-  if (booking.createdById) {
-    const notificationService = await import('./notification.service');
-    notificationService.createNotification({
-      type: 'BOOKING_NEED_RESCHEDULE',
-      title: 'Booking Needs Rescheduling',
-      message: message || `Your booking for ${booking.organizationName || booking.companyName} needs to be rescheduled. Please choose a new date.`,
-      userId: booking.createdById,
-      bookingId: booking.id,
-      screen: 'my_bookings', // ✅ Changed to my_bookings for better UX
-    }).catch((error: any) => {
-      console.error('Failed to send reschedule request notification:', error);
-    });
-  }
+  // NOTE: Notification is sent via push.service.sendRescheduleRequestNotification() in routes/bookings.ts
+  // No need to create duplicate notification here
 
   // Broadcast update
   websocketService.broadcastBookingUpdated(updatedBooking);
