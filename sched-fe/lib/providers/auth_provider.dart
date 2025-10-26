@@ -4,8 +4,6 @@ import '../models/user.dart';
 import '../services/api_service.dart';
 import '../services/token_storage.dart';
 import '../services/unified_notification_service.dart';
-// ignore: avoid_web_libraries_in_flutter
-import 'dart:js' as js if (dart.library.html) 'dart:js';
 
 class AuthProvider with ChangeNotifier {
   final ApiService _apiService = ApiService();
@@ -56,23 +54,10 @@ class AuthProvider with ChangeNotifier {
 
   /// Signal to web platform that app is ready (removes splash screen)
   void _signalAppReady() {
-    if (!kIsWeb) return;
-
-    try {
-      // Use a small delay to ensure UI is fully rendered
-      Future.delayed(const Duration(milliseconds: 300), () {
-        try {
-          // Dispatch custom event for web splash screen
-          js.context.callMethod('eval', [
-            'window.dispatchEvent(new CustomEvent("app-ready"))'
-          ]);
-          debugPrint('[AuthProvider] ✅ App ready signal sent to web');
-        } catch (e) {
-          debugPrint('[AuthProvider] Error dispatching app-ready event: $e');
-        }
-      });
-    } catch (e) {
-      debugPrint('[AuthProvider] Could not signal app ready: $e');
+    // Web-specific signaling disabled for cross-platform compatibility
+    // The web splash screen will use a timeout fallback instead
+    if (kIsWeb) {
+      debugPrint('[AuthProvider] ✅ App ready (web splash screen uses timeout fallback)');
     }
   }
 
