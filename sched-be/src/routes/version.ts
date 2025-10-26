@@ -4,7 +4,7 @@ const app = new Hono();
 
 const versionData = {
   version: '1.1.15',
-  buildNumber: 53,
+  buildNumber: 54,
   minVersion: '1.0.0',
   forceUpdate: false,
   downloadUrl: {
@@ -19,7 +19,7 @@ const versionData = {
     'pt-BR': 'Versão 1.1.8 - Correções de estabilidade e melhorias de performance. WebSocket tempo real funcionando corretamente.',
     'en': 'Version 1.1.8 - Stability fixes and performance improvements. Real-time WebSocket working correctly.',
   },
-  releaseDate: '2025-10-26T11:36:47-03:00',
+  releaseDate: '2025-10-26T13:03:13-03:00',
   critical: false,
 };
 
