@@ -133,9 +133,12 @@ class _AppRouterState extends State<_AppRouter> {
   }
 
   void _onSplashComplete() {
+    debugPrint('[Main] 🎬 Splash complete callback received!');
     setState(() {
+      debugPrint('[Main] 🔄 Switching from splash to main app...');
       _showSplash = false;
     });
+    debugPrint('[Main] ✅ Now showing main app');
   }
 
   @override
@@ -153,6 +156,7 @@ class _AppRouterState extends State<_AppRouter> {
 
         // Show animated splash screen first, then show main app
         if (_showSplash) {
+          debugPrint('[Main] 🎬 Showing AnimatedSplashScreen (_showSplash = true)');
           return MaterialApp(
             debugShowCheckedModeBanner: false,
             theme: ThemeProvider.lightTheme,
@@ -165,6 +169,7 @@ class _AppRouterState extends State<_AppRouter> {
           );
         }
 
+        debugPrint('[Main] 🚀 Showing main app (_showSplash = false)');
         return app;
       },
     );

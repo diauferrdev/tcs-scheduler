@@ -31,6 +31,8 @@ class _AnimatedSplashScreenState extends State<AnimatedSplashScreen>
   @override
   void initState() {
     super.initState();
+    debugPrint('[AnimatedSplash] ========================================');
+    debugPrint('[AnimatedSplash] 🎬 Splash screen initializing...');
 
     // Animation controller for complete fade in -> hold -> fade out sequence
     _controller = AnimationController(
@@ -47,20 +49,39 @@ class _AnimatedSplashScreenState extends State<AnimatedSplashScreen>
       curve: const Interval(0.0, 0.3, curve: Curves.easeOutBack),
     ));
 
+    // Listen to animation changes for debugging
+    _controller.addListener(() {
+      if (_controller.value == 0.0) {
+        debugPrint('[AnimatedSplash] 🎬 Animation at START (0.0)');
+      } else if (_controller.value >= 0.25 && _controller.value < 0.26) {
+        debugPrint('[AnimatedSplash] ⏸️ Animation HOLD phase (${_controller.value})');
+      } else if (_controller.value >= 0.75 && _controller.value < 0.76) {
+        debugPrint('[AnimatedSplash] 🌇 Animation FADE OUT phase (${_controller.value})');
+      } else if (_controller.value == 1.0) {
+        debugPrint('[AnimatedSplash] ✅ Animation COMPLETE (1.0)');
+      }
+    });
+
     // Play sound effect (simple beep/chime)
     _playSound();
 
     // Start animation
+    debugPrint('[AnimatedSplash] ▶️ Starting animation...');
     _controller.forward();
+    debugPrint('[AnimatedSplash] ▶️ Animation started!');
 
     // Navigate after animation completes (4 seconds total)
     Timer(const Duration(milliseconds: 4000), () {
+      debugPrint('[AnimatedSplash] ⏰ Timer completed (4s)');
       if (!_navigated && mounted) {
+        debugPrint('[AnimatedSplash] 🚀 Navigating to main app...');
         _navigated = true;
         widget.onAnimationComplete?.call();
 
         // Resume Flutter frames to show next screen
+        debugPrint('[AnimatedSplash] ▶️ Calling SplashMaster.resume()...');
         SplashMaster.resume();
+        debugPrint('[AnimatedSplash] ✅ SplashMaster.resume() called');
 
         // Navigate to next screen with fade transition
         Navigator.of(context).pushReplacement(
@@ -75,6 +96,7 @@ class _AnimatedSplashScreenState extends State<AnimatedSplashScreen>
             transitionDuration: const Duration(milliseconds: 500),
           ),
         );
+        debugPrint('[AnimatedSplash] 🎯 Navigation complete');
       }
     });
   }
@@ -101,6 +123,7 @@ class _AnimatedSplashScreenState extends State<AnimatedSplashScreen>
 
   @override
   Widget build(BuildContext context) {
+    debugPrint('[AnimatedSplash] 🎨 Building splash screen...');
     return Scaffold(
       backgroundColor: Colors.black, // Black background matching TCS brand
       body: Center(
@@ -125,13 +148,18 @@ class _AnimatedSplashScreenState extends State<AnimatedSplashScreen>
               opacity = 1.0 - ((progress - 0.75) / 0.25);
             }
 
+            // Debug every 0.1 progress
+            if ((progress * 10).round() % 2 == 0) {
+              debugPrint('[AnimatedSplash] 📊 Progress: ${progress.toStringAsFixed(2)}, Opacity: ${opacity.toStringAsFixed(2)}, Scale: ${_scaleAnimation.value.toStringAsFixed(2)}');
+            }
+
             return Opacity(
               opacity: opacity,
               child: Transform.scale(
                 scale: _scaleAnimation.value,
                 child: Image.asset(
                   'assets/splash/tcs_logo_splash.png',
-                  width: 210,  // 20% larger than 180px
+                  width: 262,  // 25% larger than original
                   fit: BoxFit.contain,
                 ),
               ),
