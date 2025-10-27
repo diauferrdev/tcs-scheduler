@@ -24,8 +24,6 @@ class AnimatedSplashScreen extends StatefulWidget {
 class _AnimatedSplashScreenState extends State<AnimatedSplashScreen>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
-  late Animation<double> _fadeInAnimation;
-  late Animation<double> _fadeOutAnimation;
   late Animation<double> _scaleAnimation;
   final AudioPlayer _audioPlayer = AudioPlayer();
   bool _navigated = false;
@@ -36,29 +34,11 @@ class _AnimatedSplashScreenState extends State<AnimatedSplashScreen>
 
     // Animation controller for complete fade in -> hold -> fade out sequence
     _controller = AnimationController(
-      duration: const Duration(milliseconds: 3600), // Total animation time
+      duration: const Duration(milliseconds: 3600), // Total animation time: 3.6s
       vsync: this,
     );
 
-    // Fade IN animation (0% -> 25% of timeline = 0-900ms)
-    _fadeInAnimation = Tween<double>(
-      begin: 0.0,
-      end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _controller,
-      curve: const Interval(0.0, 0.25, curve: Curves.easeIn),
-    ));
-
-    // Fade OUT animation (75% -> 100% of timeline = 2700-3600ms)
-    _fadeOutAnimation = Tween<double>(
-      begin: 1.0,
-      end: 0.0,
-    ).animate(CurvedAnimation(
-      parent: _controller,
-      curve: const Interval(0.75, 1.0, curve: Curves.easeOut),
-    ));
-
-    // Subtle scale animation (grows slightly during fade in)
+    // Scale animation (grows slightly during fade in with bounce effect)
     _scaleAnimation = Tween<double>(
       begin: 0.85,
       end: 1.0,
@@ -104,10 +84,8 @@ class _AnimatedSplashScreenState extends State<AnimatedSplashScreen>
     try {
       // Only play sound on mobile/desktop (web can be problematic with autoplay)
       if (!kIsWeb) {
-        // You can add a custom sound file here: assets/sounds/splash.mp3
-        // For now, we'll use a system notification sound or skip if no file
-        // await _audioPlayer.play(AssetSource('sounds/splash.mp3'));
-        debugPrint('[Splash] Sound playback ready (add splash.mp3 to enable)');
+        await _audioPlayer.play(AssetSource('sounds/splash.mp3'));
+        debugPrint('[Splash] ✅ Sound playing');
       }
     } catch (e) {
       debugPrint('[Splash] Error playing sound: $e');
@@ -129,11 +107,26 @@ class _AnimatedSplashScreenState extends State<AnimatedSplashScreen>
         child: AnimatedBuilder(
           animation: _controller,
           builder: (context, child) {
-            // Combine fade in and fade out animations
-            final fadeValue = _fadeInAnimation.value * (1.0 - (_fadeOutAnimation.value - 1.0).abs());
+            // Calculate opacity based on controller progress
+            // 0.0 - 0.25: fade in (0 -> 1)
+            // 0.25 - 0.75: stay at 1
+            // 0.75 - 1.0: fade out (1 -> 0)
+            double opacity;
+            final progress = _controller.value;
+
+            if (progress < 0.25) {
+              // Fade in phase
+              opacity = progress / 0.25;
+            } else if (progress < 0.75) {
+              // Hold phase
+              opacity = 1.0;
+            } else {
+              // Fade out phase
+              opacity = 1.0 - ((progress - 0.75) / 0.25);
+            }
 
             return Opacity(
-              opacity: fadeValue,
+              opacity: opacity,
               child: Transform.scale(
                 scale: _scaleAnimation.value,
                 child: Image.asset(
