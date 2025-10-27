@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:splash_master/splash_master.dart';
-import 'package:audioplayers/audioplayers.dart';
+import 'package:audioplayers/audioplayers.dart' as audio;
 import 'package:flutter/foundation.dart' show kIsWeb;
 
 /// Animated Splash Screen with TCS Pace logo
@@ -25,7 +25,7 @@ class _AnimatedSplashScreenState extends State<AnimatedSplashScreen>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _scaleAnimation;
-  final AudioPlayer _audioPlayer = AudioPlayer();
+  final audio.AudioPlayer _audioPlayer = audio.AudioPlayer();
   bool _navigated = false;
 
   @override
@@ -84,7 +84,7 @@ class _AnimatedSplashScreenState extends State<AnimatedSplashScreen>
     try {
       // Only play sound on mobile/desktop (web can be problematic with autoplay)
       if (!kIsWeb) {
-        await _audioPlayer.play(AssetSource('sounds/splash.mp3'));
+        await _audioPlayer.play(audio.AssetSource('sounds/splash.mp3'));
         debugPrint('[Splash] ✅ Sound playing');
       }
     } catch (e) {
@@ -131,7 +131,7 @@ class _AnimatedSplashScreenState extends State<AnimatedSplashScreen>
                 scale: _scaleAnimation.value,
                 child: Image.asset(
                   'assets/splash/tcs_logo_splash.png',
-                  width: 180,
+                  width: 210,  // 20% larger than 180px
                   fit: BoxFit.contain,
                 ),
               ),

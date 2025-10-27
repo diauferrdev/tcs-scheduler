@@ -12,6 +12,7 @@ import 'providers/auth_provider.dart';
 import 'providers/theme_provider.dart';
 import 'router.dart';
 import 'services/unified_notification_service.dart';
+import 'screens/animated_splash_screen.dart';
 
 /// Check if Firebase is supported on current platform
 /// Firebase is supported on: Android, iOS, web, macOS
@@ -91,13 +92,11 @@ void main() async {
     ),
   );
 
-  // Start the app
+  // Start the app with animated splash screen
   runApp(const MyApp());
 
-  // Delay splash screen for better branding visibility (3 seconds)
-  // Resume Flutter frames after delay - native splash will be shown until this is called
-  await Future.delayed(const Duration(seconds: 3));
-  SplashMaster.resume();
+  // DO NOT call SplashMaster.resume() here!
+  // The AnimatedSplashScreen will call it after showing animations
 }
 
 class MyApp extends StatelessWidget {
@@ -124,6 +123,7 @@ class _AppRouter extends StatefulWidget {
 
 class _AppRouterState extends State<_AppRouter> {
   late final GoRouter _router;
+  bool _showSplash = true;
 
   @override
   void initState() {
@@ -132,13 +132,17 @@ class _AppRouterState extends State<_AppRouter> {
     _router = createRouter(authProvider);
   }
 
+  void _onSplashComplete() {
+    setState(() {
+      _showSplash = false;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Consumer<ThemeProvider>(
       builder: (context, themeProvider, child) {
-        // Native splash screen handled by splash_master
-        // Show main app directly
-        return MaterialApp.router(
+        final app = MaterialApp.router(
           title: 'TCS Pace Scheduler | Enterprise Office Visit Scheduling System',
           debugShowCheckedModeBanner: false,
           theme: ThemeProvider.lightTheme,
@@ -146,6 +150,22 @@ class _AppRouterState extends State<_AppRouter> {
           themeMode: themeProvider.themeMode,
           routerConfig: _router,
         );
+
+        // Show animated splash screen first, then show main app
+        if (_showSplash) {
+          return MaterialApp(
+            debugShowCheckedModeBanner: false,
+            theme: ThemeProvider.lightTheme,
+            darkTheme: ThemeProvider.darkTheme,
+            themeMode: themeProvider.themeMode,
+            home: AnimatedSplashScreen(
+              nextScreen: Container(), // Not used since we handle navigation ourselves
+              onAnimationComplete: _onSplashComplete,
+            ),
+          );
+        }
+
+        return app;
       },
     );
   }
