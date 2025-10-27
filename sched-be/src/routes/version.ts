@@ -3,8 +3,8 @@ import { Hono } from 'hono';
 const app = new Hono();
 
 const versionData = {
-  version: '1.1.18',
-  buildNumber: 58,
+  version: '1.1.32',
+  buildNumber: 85,
   minVersion: '1.0.0',
   forceUpdate: false,
   downloadUrl: {
@@ -16,10 +16,10 @@ const versionData = {
     linux: '',
   },
   releaseNotes: {
-    'pt-BR': 'Versão 1.1.8 - Correções de estabilidade e melhorias de performance. WebSocket tempo real funcionando corretamente.',
-    'en': 'Version 1.1.8 - Stability fixes and performance improvements. Real-time WebSocket working correctly.',
+    'pt-BR': 'Melhorias na interface de bug reports: layout otimizado, botão de upvote reposicionado, rollback automático de anexos em caso de falha, e grid compacto de arquivos.',
+    'en': 'Bug report UI improvements: optimized layout, repositioned upvote button, automatic attachment rollback on failure, and compact file grid.',
   },
-  releaseDate: '2025-10-26T17:22:19-03:00',
+  releaseDate: '2025-10-27T00:00:00-03:00',
   critical: false,
 };
 
