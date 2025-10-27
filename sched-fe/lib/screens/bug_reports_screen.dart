@@ -360,7 +360,7 @@ class _BugReportsScreenState extends State<BugReportsScreen> {
                               itemCount: _bugReports.length,
                               itemBuilder: (context, index) {
                                 final bug = _bugReports[index];
-                                return _buildBugCard(bug);
+                                return _buildBugCard(bug, themeProvider.isDark);
                               },
                             ),
                           ),
@@ -401,46 +401,35 @@ class _BugReportsScreenState extends State<BugReportsScreen> {
     );
   }
 
-  Widget _buildBugCard(BugReport bug) {
+  Widget _buildBugCard(BugReport bug, bool isDark) {
     final hasAttachments = bug.attachments.isNotEmpty;
     final commentCount = bug.commentCount ?? bug.comments?.length ?? 0;
     final timeAgo = _formatTimeAgo(bug.createdAt);
 
+    // Theme-aware colors
+    final cardColor = isDark ? AppTheme.primaryWhite.withOpacity(0.05) : Colors.white;
+    final textColor = isDark ? AppTheme.primaryWhite : Colors.black87;
+    final subtextColor = isDark ? AppTheme.primaryWhite.withOpacity(0.6) : Colors.black54;
+    final borderColor = isDark ? AppTheme.primaryWhite.withOpacity(0.1) : Colors.grey.shade200;
+    final badgeBgColor = isDark ? AppTheme.primaryWhite.withOpacity(0.1) : Colors.grey.shade100;
+
     return Card(
-      color: AppTheme.primaryWhite.withOpacity(0.05),
+      color: cardColor,
       margin: const EdgeInsets.only(bottom: 12),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      elevation: isDark ? 0 : 1,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: borderColor, width: 1),
+      ),
       child: InkWell(
         onTap: () => _navigateToBugDetail(bug),
         borderRadius: BorderRadius.circular(12),
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(14),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Left: Upvote column (Reddit style)
-              Column(
-                children: [
-                  Icon(
-                    Icons.arrow_upward,
-                    size: 20,
-                    color: bug.likeCount > 0 ? Colors.orange : AppTheme.primaryWhite.withOpacity(0.3),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    '${bug.likeCount}',
-                    style: TextStyle(
-                      color: bug.likeCount > 0 ? Colors.orange : AppTheme.primaryWhite.withOpacity(0.5),
-                      fontWeight: FontWeight.bold,
-                      fontSize: 14,
-                    ),
-                  ),
-                ],
-              ),
-
-              const SizedBox(width: 16),
-
-              // Middle: Content
+              // Main content
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -454,18 +443,19 @@ class _BugReportsScreenState extends State<BugReportsScreen> {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                           decoration: BoxDecoration(
-                            color: AppTheme.primaryWhite.withOpacity(0.1),
+                            color: badgeBgColor,
                             borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: borderColor),
                           ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(_getPlatformIcon(bug.platform), size: 12, color: AppTheme.primaryWhite),
+                              Icon(_getPlatformIcon(bug.platform), size: 12, color: textColor),
                               const SizedBox(width: 4),
                               Text(
                                 bug.platformDisplay,
-                                style: const TextStyle(
-                                  color: AppTheme.primaryWhite,
+                                style: TextStyle(
+                                  color: textColor,
                                   fontSize: 11,
                                 ),
                               ),
@@ -476,19 +466,19 @@ class _BugReportsScreenState extends State<BugReportsScreen> {
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                             decoration: BoxDecoration(
-                              color: AppTheme.primaryWhite.withOpacity(0.15),
+                              color: Colors.blue.withOpacity(0.1),
                               borderRadius: BorderRadius.circular(6),
-                              border: Border.all(color: AppTheme.primaryWhite.withOpacity(0.3)),
+                              border: Border.all(color: Colors.blue.withOpacity(0.3)),
                             ),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Icon(Icons.attach_file, size: 12, color: AppTheme.primaryWhite.withOpacity(0.9)),
+                                const Icon(Icons.attach_file, size: 12, color: Colors.blue),
                                 const SizedBox(width: 2),
                                 Text(
                                   '${bug.attachments.length}',
-                                  style: TextStyle(
-                                    color: AppTheme.primaryWhite.withOpacity(0.9),
+                                  style: const TextStyle(
+                                    color: Colors.blue,
                                     fontSize: 11,
                                     fontWeight: FontWeight.bold,
                                   ),
@@ -504,8 +494,8 @@ class _BugReportsScreenState extends State<BugReportsScreen> {
                     // Title
                     Text(
                       bug.title,
-                      style: const TextStyle(
-                        color: AppTheme.primaryWhite,
+                      style: TextStyle(
+                        color: textColor,
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
                       ),
@@ -521,49 +511,56 @@ class _BugReportsScreenState extends State<BugReportsScreen> {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        color: AppTheme.primaryWhite.withOpacity(0.6),
+                        color: subtextColor,
                         fontSize: 13,
                       ),
                     ),
 
                     const SizedBox(height: 10),
 
-                    // Footer: Author + Time + Stats
+                    // Footer: Upvote → Messages → Author + Time
                     Row(
                       children: [
-                        // Author avatar
-                        CircleAvatar(
-                          radius: 10,
-                          backgroundColor: AppTheme.primaryWhite.withOpacity(0.2),
-                          backgroundImage: bug.reportedBy.avatarUrl != null
-                              ? NetworkImage(getAbsoluteUrl(bug.reportedBy.avatarUrl!))
-                              : null,
-                          child: bug.reportedBy.avatarUrl == null
-                              ? Text(
-                                  bug.reportedBy.name[0].toUpperCase(),
-                                  style: const TextStyle(
-                                    color: AppTheme.primaryWhite,
-                                    fontSize: 9,
-                                  ),
-                                )
-                              : null,
+                        // Upvote counter (first)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: bug.likeCount > 0 ? Colors.orange.withOpacity(0.15) : badgeBgColor,
+                            borderRadius: BorderRadius.circular(4),
+                            border: bug.likeCount > 0
+                                ? Border.all(color: Colors.orange.withOpacity(0.3))
+                                : null,
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.arrow_upward,
+                                size: 13,
+                                color: bug.likeCount > 0
+                                    ? Colors.orange
+                                    : (isDark ? AppTheme.primaryWhite.withOpacity(0.5) : Colors.grey.shade600),
+                              ),
+                              const SizedBox(width: 3),
+                              Text(
+                                '${bug.likeCount}',
+                                style: TextStyle(
+                                  color: bug.likeCount > 0
+                                      ? Colors.orange
+                                      : (isDark ? AppTheme.primaryWhite.withOpacity(0.7) : Colors.grey.shade700),
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                         const SizedBox(width: 6),
-                        // Author name + time
-                        Text(
-                          '${bug.reportedBy.name} • $timeAgo',
-                          style: TextStyle(
-                            color: AppTheme.primaryWhite.withOpacity(0.5),
-                            fontSize: 12,
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        const Spacer(),
-                        // Comment count with icon (always visible, Discord style)
+                        // Comment count (second)
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
                           decoration: BoxDecoration(
-                            color: AppTheme.primaryWhite.withOpacity(0.1),
+                            color: badgeBgColor,
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: Row(
@@ -571,19 +568,60 @@ class _BugReportsScreenState extends State<BugReportsScreen> {
                             children: [
                               Icon(
                                 Icons.chat_bubble_outline,
-                                size: 14,
-                                color: AppTheme.primaryWhite.withOpacity(0.7),
+                                size: 13,
+                                color: isDark ? AppTheme.primaryWhite.withOpacity(0.7) : Colors.grey.shade700,
                               ),
-                              const SizedBox(width: 4),
+                              const SizedBox(width: 3),
                               Text(
                                 '$commentCount',
                                 style: TextStyle(
-                                  color: AppTheme.primaryWhite.withOpacity(0.8),
-                                  fontSize: 13,
+                                  color: isDark ? AppTheme.primaryWhite.withOpacity(0.8) : Colors.black87,
+                                  fontSize: 12,
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
                             ],
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        // Author avatar (third) - rounded square
+                        Container(
+                          width: 20,
+                          height: 20,
+                          decoration: BoxDecoration(
+                            color: isDark ? AppTheme.primaryWhite.withOpacity(0.2) : Colors.grey.shade200,
+                            borderRadius: BorderRadius.circular(6),
+                            image: bug.reportedBy.avatarUrl != null
+                                ? DecorationImage(
+                                    image: NetworkImage(getAbsoluteUrl(bug.reportedBy.avatarUrl!)),
+                                    fit: BoxFit.cover,
+                                  )
+                                : null,
+                          ),
+                          child: bug.reportedBy.avatarUrl == null
+                              ? Center(
+                                  child: Text(
+                                    bug.reportedBy.name[0].toUpperCase(),
+                                    style: TextStyle(
+                                      color: isDark ? AppTheme.primaryWhite : Colors.grey.shade700,
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                )
+                              : null,
+                        ),
+                        const SizedBox(width: 6),
+                        // Author name + time (last) - with Flexible to prevent overflow
+                        Flexible(
+                          child: Text(
+                            '${_abbreviateName(bug.reportedBy.name)} • $timeAgo',
+                            style: TextStyle(
+                              color: subtextColor,
+                              fontSize: 11,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 1,
                           ),
                         ),
                       ],
@@ -609,8 +647,8 @@ class _BugReportsScreenState extends State<BugReportsScreen> {
     final isVideo = attachment.fileType.startsWith('video/');
 
     return Container(
-      width: 120,
-      height: 120,
+      width: 80,
+      height: 80,
       decoration: BoxDecoration(
         color: AppTheme.primaryWhite.withOpacity(0.05),
         borderRadius: BorderRadius.circular(8),
@@ -657,7 +695,7 @@ class _BugReportsScreenState extends State<BugReportsScreen> {
                       Center(
                         child: Icon(
                           Icons.play_circle_filled,
-                          size: 48,
+                          size: 36,
                           color: AppTheme.primaryWhite.withOpacity(0.9),
                         ),
                       ),
@@ -667,11 +705,25 @@ class _BugReportsScreenState extends State<BugReportsScreen> {
                     child: Icon(
                       Icons.attach_file,
                       color: AppTheme.primaryWhite.withOpacity(0.5),
-                      size: 40,
+                      size: 32,
                     ),
                   ),
       ),
     );
+  }
+
+  /// Abbreviate long names to prevent overflow on mobile
+  String _abbreviateName(String fullName) {
+    final parts = fullName.trim().split(' ');
+    if (parts.length <= 1) return fullName;
+
+    // If name is short enough, return as is
+    if (fullName.length <= 20) return fullName;
+
+    // Return first name + last initial (e.g., "John Doe" -> "John D.")
+    final firstName = parts.first;
+    final lastInitial = parts.last[0].toUpperCase();
+    return '$firstName $lastInitial.';
   }
 
   String _formatTimeAgo(DateTime dateTime) {

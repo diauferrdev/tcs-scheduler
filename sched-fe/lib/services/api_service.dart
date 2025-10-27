@@ -768,6 +768,8 @@ class ApiService {
   ) async {
     await initialize();
 
+    debugPrint('[API] Uploading ${files.length} attachments for comment $commentId');
+
     final url = Uri.parse('${ApiConfig.baseUrl}/api/bug-reports/comments/$commentId/attachments');
     final request = http.MultipartRequest('POST', url);
 
@@ -779,13 +781,18 @@ class ApiService {
     // Remove Content-Type to let browser set multipart boundary
     request.headers.remove('Content-Type');
 
+    // Add session cookie
     if (_sessionCookie != null) {
       request.headers['Cookie'] = _sessionCookie!;
+      debugPrint('[API] Sending cookie in comment attachment upload: ${_sessionCookie!.substring(0, min(50, _sessionCookie!.length))}...');
+    } else {
+      debugPrint('[API] WARNING: No session cookie available for comment attachment upload!');
     }
 
     // Add all files
     for (var file in files) {
       if (file.bytes != null) {
+        debugPrint('[API] Adding file: ${file.name} (${file.bytes!.length} bytes)');
         request.files.add(http.MultipartFile.fromBytes(
           'files',
           file.bytes!,
@@ -794,13 +801,19 @@ class ApiService {
       }
     }
 
+    debugPrint('[API] Sending request to: $url');
     final streamedResponse = await request.send();
     final response = await http.Response.fromStream(streamedResponse);
 
+    debugPrint('[API] Response status: ${response.statusCode}');
+    debugPrint('[API] Response body: ${response.body}');
+
     if (response.statusCode == 201 || response.statusCode == 200) {
+      // Extract and save any cookies from response
+      await _extractAndSaveCookies(response, '/api/bug-reports/comments/$commentId/attachments');
       return jsonDecode(response.body);
     } else {
-      throw Exception('Failed to upload attachments: ${response.body}');
+      throw Exception('Failed to upload comment attachments (${response.statusCode}): ${response.body}');
     }
   }
 

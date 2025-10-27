@@ -120,13 +120,20 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
 
       if (mounted && _bug != null) {
-        setState(() {
-          _bug = _bug!.copyWith(likeCount: likeCount);
-          // Update _isUpvoted if the like/unlike was from current user
-          if (userId == authProvider.user?.id) {
+        // Only update if the like was from ANOTHER user
+        // (we already did optimistic update for current user)
+        if (userId != authProvider.user?.id) {
+          setState(() {
+            _bug = _bug!.copyWith(likeCount: likeCount);
+          });
+        } else {
+          // For current user, just sync the final count from server
+          // This ensures we're in sync even if there was a race condition
+          setState(() {
+            _bug = _bug!.copyWith(likeCount: likeCount);
             _isUpvoted = data['type'] == 'bug_liked';
-          }
-        });
+          });
+        }
       }
     } catch (e) {
       print('[BugDetail] Error handling like change: $e');
@@ -220,37 +227,31 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
   Future<void> _toggleUpvote() async {
     if (_bug == null) return;
 
+    // Optimistic update
+    final wasUpvoted = _isUpvoted;
+    setState(() {
+      _isUpvoted = !_isUpvoted;
+      _bug = _bug!.copyWith(
+        likeCount: _isUpvoted ? _bug!.likeCount + 1 : _bug!.likeCount - 1,
+      );
+    });
+
     try {
-      if (_isUpvoted) {
+      if (wasUpvoted) {
         await _api.unlikeBugReport(widget.bugId);
       } else {
         await _api.likeBugReport(widget.bugId);
       }
-
+      // Success - WebSocket will confirm the change
+    } catch (e) {
+      // Rollback on error
       setState(() {
-        _isUpvoted = !_isUpvoted;
-        _bug = BugReport(
-          id: _bug!.id,
-          title: _bug!.title,
-          description: _bug!.description,
-          platform: _bug!.platform,
-          deviceInfo: _bug!.deviceInfo,
-          status: _bug!.status,
-          attachments: _bug!.attachments,
-          comments: _bug!.comments,
-          likes: _bug!.likes,
-          likeCount: _isUpvoted ? _bug!.likeCount + 1 : _bug!.likeCount - 1,
-          reportedBy: _bug!.reportedBy,
-          resolvedBy: _bug!.resolvedBy,
-          resolvedAt: _bug!.resolvedAt,
-          resolutionNotes: _bug!.resolutionNotes,
-          closedBy: _bug!.closedBy,
-          closedAt: _bug!.closedAt,
-          createdAt: _bug!.createdAt,
-          updatedAt: _bug!.updatedAt,
+        _isUpvoted = wasUpvoted;
+        _bug = _bug!.copyWith(
+          likeCount: wasUpvoted ? _bug!.likeCount + 1 : _bug!.likeCount - 1,
         );
       });
-    } catch (e) {
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error: $e')),
       );
@@ -307,18 +308,35 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
       _isUploadingAttachments = _selectedFiles.isNotEmpty;
     });
 
+    String? createdCommentId; // Track comment ID for rollback
+
     try {
       String? commentId;
 
       if (_editingCommentId != null) {
-        // Update existing comment (no attachments on edit for now)
+        // Update existing comment
         await _api.updateBugComment(_editingCommentId!, _commentController.text.trim());
         commentId = _editingCommentId;
         setState(() => _editingCommentId = null);
 
         // Upload attachments if any
         if (_selectedFiles.isNotEmpty && commentId != null) {
-          await _api.uploadCommentAttachments(commentId, _selectedFiles);
+          try {
+            await _api.uploadCommentAttachments(commentId, _selectedFiles);
+          } catch (uploadError) {
+            // For edits, attachment failure is not critical (comment already exists)
+            debugPrint('[BugDetail] Attachment upload failed for edit: $uploadError');
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Comment updated but attachment upload failed: $uploadError'),
+                  backgroundColor: Colors.orange,
+                  duration: const Duration(seconds: 4),
+                ),
+              );
+            }
+            // Don't throw - comment edit succeeded
+          }
         }
       } else {
         // Create new comment with device info
@@ -329,10 +347,26 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
           deviceInfo: deviceInfo,
         );
         commentId = comment['id'];
+        createdCommentId = commentId; // Save for potential rollback
 
-        // Upload attachments BEFORE showing success
+        // Upload attachments if any - CRITICAL for new comments
         if (_selectedFiles.isNotEmpty && commentId != null) {
-          await _api.uploadCommentAttachments(commentId, _selectedFiles);
+          try {
+            await _api.uploadCommentAttachments(commentId, _selectedFiles);
+          } catch (uploadError) {
+            debugPrint('[BugDetail] Attachment upload failed, rolling back comment creation');
+
+            // ROLLBACK: Delete the comment since attachments failed
+            try {
+              await _api.deleteBugComment(commentId);
+              debugPrint('[BugDetail] Successfully rolled back comment creation');
+            } catch (deleteError) {
+              debugPrint('[BugDetail] Failed to rollback comment: $deleteError');
+            }
+
+            // Rethrow to show error to user
+            throw Exception('Failed to upload attachments. Comment not created.');
+          }
         }
       }
 
@@ -354,19 +388,21 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
       // Show success message
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Comment posted successfully'),
-            duration: Duration(seconds: 2),
+          SnackBar(
+            content: Text(_editingCommentId != null ? 'Comment updated successfully' : 'Comment posted successfully'),
+            duration: const Duration(seconds: 2),
             backgroundColor: Colors.green,
           ),
         );
       }
     } catch (e) {
+      debugPrint('[BugDetail] Error in _submitComment: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error: $e'),
             backgroundColor: Colors.red,
+            duration: const Duration(seconds: 4),
           ),
         );
       }
@@ -536,6 +572,7 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context);
+    final themeProvider = Provider.of<ThemeProvider>(context);
     final isAdmin = authProvider.user?.isAdmin ?? false;
     final isOwner = _bug != null && authProvider.user?.id == _bug!.reportedBy.id;
 
@@ -647,16 +684,57 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
                         controller: _scrollController,
                         padding: const EdgeInsets.all(16),
                         children: [
-                          // Status Badge + Platform + Upvote
+                          // Upvote + Status Badge + Platform (all in same row)
                           Row(
                             children: [
+                              // Upvote Button (first, same size as badges)
+                              Material(
+                                color: Colors.transparent,
+                                child: InkWell(
+                                  onTap: _toggleUpvote,
+                                  borderRadius: BorderRadius.circular(6),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                    decoration: BoxDecoration(
+                                      color: _isUpvoted
+                                          ? Colors.orange.withOpacity(0.2)
+                                          : AppTheme.primaryWhite.withOpacity(0.1),
+                                      borderRadius: BorderRadius.circular(6),
+                                      border: Border.all(
+                                        color: _isUpvoted ? Colors.orange : AppTheme.primaryWhite.withOpacity(0.3),
+                                        width: 1.5,
+                                      ),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          Icons.arrow_upward,
+                                          color: _isUpvoted ? Colors.orange : AppTheme.primaryWhite,
+                                          size: 16,
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          '${_bug!.likeCount}',
+                                          style: TextStyle(
+                                            color: _isUpvoted ? Colors.orange : AppTheme.primaryWhite,
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 14,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
                               _buildStatusBadge(_bug!.status),
                               const SizedBox(width: 8),
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                                 decoration: BoxDecoration(
                                   color: AppTheme.primaryWhite.withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(8),
+                                  borderRadius: BorderRadius.circular(6),
                                 ),
                                 child: Row(
                                   children: [
@@ -669,160 +747,165 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
                                   ],
                                 ),
                               ),
-                              const Spacer(),
-                              // Upvote Button (Reddit style)
-                              Material(
-                                color: Colors.transparent,
-                                child: InkWell(
-                                  onTap: _toggleUpvote,
-                                  borderRadius: BorderRadius.circular(20),
-                                  child: Container(
-                                    constraints: const BoxConstraints(minWidth: 80),
-                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                    decoration: BoxDecoration(
-                                      color: _isUpvoted
-                                          ? Colors.orange.withOpacity(0.2)
-                                          : AppTheme.primaryWhite.withOpacity(0.1),
-                                      borderRadius: BorderRadius.circular(20),
-                                      border: Border.all(
-                                        color: _isUpvoted ? Colors.orange : AppTheme.primaryWhite.withOpacity(0.3),
-                                        width: 1.5,
-                                      ),
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      children: [
-                                        Icon(
-                                          Icons.arrow_upward,
-                                          color: _isUpvoted ? Colors.orange : AppTheme.primaryWhite,
-                                          size: 18,
-                                        ),
-                                        const SizedBox(width: 6),
-                                        Text(
-                                          '${_bug!.likeCount}',
-                                          style: TextStyle(
-                                            color: _isUpvoted ? Colors.orange : AppTheme.primaryWhite,
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 15,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ),
                             ],
                           ),
 
                           const SizedBox(height: 16),
 
-                          // Title
-                          Text(
-                            _bug!.title,
-                            style: const TextStyle(
-                              color: AppTheme.primaryWhite,
-                              fontSize: 24,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-
-                          const SizedBox(height: 16),
-
-                          // Reporter Info
-                          Row(
-                            children: [
-                              CircleAvatar(
-                                radius: 20,
-                                backgroundColor: AppTheme.primaryWhite.withOpacity(0.2),
-                                backgroundImage: _bug!.reportedBy.avatarUrl != null
-                                    ? NetworkImage(getAbsoluteUrl(_bug!.reportedBy.avatarUrl!))
-                                    : null,
-                                child: _bug!.reportedBy.avatarUrl == null
-                                    ? Text(
-                                        _bug!.reportedBy.name[0].toUpperCase(),
-                                        style: const TextStyle(color: AppTheme.primaryWhite),
-                                      )
-                                    : null,
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      _bug!.reportedBy.name,
-                                      style: const TextStyle(
-                                        color: AppTheme.primaryWhite,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                    Text(
-                                      'Reported ${_formatDate(_bug!.createdAt)}',
-                                      style: TextStyle(
-                                        color: AppTheme.primaryWhite.withOpacity(0.6),
-                                        fontSize: 12,
-                                      ),
-                                    ),
-                                    if (_bug!.deviceInfo != null && _getDeviceInfoString(_bug!.deviceInfo).isNotEmpty)
-                                      Row(
-                                        children: [
-                                          Icon(
-                                            Icons.devices,
-                                            size: 11,
-                                            color: AppTheme.primaryWhite.withOpacity(0.5),
-                                          ),
-                                          const SizedBox(width: 4),
-                                          Expanded(
-                                            child: Text(
-                                              _getDeviceInfoString(_bug!.deviceInfo),
-                                              style: TextStyle(
-                                                color: AppTheme.primaryWhite.withOpacity(0.5),
-                                                fontSize: 11,
-                                              ),
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-
-                          const SizedBox(height: 24),
-
-                          // Description
+                          // Reporter Info - Enhanced with more metadata
                           Container(
                             padding: const EdgeInsets.all(16),
                             decoration: BoxDecoration(
                               color: AppTheme.primaryWhite.withOpacity(0.05),
                               borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: AppTheme.primaryWhite.withOpacity(0.1),
+                              ),
                             ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                            child: Row(
                               children: [
-                                const Text(
-                                  'Description',
-                                  style: TextStyle(
-                                    color: AppTheme.primaryWhite,
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
+                                // Rounded square avatar (like in bug list)
+                                Container(
+                                  width: 48,
+                                  height: 48,
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.primaryWhite.withOpacity(0.2),
+                                    borderRadius: BorderRadius.circular(10),
+                                    image: _bug!.reportedBy.avatarUrl != null
+                                        ? DecorationImage(
+                                            image: NetworkImage(getAbsoluteUrl(_bug!.reportedBy.avatarUrl!)),
+                                            fit: BoxFit.cover,
+                                          )
+                                        : null,
                                   ),
+                                  child: _bug!.reportedBy.avatarUrl == null
+                                      ? Center(
+                                          child: Text(
+                                            _bug!.reportedBy.name[0].toUpperCase(),
+                                            style: const TextStyle(
+                                              color: AppTheme.primaryWhite,
+                                              fontSize: 18,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        )
+                                      : null,
                                 ),
-                                const SizedBox(height: 12),
-                                Text(
-                                  _bug!.description,
-                                  style: TextStyle(
-                                    color: AppTheme.primaryWhite.withOpacity(0.8),
-                                    fontSize: 14,
-                                    height: 1.5,
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      // Name + Role Badge
+                                      Row(
+                                        children: [
+                                          Flexible(
+                                            child: Text(
+                                              _bug!.reportedBy.name,
+                                              style: const TextStyle(
+                                                color: AppTheme.primaryWhite,
+                                                fontSize: 16,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                            decoration: BoxDecoration(
+                                              color: _getRoleColor(_bug!.reportedBy.role).withOpacity(0.2),
+                                              borderRadius: BorderRadius.circular(4),
+                                              border: Border.all(
+                                                color: _getRoleColor(_bug!.reportedBy.role),
+                                              ),
+                                            ),
+                                            child: Text(
+                                              _bug!.reportedBy.role.toUpperCase(),
+                                              style: TextStyle(
+                                                color: _getRoleColor(_bug!.reportedBy.role),
+                                                fontSize: 9,
+                                                fontWeight: FontWeight.bold,
+                                                letterSpacing: 0.5,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 4),
+                                      // Email
+                                      Row(
+                                        children: [
+                                          Icon(
+                                            Icons.email_outlined,
+                                            size: 12,
+                                            color: AppTheme.primaryWhite.withOpacity(0.5),
+                                          ),
+                                          const SizedBox(width: 4),
+                                          Flexible(
+                                            child: Text(
+                                              _bug!.reportedBy.email,
+                                              style: TextStyle(
+                                                color: AppTheme.primaryWhite.withOpacity(0.7),
+                                                fontSize: 12,
+                                              ),
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 4),
+                                      // Reported date
+                                      Row(
+                                        children: [
+                                          Icon(
+                                            Icons.access_time,
+                                            size: 12,
+                                            color: AppTheme.primaryWhite.withOpacity(0.5),
+                                          ),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            'Reported ${_formatDate(_bug!.createdAt)}',
+                                            style: TextStyle(
+                                              color: AppTheme.primaryWhite.withOpacity(0.6),
+                                              fontSize: 11,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
                                   ),
                                 ),
                               ],
                             ),
+                          ),
+
+                          const SizedBox(height: 16),
+
+                          // Title + Description (together)
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // Title
+                              Text(
+                                _bug!.title,
+                                style: const TextStyle(
+                                  color: AppTheme.primaryWhite,
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              // Description
+                              Text(
+                                _bug!.description,
+                                style: TextStyle(
+                                  color: AppTheme.primaryWhite.withOpacity(0.8),
+                                  fontSize: 15,
+                                  height: 1.6,
+                                ),
+                              ),
+                            ],
                           ),
 
                           // Attachments
@@ -1193,78 +1276,132 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
         children: [
           Row(
             children: [
-              CircleAvatar(
-                radius: 16,
-                backgroundColor: AppTheme.primaryWhite.withOpacity(0.2),
-                backgroundImage: comment.user.avatarUrl != null
-                    ? NetworkImage(getAbsoluteUrl(comment.user.avatarUrl!))
-                    : null,
+              // Rounded square avatar (consistent with bug reporter)
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryWhite.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(8),
+                  image: comment.user.avatarUrl != null
+                      ? DecorationImage(
+                          image: NetworkImage(getAbsoluteUrl(comment.user.avatarUrl!)),
+                          fit: BoxFit.cover,
+                        )
+                      : null,
+                ),
                 child: comment.user.avatarUrl == null
-                    ? Text(
-                        comment.user.name[0].toUpperCase(),
-                        style: const TextStyle(color: AppTheme.primaryWhite, fontSize: 12),
+                    ? Center(
+                        child: Text(
+                          comment.user.name[0].toUpperCase(),
+                          style: const TextStyle(
+                            color: AppTheme.primaryWhite,
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                       )
                     : null,
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 10),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    // Name + Role Badge
                     Row(
                       children: [
-                        Text(
-                          comment.user.name,
-                          style: const TextStyle(
-                            color: AppTheme.primaryWhite,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14,
+                        Flexible(
+                          child: Text(
+                            comment.user.name,
+                            style: const TextStyle(
+                              color: AppTheme.primaryWhite,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                            ),
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
-                        if (comment.user.role == 'ADMIN')
-                          Container(
-                            margin: const EdgeInsets.only(left: 6),
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: Colors.red.withOpacity(0.2),
-                              borderRadius: BorderRadius.circular(4),
-                              border: Border.all(color: Colors.red),
-                            ),
-                            child: const Text(
-                              'ADMIN',
-                              style: TextStyle(color: Colors.red, fontSize: 10),
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: _getRoleColor(comment.user.role).withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(4),
+                            border: Border.all(
+                              color: _getRoleColor(comment.user.role),
                             ),
                           ),
+                          child: Text(
+                            comment.user.role.toUpperCase(),
+                            style: TextStyle(
+                              color: _getRoleColor(comment.user.role),
+                              fontSize: 9,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 0.3,
+                            ),
+                          ),
+                        ),
                       ],
                     ),
+                    const SizedBox(height: 2),
+                    // Email + Date + Device in one compact row
                     Row(
                       children: [
+                        Icon(
+                          Icons.email_outlined,
+                          size: 10,
+                          color: AppTheme.primaryWhite.withOpacity(0.5),
+                        ),
+                        const SizedBox(width: 3),
+                        Flexible(
+                          child: Text(
+                            comment.user.email,
+                            style: TextStyle(
+                              color: AppTheme.primaryWhite.withOpacity(0.6),
+                              fontSize: 11,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 2),
+                    // Date + Device
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.access_time,
+                          size: 10,
+                          color: AppTheme.primaryWhite.withOpacity(0.5),
+                        ),
+                        const SizedBox(width: 3),
                         Text(
                           _formatDate(comment.createdAt),
                           style: TextStyle(
-                            color: AppTheme.primaryWhite.withOpacity(0.6),
-                            fontSize: 12,
+                            color: AppTheme.primaryWhite.withOpacity(0.5),
+                            fontSize: 11,
                           ),
                         ),
                         if (comment.deviceInfo != null && _getDeviceInfoString(comment.deviceInfo).isNotEmpty) ...[
                           Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 6),
+                            padding: const EdgeInsets.symmetric(horizontal: 4),
                             child: Text(
                               '•',
                               style: TextStyle(
                                 color: AppTheme.primaryWhite.withOpacity(0.4),
-                                fontSize: 12,
+                                fontSize: 11,
                               ),
                             ),
                           ),
-                          Icon(Icons.devices, size: 11, color: AppTheme.primaryWhite.withOpacity(0.4)),
-                          const SizedBox(width: 4),
+                          Icon(Icons.devices, size: 10, color: AppTheme.primaryWhite.withOpacity(0.4)),
+                          const SizedBox(width: 3),
                           Flexible(
                             child: Text(
                               _getDeviceInfoString(comment.deviceInfo),
                               style: TextStyle(
                                 color: AppTheme.primaryWhite.withOpacity(0.4),
-                                fontSize: 11,
+                                fontSize: 10,
                               ),
                               overflow: TextOverflow.ellipsis,
                             ),
@@ -1449,13 +1586,13 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
     Color color;
     switch (status) {
       case BugStatus.OPEN:
-        color = Colors.orange;
+        color = Colors.green;
         break;
       case BugStatus.IN_PROGRESS:
-        color = Colors.blue;
+        color = Colors.orange;
         break;
       case BugStatus.RESOLVED:
-        color = Colors.green;
+        color = Colors.blue;
         break;
       case BugStatus.CLOSED:
         color = Colors.grey;
@@ -1463,11 +1600,11 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
     }
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.2),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color, width: 2),
+        color: color.withOpacity(0.15),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: color.withOpacity(0.3)),
       ),
       child: Text(
         status.name.replaceAll('_', ' '),
@@ -1481,136 +1618,67 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
   }
 
   Widget _buildAttachmentGrid() {
-    final imageAttachments = _bug!.attachments
-        .where((a) => a.fileType.startsWith('image/'))
-        .toList();
-    final videoAttachments = _bug!.attachments
-        .where((a) => a.fileType.startsWith('video/'))
-        .toList();
-    final documentAttachments = _bug!.attachments
-        .where((a) => !a.fileType.startsWith('image/') && !a.fileType.startsWith('video/'))
-        .toList();
+    if (_bug!.attachments.isEmpty) return const SizedBox.shrink();
+
+    final allAttachments = _bug!.attachments;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Images Section
-        if (imageAttachments.isNotEmpty) ...[
-          Text(
-            'Images (${imageAttachments.length})',
-            style: TextStyle(
+        // Attachment header with count
+        Row(
+          children: [
+            Icon(
+              Icons.attachment,
+              size: 16,
               color: AppTheme.primaryWhite.withOpacity(0.7),
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
             ),
-          ),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: imageAttachments.map((attachment) {
-              return GestureDetector(
-                onTap: () => MediaViewerDialog.show(
-                  context,
-                  mediaUrl: getAbsoluteUrl(attachment.fileUrl),
-                  fileName: attachment.fileName,
-                  fileType: attachment.fileType,
-                ),
-                child: Container(
-                  width: 120,
-                  height: 120,
-                  decoration: BoxDecoration(
-                    color: AppTheme.primaryWhite.withOpacity(0.05),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: AppTheme.primaryWhite.withOpacity(0.2),
-                    ),
-                  ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: Stack(
-                      fit: StackFit.expand,
-                      children: [
-                        CachedNetworkImage(
-                          imageUrl: getAbsoluteUrl(attachment.fileUrl),
-                          fit: BoxFit.cover,
-                          placeholder: (context, url) => Center(
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: AppTheme.primaryWhite,
-                            ),
-                          ),
-                          errorWidget: (context, url, error) => const Center(
-                            child: Icon(Icons.broken_image, color: AppTheme.primaryWhite, size: 32),
-                          ),
-                        ),
-                        // Tap overlay with zoom icon
-                        Container(
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.topCenter,
-                              end: Alignment.bottomCenter,
-                              colors: [
-                                Colors.transparent,
-                                Colors.black.withOpacity(0.4),
-                              ],
-                            ),
-                          ),
-                          child: const Align(
-                            alignment: Alignment.bottomRight,
-                            child: Padding(
-                              padding: EdgeInsets.all(6.0),
-                              child: Icon(
-                                Icons.zoom_in,
-                                color: Colors.white,
-                                size: 18,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              );
-            }).toList(),
-          ),
-        ],
+            const SizedBox(width: 6),
+            Text(
+              'Attachments (${allAttachments.length}/6)',
+              style: TextStyle(
+                color: AppTheme.primaryWhite.withOpacity(0.9),
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const Spacer(),
+            Text(
+              'Max: Images 30MB • Videos 300MB',
+              style: TextStyle(
+                color: AppTheme.primaryWhite.withOpacity(0.4),
+                fontSize: 10,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
 
-        // Videos Section
-        if (videoAttachments.isNotEmpty) ...[
-          if (imageAttachments.isNotEmpty) const SizedBox(height: 16),
-          Text(
-            'Videos (${videoAttachments.length})',
-            style: TextStyle(
-              color: AppTheme.primaryWhite.withOpacity(0.7),
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 8),
-          ...videoAttachments.map((attachment) => _buildVideoTile(attachment)),
-        ],
+        // Compact grid with all attachments (2 columns on mobile, 3 on larger screens)
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final crossAxisCount = constraints.maxWidth > 600 ? 3 : 2;
+            final itemWidth = (constraints.maxWidth - (8 * (crossAxisCount - 1))) / crossAxisCount;
+            final itemHeight = itemWidth * 0.75; // 4:3 aspect ratio
 
-        // Documents Section
-        if (documentAttachments.isNotEmpty) ...[
-          if (imageAttachments.isNotEmpty || videoAttachments.isNotEmpty) const SizedBox(height: 16),
-          Text(
-            'Documents (${documentAttachments.length})',
-            style: TextStyle(
-              color: AppTheme.primaryWhite.withOpacity(0.7),
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 8),
-          ...documentAttachments.map((attachment) => _buildDocumentTile(attachment)),
-        ],
+            return Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: allAttachments.map((attachment) {
+                return _buildAttachmentThumbnail(attachment, itemWidth, itemHeight);
+              }).toList(),
+            );
+          },
+        ),
       ],
     );
   }
 
-  Widget _buildVideoTile(BugAttachment attachment) {
+  Widget _buildAttachmentThumbnail(BugAttachment attachment, double width, double height) {
+    final isImage = attachment.fileType.startsWith('image/');
+    final isVideo = attachment.fileType.startsWith('video/');
+    final isDocument = !isImage && !isVideo;
+
     return GestureDetector(
       onTap: () => MediaViewerDialog.show(
         context,
@@ -1619,180 +1687,148 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
         fileType: attachment.fileType,
       ),
       child: Container(
-        margin: const EdgeInsets.only(bottom: 8),
-        padding: const EdgeInsets.all(12),
+        width: width,
+        height: height,
         decoration: BoxDecoration(
           color: AppTheme.primaryWhite.withOpacity(0.05),
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(10),
           border: Border.all(
-            color: AppTheme.primaryWhite.withOpacity(0.1),
+            color: AppTheme.primaryWhite.withOpacity(0.15),
           ),
         ),
-        child: Row(
-          children: [
-            Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                color: Colors.red.withOpacity(0.2),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const Icon(
-                Icons.play_circle_fill,
-                color: Colors.red,
-                size: 32,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    attachment.fileName,
-                    style: const TextStyle(
-                      color: AppTheme.primaryWhite,
-                      fontWeight: FontWeight.w500,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(10),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              // Content based on type
+              if (isImage)
+                CachedNetworkImage(
+                  imageUrl: getAbsoluteUrl(attachment.fileUrl),
+                  fit: BoxFit.cover,
+                  placeholder: (context, url) => Center(
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: AppTheme.primaryWhite.withOpacity(0.5),
                     ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 4),
-                  Row(
+                  errorWidget: (context, url, error) => Center(
+                    child: Icon(
+                      Icons.broken_image,
+                      color: AppTheme.primaryWhite.withOpacity(0.4),
+                      size: 32,
+                    ),
+                  ),
+                )
+              else if (isVideo)
+                Container(
+                  color: Colors.black87,
+                  child: Center(
+                    child: Icon(
+                      Icons.play_circle_filled,
+                      size: 48,
+                      color: AppTheme.primaryWhite.withOpacity(0.9),
+                    ),
+                  ),
+                )
+              else
+                Container(
+                  color: AppTheme.primaryWhite.withOpacity(0.08),
+                  child: Center(
+                    child: Icon(
+                      _getDocumentIcon(attachment.fileType),
+                      size: 40,
+                      color: AppTheme.primaryWhite.withOpacity(0.7),
+                    ),
+                  ),
+                ),
+
+              // Overlay with file info
+              Positioned(
+                bottom: 0,
+                left: 0,
+                right: 0,
+                child: Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.transparent,
+                        Colors.black.withOpacity(0.8),
+                      ],
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: Colors.red.withOpacity(0.2),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: const Text(
-                          'VIDEO',
-                          style: TextStyle(
-                            color: Colors.red,
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
                       Text(
-                        _formatBytes(attachment.fileSize),
+                        attachment.fileName,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        _formatFileSize(attachment.fileSize),
                         style: TextStyle(
-                          color: AppTheme.primaryWhite.withOpacity(0.6),
-                          fontSize: 12,
+                          color: Colors.white.withOpacity(0.7),
+                          fontSize: 9,
                         ),
                       ),
                     ],
                   ),
-                ],
+                ),
               ),
-            ),
-            Icon(
-              Icons.open_in_new,
-              color: AppTheme.primaryWhite.withOpacity(0.6),
-              size: 20,
-            ),
-          ],
+
+              // Type badge (top-right)
+              Positioned(
+                top: 6,
+                right: 6,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.7),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    isImage ? 'IMG' : isVideo ? 'VID' : 'DOC',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 9,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildDocumentTile(BugAttachment attachment) {
-    return GestureDetector(
-      onTap: () async {
-        // Open document externally (browser/file viewer)
-        final uri = Uri.parse(getAbsoluteUrl(attachment.fileUrl));
-        if (await canLaunchUrl(uri)) {
-          await launchUrl(uri, mode: LaunchMode.externalApplication);
-        } else {
-          if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Could not open ${attachment.fileName}')),
-            );
-          }
-        }
-      },
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 8),
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: AppTheme.primaryWhite.withOpacity(0.05),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-            color: AppTheme.primaryWhite.withOpacity(0.1),
-          ),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                color: Colors.orange.withOpacity(0.2),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const Icon(
-                Icons.insert_drive_file,
-                color: Colors.orange,
-                size: 28,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    attachment.fileName,
-                    style: const TextStyle(
-                      color: AppTheme.primaryWhite,
-                      fontWeight: FontWeight.w500,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: Colors.orange.withOpacity(0.2),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: const Text(
-                          'DOC',
-                          style: TextStyle(
-                            color: Colors.orange,
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        _formatBytes(attachment.fileSize),
-                        style: TextStyle(
-                          color: AppTheme.primaryWhite.withOpacity(0.6),
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            Icon(
-              Icons.open_in_new,
-              color: AppTheme.primaryWhite.withOpacity(0.6),
-              size: 20,
-            ),
-          ],
-        ),
-      ),
-    );
+  IconData _getDocumentIcon(String fileType) {
+    if (fileType.contains('pdf')) return Icons.picture_as_pdf;
+    if (fileType.contains('word') || fileType.contains('doc')) return Icons.description;
+    if (fileType.contains('excel') || fileType.contains('sheet')) return Icons.table_chart;
+    if (fileType.contains('powerpoint') || fileType.contains('presentation')) return Icons.slideshow;
+    if (fileType.contains('text')) return Icons.article;
+    if (fileType.contains('zip') || fileType.contains('rar')) return Icons.folder_zip;
+    return Icons.insert_drive_file;
+  }
+
+  String _formatFileSize(int bytes) {
+    if (bytes < 1024) return '$bytes B';
+    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
+    return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
   }
 
   // Helper to get succinct device info string
@@ -1827,15 +1863,23 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
   }
 
   Widget _buildDeviceInfo() {
+    if (_bug!.deviceInfo == null) return const SizedBox.shrink();
+
+    final deviceInfo = _bug!.deviceInfo!;
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: AppTheme.primaryWhite.withOpacity(0.05),
         borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: AppTheme.primaryWhite.withOpacity(0.1),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Header
           Row(
             children: [
               Icon(Icons.devices, size: 16, color: AppTheme.primaryWhite.withOpacity(0.7)),
@@ -1850,17 +1894,205 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 8),
-          Text(
-            _getDeviceInfoString(_bug!.deviceInfo),
-            style: TextStyle(
-              color: AppTheme.primaryWhite.withOpacity(0.8),
-              fontSize: 13,
-            ),
+          const SizedBox(height: 12),
+
+          // Device details in compact grid
+          Wrap(
+            spacing: 12,
+            runSpacing: 8,
+            children: [
+              // Platform
+              if (deviceInfo.containsKey('platform'))
+                _buildInfoChip(
+                  icon: Icons.smartphone,
+                  label: 'Platform',
+                  value: deviceInfo['platform'].toString(),
+                ),
+
+              // App Version
+              if (deviceInfo.containsKey('appVersion'))
+                _buildInfoChip(
+                  icon: Icons.info_outline,
+                  label: 'Version',
+                  value: 'v${deviceInfo['appVersion']}',
+                ),
+
+              // Build Number
+              if (deviceInfo.containsKey('buildNumber'))
+                _buildInfoChip(
+                  icon: Icons.build,
+                  label: 'Build',
+                  value: deviceInfo['buildNumber'].toString(),
+                ),
+
+              // WEB specific
+              if (deviceInfo.containsKey('browserName'))
+                _buildInfoChip(
+                  icon: Icons.web,
+                  label: 'Browser',
+                  value: _formatBrowserName(deviceInfo['browserName'].toString()),
+                ),
+
+              // Android specific
+              if (deviceInfo.containsKey('manufacturer'))
+                _buildInfoChip(
+                  icon: Icons.business,
+                  label: 'Manufacturer',
+                  value: deviceInfo['manufacturer'].toString(),
+                ),
+
+              if (deviceInfo.containsKey('model'))
+                _buildInfoChip(
+                  icon: Icons.phone_android,
+                  label: 'Model',
+                  value: deviceInfo['model'].toString(),
+                ),
+
+              if (deviceInfo.containsKey('androidVersion'))
+                _buildInfoChip(
+                  icon: Icons.android,
+                  label: 'Android',
+                  value: deviceInfo['androidVersion'].toString(),
+                ),
+
+              // iOS specific
+              if (deviceInfo.containsKey('systemName'))
+                _buildInfoChip(
+                  icon: Icons.apple,
+                  label: deviceInfo['systemName'].toString(),
+                  value: deviceInfo['systemVersion']?.toString() ?? '',
+                ),
+
+              // Windows specific
+              if (deviceInfo.containsKey('computerName'))
+                _buildInfoChip(
+                  icon: Icons.computer,
+                  label: 'Computer',
+                  value: deviceInfo['computerName'].toString(),
+                ),
+
+              if (deviceInfo.containsKey('productName'))
+                _buildInfoChip(
+                  icon: Icons.monitor,
+                  label: 'OS',
+                  value: '${deviceInfo['productName']} ${deviceInfo['displayVersion'] ?? ''}',
+                ),
+
+              if (deviceInfo.containsKey('numberOfCores'))
+                _buildInfoChip(
+                  icon: Icons.memory,
+                  label: 'CPU Cores',
+                  value: deviceInfo['numberOfCores'].toString(),
+                ),
+
+              if (deviceInfo.containsKey('systemMemoryInMegabytes'))
+                _buildInfoChip(
+                  icon: Icons.storage,
+                  label: 'RAM',
+                  value: '${(deviceInfo['systemMemoryInMegabytes'] / 1024).toStringAsFixed(1)} GB',
+                ),
+
+              // Linux specific
+              if (deviceInfo.containsKey('prettyName'))
+                _buildInfoChip(
+                  icon: Icons.desktop_windows,
+                  label: 'OS',
+                  value: deviceInfo['prettyName'].toString(),
+                ),
+
+              // macOS specific
+              if (deviceInfo.containsKey('hostName'))
+                _buildInfoChip(
+                  icon: Icons.laptop_mac,
+                  label: 'Host',
+                  value: deviceInfo['hostName'].toString(),
+                ),
+
+              if (deviceInfo.containsKey('osRelease'))
+                _buildInfoChip(
+                  icon: Icons.info,
+                  label: 'OS Release',
+                  value: deviceInfo['osRelease'].toString(),
+                ),
+            ],
           ),
         ],
       ),
     );
+  }
+
+  Widget _buildInfoChip({
+    required IconData icon,
+    required String label,
+    required String value,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: AppTheme.primaryWhite.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: AppTheme.primaryWhite.withOpacity(0.15),
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            icon,
+            size: 14,
+            color: AppTheme.primaryWhite.withOpacity(0.6),
+          ),
+          const SizedBox(width: 6),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                label,
+                style: TextStyle(
+                  color: AppTheme.primaryWhite.withOpacity(0.5),
+                  fontSize: 9,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.5,
+                ),
+              ),
+              Text(
+                value,
+                style: TextStyle(
+                  color: AppTheme.primaryWhite.withOpacity(0.9),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatBrowserName(String browserName) {
+    // Clean up browser name (e.g., "BrowserName.chrome" -> "Chrome")
+    final cleanName = browserName.contains('.')
+        ? browserName.split('.').last
+        : browserName;
+    return cleanName.substring(0, 1).toUpperCase() + cleanName.substring(1);
+  }
+
+  Color _getRoleColor(String role) {
+    switch (role.toLowerCase()) {
+      case 'admin':
+        return Colors.red;
+      case 'manager':
+        return Colors.orange;
+      case 'employee':
+        return Colors.blue;
+      case 'visitor':
+        return Colors.green;
+      default:
+        return Colors.grey;
+    }
   }
 
   Widget _buildActionButton(String label, Color color, VoidCallback onPressed) {
@@ -1912,11 +2144,5 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
     } else {
       return '${date.day}/${date.month}/${date.year}';
     }
-  }
-
-  String _formatBytes(int bytes) {
-    if (bytes < 1024) return '$bytes B';
-    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
-    return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
   }
 }
