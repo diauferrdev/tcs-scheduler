@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-  <style name="LaunchTheme" parent="@android:style/Theme.Light.NoTitleBar">
+  <!-- Android 12+ splash screen - Black background only -->
+  <!-- Flutter AnimatedSplashScreen handles the animated logo -->
+  <style name="LaunchTheme" parent="@android:style/Theme.Black.NoTitleBar">
     <item name="android:windowSplashScreenBackground">#000000</item>
-    <item name="android:windowSplashScreenAnimatedIcon">@drawable/splash_image_12</item>
   </style>
 </resources>

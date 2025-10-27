@@ -142,17 +142,10 @@ flutter_launcher_icons:
 # following page: https://dart.dev/tools/pub/pubspec
 
 # Splash Screen Configuration for splash_master
+# DISABLED - Using only Flutter AnimatedSplashScreen for better control
+# Native splash removed to avoid conflicts
 splash_master:
-  color: '#000000'  # Black background matching TCS brand
-  image: 'assets/splash/tcs_logo_splash.png'  # Smaller logo (180px) for proper display
-  ios_content_mode: 'center'
-  android_gravity: 'center'
-  color_dark_android: '#000000'
-  image_dark_android: 'assets/splash/tcs_logo_splash.png'
-  android_dark_gravity_key: 'center'
-  android_12_and_above:
-    color: '#000000'
-    image: 'assets/splash/tcs_logo_splash.png'
+  color: '#000000'  # Just black background, no image
 
 # The following section is specific to Flutter packages.
 flutter:

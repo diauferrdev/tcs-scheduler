@@ -52,8 +52,8 @@ void notificationTapBackgroundHandler(NotificationResponse details) {
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize SplashMaster to prevent Flutter frames until splash completes
-  SplashMaster.initialize();
+  // DO NOT initialize SplashMaster - we want Flutter to render immediately
+  // SplashMaster.initialize();
 
   // Initialize Firebase ONLY on supported platforms (Android, iOS, web, macOS)
   // Windows and Linux desktop use local_notifier instead
@@ -123,7 +123,7 @@ class _AppRouter extends StatefulWidget {
 
 class _AppRouterState extends State<_AppRouter> {
   late final GoRouter _router;
-  bool _showSplash = true;
+  bool _showSplash = !kIsWeb; // Only show splash on mobile, web has its own
 
   @override
   void initState() {
@@ -154,7 +154,7 @@ class _AppRouterState extends State<_AppRouter> {
           routerConfig: _router,
         );
 
-        // Show animated splash screen first, then show main app
+        // Show animated splash screen on mobile only (web has its own splash)
         if (_showSplash) {
           debugPrint('[Main] 🎬 Showing AnimatedSplashScreen (_showSplash = true)');
           return MaterialApp(

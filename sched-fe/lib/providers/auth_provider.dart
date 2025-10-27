@@ -25,21 +25,16 @@ class AuthProvider with ChangeNotifier {
       _loading = true;
       notifyListeners();
 
-      // ApiService will automatically load session cookie from TokenStorage
       await _apiService.initialize();
 
       final response = await _apiService.get('/api/auth/me');
       _user = User.fromJson(response['user'] as Map<String, dynamic>);
 
-      // If user is already logged in, request permissions (but don't connect WebSocket)
-      // WebSocket disabled on mobile due to ngrok limitations
+      // If user is already logged in, request permissions and connect WebSocket
       try {
-        debugPrint('[AuthProvider] User authenticated, requesting permissions');
         await UnifiedNotificationService().requestPermissionsAfterLogin();
-        debugPrint('[AuthProvider] Permission request complete');
       } catch (e) {
-        debugPrint('[AuthProvider] Error requesting permissions: $e');
-        // Don't fail auth check if permission request fails
+        debugPrint('[Auth] ❌ Permission error: $e');
       }
     } catch (e) {
       _user = null;
@@ -47,8 +42,6 @@ class AuthProvider with ChangeNotifier {
     } finally {
       _loading = false;
       notifyListeners();
-
-      // Signal web splash screen that app is ready
       _signalAppReady();
     }
   }
@@ -58,13 +51,11 @@ class AuthProvider with ChangeNotifier {
     if (!kIsWeb) return;
 
     try {
-      // Use a small delay to ensure UI is fully rendered
       Future.delayed(const Duration(milliseconds: 300), () {
         WebHelper.signalAppReady();
-        debugPrint('[AuthProvider] ✅ App ready signal sent to web');
       });
     } catch (e) {
-      debugPrint('[AuthProvider] Could not signal app ready: $e');
+      debugPrint('[Auth] ❌ App ready signal error: $e');
     }
   }
 
@@ -77,8 +68,7 @@ class AuthProvider with ChangeNotifier {
 
       _user = User.fromJson(response['user'] as Map<String, dynamic>);
 
-      // IMPORTANT: Extract cookie from response body as fallback
-      // This handles cases where Set-Cookie header is stripped by proxies (like ngrok)
+      // Extract cookie from response body (fallback for proxies like ngrok)
       if (response['sessionCookie'] != null) {
         final sessionCookie = response['sessionCookie'] as Map<String, dynamic>;
         final cookieName = sessionCookie['name'] as String;
@@ -89,12 +79,9 @@ class AuthProvider with ChangeNotifier {
 
       // Request notification permissions after successful login
       try {
-        debugPrint('[AuthProvider] Requesting notification permissions after login');
         await UnifiedNotificationService().requestPermissionsAfterLogin();
-        debugPrint('[AuthProvider] Notification permissions request complete');
       } catch (e) {
-        debugPrint('[AuthProvider] Error requesting notification permissions: $e');
-        // Don't fail login if permission request fails
+        debugPrint('[Auth] ❌ Notification permission error: $e');
       }
 
       notifyListeners();
@@ -110,14 +97,12 @@ class AuthProvider with ChangeNotifier {
       // Ignore logout errors
     } finally {
       _user = null;
-      _apiService.setSessionCookie(null); // This will also clear from TokenStorage
+      _apiService.setSessionCookie(null);
 
-      // Clear notification badge on logout
       try {
-        debugPrint('[AuthProvider] Clearing notifications on logout');
         await UnifiedNotificationService().disconnectWebSocket();
       } catch (e) {
-        debugPrint('[AuthProvider] Error clearing notifications: $e');
+        debugPrint('[Auth] ❌ Disconnect error: $e');
       }
 
       notifyListeners();

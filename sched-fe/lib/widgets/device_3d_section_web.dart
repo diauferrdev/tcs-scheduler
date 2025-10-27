@@ -61,8 +61,6 @@ class _Device3DSectionState extends State<Device3DSection> {
   void _registerView() {
     if (_isRegistered) return;
 
-    debugPrint('[Device3DSection] Registering view: $viewId for ${widget.deviceType}');
-
     ui_web.platformViewRegistry.registerViewFactory(
       viewId,
       (int viewIdInt) {
@@ -81,9 +79,6 @@ class _Device3DSectionState extends State<Device3DSection> {
           ..style.overflow = 'hidden'
           ..append(canvas);
 
-        debugPrint('[Device3DSection] Canvas created: $canvasId');
-
-        // Don't initialize viewer immediately - wait for visibility check
         return container;
       },
     );
@@ -96,7 +91,6 @@ class _Device3DSectionState extends State<Device3DSection> {
 
     final RenderBox? renderBox = context.findRenderObject() as RenderBox?;
     if (renderBox == null) {
-      // Retry after a frame
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _checkVisibility();
       });
@@ -107,16 +101,12 @@ class _Device3DSectionState extends State<Device3DSection> {
     final size = renderBox.size;
     final screenHeight = MediaQuery.of(context).size.height;
 
-    // Check if section is in viewport (top of section is above bottom of screen)
     final isInViewport = position.dy < screenHeight && position.dy + size.height > 0;
-
-    debugPrint('[Device3DSection] Section ${widget.index}: position.dy=${position.dy}, screenHeight=$screenHeight, isInViewport=$isInViewport, viewerCreated=$_viewerCreated');
 
     if (isInViewport && !_viewerCreated) {
       if (!_isVisible) {
         setState(() => _isVisible = true);
       }
-      // Initialize viewer when visible
       Future.delayed(const Duration(milliseconds: 300), () {
         if (mounted && !_viewerCreated) {
           _initialize3DViewer();
@@ -129,29 +119,18 @@ class _Device3DSectionState extends State<Device3DSection> {
     if (_viewerCreated) return;
 
     try {
-      debugPrint('[Device3DSection] Initializing viewer for canvas: $canvasId');
-
-      if (js.context['BABYLON'] == null) {
-        debugPrint('[Device3DSection] ❌ BABYLON.js not loaded!');
+      if (js.context['BABYLON'] == null || js.context['DeviceViewer'] == null) {
         return;
       }
 
       final deviceViewerClass = js.context['DeviceViewer'];
-      if (deviceViewerClass == null) {
-        debugPrint('[Device3DSection] ❌ DeviceViewer class not found!');
-        return;
-      }
-
       final viewerManager = js.context['viewerManager'];
-      if (viewerManager == null) {
-        debugPrint('[Device3DSection] ⚠️ ViewerManager not found!');
-      }
 
       final config = js.JsObject.jsify({
         'canvasId': canvasId,
         'deviceType': widget.deviceType,
         'entranceAnimation': widget.animation,
-        'loopAnimation': 'float', // Smooth floating animation after entrance
+        'loopAnimation': 'float',
         'brightness': 1.4,
         'logoUrl': 'assets/Tata_logo.svg',
         'enableGlow': widget.deviceType == 'phone',
@@ -164,7 +143,7 @@ class _Device3DSectionState extends State<Device3DSection> {
           'phoneCameraPosition': {
             'alpha': 1.8,
             'beta': 1.5,
-            'radius': 1, // 15% closer (5.5 * 0.85)
+            'radius': 1,
           },
           'phoneCameraTarget': {
             'x': 0,
@@ -176,7 +155,7 @@ class _Device3DSectionState extends State<Device3DSection> {
           'notebookCameraPosition': {
             'alpha': -5.1000000000000005,
             'beta': 1.1279966607226328,
-            'radius': 16, // Final user-adjusted value
+            'radius': 16,
           },
           'notebookCameraTarget': {
             'x': 1,
@@ -189,22 +168,16 @@ class _Device3DSectionState extends State<Device3DSection> {
       final viewer = js.JsObject(deviceViewerClass, [config]);
       _viewerCreated = true;
 
-      // Register with ViewerManager for performance optimization
       if (viewerManager != null) {
         try {
           js.context.callMethod('eval', ['window.viewerManager.registerViewer("$canvasId", window["$canvasId"+"_viewer"])']);
-          // Store viewer reference globally for manager access
           js.context[canvasId + '_viewer'] = viewer;
-          debugPrint('[Device3DSection] ✅ Registered with ViewerManager: $canvasId');
         } catch (e) {
-          debugPrint('[Device3DSection] ⚠️ Failed to register with ViewerManager: $e');
+          // Silent fail
         }
       }
-
-      debugPrint('[Device3DSection] ✅ Viewer created for section ${widget.index}');
-    } catch (e, stackTrace) {
-      debugPrint('[Device3DSection] ❌ Error initializing: $e');
-      debugPrint('[Device3DSection] Stack trace: $stackTrace');
+    } catch (e) {
+      // Silent fail
     }
   }
 
@@ -218,14 +191,13 @@ class _Device3DSectionState extends State<Device3DSection> {
         final wasVisible = _isVisible;
         final nowVisible = info.visibleFraction >= 0.3;
 
-        if (wasVisible != nowVisible) {
+        if (wasVisible != nowVisible && mounted) {
           setState(() {
             _isVisible = nowVisible;
           });
         }
 
         if (nowVisible && !_viewerCreated) {
-          debugPrint('[VisibilityDetector] Section ${widget.index} is ${(info.visibleFraction * 100).toStringAsFixed(1)}% visible, triggering animation');
           triggerAnimation();
         }
 

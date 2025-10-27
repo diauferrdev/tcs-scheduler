@@ -60,10 +60,10 @@ class SeoHelper {
           'Dashboard, Analytics, Office Analytics, Capacity Management, Booking Statistics, TCS Pace',
     },
     'calendar': {
-      'title': 'Calendar | TCS Pace Scheduler',
+      'title': 'New Booking | TCS Pace Scheduler',
       'description':
-          'Smart calendar for managing office visit bookings. View availability, create bookings, and manage your schedule.',
-      'keywords': 'Calendar, Office Calendar, Booking Calendar, Schedule Management, TCS Pace',
+          'Create a new office visit booking. View availability, select dates, and schedule your visit.',
+      'keywords': 'New Booking, Create Booking, Office Calendar, Schedule Management, TCS Pace',
     },
     'my-bookings': {
       'title': 'My Bookings | TCS Pace Scheduler',

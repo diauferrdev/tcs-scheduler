@@ -75,48 +75,28 @@ class UnifiedNotificationService {
   Future<void> initialize({
     void Function(NotificationResponse)? onBackgroundNotificationResponse,
   }) async {
-    if (_initialized) {
-      debugPrint('[UnifiedNotification] Already initialized');
-      return;
-    }
-
-    debugPrint('[UnifiedNotification] Initializing (WITHOUT requesting permissions)...');
-    debugPrint('[UnifiedNotification] Platform check: kIsWeb=$kIsWeb, Platform=${!kIsWeb ? Platform.operatingSystem : "web"}');
+    if (_initialized) return;
 
     try {
       // Initialize notifications based on platform
       if (kIsWeb) {
         // Web: Initialize Web Notification API (permissions requested after login)
-        debugPrint('[UnifiedNotification] Web: Initializing (permissions will be requested after login)');
       } else if (Platform.isWindows || Platform.isLinux) {
         // Desktop (Windows/Linux): Use local_notifier
-        debugPrint('[UnifiedNotification] Desktop detected: Initializing local_notifier...');
         await _desktopNotificationService.initialize();
-        debugPrint('[UnifiedNotification] Initialized desktop notifications');
       } else {
         // Mobile/macOS: Use flutter_local_notifications with background handler
-        debugPrint('[UnifiedNotification] Mobile/macOS detected: Initializing LocalNotificationService...');
         await _localNotificationService.initialize(
           onBackgroundNotificationResponse: onBackgroundNotificationResponse,
         );
-        debugPrint('[UnifiedNotification] Initialized mobile/macOS notifications (permissions will be requested after login)');
       }
 
       // Setup Native WebSocket RealtimeService listeners
       _setupRealtimeListeners();
 
-      // IMPORTANT: Do NOT connect to WebSocket during initialization
-      // WebSocket requires session cookie which only exists AFTER login
-      // Will connect via requestPermissionsAfterLogin() method after user logs in
-
-      // IMPORTANT: Do NOT load unread count during initialization
-      // User is not logged in yet, so API call will fail or delay app startup
-      // Unread count will be loaded after login via requestPermissionsAfterLogin()
-
       _initialized = true;
-      debugPrint('[UnifiedNotification] Initialized successfully (will load data after login)');
     } catch (e) {
-      debugPrint('[UnifiedNotification] Initialization error: $e');
+      debugPrint('[Notification] ❌ Init error: $e');
     }
   }
 
@@ -124,71 +104,39 @@ class UnifiedNotificationService {
   /// Call this method ONLY after successful authentication
   /// Returns true if permissions were granted, false otherwise
   Future<bool> requestPermissionsAfterLogin() async {
-    debugPrint('[UnifiedNotification] Requesting permissions after login...');
-
     try {
       bool permissionGranted = false;
 
+      // CRITICAL: Connect WebSocket FIRST (non-blocking)
+      _realtimeService.connect();
+
       if (kIsWeb) {
-        // Web: Initialize Web Notification API and request permissions
-        debugPrint('[UnifiedNotification] Web: Requesting notification permissions');
-        await _webNotificationService.initialize();
-        debugPrint('[UnifiedNotification] Web: Permissions request complete');
+        // Web: Initialize Web Notification API in background
+        _webNotificationService.initialize().timeout(
+          const Duration(seconds: 10),
+          onTimeout: () {},
+        );
         permissionGranted = true;
       } else if (Platform.isWindows || Platform.isLinux) {
         // Desktop: No permissions needed
-        debugPrint('[UnifiedNotification] Desktop: No permissions needed');
         permissionGranted = true;
       } else {
         // Mobile/macOS: Request permissions
-        debugPrint('[UnifiedNotification] Mobile/macOS: Requesting permissions');
         permissionGranted = await _localNotificationService.requestPermissions();
-        debugPrint('[UnifiedNotification] Mobile/macOS: Permissions ${permissionGranted ? 'granted' : 'denied'}');
       }
 
-      // Initialize Firebase Cloud Messaging for push notifications (app closed/minimized)
-      // This works like WhatsApp - notifications arrive even when app is completely closed
-      // ONLY on platforms that support Firebase (Android, iOS, Web, macOS)
+      // Initialize FCM for push notifications (app closed/minimized)
       if (_isFirebaseSupported) {
-        debugPrint('[UnifiedNotification] Initializing FCM for push notifications...');
         _fcmService = FCMService();
-        _fcmService!.initialize().then((_) {
-          if (_fcmService!.isInitialized) {
-            debugPrint('[UnifiedNotification] ✅ FCM initialized - push notifications enabled');
-          }
-        }).catchError((e) {
-          debugPrint('[UnifiedNotification] ⚠️ FCM initialization failed: $e');
-        });
-      } else {
-        debugPrint('[UnifiedNotification] ⏩ Skipping FCM (Windows/Linux use local_notifier)');
+        _fcmService!.initialize();
       }
 
       // Load initial unread count (non-blocking)
-      debugPrint('[UnifiedNotification] 📊 Loading unread count (background)...');
-      refreshUnreadCount().then((_) {
-        debugPrint('[UnifiedNotification] ✅ Unread count loaded');
-      }).catchError((e) {
-        debugPrint('[UnifiedNotification] ⚠️ Failed to load unread count: $e');
-      });
-
-      // CRITICAL: Connect to Native WebSocket for instant real-time updates
-      // Run in background - don't block login with await
-      debugPrint('[UnifiedNotification] 🚀 Connecting to Native WebSocket (background)...');
-      _realtimeService.connect().then((_) {
-        if (_realtimeService.isFullyConnected) {
-          debugPrint('[UnifiedNotification] ✅ WebSocket connected - instant real-time updates enabled');
-        } else if (_realtimeService.isNotificationConnected) {
-          debugPrint('[UnifiedNotification] ✅ WebSocket connected - instant updates enabled');
-        } else {
-          debugPrint('[UnifiedNotification] ⚠️ WebSocket connection failed');
-        }
-      }).catchError((e) {
-        debugPrint('[UnifiedNotification] Error connecting to WebSocket: $e');
-      });
+      refreshUnreadCount();
 
       return permissionGranted;
     } catch (e) {
-      debugPrint('[UnifiedNotification] Error requesting permissions: $e');
+      debugPrint('[Notification] ❌ Permission error: $e');
       return false;
     }
   }
@@ -196,25 +144,18 @@ class UnifiedNotificationService {
   /// Setup Native WebSocket RealtimeService event listeners
   void _setupRealtimeListeners() {
     // === NOTIFICATION LISTENERS ===
-
-    // Listen for new notifications from WebSocket
     _realtimeService.onNewNotification = (notification) {
-      debugPrint('[UnifiedNotification] New notification via WebSocket: $notification');
       _handleIncomingNotification(notification);
     };
 
-    // Listen for unread count updates
     _realtimeService.onUnreadCountUpdated = (count) {
-      debugPrint('[UnifiedNotification] Unread count updated: $count');
       _unreadCount = count;
       if (!_badgeController.isClosed) {
         _badgeController.add(_unreadCount);
       }
     };
 
-    // Listen for notification sync on connect
     _realtimeService.onNotificationSync = (syncData) {
-      debugPrint('[UnifiedNotification] Notification sync: $syncData');
       final unreadCount = syncData['unreadCount'] as int?;
       if (unreadCount != null) {
         _unreadCount = unreadCount;
@@ -224,71 +165,49 @@ class UnifiedNotificationService {
       }
     };
 
-    // Listen for batch of unread notifications
     _realtimeService.onUnreadNotifications = (notifications) {
-      debugPrint('[UnifiedNotification] Received ${notifications.length} unread notifications');
       // Could show each one or just update badge
     };
 
-    // Listen for connection events
     _realtimeService.onNotificationConnected = () {
-      debugPrint('[UnifiedNotification] WebSocket connected');
-      // Refresh count on reconnect
       refreshUnreadCount();
     };
 
     _realtimeService.onNotificationDisconnected = () {
-      debugPrint('[UnifiedNotification] WebSocket disconnected');
       // Auto-reconnects via RealtimeService
     };
 
     // === CALENDAR/BOOKING LISTENERS ===
-
-    // Listen for new booking creation
     _realtimeService.onBookingCreated = (booking) {
-      debugPrint('[UnifiedNotification] 📅 New booking created via WebSocket: ${booking['companyName']}');
       if (!_bookingCreatedController.isClosed) {
         _bookingCreatedController.add(booking);
       }
     };
 
-    // Listen for booking updates
     _realtimeService.onBookingUpdated = (booking) {
-      debugPrint('[UnifiedNotification] 📅 Booking updated via WebSocket: ${booking['companyName']}');
       if (!_bookingUpdatedController.isClosed) {
         _bookingUpdatedController.add(booking);
       }
     };
 
-    // Listen for booking deletions
     _realtimeService.onBookingDeleted = (bookingId) {
-      debugPrint('[UnifiedNotification] 📅 Booking deleted via WebSocket: $bookingId');
       if (!_bookingDeletedController.isClosed) {
         _bookingDeletedController.add(bookingId);
       }
     };
 
-    // Listen for booking approvals
     _realtimeService.onBookingApproved = (booking) {
-      debugPrint('[UnifiedNotification] 📅 Booking approved via WebSocket: ${booking['companyName']}');
       if (!_bookingApprovedController.isClosed) {
         _bookingApprovedController.add(booking);
       }
     };
 
-    // Listen for calendar sync on connect
     _realtimeService.onCalendarSync = (syncData) {
-      debugPrint('[UnifiedNotification] Calendar sync: $syncData');
       // Could trigger full calendar refresh
     };
 
-    _realtimeService.onCalendarConnected = () {
-      debugPrint('[UnifiedNotification] Calendar WebSocket connected');
-    };
-
-    _realtimeService.onCalendarDisconnected = () {
-      debugPrint('[UnifiedNotification] Calendar WebSocket disconnected');
-    };
+    _realtimeService.onCalendarConnected = () {};
+    _realtimeService.onCalendarDisconnected = () {};
   }
 
   /// Handle incoming notification from WebSocket

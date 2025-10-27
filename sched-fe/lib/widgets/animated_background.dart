@@ -82,36 +82,6 @@ class _BackgroundPainter extends CustomPainter {
       );
     }
 
-    // Animated circles (tech feel)
-    paint.style = PaintingStyle.stroke;
-    paint.strokeWidth = 1.5;
-
-    final circles = [
-      {'x': 0.2, 'y': 0.3, 'maxRadius': 200.0, 'speed': 1.0},
-      {'x': 0.8, 'y': 0.6, 'maxRadius': 150.0, 'speed': 0.7},
-      {'x': 0.5, 'y': 0.8, 'maxRadius': 180.0, 'speed': 0.9},
-    ];
-
-    for (var circle in circles) {
-      final centerX = size.width * (circle['x'] as double);
-      final centerY = size.height * (circle['y'] as double);
-      final maxRadius = circle['maxRadius'] as double;
-      final speed = circle['speed'] as double;
-
-      for (int i = 0; i < 3; i++) {
-        final progress = (animation * speed + (i * 0.33)) % 1.0;
-        final radius = maxRadius * progress;
-        final opacity = (1.0 - progress) * 0.1;
-
-        paint.color = Colors.blue.withOpacity(opacity);
-        canvas.drawCircle(
-          Offset(centerX, centerY),
-          radius,
-          paint,
-        );
-      }
-    }
-
     // Floating particles
     paint.style = PaintingStyle.fill;
     final random = math.Random(42); // Fixed seed for consistent positions

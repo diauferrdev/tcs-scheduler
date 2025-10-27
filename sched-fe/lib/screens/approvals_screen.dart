@@ -60,36 +60,26 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
   }
 
   void _setupRealtimeUpdates() {
-    debugPrint('[Approvals] Setting up real-time listeners...');
-
-    // Create listener references
     _onBookingCreatedListener = (bookingData) {
-      debugPrint('[Approvals] 🔔 NEW BOOKING via WebSocket - Reloading...');
-      _loadAllBookings(); // Refresh list
+      _loadAllBookings();
     };
 
     _onBookingUpdatedListener = (bookingData) {
-      debugPrint('[Approvals] 🔔 BOOKING UPDATED via WebSocket - Reloading...');
-      _loadAllBookings(); // Refresh list
+      _loadAllBookings();
     };
 
     _onBookingApprovedListener = (bookingData) {
-      debugPrint('[Approvals] 🔔 BOOKING APPROVED via WebSocket - Reloading...');
-      _loadAllBookings(); // Refresh list
+      _loadAllBookings();
     };
 
     _onBookingDeletedListener = (bookingId) {
-      debugPrint('[Approvals] 🔔 BOOKING DELETED via WebSocket: $bookingId - Reloading...');
-      _loadAllBookings(); // Refresh list
+      _loadAllBookings();
     };
 
-    // Add listeners to service
-    debugPrint('[Approvals] Adding listeners to RealtimeService...');
     _realtimeService.addBookingCreatedListener(_onBookingCreatedListener);
     _realtimeService.addBookingUpdatedListener(_onBookingUpdatedListener);
     _realtimeService.addBookingApprovedListener(_onBookingApprovedListener);
     _realtimeService.addBookingDeletedListener(_onBookingDeletedListener);
-    debugPrint('[Approvals] ✅ All listeners added successfully');
   }
 
   void _categorizeBookings() {
@@ -126,7 +116,6 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
 
   Future<void> _loadAllBookings() async {
     try {
-      // Only show loading on initial load, not on auto-refresh
       if (_allBookings.isEmpty) {
         setState(() {
           _loading = true;
@@ -134,7 +123,6 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
         });
       }
 
-      // Load all bookings (no status filter)
       final response = await _apiService.getBookings();
       final bookingsData = (response['bookings'] as List?) ?? [];
 
@@ -144,10 +132,8 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
           _categorizeBookings();
           _loading = false;
         });
-        debugPrint('[Approvals] Loaded ${_allBookings.length} bookings');
       }
     } catch (e) {
-      debugPrint('[Approvals] Error loading bookings: $e');
       if (mounted) {
         setState(() {
           _error = e.toString();

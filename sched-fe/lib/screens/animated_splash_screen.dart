@@ -78,10 +78,8 @@ class _AnimatedSplashScreenState extends State<AnimatedSplashScreen>
         _navigated = true;
         widget.onAnimationComplete?.call();
 
-        // Resume Flutter frames to show next screen
-        debugPrint('[AnimatedSplash] ▶️ Calling SplashMaster.resume()...');
-        SplashMaster.resume();
-        debugPrint('[AnimatedSplash] ✅ SplashMaster.resume() called');
+        // No need to call SplashMaster.resume() since we're not using it anymore
+        debugPrint('[AnimatedSplash] ✅ Animation complete, switching to main app');
 
         // Navigate to next screen with fade transition
         Navigator.of(context).pushReplacement(

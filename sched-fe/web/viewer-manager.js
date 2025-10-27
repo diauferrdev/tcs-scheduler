@@ -11,7 +11,6 @@ class ViewerManager {
     this.maxActiveViewers = 2;
     this.disposeTimeouts = new Map(); // canvasId -> timeout ID for delayed disposal
     this.DISPOSE_DELAY = 2000; // Wait 2s before disposing invisible viewer
-    console.log('[ViewerManager] ✅ Initialized (AGGRESSIVE MODE)');
   }
 
   /**
@@ -29,7 +28,6 @@ class ViewerManager {
       isVisible: false,
       lastVisibility: 0
     });
-    console.log(`[ViewerManager] ✅ Registered viewer: ${canvasId} (Total: ${this.viewers.size})`);
   }
 
   /**
@@ -37,10 +35,7 @@ class ViewerManager {
    */
   updateVisibility(canvasId, isVisible, visibleFraction) {
     const entry = this.viewers.get(canvasId);
-    if (!entry) {
-      console.warn(`[ViewerManager] Viewer not found: ${canvasId}`);
-      return;
-    }
+    if (!entry) return;
 
     const wasVisible = entry.isVisible;
     entry.isVisible = isVisible;
@@ -48,7 +43,6 @@ class ViewerManager {
 
     // If visibility changed, rebalance active viewers
     if (wasVisible !== isVisible) {
-      console.log(`[ViewerManager] ${canvasId} visibility changed: ${isVisible} (${(visibleFraction * 100).toFixed(1)}%)`);
       this.rebalanceViewers();
     }
   }
@@ -67,7 +61,6 @@ class ViewerManager {
     const hiddenViewers = Array.from(this.viewers.entries())
       .filter(([_, entry]) => !entry.isVisible);
 
-    console.log(`[ViewerManager] 🔄 Rebalancing: ${visibleViewers.length} visible, ${hiddenViewers.length} hidden, ${this.viewers.size} total`);
 
     // Resume top 2 most visible viewers
     const viewersToActivate = visibleViewers.slice(0, this.maxActiveViewers);
@@ -82,7 +75,6 @@ class ViewerManager {
       }
 
       if (entry.viewer.isPaused !== false || entry.viewer.isDisposed) {
-        console.log(`[ViewerManager] ▶️ RESUMING: ${canvasId} (${(entry.lastVisibility * 100).toFixed(1)}% visible)`);
         entry.viewer.resume();
       }
     });
@@ -90,11 +82,8 @@ class ViewerManager {
     // Pause excess visible viewers (soft pause)
     viewersToPause.forEach(([canvasId, entry]) => {
       if (entry.viewer.isPaused !== true && !entry.viewer.isDisposed) {
-        console.log(`[ViewerManager] ⏸️ PAUSING (excess): ${canvasId}`);
         entry.viewer.pause();
       }
-
-      // Schedule disposal after delay
       this.scheduleDisposal(canvasId, entry);
     });
 
@@ -103,13 +92,6 @@ class ViewerManager {
       this.scheduleDisposal(canvasId, entry);
     });
 
-    // Log active viewers
-    const activeCount = Array.from(this.viewers.values())
-      .filter(e => !e.viewer.isDisposed && !e.viewer.isPaused).length;
-    const disposedCount = Array.from(this.viewers.values())
-      .filter(e => e.viewer.isDisposed).length;
-
-    console.log(`[ViewerManager] 📊 Status: ${activeCount} active, ${disposedCount} disposed, ${this.viewers.size} total`);
   }
 
   /**
@@ -128,7 +110,6 @@ class ViewerManager {
 
     const timeoutId = setTimeout(() => {
       if (entry.viewer && entry.viewer.engine && !entry.viewer.isDisposed) {
-        console.log(`[ViewerManager] 🗑️ DISPOSING: ${canvasId} (was invisible for ${this.DISPOSE_DELAY}ms)`);
         entry.viewer.dispose();
       }
       this.disposeTimeouts.delete(canvasId);
@@ -152,7 +133,6 @@ class ViewerManager {
       entry.viewer.pause();
     }
     this.viewers.delete(canvasId);
-    console.log(`[ViewerManager] ❌ Unregistered viewer: ${canvasId}`);
   }
 
   /**
@@ -218,6 +198,4 @@ class ViewerManager {
 // Create global singleton instance
 if (typeof window !== 'undefined') {
   window.viewerManager = new ViewerManager();
-  console.log('[ViewerManager] ✅ Global instance created: window.viewerManager');
-  console.log('[ViewerManager] 💡 Use viewerManager.printStatus() to check status');
 }

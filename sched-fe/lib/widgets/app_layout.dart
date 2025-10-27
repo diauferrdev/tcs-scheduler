@@ -420,7 +420,7 @@ class _AppLayoutState extends State<AppLayout> {
     final items = <Map<String, dynamic>>[
       {'path': '/app/dashboard', 'label': 'Dashboard', 'icon': Icons.dashboard, 'roles': [UserRole.ADMIN, UserRole.MANAGER]},
       {'path': '/app/approvals', 'label': 'Bookings', 'icon': Icons.pending_actions, 'roles': [UserRole.ADMIN, UserRole.MANAGER]},
-      {'path': '/app/calendar', 'label': 'Calendar', 'icon': Icons.calendar_month, 'roles': [UserRole.ADMIN, UserRole.USER]},
+      {'path': '/app/calendar', 'label': 'New booking', 'icon': Icons.calendar_month, 'roles': [UserRole.ADMIN, UserRole.USER]},
       {'path': '/app/agenda', 'label': 'Agenda', 'icon': Icons.view_timeline, 'roles': [UserRole.ADMIN, UserRole.MANAGER]},
       {'path': '/app/my-bookings', 'label': 'My Bookings', 'icon': Icons.event_note, 'roles': [UserRole.USER]},
       {'path': '/app/bug-reports', 'label': 'Bug Reports', 'icon': Icons.bug_report, 'roles': [UserRole.ADMIN, UserRole.MANAGER, UserRole.USER]},

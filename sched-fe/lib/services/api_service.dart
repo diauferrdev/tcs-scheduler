@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
@@ -37,10 +38,12 @@ class ApiService {
     }
   }
 
-  String? getSessionCookie() => _sessionCookie;
+  String? getSessionCookie() {
+    return _sessionCookie;
+  }
 
   Future<Map<String, dynamic>> get(String endpoint) async {
-    await initialize(); // Ensure session cookie is loaded
+    await initialize();
 
     final url = Uri.parse('${ApiConfig.baseUrl}$endpoint');
     final headers = {...ApiConfig.defaultHeaders};
@@ -53,6 +56,7 @@ class ApiService {
         .get(url, headers: headers)
         .timeout(ApiConfig.timeout);
 
+    await _extractAndSaveCookies(response, endpoint);
     return _handleResponse(response);
   }
 
@@ -60,7 +64,7 @@ class ApiService {
     String endpoint,
     Map<String, dynamic> data,
   ) async {
-    await initialize(); // Ensure session cookie is loaded
+    await initialize();
 
     final url = Uri.parse('${ApiConfig.baseUrl}$endpoint');
     final headers = {...ApiConfig.defaultHeaders};
@@ -73,8 +77,53 @@ class ApiService {
         .post(url, headers: headers, body: jsonEncode(data))
         .timeout(ApiConfig.timeout);
 
-    // Extract session cookies from response header (if present)
+    await _extractAndSaveCookies(response, endpoint);
+    return _handleResponse(response);
+  }
+
+  Future<Map<String, dynamic>> put(
+    String endpoint,
+    Map<String, dynamic> data,
+  ) async {
+    await initialize();
+
+    final url = Uri.parse('${ApiConfig.baseUrl}$endpoint');
+    final headers = {...ApiConfig.defaultHeaders};
+
+    if (_sessionCookie != null) {
+      headers['Cookie'] = _sessionCookie!;
+    }
+
+    final response = await _client
+        .put(url, headers: headers, body: jsonEncode(data))
+        .timeout(ApiConfig.timeout);
+
+    _extractAndSaveCookies(response, endpoint);
+    return _handleResponse(response);
+  }
+
+  Future<Map<String, dynamic>> delete(String endpoint) async {
+    await initialize();
+
+    final url = Uri.parse('${ApiConfig.baseUrl}$endpoint');
+    final headers = {...ApiConfig.defaultHeaders};
+
+    if (_sessionCookie != null) {
+      headers['Cookie'] = _sessionCookie!;
+    }
+
+    final response = await _client
+        .delete(url, headers: headers)
+        .timeout(ApiConfig.timeout);
+
+    _extractAndSaveCookies(response, endpoint);
+    return _handleResponse(response);
+  }
+
+  /// Extract and save cookies from response header
+  Future<void> _extractAndSaveCookies(http.Response response, String endpoint) async {
     final setCookieHeader = response.headers['set-cookie'];
+
     if (setCookieHeader != null) {
       final cookiePairs = <String>[];
       final cookiesList = setCookieHeader.split(RegExp(r',(?=\s*\w+=)'));
@@ -89,45 +138,6 @@ class ApiService {
         await _tokenStorage.saveSessionCookie(_sessionCookie!);
       }
     }
-
-    return _handleResponse(response);
-  }
-
-  Future<Map<String, dynamic>> put(
-    String endpoint,
-    Map<String, dynamic> data,
-  ) async {
-    await initialize(); // Ensure session cookie is loaded
-
-    final url = Uri.parse('${ApiConfig.baseUrl}$endpoint');
-    final headers = {...ApiConfig.defaultHeaders};
-
-    if (_sessionCookie != null) {
-      headers['Cookie'] = _sessionCookie!;
-    }
-
-    final response = await _client
-        .put(url, headers: headers, body: jsonEncode(data))
-        .timeout(ApiConfig.timeout);
-
-    return _handleResponse(response);
-  }
-
-  Future<Map<String, dynamic>> delete(String endpoint) async {
-    await initialize(); // Ensure session cookie is loaded
-
-    final url = Uri.parse('${ApiConfig.baseUrl}$endpoint');
-    final headers = {...ApiConfig.defaultHeaders};
-
-    if (_sessionCookie != null) {
-      headers['Cookie'] = _sessionCookie!;
-    }
-
-    final response = await _client
-        .delete(url, headers: headers)
-        .timeout(ApiConfig.timeout);
-
-    return _handleResponse(response);
   }
 
   Map<String, dynamic> _handleResponse(http.Response response) {

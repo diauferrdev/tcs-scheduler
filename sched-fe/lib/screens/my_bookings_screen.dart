@@ -43,9 +43,7 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
     super.initState();
     _loadBookings();
     _setupRealtimeUpdates();
-    // No polling - fully real-time via WebSocket only
 
-    // Open drawer if initialBookingId is provided
     if (widget.initialBookingId != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _openInitialBooking();
@@ -66,49 +64,20 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
   }
 
   void _setupRealtimeUpdates() {
-    // Create listener references
     _onBookingCreatedListener = (bookingData) {
-      debugPrint('[MyBookings] New booking via WebSocket');
-      if (mounted) {
-        // Show loading state immediately for real-time updates
-        setState(() {
-          _isLoading = true;
-        });
-        _loadBookings(); // Refresh list
-      }
+      if (mounted) _loadBookings(seamless: true);
     };
 
     _onBookingUpdatedListener = (bookingData) {
-      debugPrint('[MyBookings] Booking updated via WebSocket');
-      if (mounted) {
-        // Show loading state immediately for real-time updates
-        setState(() {
-          _isLoading = true;
-        });
-        _loadBookings(); // Refresh list
-      }
+      if (mounted) _loadBookings(seamless: true);
     };
 
     _onBookingApprovedListener = (bookingData) {
-      debugPrint('[MyBookings] Booking approved via WebSocket');
-      if (mounted) {
-        // Show loading state immediately for real-time updates
-        setState(() {
-          _isLoading = true;
-        });
-        _loadBookings(); // Refresh list
-      }
+      if (mounted) _loadBookings(seamless: true);
     };
 
     _onBookingDeletedListener = (bookingId) {
-      debugPrint('[MyBookings] Booking deleted via WebSocket: $bookingId');
-      if (mounted) {
-        // Show loading state immediately for real-time updates
-        setState(() {
-          _isLoading = true;
-        });
-        _loadBookings(); // Refresh list
-      }
+      if (mounted) _loadBookings(seamless: true);
     };
 
     // Add listeners to service
@@ -128,35 +97,25 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
     super.dispose();
   }
 
-  Future<void> _loadBookings() async {
-    // Prevent concurrent loads
-    if (_isLoadingInProgress) {
-      debugPrint('[MyBookings] Load already in progress, skipping');
-      return;
-    }
-
-    if (!mounted) {
-      debugPrint('[MyBookings] Widget not mounted, skipping load');
-      return;
-    }
+  Future<void> _loadBookings({bool seamless = false}) async {
+    if (_isLoadingInProgress || !mounted) return;
 
     _isLoadingInProgress = true;
 
-    // Set loading state if not already set (real-time listeners already set it)
-    if (mounted && !_isLoading) {
-      setState(() {
-        _isLoading = true;
-        _error = null;
-      });
-    } else if (mounted) {
-      // Just clear error if already loading
-      setState(() {
-        _error = null;
-      });
+    if (!seamless) {
+      if (mounted && !_isLoading) {
+        setState(() {
+          _isLoading = true;
+          _error = null;
+        });
+      } else if (mounted) {
+        setState(() {
+          _error = null;
+        });
+      }
     }
 
     try {
-      debugPrint('[MyBookings] Loading user bookings');
       final response = await _apiService.getBookings();
 
       if (mounted) {
@@ -166,45 +125,37 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
               .toList();
           _categorizeBookings();
           _isLoading = false;
-          _error = null; // Ensure error is cleared on success
-          _retryCount = 0; // Reset retry count on success
+          _error = null;
+          _retryCount = 0;
         });
-        debugPrint('[MyBookings] Loaded ${_allBookings.length} bookings');
       }
     } catch (e) {
-      debugPrint('[MyBookings] Error loading bookings (attempt ${_retryCount + 1}): $e');
-
-      // Check if error is a connection abort or timeout
       final isConnectionError = e.toString().contains('connection abort') ||
                                  e.toString().contains('Connection closed') ||
                                  e.toString().contains('SocketException') ||
                                  e.toString().contains('TimeoutException');
 
       if (isConnectionError && _retryCount < _maxRetries && mounted) {
-        // Seamless retry with exponential backoff
         _retryCount++;
-        final delayMs = 500 * _retryCount; // 500ms, 1000ms, 1500ms
-        debugPrint('[MyBookings] Retrying in ${delayMs}ms (retry $_retryCount/$_maxRetries)');
+        final delayMs = 500 * _retryCount;
 
-        _isLoadingInProgress = false; // Allow retry
+        _isLoadingInProgress = false;
         await Future.delayed(Duration(milliseconds: delayMs));
 
         if (mounted) {
-          _loadBookings(); // Retry seamlessly
+          _loadBookings();
         }
       } else {
-        // Show error after max retries or non-connection errors
         if (mounted) {
           setState(() {
             _error = e.toString();
             _isLoading = false;
-            _retryCount = 0; // Reset for next manual retry
+            _retryCount = 0;
           });
         }
         _isLoadingInProgress = false;
       }
     } finally {
-      // Only reset if not retrying
       if (_retryCount == 0 || _retryCount >= _maxRetries) {
         _isLoadingInProgress = false;
       }
