@@ -126,6 +126,8 @@ class _Device3DSectionState extends State<Device3DSection> {
       final deviceViewerClass = js.context['DeviceViewer'];
       final viewerManager = js.context['viewerManager'];
 
+      final isMobile = ResponsiveHelper.isMobile(context);
+
       final config = js.JsObject.jsify({
         'canvasId': canvasId,
         'deviceType': widget.deviceType,
@@ -135,6 +137,7 @@ class _Device3DSectionState extends State<Device3DSection> {
         'logoUrl': 'assets/Tata_logo.svg',
         'enableGlow': widget.deviceType == 'phone',
         'antialias': true,
+        'enableInteraction': !isMobile, // Disable interaction on mobile
         'defaultVideoPath': widget.deviceType == 'phone'
             ? 'assets/videos/phone-video.mp4'
             : 'assets/videos/notebook-video.mp4',
@@ -291,9 +294,9 @@ class _Device3DSectionState extends State<Device3DSection> {
       height: screenHeight,
       child: Column(
         children: [
-          // 3D Viewer at top (40% of screen)
+          // 3D Viewer at top (50% of screen for better model visibility)
           SizedBox(
-            height: screenHeight * 0.4,
+            height: screenHeight * 0.5,
             child: AnimatedOpacity(
               opacity: _isVisible ? 1.0 : 0.0,
               duration: const Duration(milliseconds: 500),
@@ -302,10 +305,10 @@ class _Device3DSectionState extends State<Device3DSection> {
             ),
           ),
 
-          // Text content below (60% of screen)
+          // Text content below (50% of screen with scrolling)
           Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
               child: ScrollReveal(
                 delay: const Duration(milliseconds: 200),
                 child: _buildTextContent(mobile: true),
@@ -325,8 +328,8 @@ class _Device3DSectionState extends State<Device3DSection> {
         // Badge
         Container(
           padding: EdgeInsets.symmetric(
-            horizontal: mobile ? 12 : 16,
-            vertical: mobile ? 6 : 8,
+            horizontal: mobile ? 10 : 16,
+            vertical: mobile ? 5 : 8,
           ),
           decoration: BoxDecoration(
             color: Colors.white.withOpacity(0.1),
@@ -336,41 +339,41 @@ class _Device3DSectionState extends State<Device3DSection> {
           child: Text(
             widget.badge,
             style: TextStyle(
-              fontSize: mobile ? 10 : 12,
+              fontSize: mobile ? 9 : 12,
               color: Colors.white70,
               fontWeight: FontWeight.w500,
               fontFamily: 'NeueHaasGrotesk',
             ),
           ),
         ),
-        SizedBox(height: mobile ? 20 : 32),
+        SizedBox(height: mobile ? 16 : 32),
 
         // Title
         Text(
           widget.title,
           style: TextStyle(
-            fontSize: mobile ? 32 : 56,
-            height: 1.1,
+            fontSize: mobile ? 28 : 56,
+            height: mobile ? 1.2 : 1.1,
             fontWeight: FontWeight.w700,
             color: Colors.white,
-            letterSpacing: mobile ? -0.8 : -1.5,
+            letterSpacing: mobile ? -0.5 : -1.5,
             fontFamily: 'HouskaPro',
           ),
         ),
-        SizedBox(height: mobile ? 16 : 24),
+        SizedBox(height: mobile ? 12 : 24),
 
         // Description
         Text(
           widget.description,
           style: TextStyle(
-            fontSize: mobile ? 16 : 18,
-            height: 1.6,
+            fontSize: mobile ? 14 : 18,
+            height: 1.5,
             color: Colors.white.withOpacity(0.7),
             fontWeight: FontWeight.w400,
             fontFamily: 'NeueHaasGrotesk',
           ),
         ),
-        SizedBox(height: mobile ? 24 : 40),
+        SizedBox(height: mobile ? 20 : 40),
 
         // CTA Buttons (only on hero)
         if (widget.isHero) ...[

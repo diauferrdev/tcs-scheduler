@@ -50,6 +50,7 @@ class DeviceViewer {
             enableGlow: true,
             glowIntensity: 0.5,
             logoUrl: null,
+            enableInteraction: true, // Enable camera controls (set to false for mobile)
 
             // ═══════════════════════════════════════════════════════════════
             // 📱 PHONE - CONFIGURAÇÕES PADRÃO
@@ -206,7 +207,11 @@ class DeviceViewer {
             camTarget,
             this.scene
         );
-        this.camera.attachControl(this.canvas, true);
+
+        // Only attach controls if interaction is enabled (disabled for mobile)
+        if (this.config.enableInteraction) {
+            this.camera.attachControl(this.canvas, true);
+        }
 
         if (this.config.deviceType === 'notebook') {
             // ═══════════════════════════════════════════════════════════════
