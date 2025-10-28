@@ -45,36 +45,60 @@ class _BugReportsScreenState extends State<BugReportsScreen> {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final userId = authProvider.user?.id;
 
+    debugPrint('[BugReportsScreen] Setting up WebSocket for user: $userId');
+
     if (userId != null) {
       _ws.connect(userId);
 
-      _wsSubscription = _ws.messages.listen((message) {
-        if (!mounted) return;
+      _wsSubscription = _ws.messages.listen(
+        (message) {
+          if (!mounted) {
+            debugPrint('[BugReportsScreen] Not mounted, ignoring message');
+            return;
+          }
 
-        final type = message['type'] as String?;
-        print('[BugReportsScreen] WS Event: $type');
+          final type = message['type'] as String?;
+          debugPrint('[BugReportsScreen] 📨 WS Event: $type');
+          debugPrint('[BugReportsScreen] 📦 Data: ${message['data']}');
 
-        switch (type) {
-          case 'bug_created':
-            _handleBugCreated(message['data']);
-            break;
-          case 'bug_updated':
-            _handleBugUpdated(message['data']);
-            break;
-          case 'bug_deleted':
-            _handleBugDeleted(message['data']);
-            break;
-          case 'bug_liked':
-          case 'bug_unliked':
-            _handleBugLikeChanged(message['data']);
-            break;
-          case 'bug_comment_created':
-          case 'bug_comment_updated':
-          case 'bug_comment_deleted':
-            _handleCommentChanged(message['data']);
-            break;
-        }
-      });
+          switch (type) {
+            case 'bug_created':
+              debugPrint('[BugReportsScreen] Handling bug_created');
+              _handleBugCreated(message['data']);
+              break;
+            case 'bug_updated':
+              debugPrint('[BugReportsScreen] Handling bug_updated');
+              _handleBugUpdated(message['data']);
+              break;
+            case 'bug_deleted':
+              debugPrint('[BugReportsScreen] Handling bug_deleted');
+              _handleBugDeleted(message['data']);
+              break;
+            case 'bug_liked':
+            case 'bug_unliked':
+              debugPrint('[BugReportsScreen] Handling bug_liked/unliked');
+              _handleBugLikeChanged(message['data']);
+              break;
+            case 'bug_comment_created':
+            case 'bug_comment_updated':
+            case 'bug_comment_deleted':
+              debugPrint('[BugReportsScreen] Handling comment event');
+              _handleCommentChanged(message['data']);
+              break;
+            default:
+              debugPrint('[BugReportsScreen] Unknown event type: $type');
+          }
+        },
+        onError: (error) {
+          debugPrint('[BugReportsScreen] ❌ WS Error: $error');
+        },
+        onDone: () {
+          debugPrint('[BugReportsScreen] WS stream closed');
+        },
+      );
+      debugPrint('[BugReportsScreen] ✅ WebSocket listener set up');
+    } else {
+      debugPrint('[BugReportsScreen] ❌ No userId, cannot setup WebSocket');
     }
   }
 
@@ -87,37 +111,89 @@ class _BugReportsScreenState extends State<BugReportsScreen> {
 
   void _handleBugCreated(dynamic data) {
     try {
+      debugPrint('[BugReportsScreen] 🆕 Creating new bug from data');
       final newBug = BugReport.fromJson(data);
+      debugPrint('[BugReportsScreen] ✅ Bug parsed: ${newBug.id} - ${newBug.title}');
+      debugPrint('[BugReportsScreen] Current bugs count: ${_bugReports.length}');
+
       setState(() {
-        _bugReports.insert(0, newBug);
+        _bugReports.add(newBug);
+        _sortBugReports();
       });
-    } catch (e) {
-      print('[BugReportsScreen] Error handling bug_created: $e');
+
+      debugPrint('[BugReportsScreen] ✅ Bug added and sorted. New count: ${_bugReports.length}');
+    } catch (e, stackTrace) {
+      debugPrint('[BugReportsScreen] ❌ Error handling bug_created: $e');
+      debugPrint('[BugReportsScreen] StackTrace: $stackTrace');
     }
   }
 
   void _handleBugUpdated(dynamic data) {
     try {
+      debugPrint('[BugReportsScreen] 🔄 Updating bug from data');
       final updatedBug = BugReport.fromJson(data);
+      debugPrint('[BugReportsScreen] ✅ Bug parsed: ${updatedBug.id}');
+
       setState(() {
         final index = _bugReports.indexWhere((b) => b.id == updatedBug.id);
+        debugPrint('[BugReportsScreen] Found bug at index: $index');
         if (index != -1) {
           _bugReports[index] = updatedBug;
+          debugPrint('[BugReportsScreen] ✅ Bug updated at index $index');
+          // Reorder if needed (e.g., if updatedAt changed and we're sorting by updatedAt)
+          _sortBugReports();
+        } else {
+          debugPrint('[BugReportsScreen] ⚠️ Bug not found in list, adding it');
+          _bugReports.add(updatedBug);
+          _sortBugReports();
         }
       });
-    } catch (e) {
-      print('[BugReportsScreen] Error handling bug_updated: $e');
+    } catch (e, stackTrace) {
+      debugPrint('[BugReportsScreen] ❌ Error handling bug_updated: $e');
+      debugPrint('[BugReportsScreen] StackTrace: $stackTrace');
     }
+  }
+
+  void _sortBugReports() {
+    debugPrint('[BugReportsScreen] 🔄 Sorting by: $_sortBy ($_order)');
+
+    switch (_sortBy) {
+      case 'likeCount':
+        _bugReports.sort((a, b) {
+          final comparison = a.likeCount.compareTo(b.likeCount);
+          return _order == 'desc' ? -comparison : comparison;
+        });
+        break;
+      case 'createdAt':
+        _bugReports.sort((a, b) {
+          final comparison = a.createdAt.compareTo(b.createdAt);
+          return _order == 'desc' ? -comparison : comparison;
+        });
+        break;
+      case 'updatedAt':
+        _bugReports.sort((a, b) {
+          final comparison = a.updatedAt.compareTo(b.updatedAt);
+          return _order == 'desc' ? -comparison : comparison;
+        });
+        break;
+    }
+
+    debugPrint('[BugReportsScreen] ✅ Sorted successfully');
   }
 
   void _handleBugDeleted(dynamic data) {
     try {
       final bugId = data['id'] as String;
+      debugPrint('[BugReportsScreen] 🗑️ Deleting bug: $bugId');
+
       setState(() {
+        final removedCount = _bugReports.length;
         _bugReports.removeWhere((b) => b.id == bugId);
+        debugPrint('[BugReportsScreen] ✅ Removed ${removedCount - _bugReports.length} bug(s)');
       });
-    } catch (e) {
-      print('[BugReportsScreen] Error handling bug_deleted: $e');
+    } catch (e, stackTrace) {
+      debugPrint('[BugReportsScreen] ❌ Error handling bug_deleted: $e');
+      debugPrint('[BugReportsScreen] StackTrace: $stackTrace');
     }
   }
 
@@ -125,14 +201,24 @@ class _BugReportsScreenState extends State<BugReportsScreen> {
     try {
       final bugId = data['bugId'] as String;
       final likeCount = data['likeCount'] as int;
+      debugPrint('[BugReportsScreen] 👍 Like changed for bug: $bugId, new count: $likeCount');
+
       setState(() {
         final index = _bugReports.indexWhere((b) => b.id == bugId);
         if (index != -1) {
           _bugReports[index] = _bugReports[index].copyWith(likeCount: likeCount);
+          debugPrint('[BugReportsScreen] Updated bug at index $index');
+
+          // Reorder if sorting by likeCount
+          if (_sortBy == 'likeCount') {
+            debugPrint('[BugReportsScreen] Reordering by likeCount');
+            _sortBugReports();
+          }
         }
       });
-    } catch (e) {
-      print('[BugReportsScreen] Error handling like change: $e');
+    } catch (e, stackTrace) {
+      debugPrint('[BugReportsScreen] ❌ Error handling like change: $e');
+      debugPrint('[BugReportsScreen] StackTrace: $stackTrace');
     }
   }
 
@@ -227,6 +313,10 @@ class _BugReportsScreenState extends State<BugReportsScreen> {
     return Scaffold(
       backgroundColor: backgroundColor,
       appBar: AppBar(
+        title: Text(
+          'Feedback',
+          style: TextStyle(color: textColor, fontWeight: FontWeight.w600),
+        ),
         backgroundColor: backgroundColor,
         elevation: 0,
         actions: [
@@ -283,6 +373,7 @@ class _BugReportsScreenState extends State<BugReportsScreen> {
                   label: _selectedStatus == null ? 'All Status' : _selectedStatus!,
                   isActive: _selectedStatus != null,
                   onTap: () => _showStatusFilter(),
+                  isDark: themeProvider.isDark,
                 ),
                 const SizedBox(width: 8),
 
@@ -291,6 +382,7 @@ class _BugReportsScreenState extends State<BugReportsScreen> {
                   label: _selectedPlatform == null ? 'All Platforms' : _selectedPlatform!,
                   isActive: _selectedPlatform != null,
                   onTap: () => _showPlatformFilter(),
+                  isDark: themeProvider.isDark,
                 ),
                 const SizedBox(width: 8),
 
@@ -299,6 +391,7 @@ class _BugReportsScreenState extends State<BugReportsScreen> {
                   label: _sortBy == 'likeCount' ? 'Most Liked' : _sortBy == 'createdAt' ? 'Newest' : 'Recent',
                   isActive: true,
                   onTap: () => _showSortOptions(),
+                  isDark: themeProvider.isDark,
                 ),
               ],
             ),
@@ -381,21 +474,24 @@ class _BugReportsScreenState extends State<BugReportsScreen> {
     required String label,
     required bool isActive,
     required VoidCallback onTap,
+    required bool isDark,
   }) {
     return GestureDetector(
       onTap: onTap,
       child: Chip(
         label: Text(label),
         backgroundColor: isActive
-            ? AppTheme.primaryWhite.withOpacity(0.2)
-            : AppTheme.primaryWhite.withOpacity(0.1),
+            ? (isDark ? const Color(0xFF3F3F46) : const Color(0xFFE5E7EB))
+            : (isDark ? const Color(0xFF27272A) : const Color(0xFFF3F4F6)),
         labelStyle: TextStyle(
-          color: AppTheme.primaryWhite,
+          color: isDark ? const Color(0xFFD1D5DB) : const Color(0xFF374151),
           fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
         ),
         side: BorderSide(
-          color: isActive ? AppTheme.primaryWhite : Colors.transparent,
-          width: 1,
+          color: isActive
+              ? (isDark ? const Color(0xFF6B7280) : const Color(0xFF9CA3AF))
+              : (isDark ? const Color(0xFF3F3F46) : const Color(0xFFD1D5DB)),
+          width: isActive ? 1.5 : 1,
         ),
       ),
     );
@@ -633,13 +729,30 @@ class _BugReportsScreenState extends State<BugReportsScreen> {
               // Right: Thumbnail preview (if has image/video)
               if (hasAttachments && bug.attachments.isNotEmpty) ...[
                 const SizedBox(width: 12),
-                _buildThumbnail(bug.attachments.first),
+                _buildThumbnail(_getPreferredThumbnailAttachment(bug.attachments)),
               ],
             ],
           ),
         ),
       ),
     );
+  }
+
+  /// Get the preferred attachment for thumbnail preview
+  /// Priority: image > video > first attachment
+  BugAttachment _getPreferredThumbnailAttachment(List<BugAttachment> attachments) {
+    // Try to find an image first
+    try {
+      return attachments.firstWhere((a) => a.fileType.startsWith('image/'));
+    } catch (_) {
+      // If no image, try to find a video
+      try {
+        return attachments.firstWhere((a) => a.fileType.startsWith('video/'));
+      } catch (_) {
+        // If neither image nor video, return first attachment
+        return attachments.first;
+      }
+    }
   }
 
   Widget _buildThumbnail(BugAttachment attachment) {

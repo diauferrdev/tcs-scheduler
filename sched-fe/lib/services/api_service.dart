@@ -838,10 +838,11 @@ class ApiService {
       request.headers['Cookie'] = _sessionCookie!;
     }
 
-    // Detect MIME type based on fileType parameter
+    // Detect MIME type based on fileType parameter and file extension
     MediaType? contentType;
+    final extension = fileName.toLowerCase().split('.').last;
+
     if (fileType.startsWith('image/')) {
-      final extension = fileName.toLowerCase().split('.').last;
       switch (extension) {
         case 'jpg':
         case 'jpeg':
@@ -856,11 +857,13 @@ class ApiService {
         case 'webp':
           contentType = MediaType('image', 'webp');
           break;
+        case 'svg':
+          contentType = MediaType('image', 'svg+xml');
+          break;
         default:
           contentType = MediaType('image', 'jpeg');
       }
     } else if (fileType.startsWith('video/')) {
-      final extension = fileName.toLowerCase().split('.').last;
       switch (extension) {
         case 'mp4':
           contentType = MediaType('video', 'mp4');
@@ -871,8 +874,53 @@ class ApiService {
         case 'avi':
           contentType = MediaType('video', 'x-msvideo');
           break;
+        case 'webm':
+          contentType = MediaType('video', 'webm');
+          break;
+        case 'ogg':
+          contentType = MediaType('video', 'ogg');
+          break;
         default:
           contentType = MediaType('video', 'mp4');
+      }
+    } else if (fileType.startsWith('application/') || fileType.startsWith('text/')) {
+      // Handle documents and text files
+      switch (extension) {
+        case 'pdf':
+          contentType = MediaType('application', 'pdf');
+          break;
+        case 'doc':
+          contentType = MediaType('application', 'msword');
+          break;
+        case 'docx':
+          contentType = MediaType('application', 'vnd.openxmlformats-officedocument.wordprocessingml.document');
+          break;
+        case 'xls':
+          contentType = MediaType('application', 'vnd.ms-excel');
+          break;
+        case 'xlsx':
+          contentType = MediaType('application', 'vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+          break;
+        case 'ppt':
+          contentType = MediaType('application', 'vnd.ms-powerpoint');
+          break;
+        case 'pptx':
+          contentType = MediaType('application', 'vnd.openxmlformats-officedocument.presentationml.presentation');
+          break;
+        case 'txt':
+          contentType = MediaType('text', 'plain');
+          break;
+        case 'csv':
+          contentType = MediaType('text', 'csv');
+          break;
+        default:
+          // Use the fileType parameter directly if we don't have specific mapping
+          final parts = fileType.split('/');
+          if (parts.length == 2) {
+            contentType = MediaType(parts[0], parts[1]);
+          } else {
+            contentType = MediaType('application', 'octet-stream');
+          }
       }
     } else {
       contentType = MediaType('application', 'octet-stream');

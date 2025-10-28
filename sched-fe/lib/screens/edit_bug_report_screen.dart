@@ -1,8 +1,10 @@
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:provider/provider.dart';
 import '../models/bug_report.dart';
 import '../providers/theme_provider.dart';
 import '../services/api_service.dart';
@@ -26,8 +28,8 @@ class _EditBugReportScreenState extends State<EditBugReportScreen> {
   bool _isLoading = false;
   String? _errorMessage;
   List<BugAttachment> _existingAttachments = [];
-  List<String> _attachmentsToDelete = [];
-  List<NewAttachment> _newAttachments = [];
+  final List<String> _attachmentsToDelete = [];
+  final List<NewAttachment> _newAttachments = [];
 
   @override
   void initState() {
@@ -55,9 +57,14 @@ class _EditBugReportScreenState extends State<EditBugReportScreen> {
       return;
     }
 
+    final themeProvider = context.read<ThemeProvider>();
+    final isDark = themeProvider.isDark;
+    final backgroundColor = isDark ? const Color(0xFF18181B) : Colors.white;
+    final textColor = isDark ? Colors.white : Colors.black;
+
     showModalBottomSheet(
       context: context,
-      backgroundColor: AppTheme.primaryBlack,
+      backgroundColor: backgroundColor,
       builder: (context) => Container(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -68,16 +75,16 @@ class _EditBugReportScreenState extends State<EditBugReportScreen> {
               height: 4,
               margin: const EdgeInsets.only(bottom: 20),
               decoration: BoxDecoration(
-                color: AppTheme.primaryWhite.withOpacity(0.3),
+                color: (isDark ? Colors.white : Colors.black).withOpacity(0.3),
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
             ListTile(
-              leading: const Icon(Icons.photo_library, color: AppTheme.primaryWhite),
-              title: const Text('Choose from Gallery', style: TextStyle(color: AppTheme.primaryWhite)),
+              leading: Icon(Icons.photo_library, color: textColor),
+              title: Text('Choose from Gallery', style: TextStyle(color: textColor)),
               subtitle: Text(
                 'Images and videos',
-                style: TextStyle(color: AppTheme.primaryWhite.withOpacity(0.6)),
+                style: TextStyle(color: textColor.withOpacity(0.6)),
               ),
               onTap: () {
                 Navigator.pop(context);
@@ -85,11 +92,11 @@ class _EditBugReportScreenState extends State<EditBugReportScreen> {
               },
             ),
             ListTile(
-              leading: const Icon(Icons.insert_drive_file, color: AppTheme.primaryWhite),
-              title: const Text('Choose File', style: TextStyle(color: AppTheme.primaryWhite)),
+              leading: Icon(Icons.insert_drive_file, color: textColor),
+              title: Text('Choose File', style: TextStyle(color: textColor)),
               subtitle: Text(
                 'Images, videos, documents',
-                style: TextStyle(color: AppTheme.primaryWhite.withOpacity(0.6)),
+                style: TextStyle(color: textColor.withOpacity(0.6)),
               ),
               onTap: () {
                 Navigator.pop(context);
@@ -260,19 +267,27 @@ class _EditBugReportScreenState extends State<EditBugReportScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final themeProvider = context.watch<ThemeProvider>();
+    final isDark = themeProvider.isDark;
+    final backgroundColor = isDark ? Colors.black : const Color(0xFFF9FAFB);
+    final textColor = isDark ? Colors.white : Colors.black;
+    final cardColor = isDark ? const Color(0xFF18181B) : Colors.white;
+    final borderColor = isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB);
+    final inputFillColor = isDark ? const Color(0xFF18181B) : const Color(0xFFF9FAFB);
+
     return Scaffold(
-      backgroundColor: AppTheme.primaryBlack,
+      backgroundColor: backgroundColor,
       appBar: AppBar(
-        backgroundColor: AppTheme.primaryBlack,
+        backgroundColor: backgroundColor,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.close, color: AppTheme.primaryWhite),
+          icon: Icon(Icons.close, color: textColor),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text(
+        title: Text(
           'Edit Bug Report',
           style: TextStyle(
-            color: AppTheme.primaryWhite,
+            color: textColor,
             fontSize: 24,
             fontWeight: FontWeight.bold,
           ),
@@ -299,7 +314,7 @@ class _EditBugReportScreenState extends State<EditBugReportScreen> {
                     child: Text(
                       'You can edit title, description, and manage attachments',
                       style: TextStyle(
-                        color: AppTheme.primaryWhite.withOpacity(0.8),
+                        color: textColor.withOpacity(0.8),
                         fontSize: 12,
                       ),
                     ),
@@ -313,25 +328,25 @@ class _EditBugReportScreenState extends State<EditBugReportScreen> {
             // Title Field
             TextFormField(
               controller: _titleController,
-              style: const TextStyle(color: AppTheme.primaryWhite),
+              style: TextStyle(color: textColor),
               decoration: InputDecoration(
                 labelText: 'Title *',
-                labelStyle: TextStyle(color: AppTheme.primaryWhite.withOpacity(0.7)),
+                labelStyle: TextStyle(color: textColor.withOpacity(0.7)),
                 hintText: 'Brief description of the bug',
-                hintStyle: TextStyle(color: AppTheme.primaryWhite.withOpacity(0.5)),
+                hintStyle: TextStyle(color: textColor.withOpacity(0.5)),
                 filled: true,
-                fillColor: AppTheme.primaryWhite.withOpacity(0.05),
+                fillColor: inputFillColor,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: AppTheme.primaryWhite.withOpacity(0.2)),
+                  borderSide: BorderSide(color: borderColor),
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: AppTheme.primaryWhite.withOpacity(0.2)),
+                  borderSide: BorderSide(color: borderColor),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: AppTheme.primaryWhite),
+                  borderSide: BorderSide(color: textColor),
                 ),
               ),
               validator: (value) {
@@ -353,26 +368,26 @@ class _EditBugReportScreenState extends State<EditBugReportScreen> {
             // Description Field
             TextFormField(
               controller: _descriptionController,
-              style: const TextStyle(color: AppTheme.primaryWhite),
+              style: TextStyle(color: textColor),
               maxLines: 12,
               decoration: InputDecoration(
                 labelText: 'Description *',
-                labelStyle: TextStyle(color: AppTheme.primaryWhite.withOpacity(0.7)),
+                labelStyle: TextStyle(color: textColor.withOpacity(0.7)),
                 hintText: 'Detailed description of the bug...\n\nSteps to reproduce:\n1. ...\n2. ...',
-                hintStyle: TextStyle(color: AppTheme.primaryWhite.withOpacity(0.5)),
+                hintStyle: TextStyle(color: textColor.withOpacity(0.5)),
                 filled: true,
-                fillColor: AppTheme.primaryWhite.withOpacity(0.05),
+                fillColor: inputFillColor,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: AppTheme.primaryWhite.withOpacity(0.2)),
+                  borderSide: BorderSide(color: borderColor),
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: AppTheme.primaryWhite.withOpacity(0.2)),
+                  borderSide: BorderSide(color: borderColor),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: AppTheme.primaryWhite),
+                  borderSide: BorderSide(color: textColor),
                 ),
                 alignLabelWithHint: true,
               ),
@@ -396,9 +411,9 @@ class _EditBugReportScreenState extends State<EditBugReportScreen> {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: AppTheme.primaryWhite.withOpacity(0.05),
+                color: inputFillColor,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppTheme.primaryWhite.withOpacity(0.2)),
+                border: Border.all(color: borderColor),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -408,7 +423,7 @@ class _EditBugReportScreenState extends State<EditBugReportScreen> {
                       Text(
                         'Attachments',
                         style: TextStyle(
-                          color: AppTheme.primaryWhite.withOpacity(0.7),
+                          color: textColor.withOpacity(0.7),
                           fontSize: 14,
                           fontWeight: FontWeight.bold,
                         ),
@@ -417,7 +432,7 @@ class _EditBugReportScreenState extends State<EditBugReportScreen> {
                       Text(
                         '$_totalAttachments/6 files',
                         style: TextStyle(
-                          color: AppTheme.primaryWhite.withOpacity(0.6),
+                          color: textColor.withOpacity(0.6),
                           fontSize: 13,
                           fontWeight: FontWeight.w500,
                         ),
@@ -428,7 +443,7 @@ class _EditBugReportScreenState extends State<EditBugReportScreen> {
                   Text(
                     'Add or remove attachments\nMax 6 files • Images up to 30MB • Videos up to 300MB',
                     style: TextStyle(
-                      color: AppTheme.primaryWhite.withOpacity(0.5),
+                      color: textColor.withOpacity(0.5),
                       fontSize: 12,
                       height: 1.4,
                     ),
@@ -441,8 +456,8 @@ class _EditBugReportScreenState extends State<EditBugReportScreen> {
                     icon: const Icon(Icons.attach_file),
                     label: Text(_totalAttachments == 0 ? 'Add Attachment' : 'Add Another'),
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: AppTheme.primaryWhite,
-                      side: BorderSide(color: AppTheme.primaryWhite.withOpacity(0.3)),
+                      foregroundColor: textColor,
+                      side: BorderSide(color: borderColor),
                       padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
                     ),
                   ),
@@ -453,7 +468,7 @@ class _EditBugReportScreenState extends State<EditBugReportScreen> {
                     Text(
                       'Current Attachments',
                       style: TextStyle(
-                        color: AppTheme.primaryWhite.withOpacity(0.6),
+                        color: textColor.withOpacity(0.6),
                         fontSize: 12,
                         fontWeight: FontWeight.bold,
                       ),
@@ -490,19 +505,19 @@ class _EditBugReportScreenState extends State<EditBugReportScreen> {
             ElevatedButton(
               onPressed: _isLoading ? null : _submitEdit,
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.primaryWhite,
-                foregroundColor: AppTheme.primaryBlack,
+                backgroundColor: textColor,
+                foregroundColor: backgroundColor,
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
               ),
               child: _isLoading
-                  ? const SizedBox(
+                  ? SizedBox(
                       height: 20,
                       width: 20,
                       child: CircularProgressIndicator(
-                        color: AppTheme.primaryBlack,
+                        color: backgroundColor,
                         strokeWidth: 2,
                       ),
                     )
@@ -540,14 +555,20 @@ class _EditBugReportScreenState extends State<EditBugReportScreen> {
     final isImage = attachment.fileType.startsWith('image/');
     final isVideo = attachment.fileType.startsWith('video/');
 
+    final themeProvider = context.watch<ThemeProvider>();
+    final isDark = themeProvider.isDark;
+    final textColor = isDark ? Colors.white : Colors.black;
+    final cardColor = isDark ? const Color(0xFF18181B) : Colors.white;
+    final borderColor = isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB);
+
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: AppTheme.primaryWhite.withOpacity(0.05),
+        color: cardColor,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
-          color: AppTheme.primaryWhite.withOpacity(0.1),
+          color: borderColor,
         ),
       ),
       child: Row(
@@ -564,8 +585,8 @@ class _EditBugReportScreenState extends State<EditBugReportScreen> {
                 errorBuilder: (context, error, stack) => Container(
                   width: 56,
                   height: 56,
-                  color: AppTheme.primaryWhite.withOpacity(0.1),
-                  child: const Icon(Icons.broken_image, color: AppTheme.primaryWhite, size: 24),
+                  color: textColor.withOpacity(0.1),
+                  child: Icon(Icons.broken_image, color: textColor, size: 24),
                 ),
               ),
             )
@@ -590,8 +611,8 @@ class _EditBugReportScreenState extends State<EditBugReportScreen> {
               children: [
                 Text(
                   attachment.fileName,
-                  style: const TextStyle(
-                    color: AppTheme.primaryWhite,
+                  style: TextStyle(
+                    color: textColor,
                     fontWeight: FontWeight.w500,
                   ),
                   maxLines: 2,
@@ -619,7 +640,7 @@ class _EditBugReportScreenState extends State<EditBugReportScreen> {
                     Text(
                       _formatBytes(attachment.fileSize),
                       style: TextStyle(
-                        color: AppTheme.primaryWhite.withOpacity(0.6),
+                        color: textColor.withOpacity(0.6),
                         fontSize: 11,
                       ),
                     ),
@@ -641,6 +662,10 @@ class _EditBugReportScreenState extends State<EditBugReportScreen> {
   Widget _buildNewAttachmentTile(NewAttachment attachment, int index) {
     final isImage = attachment.type.startsWith('image/');
     final isVideo = attachment.type.startsWith('video/');
+
+    final themeProvider = context.watch<ThemeProvider>();
+    final isDark = themeProvider.isDark;
+    final textColor = isDark ? Colors.white : Colors.black;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
@@ -692,8 +717,8 @@ class _EditBugReportScreenState extends State<EditBugReportScreen> {
               children: [
                 Text(
                   attachment.name,
-                  style: const TextStyle(
-                    color: AppTheme.primaryWhite,
+                  style: TextStyle(
+                    color: textColor,
                     fontWeight: FontWeight.w500,
                   ),
                   maxLines: 2,
@@ -737,7 +762,7 @@ class _EditBugReportScreenState extends State<EditBugReportScreen> {
                     Text(
                       _formatBytes(attachment.bytes.length),
                       style: TextStyle(
-                        color: AppTheme.primaryWhite.withOpacity(0.6),
+                        color: textColor.withOpacity(0.6),
                         fontSize: 11,
                       ),
                     ),

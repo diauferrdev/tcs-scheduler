@@ -354,6 +354,58 @@ export async function updateBugReport(
     }
   }
 
+  // Handle attachment deletions
+  if (data.deleteAttachments && data.deleteAttachments.length > 0) {
+    // Delete attachments from database and storage
+    for (const attachmentId of data.deleteAttachments) {
+      try {
+        const attachment = await prisma.bugAttachment.findUnique({
+          where: { id: attachmentId },
+        });
+
+        if (attachment && attachment.bugReportId === id) {
+          // Delete physical file from storage
+          const fs = await import('fs/promises');
+          const path = await import('path');
+          const filePath = path.join(process.cwd(), 'uploads', attachment.fileUrl.split('/uploads/')[1]);
+
+          try {
+            await fs.unlink(filePath);
+            console.log('[BugReport] Deleted attachment file:', filePath);
+          } catch (fileError) {
+            console.error('[BugReport] Error deleting attachment file:', fileError);
+            // Continue even if file deletion fails
+          }
+
+          // Delete from database
+          await prisma.bugAttachment.delete({
+            where: { id: attachmentId },
+          });
+          console.log('[BugReport] Deleted attachment from DB:', attachmentId);
+        }
+      } catch (error) {
+        console.error('[BugReport] Error deleting attachment:', attachmentId, error);
+        // Continue with other deletions
+      }
+    }
+  }
+
+  // Handle new attachments
+  if (data.attachments && data.attachments.length > 0) {
+    // Create new attachments
+    for (const attachment of data.attachments) {
+      await prisma.bugAttachment.create({
+        data: {
+          bugReportId: id,
+          fileUrl: attachment.url,
+          fileName: attachment.fileName,
+          fileSize: attachment.fileSize,
+          fileType: attachment.fileType,
+        },
+      });
+    }
+  }
+
   const updatedBug = await prisma.bugReport.update({
     where: { id },
     data: updateData,

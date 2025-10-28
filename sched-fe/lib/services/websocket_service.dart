@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import '../config/api_config.dart';
 
@@ -11,16 +12,27 @@ class WebSocketService {
   WebSocketChannel? _channel;
   StreamController<Map<String, dynamic>>? _messageController;
   Timer? _reconnectTimer;
+  Timer? _heartbeatTimer;
   bool _isConnecting = false;
   int _reconnectAttempts = 0;
-  static const int _maxReconnectAttempts = 5;
+  String? _userId;
+  static const int _maxReconnectAttempts = 10;
   static const Duration _reconnectDelay = Duration(seconds: 3);
+  static const Duration _heartbeatInterval = Duration(seconds: 30);
 
   Stream<Map<String, dynamic>> get messages => _messageController!.stream;
+  bool get isConnected => _channel != null;
 
   void connect(String userId) {
-    if (_isConnecting || _channel != null) {
-      print('[WS] Already connected or connecting');
+    _userId = userId;
+
+    if (_isConnecting) {
+      debugPrint('[WS] Already connecting, skipping...');
+      return;
+    }
+
+    if (_channel != null) {
+      debugPrint('[WS] Already connected, skipping...');
       return;
     }
 
@@ -34,57 +46,83 @@ class WebSocketService {
           .replaceFirst('https://', 'wss://');
 
       final uri = Uri.parse('$wsUrl/ws?userId=$userId');
-      print('[WS] Connecting to: $uri');
+      debugPrint('[WS] Connecting to: $uri');
 
       _channel = WebSocketChannel.connect(uri);
+
+      // Start heartbeat
+      _startHeartbeat();
 
       // Listen to messages
       _channel!.stream.listen(
         (message) {
           try {
             final data = json.decode(message as String) as Map<String, dynamic>;
-            print('[WS] Received: ${data['type']}');
-            _messageController!.add(data);
+            final type = data['type'] as String?;
+            debugPrint('[WS] ✅ Received: $type');
+
+            if (type != 'pong') {
+              _messageController!.add(data);
+            }
+
             _reconnectAttempts = 0; // Reset on successful message
           } catch (e) {
-            print('[WS] Error decoding message: $e');
+            debugPrint('[WS] ❌ Error decoding message: $e');
           }
         },
         onError: (error) {
-          print('[WS] Error: $error');
+          debugPrint('[WS] ❌ Error: $error');
           _handleDisconnect();
         },
         onDone: () {
-          print('[WS] Connection closed');
+          debugPrint('[WS] Connection closed');
           _handleDisconnect();
         },
       );
 
       _isConnecting = false;
-      print('[WS] Connected successfully');
+      debugPrint('[WS] ✅ Connected successfully');
     } catch (e) {
-      print('[WS] Connection error: $e');
+      debugPrint('[WS] ❌ Connection error: $e');
       _isConnecting = false;
       _handleDisconnect();
     }
   }
 
+  void _startHeartbeat() {
+    _heartbeatTimer?.cancel();
+    _heartbeatTimer = Timer.periodic(_heartbeatInterval, (timer) {
+      if (_channel != null) {
+        try {
+          sendMessage({'type': 'ping'});
+          debugPrint('[WS] 💓 Sent heartbeat');
+        } catch (e) {
+          debugPrint('[WS] ❌ Heartbeat failed: $e');
+          _handleDisconnect();
+        }
+      }
+    });
+  }
+
   void _handleDisconnect() {
     _channel = null;
     _isConnecting = false;
+    _heartbeatTimer?.cancel();
 
-    // Attempt reconnection
-    if (_reconnectAttempts < _maxReconnectAttempts) {
+    // Attempt reconnection if we have a userId
+    if (_userId != null && _reconnectAttempts < _maxReconnectAttempts) {
       _reconnectAttempts++;
-      print('[WS] Reconnecting in ${_reconnectDelay.inSeconds}s (attempt $_reconnectAttempts/$_maxReconnectAttempts)');
+      debugPrint('[WS] 🔄 Reconnecting in ${_reconnectDelay.inSeconds}s (attempt $_reconnectAttempts/$_maxReconnectAttempts)');
 
       _reconnectTimer?.cancel();
       _reconnectTimer = Timer(_reconnectDelay, () {
-        // Note: This requires storing userId, which we'll do in a moment
-        print('[WS] Attempting reconnect...');
+        debugPrint('[WS] Attempting reconnect...');
+        if (_userId != null) {
+          connect(_userId!);
+        }
       });
     } else {
-      print('[WS] Max reconnect attempts reached');
+      debugPrint('[WS] ❌ Max reconnect attempts reached or no userId');
     }
   }
 

@@ -283,6 +283,13 @@ export const BugReportUpdateSchema = z.object({
   description: z.string().min(10, 'Description must be at least 10 characters').max(5000).optional(),
   status: BugStatusSchema.optional(),
   resolutionNotes: z.string().max(2000, 'Resolution notes must be less than 2000 characters').optional(),
+  attachments: z.array(z.object({
+    url: z.string(),
+    fileName: z.string(),
+    fileSize: z.number(),
+    fileType: z.string(),
+  })).max(6, 'Maximum 6 attachments allowed').optional(),
+  deleteAttachments: z.array(z.string()).optional(),
 });
 
 export const BugReportFilterSchema = z.object({
