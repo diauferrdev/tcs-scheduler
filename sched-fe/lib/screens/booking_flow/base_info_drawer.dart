@@ -8,10 +8,10 @@ class BaseInfoDrawer extends StatefulWidget {
   final VoidCallback onBack;
 
   const BaseInfoDrawer({
-    Key? key,
+    super.key,
     required this.onNext,
     required this.onBack,
-  }) : super(key: key);
+  });
 
   @override
   State<BaseInfoDrawer> createState() => _BaseInfoDrawerState();
@@ -310,7 +310,7 @@ class _BaseInfoDrawerState extends State<BaseInfoDrawer> {
 
                     // Vertical - Fixed overflow issue
                     DropdownButtonFormField<String>(
-                      value: _vertical,
+                      initialValue: _vertical,
                       isExpanded: true,
                       decoration: InputDecoration(
                         labelText: 'TCS Vertical',
@@ -381,7 +381,7 @@ class _BaseInfoDrawerState extends State<BaseInfoDrawer> {
 
                     // Organization Type
                     DropdownButtonFormField<String>(
-                      value: _organizationType,
+                      initialValue: _organizationType,
                       decoration: InputDecoration(
                         labelText: 'Organization Type',
                         border: const OutlineInputBorder(),

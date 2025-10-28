@@ -15,13 +15,13 @@ class BookingFormScreen extends StatefulWidget {
   final Booking? existingBooking;
 
   const BookingFormScreen({
-    Key? key,
+    super.key,
     required this.selectedDate,
     required this.startTime,
     required this.duration,
     this.showScaffold = true,
     this.existingBooking,
-  }) : super(key: key);
+  });
 
   @override
   State<BookingFormScreen> createState() => BookingFormScreenState();
@@ -39,7 +39,7 @@ class BookingFormScreenState extends State<BookingFormScreen> {
 
   // Step 2: Visit Type (only if VISIT selected)
   String? _visitType; // 'PACE_TOUR' or 'PACE_EXPERIENCE'
-  int _visitDuration = 2; // 2 for PACE_TOUR, 6 for PACE_EXPERIENCE
+  final int _visitDuration = 2; // 2 for PACE_TOUR, 6 for PACE_EXPERIENCE
 
   // Step 3: Base Information
   final _requesterNameController = TextEditingController();
@@ -958,7 +958,7 @@ class BookingFormScreenState extends State<BookingFormScreen> {
 
         // Vertical
         DropdownButtonFormField<String>(
-          value: _vertical,
+          initialValue: _vertical,
           isExpanded: true,
           decoration: InputDecoration(
             labelText: 'TCS Vertical',
@@ -1075,7 +1075,7 @@ class BookingFormScreenState extends State<BookingFormScreen> {
 
         // Organization Type
         DropdownButtonFormField<String>(
-          value: _organizationType,
+          initialValue: _organizationType,
           decoration: InputDecoration(
             labelText: 'Organization Type',
             border: const OutlineInputBorder(),

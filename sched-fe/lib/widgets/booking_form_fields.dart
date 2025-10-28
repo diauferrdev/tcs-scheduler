@@ -259,11 +259,11 @@ class AccountCompanySection extends StatelessWidget {
   final bool enabled;
 
   const AccountCompanySection({
-    Key? key,
+    super.key,
     required this.formData,
     required this.onUpdate,
     this.enabled = true,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -305,7 +305,7 @@ class AccountCompanySection extends StatelessWidget {
         ),
         const SizedBox(height: 16),
         DropdownButtonFormField<String>(
-          value: formData.companySector,
+          initialValue: formData.companySector,
           onChanged: enabled
               ? (value) {
                   onUpdate(() {
@@ -333,7 +333,7 @@ class AccountCompanySection extends StatelessWidget {
         ),
         const SizedBox(height: 16),
         DropdownButtonFormField<String>(
-          value: formData.companyVertical,
+          initialValue: formData.companyVertical,
           onChanged: enabled
               ? (value) {
                   onUpdate(() {
@@ -366,7 +366,7 @@ class AccountCompanySection extends StatelessWidget {
         ),
         const SizedBox(height: 16),
         DropdownButtonFormField<String>(
-          value: formData.companySize,
+          initialValue: formData.companySize,
           onChanged: enabled
               ? (value) {
                   onUpdate(() {
@@ -400,11 +400,11 @@ class VisitDetailsSection extends StatelessWidget {
   final bool enabled;
 
   const VisitDetailsSection({
-    Key? key,
+    super.key,
     required this.formData,
     required this.onUpdate,
     this.enabled = true,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -505,11 +505,11 @@ class EventDealSection extends StatelessWidget {
   final bool enabled;
 
   const EventDealSection({
-    Key? key,
+    super.key,
     required this.formData,
     required this.onUpdate,
     this.enabled = true,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -584,7 +584,7 @@ class EventDealSection extends StatelessWidget {
         ],
         const SizedBox(height: 16),
         DropdownButtonFormField<String>(
-          value: formData.dealStatus,
+          initialValue: formData.dealStatus,
           onChanged: enabled
               ? (value) {
                   onUpdate(() {
@@ -632,14 +632,14 @@ class AttendeeCard extends StatelessWidget {
   final bool initiallyExpanded;
 
   const AttendeeCard({
-    Key? key,
+    super.key,
     required this.attendee,
     required this.index,
     this.onRemove,
     required this.onUpdate,
     this.enabled = true,
     this.initiallyExpanded = false,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -738,7 +738,7 @@ class AttendeeCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 16),
                   DropdownButtonFormField<String>(
-                    value: attendee.tcsSupporter,
+                    initialValue: attendee.tcsSupporter,
                     onChanged: enabled
                         ? (value) {
                             onUpdate(() {
@@ -858,11 +858,11 @@ class AttendeesSection extends StatelessWidget {
   final bool enabled;
 
   const AttendeesSection({
-    Key? key,
+    super.key,
     required this.formData,
     required this.onUpdate,
     this.enabled = true,
-  }) : super(key: key);
+  });
 
   void _addAttendee() {
     if (formData.attendees.length < 3) {
@@ -929,10 +929,10 @@ class AdditionalNotesSection extends StatelessWidget {
   final bool enabled;
 
   const AdditionalNotesSection({
-    Key? key,
+    super.key,
     required this.formData,
     this.enabled = true,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

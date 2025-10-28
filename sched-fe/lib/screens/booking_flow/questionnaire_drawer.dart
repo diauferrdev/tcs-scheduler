@@ -8,10 +8,10 @@ class QuestionnaireDrawer extends StatefulWidget {
   final VoidCallback onBack;
 
   const QuestionnaireDrawer({
-    Key? key,
+    super.key,
     required this.onSubmit,
     required this.onBack,
-  }) : super(key: key);
+  });
 
   @override
   State<QuestionnaireDrawer> createState() => _QuestionnaireDrawerState();
@@ -29,7 +29,9 @@ class _QuestionnaireDrawerState extends State<QuestionnaireDrawer> {
 
   @override
   void dispose() {
-    _controllers.values.forEach((controller) => controller.dispose());
+    for (var controller in _controllers.values) {
+      controller.dispose();
+    }
     super.dispose();
   }
 

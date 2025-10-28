@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:splash_master/splash_master.dart';
 import 'package:audioplayers/audioplayers.dart' as audio;
 import 'package:flutter/foundation.dart' show kIsWeb;
 

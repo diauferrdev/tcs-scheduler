@@ -6,10 +6,10 @@ class VisitTypeDrawer extends StatefulWidget {
   final VoidCallback onBack;
 
   const VisitTypeDrawer({
-    Key? key,
+    super.key,
     required this.onNext,
     required this.onBack,
-  }) : super(key: key);
+  });
 
   @override
   State<VisitTypeDrawer> createState() => _VisitTypeDrawerState();

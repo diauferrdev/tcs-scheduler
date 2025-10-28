@@ -59,7 +59,7 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
   CalendarViewType _viewType = CalendarViewType.month;
 
   // Availability state
-  Map<String, DayAvailability> _availabilityCache = {};
+  final Map<String, DayAvailability> _availabilityCache = {};
   DayAvailability? _selectedDayAvailability;
 
   // Selected time and duration for booking
@@ -2279,7 +2279,7 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // Time labels column
-                  Container(
+                  SizedBox(
                     width: 50,
                     child: Column(
                       children: displayHours.map((hour) {
@@ -4081,7 +4081,7 @@ class _BookingFormWidgetState extends State<_BookingFormWidget> {
 
                             // Sector Dropdown
                             DropdownButtonFormField<String>(
-                              value: _companySector,
+                              initialValue: _companySector,
                               decoration: InputDecoration(
                                 labelText: 'Sector *',
                                 filled: true,
@@ -4123,7 +4123,7 @@ class _BookingFormWidgetState extends State<_BookingFormWidget> {
 
                             // Vertical Dropdown
                             DropdownButtonFormField<String>(
-                              value: _companyVertical,
+                              initialValue: _companyVertical,
                               decoration: InputDecoration(
                                 labelText: 'Vertical *',
                                 filled: true,
@@ -4176,7 +4176,7 @@ class _BookingFormWidgetState extends State<_BookingFormWidget> {
 
                             // Interest Area Dropdown
                             DropdownButtonFormField<String>(
-                              value: _interestArea,
+                              initialValue: _interestArea,
                               decoration: InputDecoration(
                                 labelText: 'Interest Area *',
                                 filled: true,
@@ -4404,7 +4404,7 @@ class _BookingFormWidgetState extends State<_BookingFormWidget> {
                                   ],
                                 ),
                               );
-                            }).toList(),
+                            }),
 
                             const SizedBox(height: 8),
 

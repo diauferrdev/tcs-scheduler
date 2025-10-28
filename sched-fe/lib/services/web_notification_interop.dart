@@ -1,5 +1,5 @@
 @JS()
-library web_notification_interop;
+library;
 
 import 'dart:js_interop';
 import 'package:flutter/foundation.dart';

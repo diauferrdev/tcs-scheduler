@@ -174,7 +174,7 @@ class _Device3DSectionState extends State<Device3DSection> {
       if (viewerManager != null) {
         try {
           js.context.callMethod('eval', ['window.viewerManager.registerViewer("$canvasId", window["$canvasId"+"_viewer"])']);
-          js.context[canvasId + '_viewer'] = viewer;
+          js.context['${canvasId}_viewer'] = viewer;
         } catch (e) {
           // Silent fail
         }

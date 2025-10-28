@@ -1,5 +1,6 @@
 /// Stub implementation for non-web platforms
 /// This file is used when compiling for mobile/desktop to avoid compilation errors
+library;
 
 import 'package:flutter/foundation.dart';
 

@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -39,7 +38,7 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
   StreamSubscription? _wsSubscription;
 
   // File attachments for comments
-  List<PlatformFile> _selectedFiles = [];
+  final List<PlatformFile> _selectedFiles = [];
   bool _isUploadingAttachments = false;
 
   @override
@@ -70,7 +69,7 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
         case 'bug_liked':
         case 'bug_unliked':
           if (data['bugId'] == widget.bugId) {
-            _handleLikeChanged(data);
+            _handleLikeChanged(data, type);
           }
           break;
         case 'bug_comment_created':
@@ -113,7 +112,7 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
     }
   }
 
-  void _handleLikeChanged(dynamic data) {
+  void _handleLikeChanged(dynamic data, String? type) {
     try {
       final likeCount = data['likeCount'] as int;
       final userId = data['userId'] as String;
@@ -127,11 +126,11 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
             _bug = _bug!.copyWith(likeCount: likeCount);
           });
         } else {
-          // For current user, just sync the final count from server
+          // For current user, sync both the count AND the upvoted state from server
           // This ensures we're in sync even if there was a race condition
           setState(() {
             _bug = _bug!.copyWith(likeCount: likeCount);
-            _isUpvoted = data['type'] == 'bug_liked';
+            _isUpvoted = type == 'bug_liked';
           });
         }
       }
@@ -308,8 +307,6 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
       _isUploadingAttachments = _selectedFiles.isNotEmpty;
     });
 
-    String? createdCommentId; // Track comment ID for rollback
-
     try {
       String? commentId;
 
@@ -347,7 +344,6 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
           deviceInfo: deviceInfo,
         );
         commentId = comment['id'];
-        createdCommentId = commentId; // Save for potential rollback
 
         // Upload attachments if any - CRITICAL for new comments
         if (_selectedFiles.isNotEmpty && commentId != null) {
@@ -588,24 +584,28 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
     );
 
     final canComment = _bug != null && _bug!.status != BugStatus.CLOSED;
+    final isDark = themeProvider.isDark;
+    final backgroundColor = isDark ? AppTheme.primaryBlack : const Color(0xFFF9FAFB);
+    final textColor = isDark ? AppTheme.primaryWhite : Colors.black;
+    final cardColor = isDark ? const Color(0xFF18181B) : Colors.white;
 
     return Scaffold(
-      backgroundColor: AppTheme.primaryBlack,
+      backgroundColor: backgroundColor,
       appBar: AppBar(
-        backgroundColor: AppTheme.primaryBlack,
+        backgroundColor: backgroundColor,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: AppTheme.primaryWhite),
+          icon: Icon(Icons.arrow_back, color: textColor),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text(
+        title: Text(
           'Bug Details',
-          style: TextStyle(color: AppTheme.primaryWhite),
+          style: TextStyle(color: textColor),
         ),
         actions: [
           if (canEdit)
             IconButton(
-              icon: const Icon(Icons.edit, color: AppTheme.primaryWhite),
+              icon: Icon(Icons.edit, color: textColor),
               onPressed: _editBugReport,
               tooltip: 'Edit Bug Report',
             ),
@@ -617,9 +617,9 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
             ),
           if (isAdmin && _bug != null && _bug!.status != BugStatus.CLOSED)
             PopupMenuButton(
-              icon: const Icon(Icons.admin_panel_settings, color: AppTheme.primaryWhite),
+              icon: Icon(Icons.admin_panel_settings, color: textColor),
               tooltip: 'Admin Actions',
-              color: AppTheme.primaryBlack,
+              color: cardColor,
               itemBuilder: (context) => [
                 if (_bug!.status == BugStatus.OPEN)
                   PopupMenuItem(
@@ -659,7 +659,7 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
         ],
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: AppTheme.primaryWhite))
+          ? Center(child: CircularProgressIndicator(color: textColor))
           : _errorMessage != null
               ? Center(
                   child: Column(
@@ -675,11 +675,11 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
                   ),
                 )
               : _bug == null
-                  ? const Center(child: Text('Bug not found', style: TextStyle(color: AppTheme.primaryWhite)))
+                  ? Center(child: Text('Bug not found', style: TextStyle(color: textColor)))
                   : RefreshIndicator(
                       onRefresh: _loadBugDetails,
-                      color: AppTheme.primaryWhite,
-                      backgroundColor: AppTheme.primaryBlack,
+                      color: textColor,
+                      backgroundColor: backgroundColor,
                       child: ListView(
                         controller: _scrollController,
                         padding: const EdgeInsets.all(16),
@@ -697,12 +697,14 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
                                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                                     decoration: BoxDecoration(
                                       color: _isUpvoted
-                                          ? Colors.orange.withOpacity(0.2)
-                                          : AppTheme.primaryWhite.withOpacity(0.1),
+                                          ? Colors.orange.withOpacity(0.15)
+                                          : (themeProvider.isDark ? const Color(0xFF27272A) : const Color(0xFFF3F4F6)),
                                       borderRadius: BorderRadius.circular(6),
                                       border: Border.all(
-                                        color: _isUpvoted ? Colors.orange : AppTheme.primaryWhite.withOpacity(0.3),
-                                        width: 1.5,
+                                        color: _isUpvoted
+                                            ? Colors.orange
+                                            : (themeProvider.isDark ? const Color(0xFF3F3F46) : const Color(0xFFD1D5DB)),
+                                        width: _isUpvoted ? 1.5 : 1,
                                       ),
                                     ),
                                     child: Row(
@@ -710,14 +712,18 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
                                       children: [
                                         Icon(
                                           Icons.arrow_upward,
-                                          color: _isUpvoted ? Colors.orange : AppTheme.primaryWhite,
+                                          color: _isUpvoted
+                                              ? Colors.orange
+                                              : (themeProvider.isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280)),
                                           size: 16,
                                         ),
                                         const SizedBox(width: 4),
                                         Text(
                                           '${_bug!.likeCount}',
                                           style: TextStyle(
-                                            color: _isUpvoted ? Colors.orange : AppTheme.primaryWhite,
+                                            color: _isUpvoted
+                                                ? Colors.orange
+                                                : (themeProvider.isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280)),
                                             fontWeight: FontWeight.bold,
                                             fontSize: 14,
                                           ),
@@ -733,16 +739,26 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                                 decoration: BoxDecoration(
-                                  color: AppTheme.primaryWhite.withOpacity(0.1),
+                                  color: themeProvider.isDark ? const Color(0xFF27272A) : const Color(0xFFF3F4F6),
                                   borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(
+                                    color: themeProvider.isDark ? const Color(0xFF3F3F46) : const Color(0xFFD1D5DB),
+                                  ),
                                 ),
                                 child: Row(
                                   children: [
-                                    Icon(_getPlatformIcon(_bug!.platform), size: 16, color: AppTheme.primaryWhite),
+                                    Icon(
+                                      _getPlatformIcon(_bug!.platform),
+                                      size: 16,
+                                      color: themeProvider.isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
+                                    ),
                                     const SizedBox(width: 6),
                                     Text(
                                       _bug!.platformDisplay,
-                                      style: const TextStyle(color: AppTheme.primaryWhite, fontSize: 14),
+                                      style: TextStyle(
+                                        color: themeProvider.isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
+                                        fontSize: 14,
+                                      ),
                                     ),
                                   ],
                                 ),
@@ -756,10 +772,10 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
                           Container(
                             padding: const EdgeInsets.all(16),
                             decoration: BoxDecoration(
-                              color: AppTheme.primaryWhite.withOpacity(0.05),
+                              color: cardColor,
                               borderRadius: BorderRadius.circular(12),
                               border: Border.all(
-                                color: AppTheme.primaryWhite.withOpacity(0.1),
+                                color: isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
                               ),
                             ),
                             child: Row(
@@ -769,7 +785,7 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
                                   width: 48,
                                   height: 48,
                                   decoration: BoxDecoration(
-                                    color: AppTheme.primaryWhite.withOpacity(0.2),
+                                    color: isDark ? const Color(0xFF3F3F46) : const Color(0xFFD1D5DB),
                                     borderRadius: BorderRadius.circular(10),
                                     image: _bug!.reportedBy.avatarUrl != null
                                         ? DecorationImage(
@@ -782,8 +798,8 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
                                       ? Center(
                                           child: Text(
                                             _bug!.reportedBy.name[0].toUpperCase(),
-                                            style: const TextStyle(
-                                              color: AppTheme.primaryWhite,
+                                            style: TextStyle(
+                                              color: isDark ? Colors.white : Colors.black,
                                               fontSize: 18,
                                               fontWeight: FontWeight.bold,
                                             ),
@@ -802,8 +818,8 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
                                           Flexible(
                                             child: Text(
                                               _bug!.reportedBy.name,
-                                              style: const TextStyle(
-                                                color: AppTheme.primaryWhite,
+                                              style: TextStyle(
+                                                color: textColor,
                                                 fontSize: 16,
                                                 fontWeight: FontWeight.bold,
                                               ),
@@ -839,14 +855,14 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
                                           Icon(
                                             Icons.email_outlined,
                                             size: 12,
-                                            color: AppTheme.primaryWhite.withOpacity(0.5),
+                                            color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
                                           ),
                                           const SizedBox(width: 4),
                                           Flexible(
                                             child: Text(
                                               _bug!.reportedBy.email,
                                               style: TextStyle(
-                                                color: AppTheme.primaryWhite.withOpacity(0.7),
+                                                color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
                                                 fontSize: 12,
                                               ),
                                               overflow: TextOverflow.ellipsis,
@@ -861,13 +877,13 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
                                           Icon(
                                             Icons.access_time,
                                             size: 12,
-                                            color: AppTheme.primaryWhite.withOpacity(0.5),
+                                            color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
                                           ),
                                           const SizedBox(width: 4),
                                           Text(
                                             'Reported ${_formatDate(_bug!.createdAt)}',
                                             style: TextStyle(
-                                              color: AppTheme.primaryWhite.withOpacity(0.6),
+                                              color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
                                               fontSize: 11,
                                             ),
                                           ),
@@ -889,8 +905,8 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
                               // Title
                               Text(
                                 _bug!.title,
-                                style: const TextStyle(
-                                  color: AppTheme.primaryWhite,
+                                style: TextStyle(
+                                  color: textColor,
                                   fontSize: 24,
                                   fontWeight: FontWeight.bold,
                                 ),
@@ -900,7 +916,7 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
                               Text(
                                 _bug!.description,
                                 style: TextStyle(
-                                  color: AppTheme.primaryWhite.withOpacity(0.8),
+                                  color: isDark ? const Color(0xFFD1D5DB) : const Color(0xFF374151),
                                   fontSize: 15,
                                   height: 1.6,
                                 ),
@@ -914,10 +930,10 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
                             Container(
                               padding: const EdgeInsets.all(16),
                               decoration: BoxDecoration(
-                                color: AppTheme.primaryWhite.withOpacity(0.05),
+                                color: cardColor,
                                 borderRadius: BorderRadius.circular(12),
                                 border: Border.all(
-                                  color: AppTheme.primaryWhite.withOpacity(0.2),
+                                  color: isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
                                 ),
                               ),
                               child: Column(
@@ -925,16 +941,16 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
                                 children: [
                                   Row(
                                     children: [
-                                      const Icon(
+                                      Icon(
                                         Icons.attach_file,
-                                        color: AppTheme.primaryWhite,
+                                        color: textColor,
                                         size: 18,
                                       ),
                                       const SizedBox(width: 8),
-                                      const Text(
+                                      Text(
                                         'Attachments',
                                         style: TextStyle(
-                                          color: AppTheme.primaryWhite,
+                                          color: textColor,
                                           fontSize: 16,
                                           fontWeight: FontWeight.bold,
                                         ),
@@ -967,7 +983,7 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
                           // Device Info
                           if (_bug!.deviceInfo != null) ...[
                             const SizedBox(height: 24),
-                            _buildDeviceInfo(),
+                            _buildDeviceInfo(themeProvider),
                           ],
 
                           // Resolution Notes
@@ -1000,14 +1016,14 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
                                   const SizedBox(height: 12),
                                   Text(
                                     _bug!.resolutionNotes!,
-                                    style: const TextStyle(color: AppTheme.primaryWhite),
+                                    style: TextStyle(color: isDark ? Colors.white : Colors.black87),
                                   ),
                                   if (_bug!.resolvedBy != null) ...[
                                     const SizedBox(height: 8),
                                     Text(
                                       'Resolved by ${_bug!.resolvedBy!.name} on ${_formatDate(_bug!.resolvedAt!)}',
                                       style: TextStyle(
-                                        color: AppTheme.primaryWhite.withOpacity(0.6),
+                                        color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
                                         fontSize: 12,
                                       ),
                                     ),
@@ -1021,10 +1037,10 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
                           const SizedBox(height: 32),
                           Row(
                             children: [
-                              const Text(
+                              Text(
                                 'Comments',
                                 style: TextStyle(
-                                  color: AppTheme.primaryWhite,
+                                  color: textColor,
                                   fontSize: 18,
                                   fontWeight: FontWeight.bold,
                                 ),
@@ -1033,13 +1049,13 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                 decoration: BoxDecoration(
-                                  color: AppTheme.primaryWhite.withOpacity(0.2),
+                                  color: isDark ? const Color(0xFF3F3F46) : const Color(0xFFE5E7EB),
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                                 child: Text(
                                   '${_bug!.comments?.length ?? 0}',
-                                  style: const TextStyle(
-                                    color: AppTheme.primaryWhite,
+                                  style: TextStyle(
+                                    color: textColor,
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
@@ -1053,7 +1069,7 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
                             Container(
                               padding: const EdgeInsets.all(24),
                               decoration: BoxDecoration(
-                                color: AppTheme.primaryWhite.withOpacity(0.05),
+                                color: cardColor,
                                 borderRadius: BorderRadius.circular(12),
                               ),
                               child: Column(
@@ -1061,13 +1077,13 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
                                   Icon(
                                     Icons.comment_outlined,
                                     size: 48,
-                                    color: AppTheme.primaryWhite.withOpacity(0.3),
+                                    color: isDark ? const Color(0xFF6B7280) : const Color(0xFF9CA3AF),
                                   ),
                                   const SizedBox(height: 12),
                                   Text(
                                     'No comments yet',
                                     style: TextStyle(
-                                      color: AppTheme.primaryWhite.withOpacity(0.5),
+                                      color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
                                       fontSize: 16,
                                     ),
                                   ),
@@ -1075,7 +1091,7 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
                                   Text(
                                     'Be the first to add more details',
                                     style: TextStyle(
-                                      color: AppTheme.primaryWhite.withOpacity(0.3),
+                                      color: isDark ? const Color(0xFF6B7280) : const Color(0xFF9CA3AF),
                                       fontSize: 12,
                                     ),
                                   ),
@@ -1083,7 +1099,7 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
                               ),
                             )
                           else
-                            ...?_bug!.comments?.map((comment) => _buildCommentCard(comment, authProvider)),
+                            ...?_bug!.comments?.map((comment) => _buildCommentCard(comment, authProvider, themeProvider)),
 
                           // Comment Input (if allowed)
                           if (canComment) ...[
@@ -1091,10 +1107,10 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
                             Container(
                               padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
-                                color: AppTheme.primaryWhite.withOpacity(0.05),
+                                color: cardColor,
                                 borderRadius: BorderRadius.circular(12),
                                 border: Border.all(
-                                  color: AppTheme.primaryWhite.withOpacity(0.2),
+                                  color: isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
                                 ),
                               ),
                               child: Column(
@@ -1126,12 +1142,12 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
                                     ),
                                   TextField(
                                     controller: _commentController,
-                                    style: const TextStyle(color: AppTheme.primaryWhite),
+                                    style: TextStyle(color: textColor),
                                     maxLines: 3,
                                     decoration: InputDecoration(
                                       hintText: 'Add more details about this bug...',
                                       hintStyle: TextStyle(
-                                        color: AppTheme.primaryWhite.withOpacity(0.5),
+                                        color: isDark ? const Color(0xFF6B7280) : const Color(0xFF9CA3AF),
                                       ),
                                       border: InputBorder.none,
                                     ),
@@ -1149,9 +1165,9 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
                                         return Container(
                                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                           decoration: BoxDecoration(
-                                            color: AppTheme.primaryWhite.withOpacity(0.1),
+                                            color: isDark ? const Color(0xFF27272A) : const Color(0xFFF3F4F6),
                                             borderRadius: BorderRadius.circular(8),
-                                            border: Border.all(color: AppTheme.primaryWhite.withOpacity(0.3)),
+                                            border: Border.all(color: isDark ? const Color(0xFF3F3F46) : const Color(0xFFD1D5DB)),
                                           ),
                                           child: Row(
                                             mainAxisSize: MainAxisSize.min,
@@ -1161,7 +1177,7 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
                                                 ['jpg', 'jpeg', 'png', 'gif', 'webp'].contains(file.extension)
                                                     ? Icons.image : Icons.videocam,
                                                 size: 16,
-                                                color: AppTheme.primaryWhite.withOpacity(0.7),
+                                                color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
                                               ),
                                               const SizedBox(width: 4),
                                               ConstrainedBox(
@@ -1171,7 +1187,7 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
                                                   maxLines: 1,
                                                   overflow: TextOverflow.ellipsis,
                                                   style: TextStyle(
-                                                    color: AppTheme.primaryWhite.withOpacity(0.7),
+                                                    color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
                                                     fontSize: 12,
                                                   ),
                                                 ),
@@ -1182,7 +1198,7 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
                                                 child: Icon(
                                                   Icons.close,
                                                   size: 16,
-                                                  color: AppTheme.primaryWhite.withOpacity(0.5),
+                                                  color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
                                                 ),
                                               ),
                                             ],
@@ -1201,8 +1217,8 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
                                         icon: Icon(
                                           Icons.attach_file,
                                           color: _selectedFiles.length >= 6
-                                              ? AppTheme.primaryWhite.withOpacity(0.3)
-                                              : AppTheme.primaryWhite,
+                                              ? (isDark ? const Color(0xFF6B7280) : const Color(0xFF9CA3AF))
+                                              : textColor,
                                         ),
                                         tooltip: _selectedFiles.length >= 6
                                             ? 'Maximum 6 files'
@@ -1212,7 +1228,7 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
                                         Text(
                                           '${_selectedFiles.length}/6',
                                           style: TextStyle(
-                                            color: AppTheme.primaryWhite.withOpacity(0.6),
+                                            color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
                                             fontSize: 12,
                                           ),
                                         ),
@@ -1220,12 +1236,12 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
                                       ElevatedButton.icon(
                                         onPressed: (_isSubmittingComment || _isUploadingAttachments) ? null : _submitComment,
                                         icon: (_isSubmittingComment || _isUploadingAttachments)
-                                            ? const SizedBox(
+                                            ? SizedBox(
                                               width: 16,
                                               height: 16,
                                               child: CircularProgressIndicator(
                                                 strokeWidth: 2,
-                                                color: AppTheme.primaryBlack,
+                                                color: isDark ? Colors.black : Colors.white,
                                               ),
                                             )
                                           : Icon(_editingCommentId != null ? Icons.save : Icons.send),
@@ -1237,8 +1253,8 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
                                                   : 'Comment',
                                         ),
                                         style: ElevatedButton.styleFrom(
-                                          backgroundColor: AppTheme.primaryWhite,
-                                          foregroundColor: AppTheme.primaryBlack,
+                                          backgroundColor: isDark ? Colors.white : Colors.black,
+                                          foregroundColor: isDark ? Colors.black : Colors.white,
                                         ),
                                       ),
                                     ],
@@ -1255,20 +1271,23 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
     );
   }
 
-  Widget _buildCommentCard(BugComment comment, AuthProvider authProvider) {
+  Widget _buildCommentCard(BugComment comment, AuthProvider authProvider, ThemeProvider themeProvider) {
     final isOwner = authProvider.user?.id == comment.user.id;
     final isAdmin = authProvider.user?.isAdmin ?? false;
     final canEdit = (isOwner || isAdmin) && _bug!.status != BugStatus.CLOSED;
     final canDelete = (isOwner || isAdmin) && _bug!.status != BugStatus.CLOSED;
+    final isDark = themeProvider.isDark;
+    final textColor = isDark ? Colors.white : Colors.black;
+    final cardColor = isDark ? const Color(0xFF18181B) : Colors.white;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: AppTheme.primaryWhite.withOpacity(0.05),
+        color: cardColor,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: AppTheme.primaryWhite.withOpacity(0.1),
+          color: isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
         ),
       ),
       child: Column(
@@ -1281,7 +1300,7 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
                 width: 36,
                 height: 36,
                 decoration: BoxDecoration(
-                  color: AppTheme.primaryWhite.withOpacity(0.2),
+                  color: isDark ? const Color(0xFF3F3F46) : const Color(0xFFD1D5DB),
                   borderRadius: BorderRadius.circular(8),
                   image: comment.user.avatarUrl != null
                       ? DecorationImage(
@@ -1294,8 +1313,8 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
                     ? Center(
                         child: Text(
                           comment.user.name[0].toUpperCase(),
-                          style: const TextStyle(
-                            color: AppTheme.primaryWhite,
+                          style: TextStyle(
+                            color: textColor,
                             fontSize: 14,
                             fontWeight: FontWeight.bold,
                           ),
@@ -1314,8 +1333,8 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
                         Flexible(
                           child: Text(
                             comment.user.name,
-                            style: const TextStyle(
-                              color: AppTheme.primaryWhite,
+                            style: TextStyle(
+                              color: textColor,
                               fontWeight: FontWeight.bold,
                               fontSize: 14,
                             ),
@@ -1351,14 +1370,14 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
                         Icon(
                           Icons.email_outlined,
                           size: 10,
-                          color: AppTheme.primaryWhite.withOpacity(0.5),
+                          color: (isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280)),
                         ),
                         const SizedBox(width: 3),
                         Flexible(
                           child: Text(
                             comment.user.email,
                             style: TextStyle(
-                              color: AppTheme.primaryWhite.withOpacity(0.6),
+                              color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
                               fontSize: 11,
                             ),
                             overflow: TextOverflow.ellipsis,
@@ -1373,13 +1392,13 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
                         Icon(
                           Icons.access_time,
                           size: 10,
-                          color: AppTheme.primaryWhite.withOpacity(0.5),
+                          color: (isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280)),
                         ),
                         const SizedBox(width: 3),
                         Text(
                           _formatDate(comment.createdAt),
                           style: TextStyle(
-                            color: AppTheme.primaryWhite.withOpacity(0.5),
+                            color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
                             fontSize: 11,
                           ),
                         ),
@@ -1389,18 +1408,18 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
                             child: Text(
                               '•',
                               style: TextStyle(
-                                color: AppTheme.primaryWhite.withOpacity(0.4),
+                                color: isDark ? const Color(0xFF6B7280) : const Color(0xFF9CA3AF),
                                 fontSize: 11,
                               ),
                             ),
                           ),
-                          Icon(Icons.devices, size: 10, color: AppTheme.primaryWhite.withOpacity(0.4)),
+                          Icon(Icons.devices, size: 10, color: isDark ? const Color(0xFF6B7280) : const Color(0xFF9CA3AF)),
                           const SizedBox(width: 3),
                           Flexible(
                             child: Text(
                               _getDeviceInfoString(comment.deviceInfo),
                               style: TextStyle(
-                                color: AppTheme.primaryWhite.withOpacity(0.4),
+                                color: isDark ? const Color(0xFF6B7280) : const Color(0xFF9CA3AF),
                                 fontSize: 10,
                               ),
                               overflow: TextOverflow.ellipsis,
@@ -1414,16 +1433,19 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
               ),
               if (canEdit || canDelete)
                 PopupMenuButton(
-                  icon: Icon(Icons.more_vert, color: AppTheme.primaryWhite.withOpacity(0.6)),
-                  color: AppTheme.primaryBlack,
+                  icon: Icon(
+                    Icons.more_vert,
+                    color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
+                  ),
+                  color: isDark ? const Color(0xFF27272A) : Colors.white,
                   itemBuilder: (context) => [
                     if (canEdit)
                       PopupMenuItem(
-                        child: const Row(
+                        child: Row(
                           children: [
-                            Icon(Icons.edit, size: 18, color: AppTheme.primaryWhite),
-                            SizedBox(width: 8),
-                            Text('Edit', style: TextStyle(color: AppTheme.primaryWhite)),
+                            Icon(Icons.edit, size: 18, color: isDark ? Colors.white : Colors.black),
+                            const SizedBox(width: 8),
+                            Text('Edit', style: TextStyle(color: isDark ? Colors.white : Colors.black)),
                           ],
                         ),
                         onTap: () {
@@ -1451,8 +1473,8 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
           const SizedBox(height: 8),
           Text(
             comment.content,
-            style: const TextStyle(
-              color: AppTheme.primaryWhite,
+            style: TextStyle(
+              color: textColor,
               fontSize: 14,
               height: 1.5,
             ),
@@ -1485,9 +1507,11 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
                       width: 100,
                       height: 100,
                       decoration: BoxDecoration(
-                        color: AppTheme.primaryWhite.withOpacity(0.1),
+                        color: isDark ? const Color(0xFF27272A) : const Color(0xFFF3F4F6),
                         borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: AppTheme.primaryWhite.withOpacity(0.2)),
+                        border: Border.all(
+                          color: isDark ? const Color(0xFF3F3F46) : const Color(0xFFD1D5DB),
+                        ),
                       ),
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(8),
@@ -1501,16 +1525,23 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
                                 placeholder: (context, url) => Center(
                                   child: CircularProgressIndicator(
                                     strokeWidth: 2,
-                                    color: AppTheme.primaryWhite,
+                                    color: isDark ? Colors.white : Colors.black,
                                   ),
                                 ),
-                                errorWidget: (context, url, error) => const Center(
-                                  child: Icon(Icons.broken_image, color: AppTheme.primaryWhite),
+                                errorWidget: (context, url, error) => Center(
+                                  child: Icon(
+                                    Icons.broken_image,
+                                    color: isDark ? Colors.white : Colors.black,
+                                  ),
                                 ),
                               )
                             else
                               Center(
-                                child: Icon(Icons.play_circle_outline, color: AppTheme.primaryWhite, size: 40),
+                                child: Icon(
+                                  Icons.play_circle_outline,
+                                  color: isDark ? Colors.white : Colors.black,
+                                  size: 40,
+                                ),
                               ),
                           ],
                         ),
@@ -1529,9 +1560,11 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       decoration: BoxDecoration(
-                        color: AppTheme.primaryWhite.withOpacity(0.1),
+                        color: isDark ? const Color(0xFF27272A) : const Color(0xFFF3F4F6),
                         borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: AppTheme.primaryWhite.withOpacity(0.2)),
+                        border: Border.all(
+                          color: isDark ? const Color(0xFF3F3F46) : const Color(0xFFD1D5DB),
+                        ),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
@@ -1541,7 +1574,7 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
                                 ? Icons.picture_as_pdf
                                 : Icons.insert_drive_file,
                             size: 20,
-                            color: AppTheme.primaryWhite.withOpacity(0.7),
+                            color: isDark ? const Color(0xFFD1D5DB) : const Color(0xFF374151),
                           ),
                           const SizedBox(width: 8),
                           ConstrainedBox(
@@ -1551,7 +1584,7 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
-                                color: AppTheme.primaryWhite.withOpacity(0.7),
+                                color: isDark ? const Color(0xFFD1D5DB) : const Color(0xFF374151),
                                 fontSize: 12,
                               ),
                             ),
@@ -1677,7 +1710,6 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
   Widget _buildAttachmentThumbnail(BugAttachment attachment, double width, double height) {
     final isImage = attachment.fileType.startsWith('image/');
     final isVideo = attachment.fileType.startsWith('video/');
-    final isDocument = !isImage && !isVideo;
 
     return GestureDetector(
       onTap: () => MediaViewerDialog.show(
@@ -1862,18 +1894,21 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
     return parts.join(' • ');
   }
 
-  Widget _buildDeviceInfo() {
+  Widget _buildDeviceInfo(ThemeProvider themeProvider) {
     if (_bug!.deviceInfo == null) return const SizedBox.shrink();
 
     final deviceInfo = _bug!.deviceInfo!;
+    final isDark = themeProvider.isDark;
+    final textColor = isDark ? Colors.white : Colors.black;
+    final cardColor = isDark ? const Color(0xFF18181B) : Colors.white;
 
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppTheme.primaryWhite.withOpacity(0.05),
+        color: cardColor,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: AppTheme.primaryWhite.withOpacity(0.1),
+          color: isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
         ),
       ),
       child: Column(
@@ -1882,12 +1917,12 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
           // Header
           Row(
             children: [
-              Icon(Icons.devices, size: 16, color: AppTheme.primaryWhite.withOpacity(0.7)),
+              Icon(Icons.devices, size: 16, color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280)),
               const SizedBox(width: 8),
-              const Text(
+              Text(
                 'Device Information',
                 style: TextStyle(
-                  color: AppTheme.primaryWhite,
+                  color: textColor,
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
                 ),
@@ -1907,6 +1942,7 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
                   icon: Icons.smartphone,
                   label: 'Platform',
                   value: deviceInfo['platform'].toString(),
+                  isDark: isDark,
                 ),
 
               // App Version
@@ -1915,6 +1951,7 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
                   icon: Icons.info_outline,
                   label: 'Version',
                   value: 'v${deviceInfo['appVersion']}',
+                  isDark: isDark,
                 ),
 
               // Build Number
@@ -1923,6 +1960,7 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
                   icon: Icons.build,
                   label: 'Build',
                   value: deviceInfo['buildNumber'].toString(),
+                  isDark: isDark,
                 ),
 
               // WEB specific
@@ -1931,6 +1969,7 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
                   icon: Icons.web,
                   label: 'Browser',
                   value: _formatBrowserName(deviceInfo['browserName'].toString()),
+                  isDark: isDark,
                 ),
 
               // Android specific
@@ -1939,6 +1978,7 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
                   icon: Icons.business,
                   label: 'Manufacturer',
                   value: deviceInfo['manufacturer'].toString(),
+                  isDark: isDark,
                 ),
 
               if (deviceInfo.containsKey('model'))
@@ -1946,6 +1986,7 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
                   icon: Icons.phone_android,
                   label: 'Model',
                   value: deviceInfo['model'].toString(),
+                  isDark: isDark,
                 ),
 
               if (deviceInfo.containsKey('androidVersion'))
@@ -1953,6 +1994,7 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
                   icon: Icons.android,
                   label: 'Android',
                   value: deviceInfo['androidVersion'].toString(),
+                  isDark: isDark,
                 ),
 
               // iOS specific
@@ -1961,6 +2003,7 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
                   icon: Icons.apple,
                   label: deviceInfo['systemName'].toString(),
                   value: deviceInfo['systemVersion']?.toString() ?? '',
+                  isDark: isDark,
                 ),
 
               // Windows specific
@@ -1969,6 +2012,7 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
                   icon: Icons.computer,
                   label: 'Computer',
                   value: deviceInfo['computerName'].toString(),
+                  isDark: isDark,
                 ),
 
               if (deviceInfo.containsKey('productName'))
@@ -1976,6 +2020,7 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
                   icon: Icons.monitor,
                   label: 'OS',
                   value: '${deviceInfo['productName']} ${deviceInfo['displayVersion'] ?? ''}',
+                  isDark: isDark,
                 ),
 
               if (deviceInfo.containsKey('numberOfCores'))
@@ -1983,6 +2028,7 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
                   icon: Icons.memory,
                   label: 'CPU Cores',
                   value: deviceInfo['numberOfCores'].toString(),
+                  isDark: isDark,
                 ),
 
               if (deviceInfo.containsKey('systemMemoryInMegabytes'))
@@ -1990,6 +2036,7 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
                   icon: Icons.storage,
                   label: 'RAM',
                   value: '${(deviceInfo['systemMemoryInMegabytes'] / 1024).toStringAsFixed(1)} GB',
+                  isDark: isDark,
                 ),
 
               // Linux specific
@@ -1998,6 +2045,7 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
                   icon: Icons.desktop_windows,
                   label: 'OS',
                   value: deviceInfo['prettyName'].toString(),
+                  isDark: isDark,
                 ),
 
               // macOS specific
@@ -2006,6 +2054,7 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
                   icon: Icons.laptop_mac,
                   label: 'Host',
                   value: deviceInfo['hostName'].toString(),
+                  isDark: isDark,
                 ),
 
               if (deviceInfo.containsKey('osRelease'))
@@ -2013,6 +2062,7 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
                   icon: Icons.info,
                   label: 'OS Release',
                   value: deviceInfo['osRelease'].toString(),
+                  isDark: isDark,
                 ),
             ],
           ),
@@ -2025,14 +2075,15 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
     required IconData icon,
     required String label,
     required String value,
+    bool isDark = true,
   }) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: AppTheme.primaryWhite.withOpacity(0.08),
+        color: isDark ? const Color(0xFF27272A) : const Color(0xFFF3F4F6),
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
-          color: AppTheme.primaryWhite.withOpacity(0.15),
+          color: isDark ? const Color(0xFF3F3F46) : const Color(0xFFD1D5DB),
         ),
       ),
       child: Row(
@@ -2041,7 +2092,7 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
           Icon(
             icon,
             size: 14,
-            color: AppTheme.primaryWhite.withOpacity(0.6),
+            color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
           ),
           const SizedBox(width: 6),
           Column(
@@ -2051,7 +2102,7 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
               Text(
                 label,
                 style: TextStyle(
-                  color: AppTheme.primaryWhite.withOpacity(0.5),
+                  color: isDark ? const Color(0xFF6B7280) : const Color(0xFF9CA3AF),
                   fontSize: 9,
                   fontWeight: FontWeight.w600,
                   letterSpacing: 0.5,
@@ -2060,7 +2111,7 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
               Text(
                 value,
                 style: TextStyle(
-                  color: AppTheme.primaryWhite.withOpacity(0.9),
+                  color: isDark ? const Color(0xFFD1D5DB) : const Color(0xFF374151),
                   fontSize: 12,
                   fontWeight: FontWeight.w500,
                 ),
@@ -2093,19 +2144,6 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
       default:
         return Colors.grey;
     }
-  }
-
-  Widget _buildActionButton(String label, Color color, VoidCallback onPressed) {
-    return ElevatedButton(
-      onPressed: onPressed,
-      style: ElevatedButton.styleFrom(
-        backgroundColor: color,
-        foregroundColor: Colors.white,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-      ),
-      child: Text(label),
-    );
   }
 
   IconData _getPlatformIcon(Platform platform) {

@@ -417,20 +417,38 @@ class _AppLayoutState extends State<AppLayout> {
   }
 
   List<Map<String, dynamic>> _getMenuItems(User user) {
+    // Order optimized by role priority (most important first for each role)
     final items = <Map<String, dynamic>>[
-      {'path': '/app/dashboard', 'label': 'Dashboard', 'icon': Icons.dashboard, 'roles': [UserRole.ADMIN, UserRole.MANAGER]},
-      {'path': '/app/approvals', 'label': 'Bookings', 'icon': Icons.pending_actions, 'roles': [UserRole.ADMIN, UserRole.MANAGER]},
-      {'path': '/app/calendar', 'label': 'New booking', 'icon': Icons.calendar_month, 'roles': [UserRole.ADMIN, UserRole.USER]},
-      {'path': '/app/agenda', 'label': 'Agenda', 'icon': Icons.view_timeline, 'roles': [UserRole.ADMIN, UserRole.MANAGER]},
-      {'path': '/app/my-bookings', 'label': 'My Bookings', 'icon': Icons.event_note, 'roles': [UserRole.USER]},
-      {'path': '/app/bug-reports', 'label': 'Bug Reports', 'icon': Icons.bug_report, 'roles': [UserRole.ADMIN, UserRole.MANAGER, UserRole.USER]},
-      {'path': '/app/users', 'label': 'Users', 'icon': Icons.people, 'roles': [UserRole.ADMIN, UserRole.MANAGER]},
-      {'path': '/app/activity-logs', 'label': 'Activity', 'icon': Icons.history, 'roles': [UserRole.ADMIN]},
+      // USER sees: Schedule → My Visits → Feedback (3 items)
+      {'path': '/app/calendar', 'label': 'Schedule', 'icon': Icons.calendar_month, 'roles': [UserRole.USER], 'order': 1},
+      {'path': '/app/my-bookings', 'label': 'My Visits', 'icon': Icons.event_note, 'roles': [UserRole.USER], 'order': 2},
+
+      // MANAGER sees: Pending → Agenda → Dashboard → Users → Feedback (5 items) - NO SCHEDULE
+      {'path': '/app/approvals', 'label': 'Pending', 'icon': Icons.pending_actions, 'roles': [UserRole.MANAGER], 'order': 1},
+      {'path': '/app/agenda', 'label': 'Agenda', 'icon': Icons.view_timeline, 'roles': [UserRole.MANAGER], 'order': 2},
+      {'path': '/app/dashboard', 'label': 'Dashboard', 'icon': Icons.dashboard, 'roles': [UserRole.MANAGER], 'order': 3},
+      {'path': '/app/users', 'label': 'Users', 'icon': Icons.people, 'roles': [UserRole.MANAGER], 'order': 4},
+
+      // ADMIN sees: Dashboard → Pending → Schedule → Agenda → Feedback → Users → Audit (7 items)
+      {'path': '/app/dashboard', 'label': 'Dashboard', 'icon': Icons.dashboard, 'roles': [UserRole.ADMIN], 'order': 1},
+      {'path': '/app/approvals', 'label': 'Pending', 'icon': Icons.pending_actions, 'roles': [UserRole.ADMIN], 'order': 2},
+      {'path': '/app/calendar', 'label': 'Schedule', 'icon': Icons.calendar_month, 'roles': [UserRole.ADMIN], 'order': 3},
+      {'path': '/app/agenda', 'label': 'Agenda', 'icon': Icons.view_timeline, 'roles': [UserRole.ADMIN], 'order': 4},
+      {'path': '/app/users', 'label': 'Users', 'icon': Icons.people, 'roles': [UserRole.ADMIN], 'order': 6},
+      {'path': '/app/activity-logs', 'label': 'Audit', 'icon': Icons.history, 'roles': [UserRole.ADMIN], 'order': 7},
+
+      // Feedback - available to all roles (last position)
+      {'path': '/app/bug-reports', 'label': 'Feedback', 'icon': Icons.feedback_outlined, 'roles': [UserRole.ADMIN, UserRole.MANAGER, UserRole.USER], 'order': 999},
     ];
 
-    return items.where((item) {
+    final filteredItems = items.where((item) {
       final roles = item['roles'] as List<UserRole>;
       return roles.contains(user.role);
     }).toList();
+
+    // Sort by order to ensure correct display sequence
+    filteredItems.sort((a, b) => (a['order'] as int).compareTo(b['order'] as int));
+
+    return filteredItems;
   }
 }

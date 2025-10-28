@@ -166,7 +166,7 @@ class _UsersScreenState extends State<UsersScreen> {
                   ),
                   const SizedBox(height: 8),
                   DropdownButtonFormField<String>(
-                    value: selectedRole,
+                    initialValue: selectedRole,
                     dropdownColor: isDark ? const Color(0xFF18181B) : Colors.white,
                     style: TextStyle(color: isDark ? Colors.white : Colors.black),
                     decoration: InputDecoration(

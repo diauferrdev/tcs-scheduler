@@ -1,5 +1,6 @@
 /// Stub implementation for non-web platforms
 /// These functions do nothing on mobile/desktop platforms
+library;
 
 void updatePageMetaImpl({
   required String title,

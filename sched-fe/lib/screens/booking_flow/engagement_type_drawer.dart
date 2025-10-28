@@ -5,9 +5,9 @@ class EngagementTypeDrawer extends StatefulWidget {
   final Function(String engagementType) onNext;
 
   const EngagementTypeDrawer({
-    Key? key,
+    super.key,
     required this.onNext,
-  }) : super(key: key);
+  });
 
   @override
   State<EngagementTypeDrawer> createState() => _EngagementTypeDrawerState();

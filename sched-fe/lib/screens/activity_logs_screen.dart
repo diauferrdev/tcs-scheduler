@@ -119,7 +119,7 @@ class _ActivityLogsScreenState extends State<ActivityLogsScreen> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      'Activity Logs',
+                      'Audit',
                       style: TextStyle(
                         fontSize: 32,
                         fontWeight: FontWeight.bold,

@@ -1,5 +1,6 @@
 /// Stub for dart:html for non-web platforms
 /// This file provides empty implementations for mobile/desktop
+library;
 
 class Location {
   String get hostname => '';

@@ -1628,7 +1628,7 @@ Enterprise Office Visit Management
             _buildInfoRow(
               Icons.event,
               'Visit Type',
-              _formatEnum(_booking!.visitType?.name ?? 'Not specified'),
+              _formatEnum(_booking!.visitType.name ?? 'Not specified'),
               isDark,
             ),
             if (_booking!.objectiveInterest != null && _booking!.objectiveInterest!.isNotEmpty)
