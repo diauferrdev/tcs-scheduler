@@ -312,7 +312,7 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
                                   itemCount: _ticket!.messages.length,
                                   itemBuilder: (context, index) {
                                     final message = _ticket!.messages[index];
-                                    final isCurrentUser = message.author?.id == user.id;
+                                    final isCurrentUser = message.author?.id == user.id ?? false;
                                     return _buildMessageBubble(
                                       message,
                                       isCurrentUser,
