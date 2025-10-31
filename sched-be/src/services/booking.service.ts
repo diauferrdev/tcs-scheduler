@@ -845,7 +845,7 @@ export async function updateBooking(id: string, data: BookingUpdateInput) {
     });
   }
 
-  // Broadcast booking update to all connected clients for real-time calendar updates
+  // Broadcast booking update to all connected clients for real-time schedule updates
   websocketService.broadcastBookingUpdated(booking);
   console.log('[Booking] Broadcast booking_updated to', websocketService.getTotalConnections(), 'connections');
 
@@ -888,7 +888,7 @@ export async function deleteBooking(id: string) {
   // NOTE: Notification sent via pushService.sendBookingCancelledNotification() in routes/bookings.ts
   // This handles both user and managers notifications to avoid duplicates
 
-  // Broadcast booking deletion to all connected clients for real-time calendar updates
+  // Broadcast booking deletion to all connected clients for real-time schedule updates
   websocketService.broadcastBookingDeleted(id);
   console.log('[Booking] Broadcast booking_deleted to', websocketService.getTotalConnections(), 'connections');
 
@@ -1166,7 +1166,7 @@ export async function approveBooking(bookingId: string, managerId: string) {
     console.error('Failed to send confirmation notifications to managers:', error);
   });
 
-  // Broadcast booking approval to all connected clients for real-time calendar updates
+  // Broadcast booking approval to all connected clients for real-time schedule updates
   websocketService.broadcastBookingApproved(updatedBooking);
   console.log('[Booking] Broadcast booking_approved to', websocketService.getTotalConnections(), 'connections');
 
@@ -1700,7 +1700,7 @@ export async function updateBookingWithStatusTransition(id: string, data: Bookin
     });
   }
 
-  // Broadcast booking update to all connected clients for real-time calendar updates
+  // Broadcast booking update to all connected clients for real-time schedule updates
   websocketService.broadcastBookingUpdated(booking);
   console.log('[Booking] Broadcast booking_updated to', websocketService.getTotalConnections(), 'connections');
 

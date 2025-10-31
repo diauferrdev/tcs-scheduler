@@ -377,7 +377,7 @@ class BookingFlowService {
       if (userRole == UserRole.USER) {
         navigationRoute = '/app/my-bookings?bookingId=$bookingId';
       } else {
-        navigationRoute = '/app/approvals';
+        navigationRoute = '/app/pending';
       }
       debugPrint('📍 [BookingFlow-$timestamp] Navigation route: $navigationRoute');
 

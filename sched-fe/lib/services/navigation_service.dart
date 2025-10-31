@@ -27,7 +27,7 @@ class NavigationService {
 
   /// Navigate to calendar with optional date
   void navigateToCalendar({DateTime? date}) {
-    navigateTo('/app/calendar');
+    navigateTo('/app/schedule');
     debugPrint('[NavigationService] Navigated to calendar${date != null ? ' with date: $date' : ''}');
   }
 
@@ -43,7 +43,7 @@ class NavigationService {
 
   /// Navigate to approvals
   void navigateToApprovals() {
-    navigateTo('/app/approvals');
+    navigateTo('/app/pending');
   }
 
   /// Navigate to agenda
@@ -53,7 +53,7 @@ class NavigationService {
 
   /// Navigate to my bookings
   void navigateToMyBookings() {
-    navigateTo('/app/my-bookings');
+    navigateTo('/app/my-visits');
   }
 
   /// Navigate to booking details (goes to My Bookings first, then opens details drawer)

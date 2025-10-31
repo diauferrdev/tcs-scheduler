@@ -76,7 +76,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
         final authProvider = context.read<AuthProvider>();
         final user = authProvider.user;
 
-        String destination = '/app/calendar'; // Default for USER
+        String destination = '/app/schedule'; // Default for USER
         if (user != null) {
           switch (user.role.name) {
             case 'ADMIN':
@@ -85,7 +85,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
               break;
             case 'USER':
             default:
-              destination = '/app/calendar';
+              destination = '/app/schedule';
           }
         }
 

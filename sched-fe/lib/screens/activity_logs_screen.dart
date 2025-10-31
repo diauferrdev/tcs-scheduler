@@ -115,26 +115,20 @@ class _ActivityLogsScreenState extends State<ActivityLogsScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'Audit',
-                      style: TextStyle(
-                        fontSize: 32,
-                        fontWeight: FontWeight.bold,
-                        color: isDark ? Colors.white : Colors.black,
-                      ),
+                if (_selectedAction != null || _selectedResource != null || _searchController.text.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 16),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        TextButton.icon(
+                          onPressed: _clearFilters,
+                          icon: const Icon(Icons.clear, size: 18),
+                          label: const Text('Clear Filters'),
+                        ),
+                      ],
                     ),
-                    if (_selectedAction != null || _selectedResource != null || _searchController.text.isNotEmpty)
-                      TextButton.icon(
-                        onPressed: _clearFilters,
-                        icon: const Icon(Icons.clear, size: 18),
-                        label: const Text('Clear Filters'),
-                      ),
-                  ],
-                ),
-                const SizedBox(height: 16),
+                  ),
 
                 // Search
                 TextField(

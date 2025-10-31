@@ -186,7 +186,7 @@ GoRouter createRouter(AuthProvider authProvider) {
             ),
           ),
           GoRoute(
-            path: '/app/calendar',
+            path: '/app/schedule',
             pageBuilder: (context, state) {
               final draftId = state.uri.queryParameters['draftId'];
               return _buildPageWithTransition(
@@ -224,7 +224,7 @@ GoRouter createRouter(AuthProvider authProvider) {
             ),
           ),
           GoRoute(
-            path: '/app/activity-logs',
+            path: '/app/audit',
             pageBuilder: (context, state) => _buildPageWithTransition(
               context,
               state,
@@ -238,12 +238,12 @@ GoRouter createRouter(AuthProvider authProvider) {
               state,
               const DrawerRouteScreen(
                 drawerType: DrawerType.notifications,
-                baseRoute: '/app/calendar',
+                baseRoute: '/app/schedule',
               ),
             ),
           ),
           GoRoute(
-            path: '/app/approvals',
+            path: '/app/pending',
             pageBuilder: (context, state) {
               final bookingId = state.uri.queryParameters['bookingId'];
               return _buildPageWithTransition(
@@ -254,7 +254,7 @@ GoRouter createRouter(AuthProvider authProvider) {
             },
           ),
           GoRoute(
-            path: '/app/my-bookings',
+            path: '/app/my-visits',
             pageBuilder: (context, state) {
               final bookingId = state.uri.queryParameters['bookingId'];
               return _buildPageWithTransition(
@@ -268,7 +268,7 @@ GoRouter createRouter(AuthProvider authProvider) {
             },
           ),
           GoRoute(
-            path: '/app/bug-reports',
+            path: '/app/feedback',
             pageBuilder: (context, state) => _buildPageWithTransition(
               context,
               state,
@@ -288,7 +288,7 @@ GoRouter createRouter(AuthProvider authProvider) {
                 DrawerRouteScreen(
                   drawerType: DrawerType.bookingDetails,
                   params: {'bookingId': bookingId},
-                  baseRoute: '/app/calendar',
+                  baseRoute: '/app/schedule',
                 ),
               );
             },
@@ -307,7 +307,7 @@ String _getMainScreenForRole(UserRole role) {
     case UserRole.MANAGER:
       return '/app/dashboard'; // Manager main screen
     case UserRole.USER:
-      return '/app/calendar'; // User main screen
+      return '/app/schedule'; // User main screen
   }
 }
 

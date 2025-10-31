@@ -140,9 +140,9 @@ class _AppLayoutState extends State<AppLayout> {
 
           const SizedBox(width: 8),
 
-          // User Profile Button
-          IconButton(
-            onPressed: () {
+          // User Profile Button with Avatar and Info
+          InkWell(
+            onTap: () {
               showModalBottomSheet(
                 context: context,
                 isScrollControlled: true,
@@ -152,11 +152,64 @@ class _AppLayoutState extends State<AppLayout> {
                 builder: (context) => const ProfileDrawer(),
               );
             },
-            icon: Icon(
-              Icons.person,
-              color: isDark ? Colors.white : Colors.black,
+            borderRadius: BorderRadius.circular(24),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Avatar
+                  CircleAvatar(
+                    radius: 18,
+                    backgroundColor: isDark ? const Color(0xFF27272A) : const Color(0xFFF3F4F6),
+                    backgroundImage: user.avatarUrl != null && user.avatarUrl!.isNotEmpty
+                        ? NetworkImage(user.avatarUrl!)
+                        : null,
+                    child: user.avatarUrl == null || user.avatarUrl!.isEmpty
+                        ? Text(
+                            user.name.isNotEmpty ? user.name[0].toUpperCase() : 'U',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              color: isDark ? Colors.white : Colors.black,
+                            ),
+                          )
+                        : null,
+                  ),
+                  if (!isMobile) ...[
+                    const SizedBox(width: 10),
+                    // User Info
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          user.name.length > 15 ? '${user.name.substring(0, 15)}...' : user.name,
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: isDark ? Colors.white : Colors.black,
+                          ),
+                        ),
+                        Text(
+                          _capitalizeRole(user.role.toString().split('.').last),
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(width: 4),
+                    Icon(
+                      Icons.keyboard_arrow_down,
+                      size: 18,
+                      color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
+                    ),
+                  ],
+                ],
+              ),
             ),
-            tooltip: 'Profile',
           ),
         ],
       ),
@@ -420,25 +473,25 @@ class _AppLayoutState extends State<AppLayout> {
     // Order optimized by role priority (most important first for each role)
     final items = <Map<String, dynamic>>[
       // USER sees: Schedule → My Visits → Feedback (3 items)
-      {'path': '/app/calendar', 'label': 'Schedule', 'icon': Icons.calendar_month, 'roles': [UserRole.USER], 'order': 1},
-      {'path': '/app/my-bookings', 'label': 'My Visits', 'icon': Icons.event_note, 'roles': [UserRole.USER], 'order': 2},
+      {'path': '/app/schedule', 'label': 'Schedule', 'icon': Icons.calendar_month, 'roles': [UserRole.USER], 'order': 1},
+      {'path': '/app/my-visits', 'label': 'My Visits', 'icon': Icons.event_note, 'roles': [UserRole.USER], 'order': 2},
 
       // MANAGER sees: Pending → Agenda → Dashboard → Users → Feedback (5 items) - NO SCHEDULE
-      {'path': '/app/approvals', 'label': 'Pending', 'icon': Icons.pending_actions, 'roles': [UserRole.MANAGER], 'order': 1},
+      {'path': '/app/pending', 'label': 'Pending', 'icon': Icons.pending_actions, 'roles': [UserRole.MANAGER], 'order': 1},
       {'path': '/app/agenda', 'label': 'Agenda', 'icon': Icons.view_timeline, 'roles': [UserRole.MANAGER], 'order': 2},
       {'path': '/app/dashboard', 'label': 'Dashboard', 'icon': Icons.dashboard, 'roles': [UserRole.MANAGER], 'order': 3},
       {'path': '/app/users', 'label': 'Users', 'icon': Icons.people, 'roles': [UserRole.MANAGER], 'order': 4},
 
       // ADMIN sees: Dashboard → Pending → Schedule → Agenda → Feedback → Users → Audit (7 items)
       {'path': '/app/dashboard', 'label': 'Dashboard', 'icon': Icons.dashboard, 'roles': [UserRole.ADMIN], 'order': 1},
-      {'path': '/app/approvals', 'label': 'Pending', 'icon': Icons.pending_actions, 'roles': [UserRole.ADMIN], 'order': 2},
-      {'path': '/app/calendar', 'label': 'Schedule', 'icon': Icons.calendar_month, 'roles': [UserRole.ADMIN], 'order': 3},
+      {'path': '/app/pending', 'label': 'Pending', 'icon': Icons.pending_actions, 'roles': [UserRole.ADMIN], 'order': 2},
+      {'path': '/app/schedule', 'label': 'Schedule', 'icon': Icons.calendar_month, 'roles': [UserRole.ADMIN], 'order': 3},
       {'path': '/app/agenda', 'label': 'Agenda', 'icon': Icons.view_timeline, 'roles': [UserRole.ADMIN], 'order': 4},
       {'path': '/app/users', 'label': 'Users', 'icon': Icons.people, 'roles': [UserRole.ADMIN], 'order': 6},
-      {'path': '/app/activity-logs', 'label': 'Audit', 'icon': Icons.history, 'roles': [UserRole.ADMIN], 'order': 7},
+      {'path': '/app/audit', 'label': 'Audit', 'icon': Icons.history, 'roles': [UserRole.ADMIN], 'order': 7},
 
       // Feedback - available to all roles (last position)
-      {'path': '/app/bug-reports', 'label': 'Feedback', 'icon': Icons.feedback_outlined, 'roles': [UserRole.ADMIN, UserRole.MANAGER, UserRole.USER], 'order': 999},
+      {'path': '/app/feedback', 'label': 'Feedback', 'icon': Icons.feedback_outlined, 'roles': [UserRole.ADMIN, UserRole.MANAGER, UserRole.USER], 'order': 999},
     ];
 
     final filteredItems = items.where((item) {
@@ -450,5 +503,10 @@ class _AppLayoutState extends State<AppLayout> {
     filteredItems.sort((a, b) => (a['order'] as int).compareTo(b['order'] as int));
 
     return filteredItems;
+  }
+
+  String _capitalizeRole(String role) {
+    if (role.isEmpty) return role;
+    return role[0].toUpperCase() + role.substring(1).toLowerCase();
   }
 }

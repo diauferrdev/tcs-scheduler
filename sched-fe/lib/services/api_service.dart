@@ -307,7 +307,7 @@ class ApiService {
     queryParams.add('offset=$offset');
 
     final query = queryParams.isNotEmpty ? '?${queryParams.join('&')}' : '';
-    return await get('/api/activity-logs$query');
+    return await get('/api/audit$query');
   }
 
   // Bookings Methods
@@ -652,12 +652,12 @@ class ApiService {
     if (order != null) queryParams.add('order=$order');
 
     final query = queryParams.isNotEmpty ? '?${queryParams.join('&')}' : '';
-    return await get('/api/bug-reports$query');
+    return await get('/api/feedback$query');
   }
 
   /// Get bug report by ID
   Future<Map<String, dynamic>> getBugReportById(String id) async {
-    return await get('/api/bug-reports/$id');
+    return await get('/api/feedback/$id');
   }
 
   /// Create bug report
@@ -668,7 +668,7 @@ class ApiService {
     Map<String, dynamic>? deviceInfo,
     dynamic attachments, // Can be List<String> or List<Map<String, dynamic>>
   }) async {
-    return await post('/api/bug-reports', {
+    return await post('/api/feedback', {
       'title': title,
       'description': description,
       'platform': platform,
@@ -684,7 +684,7 @@ class ApiService {
   ) async {
     return await _client
         .patch(
-          Uri.parse('${ApiConfig.baseUrl}/api/bug-reports/$id'),
+          Uri.parse('${ApiConfig.baseUrl}/api/feedback/$id'),
           headers: {
             ...ApiConfig.defaultHeaders,
             if (_sessionCookie != null) 'Cookie': _sessionCookie!,
@@ -697,33 +697,33 @@ class ApiService {
 
   /// Delete bug report (ADMIN only)
   Future<Map<String, dynamic>> deleteBugReport(String id) async {
-    return await delete('/api/bug-reports/$id');
+    return await delete('/api/feedback/$id');
   }
 
   /// Like a bug report
   Future<Map<String, dynamic>> likeBugReport(String id) async {
-    return await post('/api/bug-reports/$id/like', {});
+    return await post('/api/feedback/$id/like', {});
   }
 
   /// Unlike a bug report
   Future<Map<String, dynamic>> unlikeBugReport(String id) async {
-    return await delete('/api/bug-reports/$id/like');
+    return await delete('/api/feedback/$id/like');
   }
 
   /// Check if user has liked a bug report
   Future<bool> hasLikedBug(String id) async {
-    final response = await get('/api/bug-reports/$id/liked');
+    final response = await get('/api/feedback/$id/liked');
     return response['liked'] as bool;
   }
 
   /// Get bug statistics (ADMIN only)
   Future<Map<String, dynamic>> getBugStatistics() async {
-    return await get('/api/bug-reports/stats/overview');
+    return await get('/api/feedback/stats/overview');
   }
 
   /// Get comments for a bug report
   Future<dynamic> getBugComments(String bugId) async {
-    return await get('/api/bug-reports/$bugId/comments');
+    return await get('/api/feedback/$bugId/comments');
   }
 
   /// Create comment on bug report
@@ -732,7 +732,7 @@ class ApiService {
     String content, {
     Map<String, dynamic>? deviceInfo,
   }) async {
-    return await post('/api/bug-reports/$bugId/comments', {
+    return await post('/api/feedback/$bugId/comments', {
       'content': content,
       if (deviceInfo != null) 'deviceInfo': deviceInfo,
     });
@@ -745,7 +745,7 @@ class ApiService {
   ) async {
     return await _client
         .patch(
-          Uri.parse('${ApiConfig.baseUrl}/api/bug-reports/comments/$commentId'),
+          Uri.parse('${ApiConfig.baseUrl}/api/feedback/comments/$commentId'),
           headers: {
             ...ApiConfig.defaultHeaders,
             if (_sessionCookie != null) 'Cookie': _sessionCookie!,
@@ -758,7 +758,7 @@ class ApiService {
 
   /// Delete comment
   Future<Map<String, dynamic>> deleteBugComment(String commentId) async {
-    return await delete('/api/bug-reports/comments/$commentId');
+    return await delete('/api/feedback/comments/$commentId');
   }
 
   /// Upload attachments for comment (up to 6)
@@ -770,7 +770,7 @@ class ApiService {
 
     debugPrint('[API] Uploading ${files.length} attachments for comment $commentId');
 
-    final url = Uri.parse('${ApiConfig.baseUrl}/api/bug-reports/comments/$commentId/attachments');
+    final url = Uri.parse('${ApiConfig.baseUrl}/api/feedback/comments/$commentId/attachments');
     final request = http.MultipartRequest('POST', url);
 
     request.headers.addAll({
@@ -810,7 +810,7 @@ class ApiService {
 
     if (response.statusCode == 201 || response.statusCode == 200) {
       // Extract and save any cookies from response
-      await _extractAndSaveCookies(response, '/api/bug-reports/comments/$commentId/attachments');
+      await _extractAndSaveCookies(response, '/api/feedback/comments/$commentId/attachments');
       return jsonDecode(response.body);
     } else {
       throw Exception('Failed to upload comment attachments (${response.statusCode}): ${response.body}');

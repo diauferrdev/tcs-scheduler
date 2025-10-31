@@ -86,7 +86,7 @@ app.route('/api/bookings', bookingRoutes);
 app.route('/api/invitations', invitationRoutes);
 app.route('/api/analytics', analyticsRoutes);
 app.route('/api/analytics-fcm', analyticsFcmRoutes);
-app.route('/api/activity-logs', activityLogRoutes);
+app.route('/api/audit', activityLogRoutes);
 app.route('/api/push', pushRoutes);
 app.route('/api/og', ogRoutes);
 app.route('/api/test-notifications', testNotificationRoutes);
@@ -95,7 +95,7 @@ app.route('/api/fcm', fcmRoutes);
 app.route('/api/version', versionRoutes);
 app.route('/api/upload', uploadRoutes);
 app.route('/api/dashboard', dashboardRoutes);
-app.route('/api/bug-reports', bugReportRoutes);
+app.route('/api/feedback', bugReportRoutes);
 
 app.get('/health', (c) => c.json({
   status: 'ok',

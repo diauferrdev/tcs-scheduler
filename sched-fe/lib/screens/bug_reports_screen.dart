@@ -313,10 +313,6 @@ class _BugReportsScreenState extends State<BugReportsScreen> {
     return Scaffold(
       backgroundColor: backgroundColor,
       appBar: AppBar(
-        title: Text(
-          'Feedback',
-          style: TextStyle(color: textColor, fontWeight: FontWeight.w600),
-        ),
         backgroundColor: backgroundColor,
         elevation: 0,
         actions: [

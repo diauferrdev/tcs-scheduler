@@ -313,7 +313,7 @@ class DrawerService {
 
       // Remove /booking/:id routes
       if (baseRoute.startsWith('/app/booking/')) {
-        baseRoute = '/app/calendar'; // Default to calendar if coming from booking details
+        baseRoute = '/app/schedule'; // Default to calendar if coming from booking details
       }
 
       // Remove query params
@@ -329,10 +329,10 @@ class DrawerService {
     // Fallback to default routes
     switch (type) {
       case DrawerType.bookingDetails:
-        context.go('/app/calendar');
+        context.go('/app/schedule');
         break;
       case DrawerType.notifications:
-        context.go('/app/calendar');
+        context.go('/app/schedule');
         break;
       case DrawerType.bookingForm:
         // Usually stays on current page

@@ -490,37 +490,6 @@ class _UsersScreenState extends State<UsersScreen> {
       color: isDark ? Colors.black : const Color(0xFFF9FAFB),
       child: Column(
         children: [
-          // Header
-          Container(
-            padding: EdgeInsets.all(isMobile ? 16 : 24),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'Users',
-                  style: TextStyle(
-                    fontSize: 32,
-                    fontWeight: FontWeight.bold,
-                    color: isDark ? Colors.white : Colors.black,
-                  ),
-                ),
-                ElevatedButton.icon(
-                  onPressed: _showCreateUserDialog,
-                  icon: const Icon(Icons.add, size: 20),
-                  label: Text(isMobile ? 'New' : 'New User'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: isDark ? Colors.white : Colors.black,
-                    foregroundColor: isDark ? Colors.black : Colors.white,
-                    padding: EdgeInsets.symmetric(
-                      horizontal: isMobile ? 12 : 20,
-                      vertical: 12,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-
           // Content
           Expanded(
             child: _loading
@@ -601,7 +570,29 @@ class _UsersScreenState extends State<UsersScreen> {
       ),
     );
 
-    return widget.skipLayout ? content : AppLayout(child: content);
+    final contentWithFab = Stack(
+      children: [
+        content,
+        // Floating Action Button
+        Positioned(
+          bottom: 20,
+          right: 20,
+          child: FloatingActionButton.extended(
+            onPressed: _showCreateUserDialog,
+            backgroundColor: Colors.white,
+            foregroundColor: Colors.black,
+            icon: const Icon(Icons.person_add),
+            label: const Text(
+              'New User',
+              style: TextStyle(fontWeight: FontWeight.w600),
+            ),
+            elevation: 4,
+          ),
+        ),
+      ],
+    );
+
+    return widget.skipLayout ? contentWithFab : AppLayout(child: contentWithFab);
   }
 
   Widget _buildUserCard(User user, bool isDark, bool isMobile, User? currentUser) {

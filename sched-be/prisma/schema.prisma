@@ -110,6 +110,7 @@ model User {
   sessions         Session[]
   bookingsCreated  Booking[] @relation("CreatedBy")
   bookingsApproved Booking[] @relation("ApprovedBy")
+  bookingsRejected Booking[] @relation("RejectedBy")
   invitationsCreated Invitation[] @relation("InvitationCreator")
   activityLogs     ActivityLog[]
   pushSubscriptions PushSubscription[]
@@ -199,6 +200,7 @@ model Booking {
   // Rejection
   rejectionReason String?       @db.Text  // Reason for Not Approved status
   rejectedById    String?       // Manager who rejected
+  rejectedBy      User?         @relation("RejectedBy", fields: [rejectedById], references: [id])
   rejectedAt      DateTime?
 
   // Status Change Messages

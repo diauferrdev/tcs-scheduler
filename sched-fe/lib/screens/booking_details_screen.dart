@@ -671,7 +671,7 @@ Enterprise Office Visit Management
         return AlertDialog(
           backgroundColor: isDark ? const Color(0xFF18181B) : Colors.white,
           title: Text(
-            'Reject Booking',
+            'Not Approve Booking',
             style: TextStyle(color: isDark ? Colors.white : Colors.black),
           ),
           content: Column(
@@ -714,7 +714,7 @@ Enterprise Office Visit Management
                 Navigator.pop(context, true);
               },
               style: TextButton.styleFrom(foregroundColor: Colors.red),
-              child: const Text('Reject'),
+              child: const Text('Not Approve'),
             ),
           ],
         );
@@ -1334,6 +1334,9 @@ Enterprise Office Visit Management
   }
 
   Widget _buildViewMode(bool isDark) {
+    final authProvider = context.read<AuthProvider>();
+    final userRole = authProvider.user?.role;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1976,33 +1979,34 @@ Enterprise Office Visit Management
           ],
         ],
 
-        // Metadata
-        _buildInfoSection(
-          'Metadata',
-          [
-            _buildInfoRow(
-              Icons.access_time,
-              'Created',
-              DateFormat('MMM d, yyyy - HH:mm').format(_booking!.createdAt),
-              isDark,
-            ),
-            _buildInfoRow(
-              Icons.update,
-              'Updated',
-              DateFormat('MMM d, yyyy - HH:mm').format(_booking!.updatedAt),
-              isDark,
-            ),
-            if (_booking!.approvedAt != null)
+        // Metadata (only for ADMIN)
+        if (userRole == UserRole.ADMIN)
+          _buildInfoSection(
+            'Metadata',
+            [
               _buildInfoRow(
-                Icons.check_circle,
-                'Approved',
-                DateFormat('MMM d, yyyy - HH:mm').format(_booking!.approvedAt!),
+                Icons.access_time,
+                'Created',
+                DateFormat('MMM d, yyyy - HH:mm').format(_booking!.createdAt),
                 isDark,
               ),
-            _buildInfoRow(Icons.tag, 'ID', _booking!.id.substring(0, 8), isDark),
-          ],
-          isDark,
-        ),
+              _buildInfoRow(
+                Icons.update,
+                'Updated',
+                DateFormat('MMM d, yyyy - HH:mm').format(_booking!.updatedAt),
+                isDark,
+              ),
+              if (_booking!.approvedAt != null)
+                _buildInfoRow(
+                  Icons.check_circle,
+                  'Approved',
+                  DateFormat('MMM d, yyyy - HH:mm').format(_booking!.approvedAt!),
+                  isDark,
+                ),
+              _buildInfoRow(Icons.tag, 'ID', _booking!.id.substring(0, 8), isDark),
+            ],
+            isDark,
+          ),
 
         // Manager/Admin Actions for Review Statuses
         if (_booking!.status == BookingStatus.CREATED ||
@@ -2025,7 +2029,7 @@ Enterprise Office Visit Management
                   // Action buttons for CREATED, UNDER_REVIEW
                   if (_booking!.status == BookingStatus.CREATED ||
                       _booking!.status == BookingStatus.UNDER_REVIEW) ...[
-                    // Secondary actions first
+                    // First row: Change Request, Need Reschedule, Cancel
                     Row(
                       children: [
                         Expanded(
@@ -2069,31 +2073,6 @@ Enterprise Office Visit Management
                             ),
                           ),
                         ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: OutlinedButton.icon(
-                            onPressed: _processing ? null : _handleReject,
-                            icon: const Icon(Icons.close, size: 16),
-                            label: const Text(
-                              'Reject',
-                              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
-                            ),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: isDark ? Colors.white : Colors.black,
-                              side: BorderSide(
-                                color: isDark ? Colors.white.withOpacity(0.2) : Colors.black.withOpacity(0.2),
-                              ),
-                              padding: const EdgeInsets.symmetric(vertical: 10),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                            ),
-                          ),
-                        ),
                         const SizedBox(width: 8),
                         Expanded(
                           child: OutlinedButton.icon(
@@ -2118,35 +2097,61 @@ Enterprise Office Visit Management
                       ],
                     ),
                     const SizedBox(height: 8),
-                    // Approve button last (primary action)
-                    ElevatedButton.icon(
-                      onPressed: _processing ? null : _handleApprove,
-                      icon: _processing
-                          ? const SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                    // Second row: Not Approve (red) and Approve (green)
+                    Row(
+                      children: [
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: _processing ? null : _handleReject,
+                            icon: const Icon(Icons.close, size: 16),
+                            label: const Text(
+                              'Not Approve',
+                              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: isDark ? const Color(0xFF7F1D1D) : const Color(0xFFDC2626),
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(6),
                               ),
-                            )
-                          : const Icon(Icons.check, size: 16),
-                      label: const Text(
-                        'Approve',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
+                            ),
+                          ),
                         ),
-                      ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: isDark ? Colors.white : Colors.black,
-                        foregroundColor: isDark ? Colors.black : Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(6),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: _processing ? null : _handleApprove,
+                            icon: _processing
+                                ? const SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                    ),
+                                  )
+                                : const Icon(Icons.check, size: 16),
+                            label: const Text(
+                              'Approve',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: isDark ? const Color(0xFF065F46) : const Color(0xFF059669),
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                            ),
+                          ),
                         ),
-                      ),
+                      ],
                     ),
                   ],
 
@@ -2160,7 +2165,7 @@ Enterprise Office Visit Management
                             onPressed: _processing ? null : _handleReject,
                             icon: const Icon(Icons.close, size: 16),
                             label: const Text(
-                              'Reject',
+                              'Not Approve',
                               style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
                             ),
                             style: OutlinedButton.styleFrom(

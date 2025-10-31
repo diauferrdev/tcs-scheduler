@@ -1865,70 +1865,87 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
               final maxValue = [prospects, customers, partners, govt].reduce((a, b) => a > b ? a : b);
 
-              return Padding(
-                padding: const EdgeInsets.only(top: 20),
-                child: SizedBox(
-                  height: 220,
-                  child: SfCartesianChart(
-                    plotAreaBorderWidth: 0,
-                    primaryXAxis: CategoryAxis(
-                      majorGridLines: const MajorGridLines(width: 0),
-                      labelStyle: TextStyle(
-                        color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
-                        fontSize: 9,
-                        fontWeight: FontWeight.w500,
-                      ),
-                      axisLine: const AxisLine(width: 0),
-                    ),
-                    primaryYAxis: NumericAxis(
-                      majorGridLines: MajorGridLines(
-                        width: 1,
-                        color: (isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB)).withValues(alpha: 0.5),
-                      ),
-                      axisLine: const AxisLine(width: 0),
-                      labelStyle: TextStyle(
-                        color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
-                        fontSize: 8,
-                      ),
-                      minimum: 0,
-                      maximum: maxValue.toDouble() * 1.15,
-                    ),
-                    series: <CartesianSeries>[
-                      BarSeries<Map<String, dynamic>, String>(
-                        dataSource: chartData,
-                        xValueMapper: (data, _) => data['type'] as String,
-                        yValueMapper: (data, _) => (data['value'] as int).toDouble(),
-                        pointColorMapper: (data, _) => data['color'] as Color,
-                        borderRadius: const BorderRadius.horizontal(right: Radius.circular(4)),
-                        width: 0.6,
-                        dataLabelSettings: DataLabelSettings(
-                          isVisible: true,
-                          labelAlignment: ChartDataLabelAlignment.outer,
-                          textStyle: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.only(top: 20),
+                    child: SizedBox(
+                      height: 220,
+                      child: SfCartesianChart(
+                        plotAreaBorderWidth: 0,
+                        primaryXAxis: CategoryAxis(
+                          majorGridLines: const MajorGridLines(width: 0),
+                          labelStyle: TextStyle(
                             color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
+                            fontSize: 9,
+                            fontWeight: FontWeight.w500,
                           ),
+                          axisLine: const AxisLine(width: 0),
+                        ),
+                        primaryYAxis: NumericAxis(
+                          majorGridLines: MajorGridLines(
+                            width: 1,
+                            color: (isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB)).withValues(alpha: 0.5),
+                          ),
+                          axisLine: const AxisLine(width: 0),
+                          labelStyle: TextStyle(
+                            color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
+                            fontSize: 8,
+                          ),
+                          minimum: 0,
+                          maximum: maxValue.toDouble() * 1.15,
+                        ),
+                        series: <CartesianSeries>[
+                          BarSeries<Map<String, dynamic>, String>(
+                            dataSource: chartData,
+                            xValueMapper: (data, _) => data['type'] as String,
+                            yValueMapper: (data, _) => (data['value'] as int).toDouble(),
+                            pointColorMapper: (data, _) => data['color'] as Color,
+                            borderRadius: const BorderRadius.horizontal(right: Radius.circular(4)),
+                            width: 0.6,
+                            dataLabelSettings: DataLabelSettings(
+                              isVisible: true,
+                              labelAlignment: ChartDataLabelAlignment.outer,
+                              textStyle: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                                color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
+                              ),
+                            ),
+                          ),
+                        ],
+                        tooltipBehavior: TooltipBehavior(
+                          enable: true,
+                          format: 'point.x: point.y',
+                          color: isDark ? const Color(0xFF27272A) : const Color(0xFFF9FAFB),
+                          textStyle: TextStyle(
+                            color: isDark ? Colors.white : Colors.black,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w500,
+                          ),
+                          borderWidth: 1,
+                          borderColor: isDark ? const Color(0xFF3F3F46) : const Color(0xFFE5E7EB),
+                          elevation: 2,
+                          canShowMarker: false,
+                          duration: 500,
                         ),
                       ),
-                    ],
-                    tooltipBehavior: TooltipBehavior(
-                      enable: true,
-                      format: 'point.x: point.y',
-                      color: isDark ? const Color(0xFF27272A) : const Color(0xFFF9FAFB),
-                      textStyle: TextStyle(
-                        color: isDark ? Colors.white : Colors.black,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w500,
-                      ),
-                      borderWidth: 1,
-                      borderColor: isDark ? const Color(0xFF3F3F46) : const Color(0xFFE5E7EB),
-                      elevation: 2,
-                      canShowMarker: false,
-                      duration: 500,
                     ),
                   ),
-                ),
+                  const SizedBox(height: 16),
+                  Wrap(
+                    spacing: 12,
+                    runSpacing: 8,
+                    alignment: WrapAlignment.center,
+                    children: chartData.map((data) {
+                      final type = data['type'] as String;
+                      final value = data['value'] as int;
+                      final color = data['color'] as Color;
+                      return _buildLegendItem('$type ($value)', color, isDark);
+                    }).toList(),
+                  ),
+                ],
               );
             }(),
     );
@@ -1947,55 +1964,72 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
               // Simulate distribution - in reality would come from backend
               final data = [
-                {'type': 'PACE\nTour', 'value': (avgAttendees * 0.8).toDouble(), 'color': const Color(0xFFEF4444)},
-                {'type': 'PACE\nExp', 'value': (avgAttendees * 1.2).toDouble(), 'color': const Color(0xFFF05E1B)},
-                {'type': 'Innovation\nExch', 'value': (avgAttendees * 1.5).toDouble(), 'color': const Color(0xFF10B981)},
+                {'type': 'PACE\nTour', 'label': 'PACE Tour', 'value': (avgAttendees * 0.8).toDouble(), 'color': const Color(0xFFEF4444)},
+                {'type': 'PACE\nExp', 'label': 'PACE Experience', 'value': (avgAttendees * 1.2).toDouble(), 'color': const Color(0xFFF05E1B)},
+                {'type': 'Innovation\nExch', 'label': 'Innovation Exchange', 'value': (avgAttendees * 1.5).toDouble(), 'color': const Color(0xFF10B981)},
               ];
 
-              return Padding(
-                padding: const EdgeInsets.only(top: 30),
-                child: SizedBox(
-                  height: 200,
-                  child: SfCartesianChart(
-                    plotAreaBorderWidth: 0,
-                    primaryXAxis: CategoryAxis(
-                      majorGridLines: const MajorGridLines(width: 0),
-                      labelStyle: TextStyle(
-                        color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
-                        fontSize: 8,
-                      ),
-                      axisLine: const AxisLine(width: 0),
-                    ),
-                    primaryYAxis: NumericAxis(
-                      majorGridLines: MajorGridLines(
-                        width: 1,
-                        color: (isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB)).withValues(alpha: 0.5),
-                      ),
-                      axisLine: const AxisLine(width: 0),
-                      labelStyle: TextStyle(
-                        color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
-                        fontSize: 8,
-                      ),
-                    ),
-                    series: <CartesianSeries>[
-                      ColumnSeries<Map<String, dynamic>, String>(
-                        dataSource: data,
-                        xValueMapper: (data, _) => data['type'] as String,
-                        yValueMapper: (data, _) => data['value'] as double,
-                        pointColorMapper: (data, _) => data['color'] as Color,
-                        borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
-                        dataLabelSettings: DataLabelSettings(
-                          isVisible: true,
-                          textStyle: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                            color: isDark ? Colors.white : Colors.black,
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.only(top: 30),
+                    child: SizedBox(
+                      height: 200,
+                      child: SfCartesianChart(
+                        plotAreaBorderWidth: 0,
+                        primaryXAxis: CategoryAxis(
+                          majorGridLines: const MajorGridLines(width: 0),
+                          labelStyle: TextStyle(
+                            color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
+                            fontSize: 8,
+                          ),
+                          axisLine: const AxisLine(width: 0),
+                        ),
+                        primaryYAxis: NumericAxis(
+                          majorGridLines: MajorGridLines(
+                            width: 1,
+                            color: (isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB)).withValues(alpha: 0.5),
+                          ),
+                          axisLine: const AxisLine(width: 0),
+                          labelStyle: TextStyle(
+                            color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
+                            fontSize: 8,
                           ),
                         ),
+                        series: <CartesianSeries>[
+                          ColumnSeries<Map<String, dynamic>, String>(
+                            dataSource: data,
+                            xValueMapper: (data, _) => data['type'] as String,
+                            yValueMapper: (data, _) => data['value'] as double,
+                            pointColorMapper: (data, _) => data['color'] as Color,
+                            borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
+                            dataLabelSettings: DataLabelSettings(
+                              isVisible: true,
+                              textStyle: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                                color: isDark ? Colors.white : Colors.black,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
-                ),
+                  const SizedBox(height: 16),
+                  Wrap(
+                    spacing: 12,
+                    runSpacing: 8,
+                    alignment: WrapAlignment.center,
+                    children: data.map((item) {
+                      final label = item['label'] as String;
+                      final value = (item['value'] as double).toStringAsFixed(1);
+                      final color = item['color'] as Color;
+                      return _buildLegendItem('$label ($value)', color, isDark);
+                    }).toList(),
+                  ),
+                ],
               );
             }(),
     );

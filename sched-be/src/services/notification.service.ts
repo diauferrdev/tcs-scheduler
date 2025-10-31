@@ -10,7 +10,7 @@ interface CreateNotificationInput {
   userId: string;
   bookingId?: string;
   actionUrl?: string;
-  screen?: 'approvals' | 'booking_details' | 'my_bookings' | 'calendar' | 'notifications';
+  screen?: 'approvals' | 'booking_details' | 'my_bookings' | 'schedule' | 'notifications';
   metadata?: any;
 }
 
@@ -202,7 +202,7 @@ export async function notifyAllManagers(
         message,
         userId: manager.id,
         bookingId,
-        actionUrl: bookingId ? `/calendar?booking=${bookingId}` : undefined,
+        actionUrl: bookingId ? `/schedule?booking=${bookingId}` : undefined,
       })
     )
   );
@@ -240,7 +240,7 @@ export async function notifyBookingParticipants(
         message,
         userId: participant.userId,
         bookingId,
-        actionUrl: `/calendar?booking=${bookingId}`,
+        actionUrl: `/schedule?booking=${bookingId}`,
       })
     )
   );

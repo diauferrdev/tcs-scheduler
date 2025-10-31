@@ -146,7 +146,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         break;
       default:
         // Navigate to calendar for booking-related notifications
-        context.go('/app/calendar');
+        context.go('/app/schedule');
     }
   }
 
@@ -1005,7 +1005,7 @@ class _NotificationsDrawerState extends State<NotificationsDrawer> {
         router.go('/app/invitations');
         break;
       default:
-        router.go('/app/calendar');
+        router.go('/app/schedule');
     }
   }
 
