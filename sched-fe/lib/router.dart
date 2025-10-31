@@ -268,11 +268,11 @@ GoRouter createRouter(AuthProvider authProvider) {
             },
           ),
           GoRoute(
-            path: '/app/feedback',
+            path: '/app/support',
             pageBuilder: (context, state) => _buildPageWithTransition(
               context,
               state,
-              const BugReportsScreen(),
+              const BugReportsScreen(), // Will be renamed to TicketsScreen
             ),
           ),
           GoRoute(

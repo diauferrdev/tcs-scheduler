@@ -270,44 +270,8 @@ const BugAttachmentSchema = z.union([
   }),
 ]);
 
-export const BugReportCreateSchema = z.object({
-  title: z.string().min(5, 'Title must be at least 5 characters').max(200, 'Title must be less than 200 characters'),
-  description: z.string().min(10, 'Description must be at least 10 characters').max(5000, 'Description must be less than 5000 characters'),
-  platform: PlatformSchema,
-  deviceInfo: z.record(z.any()).optional(), // JSON object with device info
-  attachments: z.array(BugAttachmentSchema).max(6, 'Maximum 6 attachments allowed').optional(),
-});
-
-export const BugReportUpdateSchema = z.object({
-  title: z.string().min(5, 'Title must be at least 5 characters').max(200).optional(),
-  description: z.string().min(10, 'Description must be at least 10 characters').max(5000).optional(),
-  status: BugStatusSchema.optional(),
-  resolutionNotes: z.string().max(2000, 'Resolution notes must be less than 2000 characters').optional(),
-  attachments: z.array(z.object({
-    url: z.string(),
-    fileName: z.string(),
-    fileSize: z.number(),
-    fileType: z.string(),
-  })).max(6, 'Maximum 6 attachments allowed').optional(),
-  deleteAttachments: z.array(z.string()).optional(),
-});
-
-export const BugReportFilterSchema = z.object({
-  status: BugStatusSchema.optional(),
-  platform: PlatformSchema.optional(),
-  search: z.string().optional(), // Search in title and description
-  sortBy: z.enum(['createdAt', 'likeCount', 'updatedAt']).optional(),
-  order: z.enum(['asc', 'desc']).optional(),
-});
-
-export const BugCommentCreateSchema = z.object({
-  content: z.string().min(1, 'Comment cannot be empty').max(2000, 'Comment must be less than 2000 characters'),
-  deviceInfo: z.any().optional(),
-});
-
-export const BugCommentUpdateSchema = z.object({
-  content: z.string().min(1, 'Comment cannot be empty').max(2000, 'Comment must be less than 2000 characters'),
-});
+// Export ticket types
+export * from './ticket.types';
 
 // ==================== TYPE INFERENCE ====================
 
@@ -327,8 +291,3 @@ export type UserCreateInput = z.infer<typeof UserCreateSchema>;
 export type UserUpdateInput = z.infer<typeof UserUpdateSchema>;
 export type PasswordChangeInput = z.infer<typeof PasswordChangeSchema>;
 export type ProfileUpdateInput = z.infer<typeof ProfileUpdateSchema>;
-export type BugReportCreateInput = z.infer<typeof BugReportCreateSchema>;
-export type BugReportUpdateInput = z.infer<typeof BugReportUpdateSchema>;
-export type BugReportFilterInput = z.infer<typeof BugReportFilterSchema>;
-export type BugCommentCreateInput = z.infer<typeof BugCommentCreateSchema>;
-export type BugCommentUpdateInput = z.infer<typeof BugCommentUpdateSchema>;

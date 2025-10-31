@@ -89,13 +89,6 @@ enum Platform {
   WEB
 }
 
-enum BugStatus {
-  OPEN
-  IN_PROGRESS
-  RESOLVED
-  CLOSED
-}
-
 model User {
   id            String    @id @default(cuid())
   email         String    @unique
@@ -117,11 +110,11 @@ model User {
   bookingParticipations BookingParticipant[]
   notifications    Notification[]
   fcmTokens        FCMToken[]
-  bugReportsCreated BugReport[] @relation("ReportedBugs")
-  bugReportsResolved BugReport[] @relation("ResolvedBugs")
-  bugReportsClosed BugReport[] @relation("ClosedBugs")
-  bugLikes         BugLike[]
-  bugComments      BugComment[]
+  // Support Ticket System
+  ticketsCreated   Ticket[]         @relation("TicketCreator")
+  ticketsAssigned  Ticket[]         @relation("TicketAssignee")
+  ticketMessages   TicketMessage[]  @relation("TicketMessageAuthor")
+  ticketAttachments TicketAttachment[] @relation("TicketAttachmentUploader")
 
   @@index([email])
   @@index([role])
@@ -388,8 +381,16 @@ enum NotificationType {
   BOOKING_RESCHEDULED
   PARTICIPANT_CONFIRMED
   PARTICIPANT_REJECTED
-  BUG_REPORT_CREATED           // New bug report created (notify ADMINs)
-  BUG_REPORT_RESOLVED          // Bug report was marked as resolved
+
+  // Support Ticket Notifications
+  TICKET_CREATED               // New ticket created (notify ADMINs)
+  TICKET_NEW_MESSAGE           // New message in ticket
+  TICKET_STATUS_CHANGED        // Ticket status changed
+  TICKET_PRIORITY_CHANGED      // Ticket priority changed
+  TICKET_ASSIGNED              // Ticket assigned to admin
+  TICKET_RESOLVED              // Ticket marked as resolved
+  TICKET_CLOSED                // Ticket closed
+  TICKET_REOPENED              // Ticket reopened
 }
 
 model Notification {
@@ -462,113 +463,108 @@ model FCMAnalytics {
   @@index([clicked])
 }
 
-// ==================== BUG REPORTING SYSTEM ====================
+// ==================== SUPPORT TICKET SYSTEM ====================
 
-model BugReport {
-  id          String     @id @default(cuid())
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  WAITING_USER
+  WAITING_ADMIN
+  RESOLVED
+  CLOSED
+}
+
+enum TicketPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum TicketCategory {
+  BUG
+  FEATURE_REQUEST
+  QUESTION
+  IMPROVEMENT
+  OTHER
+}
+
+model Ticket {
+  id          String         @id @default(cuid())
   title       String
-  description String     @db.Text
-  platform    Platform
-  deviceInfo  Json?      // Device/browser info, OS version, app version, etc.
-  status      BugStatus  @default(OPEN)
+  description String         @db.Text
+  status      TicketStatus   @default(OPEN)
+  priority    TicketPriority @default(MEDIUM)
+  category    TicketCategory
+  platform    Platform?
 
-  // Attachments (images, videos, documents)
-  attachments BugAttachment[]
+  // Relationships
+  createdBy   User           @relation("TicketCreator", fields: [createdById], references: [id])
+  createdById String
+  assignedTo  User?          @relation("TicketAssignee", fields: [assignedToId], references: [id])
+  assignedToId String?
 
-  // Comments system (users can add more details)
-  comments    BugComment[]
+  // Messages & Attachments
+  messages    TicketMessage[]
+  attachments TicketAttachment[]
 
-  // Likes system
-  likes       BugLike[]
-  likeCount   Int        @default(0)  // Denormalized for performance
+  // Metadata
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  closedAt    DateTime?
 
-  // Reporter (who found the bug)
-  reportedById String
-  reportedBy   User      @relation("ReportedBugs", fields: [reportedById], references: [id])
-
-  // Resolver (ADMIN who marked as resolved)
-  resolvedById String?
-  resolvedBy   User?     @relation("ResolvedBugs", fields: [resolvedById], references: [id])
-  resolvedAt   DateTime?
-
-  // Resolution notes (optional message from ADMIN)
-  resolutionNotes String? @db.Text
-
-  // Closed by (ADMIN who moved to history)
-  closedById String?
-  closedBy   User?     @relation("ClosedBugs", fields: [closedById], references: [id])
-  closedAt   DateTime?
-
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-
+  @@index([createdById])
+  @@index([assignedToId])
   @@index([status])
-  @@index([platform])
-  @@index([reportedById])
-  @@index([likeCount])
+  @@index([priority])
+  @@index([category])
   @@index([createdAt])
 }
 
-model BugAttachment {
-  id          String    @id @default(cuid())
-  bugReportId String
-  bugReport   BugReport @relation(fields: [bugReportId], references: [id], onDelete: Cascade)
+model TicketMessage {
+  id         String    @id @default(cuid())
+  content    String    @db.Text
+  isInternal Boolean   @default(false) // Admin internal notes (not visible to user)
 
-  fileUrl     String    // URL to uploaded file
-  fileName    String    // Original filename
-  fileSize    Int       // Size in bytes
-  fileType    String    // MIME type
+  ticket     Ticket    @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  ticketId   String
 
-  createdAt   DateTime  @default(now())
+  author     User      @relation("TicketMessageAuthor", fields: [authorId], references: [id])
+  authorId   String
 
-  @@index([bugReportId])
-}
+  attachments TicketAttachment[]
 
-model BugLike {
-  id          String    @id @default(cuid())
-  bugReportId String
-  bugReport   BugReport @relation(fields: [bugReportId], references: [id], onDelete: Cascade)
+  // Read receipts
+  readAt     DateTime?
 
-  userId      String
-  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
 
-  createdAt   DateTime  @default(now())
-
-  @@unique([bugReportId, userId]) // One like per user per bug
-  @@index([bugReportId])
-  @@index([userId])
-}
-
-model BugComment {
-  id          String    @id @default(cuid())
-  bugReportId String
-  bugReport   BugReport @relation(fields: [bugReportId], references: [id], onDelete: Cascade)
-
-  content     String    @db.Text
-  deviceInfo  Json?     // Device information when comment was made
-
-  userId      String
-  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  attachments BugCommentAttachment[]
-
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-
-  @@index([bugReportId])
-  @@index([userId])
+  @@index([ticketId])
+  @@index([authorId])
   @@index([createdAt])
 }
 
-model BugCommentAttachment {
-  id        String     @id @default(cuid())
-  commentId String
-  comment   BugComment @relation(fields: [commentId], references: [id], onDelete: Cascade)
-  fileUrl   String
-  fileName  String
-  fileSize  Int
-  fileType  String
-  createdAt DateTime   @default(now())
+model TicketAttachment {
+  id          String          @id @default(cuid())
+  fileName    String
+  fileUrl     String
+  fileSize    Int
+  mimeType    String
 
-  @@index([commentId])
+  // Can be attached to ticket or message
+  ticket      Ticket?         @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  ticketId    String?
+
+  message     TicketMessage?  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  messageId   String?
+
+  uploadedBy  User            @relation("TicketAttachmentUploader", fields: [uploadedById], references: [id])
+  uploadedById String
+
+  createdAt   DateTime        @default(now())
+
+  @@index([ticketId])
+  @@index([messageId])
+  @@index([uploadedById])
 }
