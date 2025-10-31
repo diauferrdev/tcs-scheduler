@@ -82,7 +82,7 @@ class TicketMessage {
   final String content;
   final bool isInternal;
   final String ticketId;
-  final User? author;
+  final User author;
   final List<TicketAttachment> attachments;
   final DateTime? readAt;
   final DateTime createdAt;
@@ -93,7 +93,7 @@ class TicketMessage {
     required this.content,
     required this.isInternal,
     required this.ticketId,
-    this.author,
+    required this.author,
     required this.attachments,
     this.readAt,
     required this.createdAt,
@@ -106,7 +106,7 @@ class TicketMessage {
       content: json['content'],
       isInternal: json['isInternal'] ?? false,
       ticketId: json['ticketId'],
-      author: json['author'] != null ? User.fromJson(json['author']) : null,
+      author: User.fromJson(json['author']),
       attachments: (json['attachments'] as List?)
               ?.map((a) => TicketAttachment.fromJson(a))
               .toList() ??
@@ -123,7 +123,7 @@ class TicketMessage {
       'content': content,
       'isInternal': isInternal,
       'ticketId': ticketId,
-      'author': author?.toJson(),
+      'author': author.toJson(),
       'attachments': attachments.map((a) => a.toJson()).toList(),
       'readAt': readAt?.toIso8601String(),
       'createdAt': createdAt.toIso8601String(),

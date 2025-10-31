@@ -312,7 +312,7 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
                                   itemCount: _ticket!.messages.length,
                                   itemBuilder: (context, index) {
                                     final message = _ticket!.messages[index];
-                                    final isCurrentUser = message.author?.id == user.id ?? false;
+                                    final isCurrentUser = message.author.id == user.id;
                                     return _buildMessageBubble(
                                       message,
                                       isCurrentUser,
@@ -471,11 +471,6 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
         : (isDark ? const Color(0xFF27272A) : const Color(0xFFF4F4F5));
     final textColor = isCurrentUser ? Colors.black : (isDark ? Colors.white : Colors.black);
 
-    // Extract author info safely
-    final author = message.author;
-    final authorName = author?.name ?? 'Unknown';
-    final authorAvatar = author?.avatarUrl;
-
     return Align(
       alignment: isCurrentUser ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
@@ -487,16 +482,16 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
           crossAxisAlignment:
               isCurrentUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
           children: [
-            if (!isCurrentUser && author != null)
+            if (!isCurrentUser)
               Padding(
                 padding: const EdgeInsets.only(left: 8, bottom: 4),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    _buildMessageAvatar(authorAvatar, authorName),
+                    _buildMessageAvatar(message.author.avatarUrl, message.author.name),
                     const SizedBox(width: 6),
                     Text(
-                      authorName,
+                      message.author.name,
                       style: const TextStyle(
                         color: Colors.grey,
                         fontSize: 12,
