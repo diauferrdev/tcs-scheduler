@@ -310,33 +310,22 @@ class _BugReportsScreenState extends State<BugReportsScreen> {
     final textColor = themeProvider.isDark ? AppTheme.primaryWhite : Colors.black;
     final cardColor = themeProvider.isDark ? AppTheme.primaryWhite.withOpacity(0.05) : Colors.white;
 
-    return Scaffold(
-      backgroundColor: backgroundColor,
-      appBar: AppBar(
-        backgroundColor: backgroundColor,
-        elevation: 0,
-        actions: [
-          if (_selectedStatus != null || _selectedPlatform != null || _searchController.text.isNotEmpty)
-            IconButton(
-              icon: Icon(Icons.filter_alt_off, color: textColor),
-              onPressed: _clearFilters,
-              tooltip: 'Clear Filters',
-            ),
-        ],
-      ),
-      body: Column(
-        children: [
+    final bodyContent = Column(
+      children: [
           // Search Bar
           Container(
             padding: const EdgeInsets.all(16),
             color: backgroundColor,
-            child: TextField(
-              controller: _searchController,
-              style: TextStyle(color: textColor),
-              decoration: InputDecoration(
-                hintText: 'Search by title or description...',
-                hintStyle: TextStyle(color: textColor.withOpacity(0.5)),
-                prefixIcon: Icon(Icons.search, color: textColor),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _searchController,
+                    style: TextStyle(color: textColor),
+                    decoration: InputDecoration(
+                      hintText: 'Search by title or description...',
+                      hintStyle: TextStyle(color: textColor.withOpacity(0.5)),
+                      prefixIcon: Icon(Icons.search, color: textColor),
                 suffixIcon: _searchController.text.isNotEmpty
                     ? IconButton(
                         icon: Icon(Icons.clear, color: textColor),
@@ -351,9 +340,20 @@ class _BugReportsScreenState extends State<BugReportsScreen> {
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                   borderSide: BorderSide.none,
+                      ),
+                    ),
+                    onSubmitted: (_) => _loadBugReports(),
+                  ),
                 ),
-              ),
-              onSubmitted: (_) => _loadBugReports(),
+                if (_selectedStatus != null || _selectedPlatform != null)
+                  const SizedBox(width: 8),
+                if (_selectedStatus != null || _selectedPlatform != null)
+                  IconButton(
+                    icon: Icon(Icons.filter_alt_off, color: textColor),
+                    onPressed: _clearFilters,
+                    tooltip: 'Clear Filters',
+                  ),
+              ],
             ),
           ),
 
@@ -455,13 +455,30 @@ class _BugReportsScreenState extends State<BugReportsScreen> {
                           ),
           ),
         ],
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _navigateToCreateBug,
-        backgroundColor: AppTheme.primaryWhite,
-        foregroundColor: AppTheme.primaryBlack,
-        icon: const Icon(Icons.add),
-        label: const Text('Report Bug'),
+      );
+
+    return Scaffold(
+      backgroundColor: backgroundColor,
+      body: Stack(
+        children: [
+          bodyContent,
+          // Floating Action Button
+          Positioned(
+            bottom: 20,
+            right: 20,
+            child: FloatingActionButton.extended(
+              onPressed: _navigateToCreateBug,
+              backgroundColor: Colors.white,
+              foregroundColor: Colors.black,
+              icon: const Icon(Icons.add),
+              label: const Text(
+                'Report Bug',
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
+              elevation: 4,
+            ),
+          ),
+        ],
       ),
     );
   }

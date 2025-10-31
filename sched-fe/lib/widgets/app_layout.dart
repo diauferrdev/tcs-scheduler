@@ -162,19 +162,38 @@ class _AppLayoutState extends State<AppLayout> {
                   CircleAvatar(
                     radius: 18,
                     backgroundColor: isDark ? const Color(0xFF27272A) : const Color(0xFFF3F4F6),
-                    backgroundImage: user.avatarUrl != null && user.avatarUrl!.isNotEmpty
-                        ? NetworkImage(user.avatarUrl!)
-                        : null,
-                    child: user.avatarUrl == null || user.avatarUrl!.isEmpty
-                        ? Text(
+                    child: user.avatarUrl != null && user.avatarUrl!.isNotEmpty
+                        ? ClipOval(
+                            child: Image.network(
+                              user.avatarUrl!.startsWith('http')
+                                  ? user.avatarUrl!
+                                  : 'https://api.ppspsched.lat${user.avatarUrl}',
+                              width: 36,
+                              height: 36,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) {
+                                // Fallback to initials if image fails to load
+                                return Center(
+                                  child: Text(
+                                    user.name.isNotEmpty ? user.name[0].toUpperCase() : 'U',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.bold,
+                                      color: isDark ? Colors.white : Colors.black,
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                          )
+                        : Text(
                             user.name.isNotEmpty ? user.name[0].toUpperCase() : 'U',
                             style: TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.bold,
                               color: isDark ? Colors.white : Colors.black,
                             ),
-                          )
-                        : null,
+                          ),
                   ),
                   if (!isMobile) ...[
                     const SizedBox(width: 10),
