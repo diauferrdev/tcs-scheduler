@@ -62,11 +62,43 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
       _ws.connect(userId);
       _wsSubscription = _ws.messages.listen((message) {
         if (!mounted) return;
-        final type = message['type'] as String?;
-        final ticketId = message['ticketId'] as String?;
+        debugPrint('[TicketDetail] WS Message: $message');
 
-        if ((type == 'ticket_updated' || type == 'ticket_message') &&
-            ticketId == widget.ticketId) {
+        final type = message['type'] as String?;
+
+        if (type == 'ticket_message') {
+          final data = message['data'];
+          final ticketId = data?['ticketId'] as String?;
+
+          if (ticketId == widget.ticketId) {
+            // Add message to the list in real-time without reloading
+            try {
+              final newMessage = TicketMessage.fromJson(data);
+              setState(() {
+                if (_ticket != null) {
+                  // Check if message already exists to avoid duplicates
+                  final exists = _ticket!.messages.any((m) => m.id == newMessage.id);
+                  if (!exists) {
+                    _ticket!.messages.add(newMessage);
+                    // Auto-scroll to bottom
+                    Future.delayed(const Duration(milliseconds: 100), () {
+                      if (_scrollController.hasClients) {
+                        _scrollController.animateTo(
+                          _scrollController.position.maxScrollExtent,
+                          duration: const Duration(milliseconds: 300),
+                          curve: Curves.easeOut,
+                        );
+                      }
+                    });
+                  }
+                }
+              });
+            } catch (e) {
+              debugPrint('[TicketDetail] Error parsing message: $e');
+            }
+          }
+        } else if (type == 'ticket_updated') {
+          // Reload full ticket for other updates
           _loadTicket();
         }
       });
@@ -152,8 +184,7 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
 
       if (!mounted) return;
 
-      // Reload to get new message
-      await _loadTicket();
+      // Message will arrive via WebSocket, no need to reload
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -200,7 +231,7 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
     }
 
     final isDark = themeProvider.isDark;
-    final backgroundColor = isDark ? Colors.black : const Color(0xFFF9FAFB);
+    final backgroundColor = isDark ? Colors.black : Colors.white;
     final textColor = isDark ? Colors.white : Colors.black;
     final cardColor = isDark ? const Color(0xFF18181B) : Colors.white;
 
@@ -314,29 +345,48 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
 
                         // Messages
                         Expanded(
-                          child: _ticket!.messages.isEmpty
-                              ? Center(
-                                  child: Text(
-                                    'No messages yet',
-                                    style: TextStyle(
-                                      color: textColor.withOpacity(0.5),
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: isDark ? Colors.black : Colors.white,
+                            ),
+                            child: _ticket!.messages.isEmpty
+                                ? Center(
+                                    child: Text(
+                                      'No messages yet',
+                                      style: TextStyle(
+                                        color: textColor.withOpacity(0.5),
+                                      ),
                                     ),
-                                  ),
-                                )
-                              : ListView.builder(
+                                  )
+                                : ListView.builder(
                                   controller: _scrollController,
                                   padding: const EdgeInsets.all(16),
                                   itemCount: _ticket!.messages.length,
                                   itemBuilder: (context, index) {
                                     final message = _ticket!.messages[index];
                                     final isCurrentUser = message.author.id == user.id;
+
+                                    // Check if should show avatar (not grouped with previous)
+                                    bool showAvatar = true;
+                                    if (index > 0) {
+                                      final prevMessage = _ticket!.messages[index - 1];
+                                      final isSameAuthor = prevMessage.author.id == message.author.id;
+                                      final timeDiff = message.createdAt.difference(prevMessage.createdAt);
+                                      // Group if same author and within 5 minutes
+                                      if (isSameAuthor && timeDiff.inMinutes < 5) {
+                                        showAvatar = false;
+                                      }
+                                    }
+
                                     return _buildMessageBubble(
                                       message,
                                       isCurrentUser,
                                       isDark,
+                                      showAvatar,
                                     );
                                   },
                                 ),
+                          ),
                         ),
 
                         // Message Input
@@ -482,65 +532,174 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
     TicketMessage message,
     bool isCurrentUser,
     bool isDark,
+    bool showAvatar, // Whether to show avatar (first message in group)
   ) {
-    final bubbleColor = isCurrentUser
-        ? Colors.white
-        : (isDark ? const Color(0xFF27272A) : const Color(0xFFF4F4F5));
-    final textColor = isCurrentUser ? Colors.black : (isDark ? Colors.white : Colors.black);
+    // Strict black and white brand colors
+    // Light mode: ALL messages = black background with white text
+    // Dark mode: ALL messages = white background with black text
+    final bubbleColor = isDark ? Colors.white : Colors.black;
+    final textColor = isDark ? Colors.black : Colors.white;
 
     return Align(
       alignment: isCurrentUser ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
+        margin: EdgeInsets.only(
+          bottom: showAvatar ? 12 : 3,
+        ),
         constraints: BoxConstraints(
           maxWidth: MediaQuery.of(context).size.width * 0.7,
         ),
         child: Column(
-          crossAxisAlignment:
-              isCurrentUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+          crossAxisAlignment: isCurrentUser
+              ? CrossAxisAlignment.end
+              : CrossAxisAlignment.start,
           children: [
-            if (!isCurrentUser)
-              Padding(
-                padding: const EdgeInsets.only(left: 8, bottom: 4),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    _buildMessageAvatar(message.author.avatarUrl, message.author.name),
-                    const SizedBox(width: 6),
-                    Text(
-                      message.author.name,
-                      style: const TextStyle(
-                        color: Colors.grey,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+            // Message bubble
             Container(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
                 color: bubbleColor,
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.only(
+                  topLeft: const Radius.circular(12),
+                  topRight: const Radius.circular(12),
+                  bottomLeft: isCurrentUser ? const Radius.circular(12) : Radius.zero,
+                  bottomRight: isCurrentUser ? Radius.zero : const Radius.circular(12),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 2,
+                    offset: const Offset(0, 1),
+                  ),
+                ],
               ),
-              child: Text(
-                message.content,
-                style: TextStyle(color: textColor),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Display attachments if any
+                  if (message.attachments.isNotEmpty) ...[
+                    ...message.attachments.map((attachment) =>
+                      _buildAttachmentPreview(attachment, isDark)
+                    ),
+                    const SizedBox(height: 6),
+                  ],
+                  // Message content
+                  Text(
+                    message.content,
+                    style: TextStyle(
+                      color: textColor,
+                      fontSize: 14.5,
+                      height: 1.4,
+                    ),
+                  ),
+                ],
               ),
             ),
+            // Time and checkmarks OUTSIDE the bubble
             Padding(
-              padding: const EdgeInsets.only(top: 4, left: 8, right: 8),
-              child: Text(
-                _formatTime(message.createdAt),
-                style: const TextStyle(
-                  color: Colors.grey,
-                  fontSize: 11,
-                ),
+              padding: EdgeInsets.only(
+                top: 2,
+                left: isCurrentUser ? 0 : 12,
+                right: isCurrentUser ? 12 : 0,
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    _formatTime(message.createdAt),
+                    style: TextStyle(
+                      color: Colors.grey.shade600,
+                      fontSize: 11,
+                    ),
+                  ),
+                  // Read receipts for all messages
+                  const SizedBox(width: 4),
+                  Icon(
+                    Icons.done_all,
+                    size: 14,
+                    color: message.readAt != null
+                        ? Colors.blue
+                        : Colors.grey.shade500,
+                  ),
+                ],
               ),
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildAttachmentPreview(TicketAttachment attachment, bool isDark) {
+    final isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp'].any(
+      (ext) => attachment.fileName.toLowerCase().endsWith(ext),
+    );
+    final isVideo = ['mp4', 'webm', 'mov'].any(
+      (ext) => attachment.fileName.toLowerCase().endsWith(ext),
+    );
+
+    if (isImage) {
+      return Container(
+        margin: const EdgeInsets.only(bottom: 4),
+        constraints: const BoxConstraints(maxHeight: 250, maxWidth: 250),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: Image.network(
+            _getAvatarUrl(attachment.fileUrl),
+            fit: BoxFit.cover,
+            loadingBuilder: (context, child, loadingProgress) {
+              if (loadingProgress == null) return child;
+              return Container(
+                height: 200,
+                color: Colors.black12,
+                child: const Center(
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              );
+            },
+            errorBuilder: (context, error, stackTrace) {
+              return Container(
+                height: 100,
+                color: Colors.black12,
+                child: const Center(
+                  child: Icon(Icons.broken_image, size: 32, color: Colors.black38),
+                ),
+              );
+            },
+          ),
+        ),
+      );
+    }
+
+    // For videos and other files, show a compact link
+    return Container(
+      margin: const EdgeInsets.only(bottom: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.black.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            isVideo ? Icons.play_circle_filled : Icons.insert_drive_file,
+            size: 18,
+            color: Colors.black54,
+          ),
+          const SizedBox(width: 6),
+          Flexible(
+            child: Text(
+              attachment.fileName,
+              style: const TextStyle(
+                fontSize: 13,
+                color: Colors.black87,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -26,9 +26,7 @@ class User {
         (e) => e.name == json['role'],
         orElse: () => UserRole.USER,
       ),
-      createdAt: json['createdAt'] != null
-          ? DateTime.parse(json['createdAt'] as String)
-          : DateTime.now(),
+      createdAt: DateTime.parse(json['createdAt'] as String),
       avatarUrl: json['avatarUrl'] as String?,
     );
   }

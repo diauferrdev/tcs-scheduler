@@ -3,6 +3,7 @@ import { zValidator } from '@hono/zod-validator';
 import { TicketCreateSchema, TicketUpdateSchema, TicketFilterSchema, TicketMessageCreateSchema } from '../types/ticket.types';
 import * as ticketService from '../services/ticket.service';
 import * as pushService from '../services/push.service';
+import * as wsService from '../services/websocket.service';
 import { authMiddleware } from '../middleware/auth';
 import type { AppContext } from '../lib/context';
 import { prisma } from '../lib/prisma';
@@ -292,6 +293,35 @@ app.post('/:id/messages', authMiddleware, zValidator('json', TicketMessageCreate
       }
     } catch (error) {
       console.error('Error sending message notification:', error);
+    }
+
+    // Send real-time WebSocket update
+    try {
+      const userIdsToNotify: string[] = [];
+
+      if (user.role === 'ADMIN') {
+        // Notify ticket creator
+        userIdsToNotify.push(ticket.createdById);
+      } else {
+        // Notify assigned admin or all admins
+        if (ticket.assignedToId) {
+          userIdsToNotify.push(ticket.assignedToId);
+        } else {
+          const admins = await prisma.user.findMany({
+            where: { role: 'ADMIN', isActive: true },
+            select: { id: true },
+          });
+          userIdsToNotify.push(...admins.map(a => a.id));
+        }
+      }
+
+      // Also notify the sender so their message appears immediately
+      userIdsToNotify.push(user.id);
+
+      wsService.sendTicketMessage(userIdsToNotify, message);
+      console.log(`[WS] Sent ticket message to ${userIdsToNotify.length} user(s)`);
+    } catch (error) {
+      console.error('Error sending WebSocket message:', error);
     }
 
     return c.json(message, 201);

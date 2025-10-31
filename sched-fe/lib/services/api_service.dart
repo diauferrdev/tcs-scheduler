@@ -655,6 +655,78 @@ class ApiService {
     return _handleResponse(response);
   }
 
+  /// Upload attachment (image, video, or document) for tickets
+  /// Works on both mobile and web by accepting bytes directly
+  Future<Map<String, dynamic>> uploadAttachment(List<int> fileBytes, String fileName) async {
+    await initialize();
+
+    final url = Uri.parse('${ApiConfig.baseUrl}/api/upload/attachment');
+    final request = http.MultipartRequest('POST', url);
+
+    // Add all necessary headers
+    request.headers.addAll({
+      ...ApiConfig.defaultHeaders,
+      'Accept': 'application/json',
+    });
+
+    // Remove Content-Type as it will be set automatically by MultipartRequest
+    request.headers.remove('Content-Type');
+
+    // Add session cookie
+    if (_sessionCookie != null) {
+      request.headers['Cookie'] = _sessionCookie!;
+    }
+
+    // Detect MIME type from file extension
+    MediaType contentType = _getMediaType(fileName);
+
+    // Add file from bytes (works on web and mobile)
+    request.files.add(http.MultipartFile.fromBytes(
+      'file',
+      fileBytes,
+      filename: fileName,
+      contentType: contentType,
+    ));
+
+    debugPrint('[API] Uploading attachment - Size: ${fileBytes.length} bytes, Name: $fileName');
+
+    // Send using the same client to maintain session
+    final streamedResponse = await _client.send(request).timeout(const Duration(minutes: 5));
+    final response = await http.Response.fromStream(streamedResponse);
+
+    debugPrint('[API] Upload response status: ${response.statusCode}');
+
+    return _handleResponse(response);
+  }
+
+  /// Helper to get MediaType from file extension
+  MediaType _getMediaType(String fileName) {
+    final extension = fileName.toLowerCase().split('.').last;
+
+    // Images
+    if (['jpg', 'jpeg'].contains(extension)) return MediaType('image', 'jpeg');
+    if (extension == 'png') return MediaType('image', 'png');
+    if (extension == 'gif') return MediaType('image', 'gif');
+    if (extension == 'webp') return MediaType('image', 'webp');
+
+    // Videos
+    if (extension == 'mp4') return MediaType('video', 'mp4');
+    if (extension == 'webm') return MediaType('video', 'webm');
+    if (extension == 'mov') return MediaType('video', 'quicktime');
+
+    // Documents
+    if (extension == 'pdf') return MediaType('application', 'pdf');
+    if (extension == 'doc') return MediaType('application', 'msword');
+    if (extension == 'docx') return MediaType('application', 'vnd.openxmlformats-officedocument.wordprocessingml.document');
+    if (extension == 'xls') return MediaType('application', 'vnd.ms-excel');
+    if (extension == 'xlsx') return MediaType('application', 'vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    if (extension == 'csv') return MediaType('text', 'csv');
+    if (extension == 'txt') return MediaType('text', 'plain');
+
+    // Fallback
+    return MediaType('application', 'octet-stream');
+  }
+
   // ==================== BUG REPORTS METHODS ====================
 
   /// Get all bug reports with optional filters

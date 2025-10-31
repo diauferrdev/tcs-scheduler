@@ -8,6 +8,24 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as path;
 
+// Global storage for web file bytes (path -> bytes)
+// This is needed because on web, File objects don't have real filesystem access
+final Map<String, Uint8List> _webFileBytes = {};
+
+/// Helper function to read file bytes (handles both web and mobile)
+/// On web, checks the global storage first, falls back to File.readAsBytes()
+Future<Uint8List> readFileBytes(File file) async {
+  if (kIsWeb) {
+    // Check if we have bytes stored for this file
+    final bytes = _webFileBytes[file.path];
+    if (bytes != null) {
+      return bytes;
+    }
+  }
+  // Fall back to normal file reading
+  return await file.readAsBytes();
+}
+
 /// A bottom sheet widget for picking attachments from camera, gallery, or files
 /// Works on Web, Mobile (iOS/Android), and Desktop
 class AttachmentPicker extends StatelessWidget {
@@ -382,19 +400,22 @@ class AttachmentPicker extends StatelessWidget {
 
   /// Create a File from bytes (for web platform)
   Future<File> _createFileFromBytes(Uint8List bytes, String filename) async {
-    // Get temporary directory
-    final tempDir = await getTemporaryDirectory();
-
-    // Create a unique file path
+    // On web, create a virtual file path with timestamp
     final timestamp = DateTime.now().millisecondsSinceEpoch;
     final extension = path.extension(filename);
     final baseName = path.basenameWithoutExtension(filename);
     final uniqueFilename = '${baseName}_$timestamp$extension';
-    final filePath = path.join(tempDir.path, uniqueFilename);
 
-    // Write bytes to file
+    // Use a virtual path for web (no actual filesystem)
+    final filePath = '/temp/$uniqueFilename';
+
+    // Store bytes in global map for later retrieval
+    _webFileBytes[filePath] = bytes;
+
+    // Create file object reference (doesn't write to actual filesystem on web)
     final file = File(filePath);
-    await file.writeAsBytes(bytes);
+
+    debugPrint('[AttachmentPicker] Web file created: $filePath (${bytes.length} bytes)');
 
     return file;
   }

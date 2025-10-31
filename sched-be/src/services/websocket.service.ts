@@ -129,6 +129,9 @@ export type WebSocketMessage =
   | { type: 'bug_comment_created'; data: any }
   | { type: 'bug_comment_updated'; data: any }
   | { type: 'bug_comment_deleted'; data: any }
+  | { type: 'ticket_created'; data: any }
+  | { type: 'ticket_updated'; data: any }
+  | { type: 'ticket_message'; data: any }
   | { type: 'ping' }
   | { type: 'pong' };
 
@@ -211,5 +214,21 @@ export function sendParticipantResponse(userIds: string[], response: any) {
   return sendToMultipleUsers(userIds, {
     type: 'participant_response',
     data: response,
+  });
+}
+
+// Ticket real-time events
+export function broadcastTicketCreated(ticket: any) {
+  return broadcast({ type: 'ticket_created', data: ticket });
+}
+
+export function broadcastTicketUpdated(ticket: any) {
+  return broadcast({ type: 'ticket_updated', data: ticket });
+}
+
+export function sendTicketMessage(userIds: string[], message: any) {
+  return sendToMultipleUsers(userIds, {
+    type: 'ticket_message',
+    data: message,
   });
 }

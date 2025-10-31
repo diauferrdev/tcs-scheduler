@@ -263,9 +263,10 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
       case BookingStatus.CREATED:
         return const Color(0xFF6B7280);
       case BookingStatus.UNDER_REVIEW:
-      case BookingStatus.NEED_EDIT:
       case BookingStatus.NEED_RESCHEDULE:
         return const Color(0xFFF05E1B);
+      case BookingStatus.NEED_EDIT:
+        return const Color(0xFFEAB308); // Yellow for Change Request
       case BookingStatus.APPROVED:
         return const Color(0xFF10B981);
       case BookingStatus.NOT_APPROVED:
