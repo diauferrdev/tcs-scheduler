@@ -38,7 +38,7 @@ class ToastNotification {
       case ToastType.warning:
         backgroundColor = isDark ? const Color(0xFF78350F) : const Color(0xFFFEF3C7);
         textColor = isDark ? const Color(0xFFFEF3C7) : const Color(0xFF78350F);
-        iconColor = isDark ? const Color(0xFFF59E0B) : const Color(0xFFD97706);
+        iconColor = isDark ? const Color(0xFFF05E1B) : const Color(0xFFD97706);
         icon = Icons.warning;
         break;
       case ToastType.info:

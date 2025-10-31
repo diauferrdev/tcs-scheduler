@@ -265,7 +265,7 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
       case BookingStatus.UNDER_REVIEW:
       case BookingStatus.NEED_EDIT:
       case BookingStatus.NEED_RESCHEDULE:
-        return const Color(0xFFF59E0B);
+        return const Color(0xFFF05E1B);
       case BookingStatus.APPROVED:
         return const Color(0xFF10B981);
       case BookingStatus.NOT_APPROVED:
@@ -504,7 +504,7 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
               decoration: BoxDecoration(
-                color: const Color(0xFFF59E0B),
+                color: const Color(0xFFF05E1B),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Text(

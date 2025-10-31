@@ -336,7 +336,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       width: 0.2,
                       sizeUnit: GaugeSizeUnit.factor,
                       gradient: const SweepGradient(
-                        colors: <Color>[Color(0xFFEF4444), Color(0xFFFBBF24), Color(0xFF10B981)],
+                        colors: <Color>[Color(0xFFEF4444), Color(0xFFF05E1B), Color(0xFF10B981)],
                         stops: <double>[0.0, 0.5, 1.0],
                       ),
                     ),
@@ -876,7 +876,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 chartData.add({
                   'type': 'PACE Experience',
                   'value': dist.paceExperience,
-                  'color': const Color(0xFFFBBF24),
+                  'color': const Color(0xFFF05E1B),
                 });
               }
               if (dist.innovationExchange > 0) {
@@ -1074,7 +1074,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               final govt = dist['GOVERNMENTAL_INSTITUTION'] ?? 0;
 
               final funnelData = [
-                {'stage': 'Prospects', 'value': prospects, 'color': const Color(0xFFFBBF24)},
+                {'stage': 'Prospects', 'value': prospects, 'color': const Color(0xFFF05E1B)},
                 {'stage': 'Partners', 'value': partners, 'color': const Color(0xFF3B82F6)},
                 {'stage': 'Customers', 'value': customers, 'color': const Color(0xFF10B981)},
                 {'stage': 'Government', 'value': govt, 'color': const Color(0xFFEF4444)},
@@ -1220,7 +1220,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           : () {
               final breakdown = _stats!.statusBreakdown;
               final stages = [
-                {'label': 'Under Review', 'value': breakdown.underReview, 'color': const Color(0xFFFBBF24)},
+                {'label': 'Under Review', 'value': breakdown.underReview, 'color': const Color(0xFFF05E1B)},
                 {'label': 'Need Edit', 'value': breakdown.needEdit, 'color': const Color(0xFFF97316)},
                 {'label': 'Need Reschedule', 'value': breakdown.needReschedule, 'color': const Color(0xFF8B5CF6)},
                 {'label': 'Approved', 'value': breakdown.approved, 'color': const Color(0xFF10B981)},
@@ -1804,7 +1804,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Color _getChartColor(int index) {
     final colors = [
       const Color(0xFFEF4444), // red
-      const Color(0xFFFBBF24), // yellow
+      const Color(0xFFF05E1B), // yellow
       const Color(0xFF10B981), // green
       const Color(0xFF3B82F6), // blue
       const Color(0xFF8B5CF6), // purple
@@ -1812,7 +1812,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       const Color(0xFF06B6D4), // cyan
       const Color(0xFFEC4899), // pink
       const Color(0xFF14B8A6), // teal
-      const Color(0xFFF59E0B), // amber
+      const Color(0xFFF05E1B), // amber
       const Color(0xFF6366F1), // indigo
       const Color(0xFF84CC16), // lime
       const Color(0xFFA855F7), // violet
@@ -1857,7 +1857,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               if (total == 0) return _buildNoData(isDark);
 
               final chartData = [
-                {'type': 'Prospects', 'value': prospects, 'color': const Color(0xFFFBBF24)},
+                {'type': 'Prospects', 'value': prospects, 'color': const Color(0xFFF05E1B)},
                 {'type': 'Customers', 'value': customers, 'color': const Color(0xFF10B981)},
                 {'type': 'Partners', 'value': partners, 'color': const Color(0xFF3B82F6)},
                 {'type': 'Government', 'value': govt, 'color': const Color(0xFFEF4444)},
@@ -1948,7 +1948,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               // Simulate distribution - in reality would come from backend
               final data = [
                 {'type': 'PACE\nTour', 'value': (avgAttendees * 0.8).toDouble(), 'color': const Color(0xFFEF4444)},
-                {'type': 'PACE\nExp', 'value': (avgAttendees * 1.2).toDouble(), 'color': const Color(0xFFFBBF24)},
+                {'type': 'PACE\nExp', 'value': (avgAttendees * 1.2).toDouble(), 'color': const Color(0xFFF05E1B)},
                 {'type': 'Innovation\nExch', 'value': (avgAttendees * 1.5).toDouble(), 'color': const Color(0xFF10B981)},
               ];
 
@@ -2038,7 +2038,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           dataSource: [{'x': 'Engagement'}],
                           xValueMapper: (data, _) => data['x'] as String,
                           yValueMapper: (_, __) => basic.toDouble(),
-                          color: const Color(0xFFFBBF24),
+                          color: const Color(0xFFF05E1B),
                           borderRadius: const BorderRadius.vertical(bottom: Radius.circular(4)),
                           dataLabelSettings: const DataLabelSettings(isVisible: false),
                         ),
@@ -2081,7 +2081,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       runSpacing: 8,
                       alignment: WrapAlignment.center,
                       children: [
-                        _buildLegendItem('Basic Visit ($basic)', const Color(0xFFFBBF24), isDark),
+                        _buildLegendItem('Basic Visit ($basic)', const Color(0xFFF05E1B), isDark),
                         _buildLegendItem('+ Questionnaire ($questionnaire)', const Color(0xFF10B981), isDark),
                         _buildLegendItem('+ Alignment Call ($fullEngagement)', const Color(0xFFEF4444), isDark),
                       ],
@@ -2274,8 +2274,8 @@ class _ScatterChartWidget extends StatelessWidget {
           xValueMapper: (_VisitData visits, _) => visits.period,
           yValueMapper: (_VisitData visits, _) => visits.paceExperience,
           name: 'PACE Experience',
-          color: const Color(0xFFFBBF24).withValues(alpha: 0.7), // Yellow from palette
-          borderColor: const Color(0xFFFBBF24),
+          color: const Color(0xFFF05E1B).withValues(alpha: 0.7), // Yellow from palette
+          borderColor: const Color(0xFFF05E1B),
           borderWidth: 2,
         ),
         StackedAreaSeries<_VisitData, String>(

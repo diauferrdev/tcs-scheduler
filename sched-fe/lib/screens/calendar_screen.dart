@@ -1,6 +1,7 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/gestures.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:share_plus/share_plus.dart';
@@ -57,6 +58,11 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
   DateTime? _tappedDate;
   int _currentBadgeIndex = 0;
   CalendarViewType _viewType = CalendarViewType.month;
+  String _selectedTab = 'Month';
+
+  // PageView state for seamless month scrolling
+  late PageController _pageController;
+  int _currentPage = 12; // Start at index 12 (allows scrolling 12 months back)
 
   // Availability state
   final Map<String, DayAvailability> _availabilityCache = {};
@@ -76,6 +82,7 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
   @override
   void initState() {
     super.initState();
+    _pageController = PageController(initialPage: _currentPage);
     _selectedDate = DateTime.now(); // Select current day by default
     _loadBookings();
     _loadDayAvailability(_selectedDate!); // Load availability for current day
@@ -215,6 +222,7 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
     _realtimeService.removeBookingUpdatedListener(_onBookingUpdatedListener);
     _realtimeService.removeBookingApprovedListener(_onBookingApprovedListener);
     _realtimeService.removeBookingDeletedListener(_onBookingDeletedListener);
+    _pageController.dispose();
     super.dispose();
   }
 
@@ -1160,15 +1168,15 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
                 )
               : Column(
                   children: [
-                    // Compact calendar with indicators (55% of space - more room)
+                    // Compact calendar with indicators (70% of space - more room)
                     Expanded(
-                      flex: 55,
+                      flex: 70,
                       child: _buildCompactCalendar(isDark, isMobile, authProvider),
                     ),
                     const SizedBox(height: 12),
-                    // Events list for selected day (45% of space - scrollable if needed)
+                    // Events list for selected day (30% of space - scrollable if needed)
                     Expanded(
-                      flex: 45,
+                      flex: 30,
                       child: _buildEventsSection(isDark, isMobile, isUserRole),
                     ),
                   ],
@@ -1177,12 +1185,38 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
 
     final wrapped = widget.skipLayout ? content : AppLayout(child: content);
 
+    // Determine if FAB should be shown
+    final today = DateTime.now();
+    final canCreateBooking = _selectedDate != null &&
+        authProvider.user?.role != UserRole.ADMIN &&
+        _isDateBookable(_selectedDate!) &&
+        _getAvailableSlots(_selectedDate!).isNotEmpty;
+
     return Stack(
       children: [
         wrapped,
         // Cancel confirmation dialog
         if (_showCancelDialog)
           _buildCancelDialog(isDark),
+        // Floating Action Button for creating new events
+        if (canCreateBooking)
+          Positioned(
+            bottom: 20,
+            right: 20,
+            child: FloatingActionButton.extended(
+              onPressed: () {
+                _handleDayClick(_selectedDate!);
+              },
+              backgroundColor: Colors.white,
+              foregroundColor: Colors.black,
+              icon: const Icon(Icons.add_circle),
+              label: const Text(
+                'New Event',
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
+              elevation: 4,
+            ),
+          ),
       ],
     );
   }
@@ -1264,79 +1298,112 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
     final firstWeekday = firstDayOfMonth.weekday % 7; // 0 = Sunday
     final daysInMonth = lastDayOfMonth.day;
 
-    final weekDays = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+    final weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
     return Container(
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF18181B) : Colors.white,
+        color: Colors.black,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
-        ),
       ),
       padding: const EdgeInsets.all(12),
       child: Column(
         children: [
-          // Month navigation header (integrated)
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          // New month navigation header with calendar icon and expand/collapse
+          Column(
             children: [
-              IconButton(
-                onPressed: _previousMonth,
-                icon: const Icon(Icons.chevron_left, size: 20),
-                color: isDark ? Colors.white : Colors.black,
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-              ),
-              Expanded(
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      DateFormat('MMMM yyyy').format(_currentMonth),
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: isDark ? Colors.white : Colors.black,
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  // Calendar icon + date label
+                  // Date + Tabs in the same row
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.calendar_today,
+                        size: 18,
+                        color: Colors.white,
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    // Today button
-                    GestureDetector(
-                      onTap: _goToToday,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: (isDark ? Colors.white : Colors.black).withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(4),
-                          border: Border.all(
-                            color: isDark ? Colors.white.withOpacity(0.3) : Colors.black.withOpacity(0.3),
-                            width: 1,
-                          ),
-                        ),
-                        child: Text(
-                          'Today',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: isDark ? Colors.white : Colors.black,
-                          ),
+                      const SizedBox(width: 8),
+                      Text(
+                        DateFormat('yyyy/MM').format(_currentMonth),
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
                         ),
                       ),
-                    ),
-                  ],
-                ),
-              ),
-              IconButton(
-                onPressed: _nextMonth,
-                icon: const Icon(Icons.chevron_right, size: 20),
-                color: isDark ? Colors.white : Colors.black,
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                    ],
+                  ),
+                  // Month/Year tabs - subtle gray selection
+                  Row(
+                    children: [
+                      // Month tab
+                      GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            _selectedTab = 'Month';
+                          });
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: _selectedTab == 'Month' ? const Color(0xFF1F1F1F) : Colors.transparent,
+                            borderRadius: const BorderRadius.only(
+                              topLeft: Radius.circular(4),
+                              bottomLeft: Radius.circular(4),
+                            ),
+                            border: Border.all(
+                              color: Colors.white.withOpacity(0.2),
+                              width: 1,
+                            ),
+                          ),
+                          child: Text(
+                            'Month',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: _selectedTab == 'Month' ? Colors.white : Colors.white.withOpacity(0.5),
+                            ),
+                          ),
+                        ),
+                      ),
+                      // Year tab
+                      GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            _selectedTab = 'Year';
+                          });
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: _selectedTab == 'Year' ? const Color(0xFF1F1F1F) : Colors.transparent,
+                            borderRadius: const BorderRadius.only(
+                              topRight: Radius.circular(4),
+                              bottomRight: Radius.circular(4),
+                            ),
+                            border: Border.all(
+                              color: Colors.white.withOpacity(0.2),
+                              width: 1,
+                            ),
+                          ),
+                          child: Text(
+                            'Year',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: _selectedTab == 'Year' ? Colors.white : Colors.white.withOpacity(0.5),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 24),  // More breathing room between tabs and weekdays
 
           // Week days header
           Row(
@@ -1355,186 +1422,288 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
               );
             }).toList(),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 0),  // Very close to calendar grid
 
-          // Calendar days grid - Fixed 5 rows
+          // Calendar days grid - PageView for seamless month scrolling
           Expanded(
-            child: Column(
-              children: List.generate(5, (weekIndex) {
-                return Expanded(
-                  child: Row(
-                    children: List.generate(7, (dayIndex) {
-                      final cellIndex = weekIndex * 7 + dayIndex;
-                      final dayNumber = cellIndex - firstWeekday + 1;
+            child: ScrollConfiguration(
+              behavior: ScrollConfiguration.of(context).copyWith(
+                dragDevices: {
+                  PointerDeviceKind.touch,
+                  PointerDeviceKind.mouse,
+                },
+              ),
+              child: PageView.builder(
+                controller: _pageController,
+                scrollDirection: Axis.vertical,
+                physics: const PageScrollPhysics(),
+                padEnds: false,
+                onPageChanged: (page) {
+                  setState(() {
+                    _currentPage = page;
+                    // Calculate month offset from initial page (12)
+                    final monthOffset = page - 12;
+                    final now = DateTime.now();
+                    _currentMonth = DateTime(now.year, now.month + monthOffset, 1);
+                  });
+                },
+                itemBuilder: (context, index) {
+                  // Calculate month offset from initial page (12)
+                  final monthOffset = index - 12;
+                  final now = DateTime.now();
+                  final month = DateTime(now.year, now.month + monthOffset, 1);
 
-                      // Only show days from current month
-                      if (dayNumber < 1 || dayNumber > daysInMonth) {
-                        return const Expanded(child: SizedBox());
-                      }
-
-                      final day = DateTime(_currentMonth.year, _currentMonth.month, dayNumber);
-                      final isToday = day.year == today.year && day.month == today.month && day.day == today.day;
-                      final isPast = day.isBefore(DateTime(today.year, today.month, today.day));
-                      final isSelected = _selectedDate != null &&
-                          _selectedDate!.year == day.year &&
-                          _selectedDate!.month == day.month &&
-                          _selectedDate!.day == day.day;
-
-                      final dayBookings = _getBookingsForDay(day);
-                      final availableSlots = _getAvailableSlots(day);
-
-                      // Check for pending vs confirmed bookings
-                      final hasPendingBookings = dayBookings.any((b) => b.status == BookingStatus.UNDER_REVIEW || b.status == BookingStatus.CREATED || b.status == BookingStatus.NEED_EDIT || b.status == BookingStatus.NEED_RESCHEDULE);
-                      final hasConfirmedBookings = dayBookings.any((b) => b.status == BookingStatus.APPROVED);
-
-                      // Only APPROVED bookings block periods
-                      final confirmedBookings = dayBookings.where((b) =>
-                        b.status == BookingStatus.APPROVED
-                      ).toList();
-
-                      // Check if day is bookable (past or before minimum 7 business days)
-                      final isBookable = _isDateBookable(day);
-
-                      // Calculate period occupation for better color logic
-                      // Only APPROVED bookings occupy periods
-                      bool morningOccupied = false;
-                      bool afternoonOccupied = false;
-
-                      // 1. Check APPROVED bookings only
-                      for (final booking in confirmedBookings) {
-                        final startHour = int.parse(booking.startTime.split(':')[0]);
-                        final durationHours = {
-                          VisitDuration.ONE_HOUR: 1,
-                          VisitDuration.TWO_HOURS: 2,
-                          VisitDuration.THREE_HOURS: 3,
-                          VisitDuration.FOUR_HOURS: 4,
-                          VisitDuration.FIVE_HOURS: 5,
-                          VisitDuration.SIX_HOURS: 6,
-                        }[booking.duration] ?? 2;
-                        final endHour = startHour + durationHours;
-
-                        if (startHour < 13 && endHour > 9) morningOccupied = true;
-                        if (startHour < 17 && endHour > 13) afternoonOccupied = true;
-                      }
-
-                      // 2. Check Innovation Exchange prep/teardown blocks
-                      final ieBlocks = _calculateInnovationExchangeBlocks();
-                      final dayStr = DateFormat('yyyy-MM-dd').format(day);
-                      if (ieBlocks.containsKey(dayStr)) {
-                        if (ieBlocks[dayStr]!['morning'] == true) morningOccupied = true;
-                        if (ieBlocks[dayStr]!['afternoon'] == true) afternoonOccupied = true;
-                      }
-
-                      final isFull = morningOccupied && afternoonOccupied;
-                      final hasAnyOccupation = morningOccupied || afternoonOccupied;
-
-                      // Check if day is weekend (Saturday or Sunday)
-                      final isWeekend = _isWeekend(day);
-
-                      // Determine indicator color based on booking status and availability
-                      // Show indicators for ALL days (even non-bookable) to visualize occupation
-                      // BUT: Never show indicators on weekends (they're not countable days)
-                      Color? indicatorColor;
-
-                      // Only calculate indicator if NOT weekend
-                      if (!isWeekend) {
-                        // Calculate base color regardless of bookability
-                        if (hasPendingBookings && !hasConfirmedBookings) {
-                          // Only pending bookings - orange
-                          indicatorColor = const Color(0xFFF59E0B); // Orange - pending approval
-                        } else if (isFull) {
-                          // Both periods occupied (bookings OR IE blocks) - 100% full
-                          // NO DOT for full days - they will be greyed out via opacity below
-                          indicatorColor = null; // No indicator for full days
-                        } else if (!hasAnyOccupation && dayBookings.isEmpty && isBookable) {
-                          // No bookings AND no IE blocks at all AND is bookable
-                          // Only show green dot on days that are actually available for booking
-                          indicatorColor = const Color(0xFF10B981); // Green - available, no bookings
-                        } else if (hasAnyOccupation) {
-                          // Has bookings OR IE blocks but NOT full - Yellow (partial)
-                          indicatorColor = const Color(0xFFFBBF24); // Yellow - partial (has bookings/blocks but slots available)
-                        }
-
-                        // If not bookable (disabled day), apply darker tone to other indicators
-                        if (indicatorColor != null && !isBookable) {
-                          indicatorColor = indicatorColor.withOpacity(0.4);
-                        }
-                      }
-
-                      // Allow ADMIN/MANAGER to click on disabled days to view events
-                      // But full days are unclickable for everyone (unless ADMIN/MANAGER)
-                      final canClickDay = (isBookable && !isFull) ||
-                        (authProvider.user?.role == UserRole.ADMIN ||
-                         authProvider.user?.role == UserRole.MANAGER);
-
-                      return Expanded(
-                        child: GestureDetector(
-                          onTap: canClickDay ? () {
-                            setState(() {
-                              _selectedDate = day;
-                            });
-                          } : null,
-                          child: Container(
-                            margin: const EdgeInsets.all(1),
-                            decoration: BoxDecoration(
-                              color: isSelected
-                                ? (isDark ? Colors.white : Colors.black)
-                                : isToday
-                                  ? (isDark ? const Color(0xFF3F3F46) : const Color(0xFFE5E7EB))
-                                  : Colors.transparent,
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Center(
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Text(
-                                    '$dayNumber',
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: isToday || isSelected ? FontWeight.bold : FontWeight.normal,
-                                      color: !isBookable || isFull
-                                          ? const Color(0xFF9CA3AF) // Disabled (past, before 7 business days, or full)
-                                          : isSelected
-                                            ? (isDark ? Colors.black : Colors.white)
-                                            : isDark
-                                                ? Colors.white
-                                                : Colors.black,
-                                    ),
-                                  ),
-                                  if (indicatorColor != null)
-                                    Container(
-                                      width: hasPendingBookings && !hasConfirmedBookings ? 6 : 4,
-                                      height: hasPendingBookings && !hasConfirmedBookings ? 6 : 4,
-                                      margin: const EdgeInsets.only(top: 2),
-                                      decoration: BoxDecoration(
-                                        color: hasPendingBookings && !hasConfirmedBookings
-                                            ? Colors.transparent
-                                            : indicatorColor,
-                                        shape: BoxShape.circle,
-                                        border: hasPendingBookings && !hasConfirmedBookings
-                                            ? Border.all(
-                                                color: indicatorColor,
-                                                width: 1.5,
-                                              )
-                                            : null,
-                                      ),
-                                    ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                      );
-                    }),
-                  ),
-                );
-              }),
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    child: _buildMonthGrid(month, isDark, authProvider),
+                  );
+                },
+              ),
             ),
           ),
         ],
       ),
+    );
+  }
+
+  /// Helper method to build the month grid for a specific month
+  Widget _buildMonthGrid(DateTime month, bool isDark, AuthProvider authProvider) {
+    final today = DateTime.now();
+    final firstDayOfMonth = DateTime(month.year, month.month, 1);
+    final lastDayOfMonth = DateTime(month.year, month.month + 1, 0);
+    final firstWeekday = firstDayOfMonth.weekday % 7; // 0 = Sunday
+    final daysInMonth = lastDayOfMonth.day;
+
+    return Column(
+      children: List.generate(5, (weekIndex) {
+        return Expanded(
+          child: Row(
+            children: List.generate(7, (dayIndex) {
+              final cellIndex = weekIndex * 7 + dayIndex;
+              final dayNumber = cellIndex - firstWeekday + 1;
+
+              // Only show days from current month
+              if (dayNumber < 1 || dayNumber > daysInMonth) {
+                return const Expanded(child: SizedBox());
+              }
+
+              final day = DateTime(month.year, month.month, dayNumber);
+              final isToday = day.year == today.year && day.month == today.month && day.day == today.day;
+              final isPast = day.isBefore(DateTime(today.year, today.month, today.day));
+              final isSelected = _selectedDate != null &&
+                  _selectedDate!.year == day.year &&
+                  _selectedDate!.month == day.month &&
+                  _selectedDate!.day == day.day;
+
+              final dayBookings = _getBookingsForDay(day);
+              final availableSlots = _getAvailableSlots(day);
+
+              // Check for pending vs confirmed bookings
+              final hasPendingBookings = dayBookings.any((b) => b.status == BookingStatus.UNDER_REVIEW || b.status == BookingStatus.CREATED || b.status == BookingStatus.NEED_EDIT || b.status == BookingStatus.NEED_RESCHEDULE);
+              final hasConfirmedBookings = dayBookings.any((b) => b.status == BookingStatus.APPROVED);
+
+              // Only APPROVED bookings block periods
+              final confirmedBookings = dayBookings.where((b) =>
+                b.status == BookingStatus.APPROVED
+              ).toList();
+
+              // Check if day is bookable (past or before minimum 7 business days)
+              final isBookable = _isDateBookable(day);
+
+              // Calculate period occupation for better color logic
+              // Only APPROVED bookings occupy periods
+              bool morningOccupied = false;
+              bool afternoonOccupied = false;
+
+              // 1. Check APPROVED bookings only
+              for (final booking in confirmedBookings) {
+                final startHour = int.parse(booking.startTime.split(':')[0]);
+                final durationHours = {
+                  VisitDuration.ONE_HOUR: 1,
+                  VisitDuration.TWO_HOURS: 2,
+                  VisitDuration.THREE_HOURS: 3,
+                  VisitDuration.FOUR_HOURS: 4,
+                  VisitDuration.FIVE_HOURS: 5,
+                  VisitDuration.SIX_HOURS: 6,
+                }[booking.duration] ?? 2;
+                final endHour = startHour + durationHours;
+
+                if (startHour < 13 && endHour > 9) morningOccupied = true;
+                if (startHour < 17 && endHour > 13) afternoonOccupied = true;
+              }
+
+              // 2. Check Innovation Exchange prep/teardown blocks
+              final ieBlocks = _calculateInnovationExchangeBlocks();
+              final dayStr = DateFormat('yyyy-MM-dd').format(day);
+              if (ieBlocks.containsKey(dayStr)) {
+                if (ieBlocks[dayStr]!['morning'] == true) morningOccupied = true;
+                if (ieBlocks[dayStr]!['afternoon'] == true) afternoonOccupied = true;
+              }
+
+              final isFull = morningOccupied && afternoonOccupied;
+              final hasAnyOccupation = morningOccupied || afternoonOccupied;
+
+              // Check if day is weekend (Saturday or Sunday)
+              final isWeekend = _isWeekend(day);
+
+              // Determine indicator color based on booking status and availability
+              // Show indicators for ALL days (even non-bookable) to visualize occupation
+              // BUT: Never show indicators on weekends (they're not countable days)
+              Color? indicatorColor;
+
+              // Only calculate indicator if NOT weekend
+              if (!isWeekend) {
+                // Calculate base color regardless of bookability
+                if (hasPendingBookings && !hasConfirmedBookings) {
+                  // Only pending bookings - orange
+                  indicatorColor = const Color(0xFFF59E0B); // Orange - pending approval
+                } else if (isFull) {
+                  // Both periods occupied (bookings OR IE blocks) - 100% full
+                  // NO DOT for full days - they will be greyed out via opacity below
+                  indicatorColor = null; // No indicator for full days
+                } else if (!hasAnyOccupation && dayBookings.isEmpty && isBookable) {
+                  // No bookings AND no IE blocks at all AND is bookable
+                  // Only show green dot on days that are actually available for booking
+                  indicatorColor = const Color(0xFF10B981); // Green - available, no bookings
+                } else if (hasAnyOccupation) {
+                  // Has bookings OR IE blocks but NOT full - Ember (partial)
+                  indicatorColor = const Color(0xFFF05E1B); // Ember - partial (has bookings/blocks but slots available)
+                }
+
+                // If not bookable (disabled day), apply darker tone to other indicators
+                if (indicatorColor != null && !isBookable) {
+                  indicatorColor = indicatorColor.withOpacity(0.4);
+                }
+              }
+
+              // Allow ADMIN/MANAGER to click on disabled days to view events
+              // But full days are unclickable for everyone (unless ADMIN/MANAGER)
+              final canClickDay = (isBookable && !isFull) ||
+                (authProvider.user?.role == UserRole.ADMIN ||
+                 authProvider.user?.role == UserRole.MANAGER);
+
+              // Determine availability label
+              String? availabilityLabel;
+              Color? availabilityColor;
+              if (!isWeekend && isBookable) {
+                if (hasPendingBookings && !hasConfirmedBookings) {
+                  availabilityLabel = 'Pending';
+                  availabilityColor = const Color(0xFFF05E1B);
+                } else if (!hasAnyOccupation && dayBookings.isEmpty) {
+                  availabilityLabel = 'Available';
+                  availabilityColor = const Color(0xFF10B981);
+                } else if (hasAnyOccupation && !isFull) {
+                  availabilityLabel = 'Partial';
+                  availabilityColor = const Color(0xFFF05E1B);
+                }
+              }
+
+              return Expanded(
+                child: GestureDetector(
+                  onTap: canClickDay ? () {
+                    setState(() {
+                      _selectedDate = day;
+                    });
+                  } : null,
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 180),
+                    curve: Curves.easeOutQuad,
+                    margin: const EdgeInsets.all(1),
+                    decoration: BoxDecoration(
+                      color: isToday
+                          ? const Color(0xFF3F3F46)
+                          : Colors.transparent,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        const underlineOffset = 6; // ← AJUSTE AQUI: distância do traço abaixo do número
+                        const labelOffset = 0.20; // ← AJUSTE AQUI: % da altura (0.20 = 20% do fundo)
+
+                        return Stack(
+                          children: [
+                            // Number - centered
+                            Positioned.fill(
+                              child: Align(
+                                alignment: Alignment.center,
+                                child: TweenAnimationBuilder<double>(
+                                  duration: const Duration(milliseconds: 180),
+                                  curve: Curves.easeOutQuad,
+                                  tween: Tween(begin: 1.0, end: isSelected ? 1.06 : 1.0),
+                                  builder: (context, scale, child) {
+                                    return Transform.scale(
+                                      scale: scale,
+                                      child: Text(
+                                        '$dayNumber',
+                                        style: TextStyle(
+                                          fontSize: 25,
+                                          fontWeight: FontWeight.bold,
+                                          color: !isBookable || isFull
+                                              ? const Color(0xFF666666)
+                                              : Colors.white,
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ),
+                            ),
+                            // Underline - fixed offset from center
+                            Positioned(
+                              left: 0,
+                              right: 0,
+                              top: constraints.maxHeight / 2 + underlineOffset,
+                              child: Center(
+                                child: SizedBox(
+                                  width: 32,
+                                  height: 6.5,
+                                  child: TweenAnimationBuilder<double>(
+                                    key: ValueKey('underline_$dayNumber'),
+                                    duration: const Duration(milliseconds: 300),
+                                    curve: Curves.easeOutCubic,
+                                    tween: Tween(begin: 0.0, end: isSelected ? 1.0 : 0.0),
+                                    builder: (context, progress, child) {
+                                      return Align(
+                                        alignment: Alignment.centerLeft,
+                                        child: Container(
+                                          width: 32 * progress,
+                                          height: 6.5,
+                                          color: Colors.white.withOpacity(0.65 * progress),
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                ),
+                              ),
+                            ),
+                            // Availability label - % from bottom
+                            if (availabilityLabel != null)
+                              Positioned(
+                                left: 0,
+                                right: 0,
+                                bottom: constraints.maxHeight * labelOffset,
+                                child: Center(
+                                  child: Text(
+                                    availabilityLabel,
+                                    style: TextStyle(
+                                      fontSize: 8,
+                                      fontWeight: FontWeight.w600,
+                                      color: availabilityColor,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                          ],
+                        );
+                      },
+                    ),
+                  ),
+                ),
+              );
+            }),
+          ),
+        );
+      }),
     );
   }
 
@@ -1545,19 +1714,13 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
 
     if (_selectedDate == null) {
       return Container(
-        decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF18181B) : Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
-          ),
-        ),
+        color: Colors.black,  // Same as calendar background
         child: Center(
           child: Text(
             'Select a date',
             style: TextStyle(
               fontSize: 14,
-              color: isDark ? const Color(0xFF6B7280) : const Color(0xFF9CA3AF),
+              color: const Color(0xFF6B7280),
             ),
           ),
         ),
@@ -1611,13 +1774,7 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
     });
 
     return Container(
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF18181B) : Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
-        ),
-      ),
+      color: Colors.black,  // Same as calendar background, no border
       padding: const EdgeInsets.all(12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1625,104 +1782,84 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
           // Compact header
           Text(
             DateFormat('EEE, MMM d').format(_selectedDate!),
-            style: TextStyle(
+            style: const TextStyle(
               fontSize: 15,
               fontWeight: FontWeight.bold,
-              color: isDark ? Colors.white : Colors.black,
+              color: Colors.white,
             ),
           ),
           const SizedBox(height: 12),
-          // Events list
+          // Events list with animated transition when changing days
           Expanded(
-            child: combinedEvents.isEmpty
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      // Hide "+" button for ADMIN users (they can only view, not create bookings)
-                      if (hasAvailableSlots && !isAdmin)
-                        GestureDetector(
-                          onTap: () {
-                            _handleDayClick(_selectedDate!);
-                          },
-                          child: Container(
-                            width: 64,
-                            height: 64,
-                            decoration: BoxDecoration(
-                              color: isDark ? Colors.white : Colors.black,
-                              shape: BoxShape.circle,
-                            ),
-                            child: Icon(
-                              Icons.add,
-                              size: 32,
-                              color: isDark ? Colors.black : Colors.white,
-                            ),
-                          ),
-                        )
-                      else if (!hasAvailableSlots || isAdmin)
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 300),
+              switchInCurve: Curves.easeOutCubic,
+              switchOutCurve: Curves.easeInCubic,
+              transitionBuilder: (child, animation) {
+                // Empty state: fade + scale animation (centered)
+                // Events: fade + slide animation (from bottom)
+                final isEmptyState = (child.key as ValueKey).value == 'empty';
+
+                if (isEmptyState) {
+                  return FadeTransition(
+                    opacity: animation,
+                    child: ScaleTransition(
+                      scale: Tween<double>(begin: 0.9, end: 1.0).animate(animation),
+                      child: child,
+                    ),
+                  );
+                } else {
+                  return FadeTransition(
+                    opacity: animation,
+                    child: SlideTransition(
+                      position: Tween<Offset>(
+                        begin: const Offset(0.0, 0.1),
+                        end: Offset.zero,
+                      ).animate(animation),
+                      child: child,
+                    ),
+                  );
+                }
+              },
+              child: combinedEvents.isEmpty
+                ? Center(
+                    key: const ValueKey('empty'),  // Same key for all empty states - no animation between empty days
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
                         Icon(
                           Icons.event_busy,
                           size: 48,
-                          color: isDark ? const Color(0xFF3F3F46) : const Color(0xFFE5E7EB),
+                          color: const Color(0xFF3F3F46),
                         ),
-                      const SizedBox(height: 12),
-                      Text(
-                        isPast
-                          ? 'Past date'
-                          : (hasAvailableSlots && !isAdmin)
-                            ? 'No events scheduled\nTap + to create booking'
+                        const SizedBox(height: 12),
+                        Text(
+                          isPast
+                            ? 'Past date'
                             : 'No events',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: isDark ? const Color(0xFF6B7280) : const Color(0xFF9CA3AF),
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color: Color(0xFF6B7280),
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
-                )
-              : ListView.builder(
-                  padding: EdgeInsets.zero,
-                  // Show add button only if hasAvailableSlots AND user is NOT admin
-                  itemCount: combinedEvents.length + (hasAvailableSlots && !isAdmin ? 1 : 0),
-                  itemBuilder: (context, index) {
-                    // Show events in order
-                    if (index < combinedEvents.length) {
+                      ],
+                    ),
+                  )
+                : ListView.builder(
+                    key: ValueKey('events_${_selectedDate!.toIso8601String()}'),
+                    padding: EdgeInsets.zero,
+                    itemCount: combinedEvents.length,
+                    itemBuilder: (context, index) {
                       final event = combinedEvents[index];
                       if (event['type'] == 'block') {
                         return _buildIEBlockCard(event['data'] as Map<String, String>, isDark, isUserRole);
                       } else {
                         return _buildColorfulEventCard(event['data'] as Booking, isDark, isUserRole);
                       }
-                    }
-                    // Finally show add button (only for non-ADMIN users)
-                    else {
-                      return Padding(
-                        padding: const EdgeInsets.all(8.0),
-                        child: Center(
-                          child: GestureDetector(
-                            onTap: () {
-                              _handleDayClick(_selectedDate!);
-                            },
-                            child: Container(
-                              width: 48,
-                              height: 48,
-                              decoration: BoxDecoration(
-                                color: isDark ? Colors.white : Colors.black,
-                                shape: BoxShape.circle,
-                              ),
-                              child: Icon(
-                                Icons.add,
-                                size: 24,
-                                color: isDark ? Colors.black : Colors.white,
-                              ),
-                            ),
-                          ),
-                        ),
-                      );
-                    }
-                  },
-                ),
+                    },
+                  ),
+            ),
           ),
         ],
       ),
@@ -2833,7 +2970,7 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
                             '• ${block.date}: ${block.period}',
                             style: TextStyle(
                               fontSize: 11,
-                              color: isDark ? const Color(0xFFFBBF24) : const Color(0xFF92400E),
+                              color: isDark ? const Color(0xFFF05E1B) : const Color(0xFFF05E1B),
                             ),
                           ),
                         )),

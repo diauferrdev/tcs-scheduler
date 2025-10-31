@@ -272,7 +272,7 @@ class _BookingStatusStepperState extends State<BookingStatusStepper>
       if (stepIndex == 0) {
         return const Color(0xFF6B7280); // Grey for Created
       } else if (stepIndex == 1) {
-        return const Color(0xFFF59E0B); // Yellow for Review phase
+        return const Color(0xFFF05E1B); // Yellow for Review phase
       } else {
         return const Color(0xFFEF4444); // Red for final step (Cancelled/Not Approved)
       }
@@ -281,7 +281,7 @@ class _BookingStatusStepperState extends State<BookingStatusStepper>
       if (stepIndex == 0) {
         return const Color(0xFF6B7280); // Grey for Created
       } else if (stepIndex == 1) {
-        return const Color(0xFFF59E0B); // Yellow for Review phase
+        return const Color(0xFFF05E1B); // Yellow for Review phase
       } else {
         return const Color(0xFF10B981); // Green for Approved
       }
@@ -295,7 +295,7 @@ class _BookingStatusStepperState extends State<BookingStatusStepper>
     } else if (status == BookingStatus.APPROVED) {
       return const Color(0xFF10B981); // Green
     } else if (status == BookingStatus.UNDER_REVIEW) {
-      return const Color(0xFFF59E0B); // Yellow (for UNDER_REVIEW)
+      return const Color(0xFFF05E1B); // Yellow (for UNDER_REVIEW)
     } else if (status == BookingStatus.NEED_EDIT) {
       return const Color(0xFFEA580C); // Orange (needs edit)
     } else if (status == BookingStatus.NEED_RESCHEDULE) {
@@ -336,7 +336,7 @@ class _BookingStatusStepperState extends State<BookingStatusStepper>
             // Active line - color based on destination step
             if (toIndex == 1) {
               // Line to Review step: Yellow/Orange
-              lineColor = const Color(0xFFF59E0B);
+              lineColor = const Color(0xFFF05E1B);
             } else if (toIndex == 2) {
               // Line to Final step: Green or Red depending on status
               if (widget.currentStatus == BookingStatus.CANCELLED ||
@@ -347,7 +347,7 @@ class _BookingStatusStepperState extends State<BookingStatusStepper>
               }
             } else {
               // Line from Created to Review (toIndex == 1 handled above)
-              lineColor = const Color(0xFFF59E0B);
+              lineColor = const Color(0xFFF05E1B);
             }
 
             // Animate color transition when status changes
@@ -360,7 +360,7 @@ class _BookingStatusStepperState extends State<BookingStatusStepper>
                 previousColor = widget.isDark ? Colors.grey[800]! : Colors.grey[300]!;
               } else {
                 if (toIndex == 1) {
-                  previousColor = const Color(0xFFF59E0B);
+                  previousColor = const Color(0xFFF05E1B);
                 } else if (toIndex == 2) {
                   if (_previousStatus == BookingStatus.CANCELLED ||
                       _previousStatus == BookingStatus.NOT_APPROVED) {
@@ -369,7 +369,7 @@ class _BookingStatusStepperState extends State<BookingStatusStepper>
                     previousColor = const Color(0xFF10B981);
                   }
                 } else {
-                  previousColor = const Color(0xFFF59E0B);
+                  previousColor = const Color(0xFFF05E1B);
                 }
               }
               lineColor = Color.lerp(previousColor, lineColor, _transitionController.value) ?? lineColor;

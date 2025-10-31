@@ -986,7 +986,7 @@ Enterprise Office Visit Management
       case BookingStatus.UNDER_REVIEW:
       case BookingStatus.NEED_EDIT:
       case BookingStatus.NEED_RESCHEDULE:
-        return const Color(0xFFF59E0B);
+        return const Color(0xFFF05E1B);
       case BookingStatus.APPROVED:
         return const Color(0xFF10B981);
       case BookingStatus.NOT_APPROVED:
@@ -1213,16 +1213,16 @@ Enterprise Office Visit Management
                     child: Container(
                       padding: const EdgeInsets.all(6),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFF59E0B).withOpacity(0.1),
+                        color: const Color(0xFFF05E1B).withOpacity(0.1),
                         borderRadius: BorderRadius.circular(6),
                         border: Border.all(
-                          color: const Color(0xFFF59E0B).withOpacity(0.3),
+                          color: const Color(0xFFF05E1B).withOpacity(0.3),
                         ),
                       ),
                       child: const Icon(
                         Icons.edit_outlined,
                         size: 18,
-                        color: Color(0xFFF59E0B),
+                        color: Color(0xFFF05E1B),
                       ),
                     ),
                   ),
@@ -1236,16 +1236,16 @@ Enterprise Office Visit Management
                     child: Container(
                       padding: const EdgeInsets.all(6),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFF59E0B).withOpacity(0.1),
+                        color: const Color(0xFFF05E1B).withOpacity(0.1),
                         borderRadius: BorderRadius.circular(6),
                         border: Border.all(
-                          color: const Color(0xFFF59E0B).withOpacity(0.3),
+                          color: const Color(0xFFF05E1B).withOpacity(0.3),
                         ),
                       ),
                       child: const Icon(
                         Icons.calendar_month,
                         size: 18,
-                        color: Color(0xFFF59E0B),
+                        color: Color(0xFFF05E1B),
                       ),
                     ),
                   ),
@@ -1486,7 +1486,7 @@ Enterprise Office Visit Management
               color: isDark ? const Color(0xFF78350F).withOpacity(0.15) : const Color(0xFFFEF3C7),
               borderRadius: BorderRadius.circular(8),
               border: Border.all(
-                color: const Color(0xFFF59E0B).withOpacity(0.3),
+                color: const Color(0xFFF05E1B).withOpacity(0.3),
                 width: 1,
               ),
             ),
@@ -1496,7 +1496,7 @@ Enterprise Office Visit Management
                 Icon(
                   Icons.info_outline,
                   size: 18,
-                  color: const Color(0xFFF59E0B),
+                  color: const Color(0xFFF05E1B),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
@@ -1508,7 +1508,7 @@ Enterprise Office Visit Management
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
-                          color: isDark ? const Color(0xFFFBBF24) : const Color(0xFFF59E0B),
+                          color: isDark ? const Color(0xFFF05E1B) : const Color(0xFFF05E1B),
                         ),
                       ),
                       const SizedBox(height: 4),
@@ -1516,7 +1516,7 @@ Enterprise Office Visit Management
                         _booking!.editRequestMessage ?? 'Please review and make the necessary changes to this booking.',
                         style: TextStyle(
                           fontSize: 12,
-                          color: isDark ? const Color(0xFFFBBF24).withOpacity(0.9) : const Color(0xFF92400E),
+                          color: isDark ? const Color(0xFFF05E1B).withOpacity(0.9) : const Color(0xFFF05E1B),
                           height: 1.3,
                         ),
                       ),
@@ -1537,7 +1537,7 @@ Enterprise Office Visit Management
               color: isDark ? const Color(0xFF78350F).withOpacity(0.15) : const Color(0xFFFEF3C7),
               borderRadius: BorderRadius.circular(8),
               border: Border.all(
-                color: const Color(0xFFF59E0B).withOpacity(0.3),
+                color: const Color(0xFFF05E1B).withOpacity(0.3),
                 width: 1,
               ),
             ),
@@ -1547,7 +1547,7 @@ Enterprise Office Visit Management
                 Icon(
                   Icons.info_outline,
                   size: 18,
-                  color: const Color(0xFFF59E0B),
+                  color: const Color(0xFFF05E1B),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
@@ -1559,7 +1559,7 @@ Enterprise Office Visit Management
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
-                          color: isDark ? const Color(0xFFFBBF24) : const Color(0xFFF59E0B),
+                          color: isDark ? const Color(0xFFF05E1B) : const Color(0xFFF05E1B),
                         ),
                       ),
                       const SizedBox(height: 4),
@@ -1567,7 +1567,7 @@ Enterprise Office Visit Management
                         _booking!.rescheduleRequestMessage ?? 'Please reschedule this booking to a different date/time.',
                         style: TextStyle(
                           fontSize: 12,
-                          color: isDark ? const Color(0xFFFBBF24).withOpacity(0.9) : const Color(0xFF92400E),
+                          color: isDark ? const Color(0xFFF05E1B).withOpacity(0.9) : const Color(0xFFF05E1B),
                           height: 1.3,
                         ),
                       ),

@@ -346,7 +346,7 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
               decoration: BoxDecoration(
-                color: const Color(0xFFF59E0B),
+                color: const Color(0xFFF05E1B),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Text(

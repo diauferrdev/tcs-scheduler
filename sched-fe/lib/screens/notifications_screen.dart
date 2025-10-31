@@ -780,7 +780,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         break;
       case NotificationType.BOOKING_UNDER_REVIEW:
         icon = Icons.rate_review;
-        color = const Color(0xFFF59E0B);
+        color = const Color(0xFFF05E1B);
         break;
       case NotificationType.PARTICIPANT_CONFIRMED:
         icon = Icons.person_add_outlined;
@@ -1699,7 +1699,7 @@ class _NotificationsDrawerState extends State<NotificationsDrawer> {
         break;
       case NotificationType.BOOKING_UNDER_REVIEW:
         icon = Icons.rate_review;
-        color = const Color(0xFFF59E0B);
+        color = const Color(0xFFF05E1B);
         break;
       case NotificationType.PARTICIPANT_CONFIRMED:
         icon = Icons.person_add_outlined;
