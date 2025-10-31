@@ -83,7 +83,7 @@ class _TicketsScreenState extends State<TicketsScreen> {
       if (_searchController.text.isNotEmpty) params.add('search=${Uri.encodeComponent(_searchController.text)}');
 
       final queryString = params.isNotEmpty ? '?${params.join('&')}' : '';
-      final response = await _api.get('/tickets$queryString');
+      final response = await _api.get('/api/tickets$queryString');
       final List<dynamic> data = response is List ? response : (response['data'] ?? response);
 
       if (!mounted) return;

@@ -79,7 +79,7 @@ class _CreateTicketScreenState extends State<CreateTicketScreen> {
           'platform': _selectedPlatform.toString().split('.').last,
       };
 
-      await _api.post('/tickets', data);
+      await _api.post('/api/tickets', data);
 
       if (!mounted) return;
 

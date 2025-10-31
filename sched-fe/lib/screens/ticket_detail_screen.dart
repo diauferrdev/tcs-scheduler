@@ -83,7 +83,7 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
     });
 
     try {
-      final response = await _api.get('/tickets/${widget.ticketId}');
+      final response = await _api.get('/api/tickets/${widget.ticketId}');
 
       if (!mounted) return;
 
@@ -122,7 +122,7 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
     });
 
     try {
-      await _api.post('/tickets/${widget.ticketId}/messages', {
+      await _api.post('/api/tickets/${widget.ticketId}/messages', {
         'content': messageText,
       });
 
@@ -146,7 +146,7 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
 
   Future<void> _updateTicketStatus(TicketStatus newStatus) async {
     try {
-      await _api.patch('/tickets/${widget.ticketId}', {
+      await _api.patch('/api/tickets/${widget.ticketId}', {
         'status': newStatus.toString().split('.').last,
       });
 
