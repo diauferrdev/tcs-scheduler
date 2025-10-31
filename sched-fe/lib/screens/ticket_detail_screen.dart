@@ -305,7 +305,7 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
                                   itemCount: _ticket!.messages.length,
                                   itemBuilder: (context, index) {
                                     final message = _ticket!.messages[index];
-                                    final isCurrentUser = message.author.id == user.id;
+                                    final isCurrentUser = message.author?.id == user.id;
                                     return _buildMessageBubble(
                                       message,
                                       isCurrentUser,
@@ -453,16 +453,28 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
           crossAxisAlignment:
               isCurrentUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
           children: [
-            if (!isCurrentUser)
+            if (!isCurrentUser && message.author != null)
               Padding(
                 padding: const EdgeInsets.only(left: 8, bottom: 4),
-                child: Text(
-                  message.author.name,
-                  style: const TextStyle(
-                    color: Colors.grey,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                  ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (message.author!.avatarUrl != null)
+                      CircleAvatar(
+                        radius: 10,
+                        backgroundImage: NetworkImage(message.author!.avatarUrl!),
+                      ),
+                    if (message.author!.avatarUrl != null)
+                      const SizedBox(width: 6),
+                    Text(
+                      message.author!.name,
+                      style: const TextStyle(
+                        color: Colors.grey,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             Container(

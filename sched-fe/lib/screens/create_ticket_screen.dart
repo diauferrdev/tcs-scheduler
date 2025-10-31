@@ -72,8 +72,8 @@ class _CreateTicketScreenState extends State<CreateTicketScreen> {
 
   void _fillMockData() {
     setState(() {
-      _titleController.text = 'Erro ao carregar dashboard de métricas';
-      _descriptionController.text = 'Ao tentar acessar o dashboard de métricas, a página fica em loading infinito e não carrega os gráficos. Testei em diferentes navegadores e o problema persiste.';
+      _titleController.text = 'Dashboard metrics not loading properly';
+      _descriptionController.text = 'When trying to access the metrics dashboard, the page stays in infinite loading and does not render the charts. Tested on different browsers and the problem persists. Console shows no errors.';
       _selectedCategory = TicketCategory.BUG;
       _selectedPriority = TicketPriority.HIGH;
     });

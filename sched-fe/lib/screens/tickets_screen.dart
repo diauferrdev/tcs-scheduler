@@ -183,18 +183,21 @@ class _TicketsScreenState extends State<TicketsScreen> {
               ),
             ],
           ),
-          Positioned(
-            bottom: 20,
-            right: 20,
-            child: FloatingActionButton.extended(
-              onPressed: () => context.push('/app/support/create').then((_) => _loadTickets()),
-              backgroundColor: Colors.white,
-              foregroundColor: Colors.black,
-              icon: const Icon(Icons.add),
-              label: const Text('New Ticket', style: TextStyle(fontWeight: FontWeight.w600)),
-              elevation: 4,
+          // Only show "New Ticket" button for non-admin users
+          // Admins should only respond to tickets, not create them
+          if (user.role != UserRole.ADMIN)
+            Positioned(
+              bottom: 20,
+              right: 20,
+              child: FloatingActionButton.extended(
+                onPressed: () => context.push('/app/support/create').then((_) => _loadTickets()),
+                backgroundColor: Colors.white,
+                foregroundColor: Colors.black,
+                icon: const Icon(Icons.add),
+                label: const Text('New Ticket', style: TextStyle(fontWeight: FontWeight.w600)),
+                elevation: 4,
+              ),
             ),
-          ),
         ],
       ),
     );
@@ -204,6 +207,22 @@ class _TicketsScreenState extends State<TicketsScreen> {
     Color statusColor = Colors.blue;
     if (ticket.status == TicketStatus.RESOLVED) statusColor = Colors.green;
     if (ticket.status == TicketStatus.CLOSED) statusColor = Colors.grey;
+
+    // Format date
+    final now = DateTime.now();
+    final diff = now.difference(ticket.createdAt);
+    String timeAgo;
+    if (diff.inMinutes < 1) {
+      timeAgo = 'just now';
+    } else if (diff.inHours < 1) {
+      timeAgo = '${diff.inMinutes}m ago';
+    } else if (diff.inDays < 1) {
+      timeAgo = '${diff.inHours}h ago';
+    } else if (diff.inDays < 7) {
+      timeAgo = '${diff.inDays}d ago';
+    } else {
+      timeAgo = '${(diff.inDays / 7).floor()}w ago';
+    }
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -230,6 +249,35 @@ class _TicketsScreenState extends State<TicketsScreen> {
               Text(ticket.title, style: TextStyle(color: isDark ? Colors.white : Colors.black, fontSize: 16, fontWeight: FontWeight.w600)),
               const SizedBox(height: 8),
               Text(ticket.description, style: const TextStyle(color: Colors.grey, fontSize: 14), maxLines: 2, overflow: TextOverflow.ellipsis),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  if (ticket.createdBy.avatarUrl != null)
+                    CircleAvatar(
+                      radius: 12,
+                      backgroundImage: NetworkImage(ticket.createdBy.avatarUrl!),
+                    ),
+                  if (ticket.createdBy.avatarUrl == null)
+                    CircleAvatar(
+                      radius: 12,
+                      backgroundColor: Colors.grey.shade300,
+                      child: Text(
+                        ticket.createdBy.name[0].toUpperCase(),
+                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                  const SizedBox(width: 8),
+                  Text(
+                    ticket.createdBy.name,
+                    style: const TextStyle(color: Colors.grey, fontSize: 12),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    '• $timeAgo',
+                    style: const TextStyle(color: Colors.grey, fontSize: 12),
+                  ),
+                ],
+              ),
             ],
           ),
         ),
