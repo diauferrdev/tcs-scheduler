@@ -101,20 +101,27 @@ class TicketMessage {
   });
 
   factory TicketMessage.fromJson(Map<String, dynamic> json) {
-    return TicketMessage(
-      id: json['id'],
-      content: json['content'],
-      isInternal: json['isInternal'] ?? false,
-      ticketId: json['ticketId'],
-      author: User.fromJson(json['author']),
-      attachments: (json['attachments'] as List?)
-              ?.map((a) => TicketAttachment.fromJson(a))
-              .toList() ??
-          [],
-      readAt: json['readAt'] != null ? DateTime.parse(json['readAt']) : null,
-      createdAt: DateTime.parse(json['createdAt']),
-      updatedAt: DateTime.parse(json['updatedAt']),
-    );
+    try {
+      return TicketMessage(
+        id: json['id'] as String,
+        content: json['content'] as String,
+        isInternal: json['isInternal'] as bool? ?? false,
+        ticketId: json['ticketId'] as String,
+        author: User.fromJson(json['author'] as Map<String, dynamic>),
+        attachments: (json['attachments'] as List?)
+                ?.map((a) => TicketAttachment.fromJson(a as Map<String, dynamic>))
+                .toList() ??
+            [],
+        readAt: json['readAt'] != null ? DateTime.parse(json['readAt'] as String) : null,
+        createdAt: DateTime.parse(json['createdAt'] as String),
+        updatedAt: DateTime.parse(json['updatedAt'] as String),
+      );
+    } catch (e, stackTrace) {
+      print('[TicketMessage.fromJson] ❌ Error parsing message: $e');
+      print('[TicketMessage.fromJson] JSON: $json');
+      print('[TicketMessage.fromJson] Stack: $stackTrace');
+      rethrow;
+    }
   }
 
   Map<String, dynamic> toJson() {

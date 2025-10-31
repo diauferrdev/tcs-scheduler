@@ -91,25 +91,42 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
 
     try {
       final response = await _api.get('/api/tickets/${widget.ticketId}');
+      debugPrint('[TicketDetail] Response: $response');
 
       if (!mounted) return;
 
-      setState(() {
-        _ticket = Ticket.fromJson(response);
-        _isLoading = false;
-      });
+      try {
+        final ticket = Ticket.fromJson(response);
+        debugPrint('[TicketDetail] ✅ Ticket parsed successfully: ${ticket.id}');
+        debugPrint('[TicketDetail] Messages count: ${ticket.messages.length}');
 
-      // Scroll to bottom after loading messages
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (_scrollController.hasClients) {
-          _scrollController.animateTo(
-            _scrollController.position.maxScrollExtent,
-            duration: const Duration(milliseconds: 300),
-            curve: Curves.easeOut,
-          );
-        }
-      });
-    } catch (e) {
+        setState(() {
+          _ticket = ticket;
+          _isLoading = false;
+        });
+
+        // Scroll to bottom after loading messages
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (_scrollController.hasClients) {
+            _scrollController.animateTo(
+              _scrollController.position.maxScrollExtent,
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeOut,
+            );
+          }
+        });
+      } catch (parseError, stackTrace) {
+        debugPrint('[TicketDetail] ❌ Parse error: $parseError');
+        debugPrint('[TicketDetail] Stack trace: $stackTrace');
+        if (!mounted) return;
+        setState(() {
+          _errorMessage = 'Error parsing ticket: $parseError';
+          _isLoading = false;
+        });
+      }
+    } catch (e, stackTrace) {
+      debugPrint('[TicketDetail] ❌ API error: $e');
+      debugPrint('[TicketDetail] Stack trace: $stackTrace');
       if (!mounted) return;
       setState(() {
         _errorMessage = e.toString();
