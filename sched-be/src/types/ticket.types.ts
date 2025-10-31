@@ -6,6 +6,7 @@ export const TicketCreateSchema = z.object({
   category: z.enum(['BUG', 'FEATURE_REQUEST', 'QUESTION', 'IMPROVEMENT', 'OTHER']),
   priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT']).optional(),
   platform: z.enum(['WINDOWS', 'LINUX', 'MACOS', 'ANDROID', 'IOS', 'WEB']).optional(),
+  deviceInfo: z.record(z.any()).optional(),
   attachments: z.array(z.object({
     fileName: z.string(),
     fileUrl: z.string(),

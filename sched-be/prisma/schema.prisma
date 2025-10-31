@@ -497,6 +497,7 @@ model Ticket {
   priority    TicketPriority @default(MEDIUM)
   category    TicketCategory
   platform    Platform?
+  deviceInfo  Json?
 
   // Relationships
   createdBy   User           @relation("TicketCreator", fields: [createdById], references: [id])

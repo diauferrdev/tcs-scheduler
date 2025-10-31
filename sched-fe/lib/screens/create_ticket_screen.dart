@@ -8,6 +8,7 @@ import '../models/ticket.dart';
 import '../providers/auth_provider.dart';
 import '../providers/theme_provider.dart';
 import '../services/api_service.dart';
+import '../utils/device_info_helper.dart';
 
 class AppTheme {
   static const Color primaryBlack = Color(0xFF000000);
@@ -33,12 +34,49 @@ class _CreateTicketScreenState extends State<CreateTicketScreen> {
 
   List<XFile> _attachments = [];
   bool _isSubmitting = false;
+  bool _isAutoDetectingPlatform = true;
+  Map<String, dynamic>? _deviceInfo;
+
+  @override
+  void initState() {
+    super.initState();
+    _autoDetectPlatform();
+  }
 
   @override
   void dispose() {
     _titleController.dispose();
     _descriptionController.dispose();
     super.dispose();
+  }
+
+  Future<void> _autoDetectPlatform() async {
+    try {
+      _deviceInfo = await DeviceInfoHelper.getDeviceInfo();
+      final platformName = _deviceInfo!['platform'] as String;
+      setState(() {
+        _selectedPlatform = Platform.values.firstWhere(
+          (p) => p.name == platformName,
+          orElse: () => Platform.WEB,
+        );
+        _isAutoDetectingPlatform = false;
+      });
+    } catch (e) {
+      debugPrint('[CreateTicket] Error auto-detecting platform: $e');
+      setState(() {
+        _selectedPlatform = Platform.WEB;
+        _isAutoDetectingPlatform = false;
+      });
+    }
+  }
+
+  void _fillMockData() {
+    setState(() {
+      _titleController.text = 'Erro ao carregar dashboard de métricas';
+      _descriptionController.text = 'Ao tentar acessar o dashboard de métricas, a página fica em loading infinito e não carrega os gráficos. Testei em diferentes navegadores e o problema persiste.';
+      _selectedCategory = TicketCategory.BUG;
+      _selectedPriority = TicketPriority.HIGH;
+    });
   }
 
   Future<void> _pickFiles() async {
@@ -77,6 +115,8 @@ class _CreateTicketScreenState extends State<CreateTicketScreen> {
         'priority': _selectedPriority.toString().split('.').last,
         if (_selectedPlatform != null)
           'platform': _selectedPlatform.toString().split('.').last,
+        if (_deviceInfo != null)
+          'deviceInfo': _deviceInfo,
       };
 
       await _api.post('/api/tickets', data);
@@ -123,6 +163,14 @@ class _CreateTicketScreenState extends State<CreateTicketScreen> {
           'Create Support Ticket',
           style: TextStyle(color: textColor, fontWeight: FontWeight.w600),
         ),
+        actions: [
+          if (kIsWeb || true) // Show mock button in development
+            IconButton(
+              icon: const Icon(Icons.flash_on, color: Colors.amber),
+              tooltip: 'Fill with mock data',
+              onPressed: _fillMockData,
+            ),
+        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(24),

@@ -9,6 +9,7 @@ export async function createTicket(data: TicketCreate, userId: string) {
       category: data.category,
       priority: data.priority || 'MEDIUM',
       platform: data.platform,
+      deviceInfo: data.deviceInfo,
       createdById: userId,
       attachments: data.attachments
         ? {
