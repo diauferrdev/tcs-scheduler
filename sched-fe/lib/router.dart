@@ -16,6 +16,8 @@ import 'screens/activity_logs_screen.dart';
 import 'screens/approvals_screen.dart';
 import 'screens/my_bookings_screen.dart';
 import 'screens/tickets_screen.dart';
+import 'screens/create_ticket_screen.dart';
+import 'screens/ticket_detail_screen.dart';
 import 'screens/drawer_route_screen.dart';
 import 'services/navigation_service.dart';
 import 'services/drawer_service.dart';
@@ -274,6 +276,28 @@ GoRouter createRouter(AuthProvider authProvider) {
               state,
               const TicketsScreen(),
             ),
+          ),
+          GoRoute(
+            path: '/app/support/create',
+            pageBuilder: (context, state) => _buildPageWithTransition(
+              context,
+              state,
+              const CreateTicketScreen(),
+            ),
+          ),
+          GoRoute(
+            path: '/app/support/:id',
+            pageBuilder: (context, state) {
+              final ticketId = state.pathParameters['id'];
+              if (ticketId == null) {
+                throw Exception('Ticket ID is required');
+              }
+              return _buildPageWithTransition(
+                context,
+                state,
+                TicketDetailScreen(ticketId: ticketId),
+              );
+            },
           ),
           GoRoute(
             path: '/app/booking/:id',

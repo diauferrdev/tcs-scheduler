@@ -102,6 +102,27 @@ class ApiService {
     return _handleResponse(response);
   }
 
+  Future<Map<String, dynamic>> patch(
+    String endpoint,
+    Map<String, dynamic> data,
+  ) async {
+    await initialize();
+
+    final url = Uri.parse('${ApiConfig.baseUrl}$endpoint');
+    final headers = {...ApiConfig.defaultHeaders};
+
+    if (_sessionCookie != null) {
+      headers['Cookie'] = _sessionCookie!;
+    }
+
+    final response = await _client
+        .patch(url, headers: headers, body: jsonEncode(data))
+        .timeout(ApiConfig.timeout);
+
+    _extractAndSaveCookies(response, endpoint);
+    return _handleResponse(response);
+  }
+
   Future<Map<String, dynamic>> delete(String endpoint) async {
     await initialize();
 
