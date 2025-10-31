@@ -9,6 +9,13 @@ import '../providers/theme_provider.dart';
 import '../services/api_service.dart';
 import '../services/websocket_service.dart';
 
+// Helper to get full avatar URL
+String _getAvatarUrl(String? avatarUrl) {
+  if (avatarUrl == null || avatarUrl.isEmpty) return '';
+  if (avatarUrl.startsWith('http')) return avatarUrl;
+  return 'https://api.ppspsched.lat$avatarUrl';
+}
+
 // AppTheme is defined in theme_provider.dart
 class AppTheme {
   static const Color primaryBlack = Color(0xFF000000);
@@ -111,6 +118,101 @@ class _TicketsScreenState extends State<TicketsScreen> {
     _loadTickets();
   }
 
+  Widget _buildAvatar(String? avatarUrl, String name) {
+    final fullUrl = _getAvatarUrl(avatarUrl);
+
+    if (fullUrl.isEmpty) {
+      return CircleAvatar(
+        radius: 12,
+        backgroundColor: Colors.grey.shade300,
+        child: Text(
+          name.isNotEmpty ? name[0].toUpperCase() : '?',
+          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.black),
+        ),
+      );
+    }
+
+    return CircleAvatar(
+      radius: 12,
+      backgroundImage: NetworkImage(fullUrl),
+      onBackgroundImageError: (_, __) {},
+      child: Container(),
+    );
+  }
+
+  List<Widget> _buildGroupedTickets(User user, bool isDark) {
+    // Group tickets by status
+    final openTickets = _tickets.where((t) => t.status == TicketStatus.OPEN || t.status == TicketStatus.IN_PROGRESS || t.status == TicketStatus.WAITING_USER || t.status == TicketStatus.WAITING_ADMIN).toList();
+    final resolvedTickets = _tickets.where((t) => t.status == TicketStatus.RESOLVED).toList();
+    final closedTickets = _tickets.where((t) => t.status == TicketStatus.CLOSED).toList();
+
+    final widgets = <Widget>[];
+
+    // Open/Active tickets
+    if (openTickets.isNotEmpty) {
+      widgets.add(
+        Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: Text(
+            'Active (${openTickets.length})',
+            style: TextStyle(
+              color: isDark ? Colors.white : Colors.black,
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      );
+      for (final ticket in openTickets) {
+        widgets.add(_buildTicketCard(ticket, isDark, user));
+      }
+      widgets.add(const SizedBox(height: 16));
+    }
+
+    // Resolved tickets
+    if (resolvedTickets.isNotEmpty) {
+      widgets.add(
+        Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: Text(
+            'Resolved (${resolvedTickets.length})',
+            style: TextStyle(
+              color: isDark ? Colors.white.withOpacity(0.7) : Colors.black.withOpacity(0.7),
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      );
+      for (final ticket in resolvedTickets) {
+        widgets.add(_buildTicketCard(ticket, isDark, user));
+      }
+      widgets.add(const SizedBox(height: 16));
+    }
+
+    // Closed tickets
+    if (closedTickets.isNotEmpty) {
+      widgets.add(
+        Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: Text(
+            'Closed (${closedTickets.length})',
+            style: TextStyle(
+              color: isDark ? Colors.white.withOpacity(0.5) : Colors.black.withOpacity(0.5),
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      );
+      for (final ticket in closedTickets) {
+        widgets.add(_buildTicketCard(ticket, isDark, user));
+      }
+    }
+
+    return widgets;
+  }
+
   @override
   Widget build(BuildContext context) {
     final themeProvider = Provider.of<ThemeProvider>(context);
@@ -171,13 +273,11 @@ class _TicketsScreenState extends State<TicketsScreen> {
                             : RefreshIndicator(
                                 onRefresh: _loadTickets,
                                 color: AppTheme.primaryWhite,
-                                child: ListView.builder(
+                                child: ListView(
                                   padding: const EdgeInsets.all(16),
-                                  itemCount: _tickets.length,
-                                  itemBuilder: (context, index) {
-                                    final ticket = _tickets[index];
-                                    return _buildTicketCard(ticket, isDark, user);
-                                  },
+                                  children: [
+                                    ..._buildGroupedTickets(user, isDark),
+                                  ],
                                 ),
                               ),
               ),
@@ -252,20 +352,7 @@ class _TicketsScreenState extends State<TicketsScreen> {
               const SizedBox(height: 12),
               Row(
                 children: [
-                  if (ticket.createdBy.avatarUrl != null)
-                    CircleAvatar(
-                      radius: 12,
-                      backgroundImage: NetworkImage(ticket.createdBy.avatarUrl!),
-                    ),
-                  if (ticket.createdBy.avatarUrl == null)
-                    CircleAvatar(
-                      radius: 12,
-                      backgroundColor: Colors.grey.shade300,
-                      child: Text(
-                        ticket.createdBy.name[0].toUpperCase(),
-                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-                      ),
-                    ),
+                  _buildAvatar(ticket.createdBy.avatarUrl, ticket.createdBy.name),
                   const SizedBox(width: 8),
                   Text(
                     ticket.createdBy.name,

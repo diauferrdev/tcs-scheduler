@@ -10,6 +10,13 @@ import '../providers/theme_provider.dart';
 import '../services/api_service.dart';
 import '../services/websocket_service.dart';
 
+// Helper to get full avatar URL
+String _getAvatarUrl(String? avatarUrl) {
+  if (avatarUrl == null || avatarUrl.isEmpty) return '';
+  if (avatarUrl.startsWith('http')) return avatarUrl;
+  return 'https://api.ppspsched.lat$avatarUrl';
+}
+
 class AppTheme {
   static const Color primaryBlack = Color(0xFF000000);
   static const Color primaryWhite = Color(0xFFFFFFFF);
@@ -385,6 +392,28 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
     );
   }
 
+  Widget _buildMessageAvatar(String? avatarUrl, String name) {
+    final fullUrl = _getAvatarUrl(avatarUrl);
+
+    if (fullUrl.isEmpty) {
+      return CircleAvatar(
+        radius: 10,
+        backgroundColor: Colors.grey.shade300,
+        child: Text(
+          name.isNotEmpty ? name[0].toUpperCase() : '?',
+          style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Colors.black),
+        ),
+      );
+    }
+
+    return CircleAvatar(
+      radius: 10,
+      backgroundImage: NetworkImage(fullUrl),
+      onBackgroundImageError: (_, __) {},
+      child: Container(),
+    );
+  }
+
   Widget _buildStatusBadge(TicketStatus status, bool isDark) {
     Color color = Colors.blue;
     if (status == TicketStatus.RESOLVED) color = Colors.green;
@@ -459,13 +488,8 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    if (message.author!.avatarUrl != null)
-                      CircleAvatar(
-                        radius: 10,
-                        backgroundImage: NetworkImage(message.author!.avatarUrl!),
-                      ),
-                    if (message.author!.avatarUrl != null)
-                      const SizedBox(width: 6),
+                    _buildMessageAvatar(message.author!.avatarUrl, message.author!.name),
+                    const SizedBox(width: 6),
                     Text(
                       message.author!.name,
                       style: const TextStyle(
