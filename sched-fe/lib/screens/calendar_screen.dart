@@ -1181,7 +1181,7 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
                           color: isDark ? Colors.black : Colors.white,
                           borderRadius: BorderRadius.circular(16),
                         ),
-                        padding: const EdgeInsets.all(12),
+                        padding: const EdgeInsets.only(left: 0, right: 12, top: 12, bottom: 12),
                         child: Column(
                           children: [
                             // FIXED HEADER - stays the same for both views
@@ -1297,9 +1297,11 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
 
   /// Fixed header for both Month and Year views
   Widget _buildCalendarHeader(bool isDark) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
         // Calendar icon + date label
         Row(
           children: [
@@ -1388,6 +1390,7 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
           ],
         ),
       ],
+      ),
     );
   }
 
@@ -1416,7 +1419,7 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
           final now = DateTime.now();
           final month = DateTime(now.year, now.month + monthOffset, 1);
           return Padding(
-            padding: const EdgeInsets.symmetric(vertical: 16),
+            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
             child: _buildMonthGrid(month, isDark, authProvider),
           );
         },
@@ -1451,7 +1454,7 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
           final now = DateTime.now();
           final year = now.year + yearOffset;
           return Padding(
-            padding: const EdgeInsets.symmetric(vertical: 40),
+            padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 12),
             child: _buildYearGrid(year, monthNames, isDark, authProvider),
           );
         },
@@ -1938,42 +1941,44 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
                             _pageController.jumpToPage(12 + monthOffset);
                           });
                         } : null,
-                        child: Container(
-                          margin: const EdgeInsets.symmetric(vertical: 0.5),
-                          padding: EdgeInsets.zero,
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              // Day number - today gets ember color on number itself
-                              Text(
-                                '$dayNumber',
-                                style: TextStyle(
-                                  fontFamily: 'BasisGrotesquePro',
-                                  fontSize: 10,
-                                  height: 1.0,
-                                  fontWeight: isToday ? FontWeight.w700 : FontWeight.w500,
-                                  color: isToday
-                                      ? const Color(0xFFF05E1B)
-                                      : !isBookable || isPast || !hasAvailableSlots
-                                          ? (isDark ? const Color(0xFF666666) : const Color(0xFFD1D5DB))
-                                          : (isDark ? Colors.white : Colors.black),
-                                ),
-                              ),
-                              // Indicator line - close to number
-                              if (indicatorColor != null)
-                                Container(
-                                  margin: const EdgeInsets.only(top: 1.0),
-                                  width: 8,
-                                  height: 1.0,
-                                  decoration: BoxDecoration(
-                                    color: indicatorColor,
-                                    borderRadius: BorderRadius.circular(0.5),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 1.5, horizontal: 1.0),
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                // Day number - today gets ember color on number itself
+                                Text(
+                                  '$dayNumber',
+                                  style: TextStyle(
+                                    fontFamily: 'BasisGrotesquePro',
+                                    fontSize: 10,
+                                    height: 1.0,
+                                    fontWeight: isToday ? FontWeight.w700 : FontWeight.w500,
+                                    color: isToday
+                                        ? const Color(0xFFF05E1B)
+                                        : !isBookable || isPast || !hasAvailableSlots
+                                            ? (isDark ? const Color(0xFF666666) : const Color(0xFFD1D5DB))
+                                            : (isDark ? Colors.white : Colors.black),
                                   ),
-                                )
-                              else
-                                const SizedBox(height: 1.0),
-                            ],
+                                ),
+                                // Indicator line - close to number
+                                if (indicatorColor != null)
+                                  Container(
+                                    margin: const EdgeInsets.only(top: 1.0),
+                                    width: 8,
+                                    height: 1.0,
+                                    decoration: BoxDecoration(
+                                      color: indicatorColor,
+                                      borderRadius: BorderRadius.circular(0.5),
+                                    ),
+                                  )
+                                else
+                                  const SizedBox(height: 1.0),
+                              ],
+                            ),
                           ),
                         ),
                       ),
