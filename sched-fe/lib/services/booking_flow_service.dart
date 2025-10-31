@@ -26,7 +26,7 @@ class BookingFlowService {
 
   // Callbacks for period selection integration
   Function(DateTime, String)? _loadAvailability;
-  Function(DateTime, Function(TimeOfDay, int))? _showSlotPicker;
+  Function(DateTime, Function(TimeOfDay, int), VoidCallback?)? _showSlotPicker;
 
   /// Start the booking flow with period selection integration
   Future<void> startBookingFlowWithPeriodSelection(
@@ -34,7 +34,7 @@ class BookingFlowService {
     required DateTime selectedDate,
     required Function(TimeOfDay startTime) onPeriodSelected,
     required Function(DateTime date, String visitType) loadAvailability,
-    required Function(DateTime date, Function(TimeOfDay startTime, int duration) onSlotSelected) showSlotPicker,
+    required Function(DateTime date, Function(TimeOfDay startTime, int duration) onSlotSelected, VoidCallback? onBack) showSlotPicker,
   }) async {
     _selectedDate = selectedDate;
     _rootContext = context; // Store the root context
@@ -201,15 +201,17 @@ class BookingFlowService {
     }
 
     // Map visit type to API visitType for availability check
-    // PACE_TOUR uses QUICK_TOUR, others use INNOVATION_EXCHANGE
     String apiVisitType;
     if (_visitType == 'PACE_TOUR') {
-      apiVisitType = 'QUICK_TOUR';
+      apiVisitType = 'PACE_TOUR';
+    } else if (_visitType == 'PACE_EXPERIENCE') {
+      apiVisitType = 'PACE_EXPERIENCE';
     } else {
       apiVisitType = 'INNOVATION_EXCHANGE';
     }
 
     // Show the slot picker drawer IMMEDIATELY (it will show loading state)
+    // Pass back callback to return to visit type selection
     _showSlotPicker!(_selectedDate!, (TimeOfDay startTime, int duration) {
       _startTime = startTime;
 
@@ -219,6 +221,13 @@ class BookingFlowService {
       // Show next drawer immediately (drawer has its own confirm button now)
       if (_rootContext != null && _rootContext!.mounted) {
         _showBaseInfoDrawer(_rootContext!);
+      }
+    }, () {
+      // Back button callback - return to visit type selection
+      if (_engagementType == 'VISIT') {
+        _showVisitTypeDrawerForPeriodFlow(context, onPeriodSelected);
+      } else {
+        _showEngagementTypeDrawerForPeriodFlow(context, onPeriodSelected);
       }
     });
 

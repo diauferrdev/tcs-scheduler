@@ -116,10 +116,12 @@ class BookingFormData {
   }
 
   int getFinalDuration() {
-    if (visitType == 'QUICK_TOUR') {
+    if (visitType == 'PACE_TOUR') {
       return 2;
+    } else if (visitType == 'PACE_EXPERIENCE') {
+      return 4;
     } else {
-      return selectedDuration ?? 4;
+      return selectedDuration ?? 6;
     }
   }
 

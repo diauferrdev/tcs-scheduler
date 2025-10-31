@@ -679,19 +679,35 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
   Future<void> _loadDayAvailability(DateTime date, {String? visitType}) async {
     try {
       final dateStr = DateFormat('yyyy-MM-dd').format(date);
+
+      // CRITICAL: Clear old data first to prevent race condition
+      // This forces SlotPicker polling to wait for the new data with correct visitType
+      setState(() {
+        _selectedDayAvailability = null;
+      });
+
+      debugPrint('🔍 [LoadAvailability] Calling API for date=$dateStr, visitType=$visitType');
       final response = await _apiService.checkAvailability(dateStr, visitType: visitType);
 
       setState(() {
         final availability = DayAvailability.fromJson(response);
         _availabilityCache[dateStr] = availability;
         _selectedDayAvailability = availability;
+
+        // Debug: Print API response
+        debugPrint('🔍 [LoadAvailability] API returned ${availability.allPeriods?.length ?? 0} periods:');
+        if (availability.allPeriods != null) {
+          for (var period in availability.allPeriods!) {
+            debugPrint('  - ${period.label}: available=${period.available}${period.blockedBy != null ? " (blocked by: ${period.blockedBy})" : ""}');
+          }
+        }
       });
     } catch (e) {
       debugPrint('Failed to load availability: $e');
     }
   }
 
-  void _showSlotPickerDrawer(DateTime date, {Function(TimeOfDay, int)? onSlotSelected}) {
+  void _showSlotPickerDrawer(DateTime date, {Function(TimeOfDay, int)? onSlotSelected, VoidCallback? onBack}) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final visitTypeLabel = _selectedVisitType == 'PACE_TOUR' ? 'Pace Tour' : 'Innovation Exchange';
 
@@ -712,6 +728,7 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
         isDark: isDark,
         onSlotSelected: onSlotSelected,
         onClose: _closeSlotPickerAndClearCache,
+        onBack: onBack,
         // Pass callback to get current availability
         getAvailability: () => _selectedDayAvailability,
       ),
@@ -790,8 +807,8 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
       loadAvailability: (DateTime date, String visitType) {
         return _loadDayAvailability(date, visitType: visitType);
       },
-      showSlotPicker: (DateTime date, Function(TimeOfDay, int) onSlotSelected) {
-        _showSlotPickerDrawer(date, onSlotSelected: onSlotSelected);
+      showSlotPicker: (DateTime date, Function(TimeOfDay, int) onSlotSelected, VoidCallback? onBack) {
+        _showSlotPickerDrawer(date, onSlotSelected: onSlotSelected, onBack: onBack);
       },
     );
   }
@@ -5238,6 +5255,7 @@ class SlotPickerContentWithLoading extends StatefulWidget {
   final bool isDark;
   final Function(TimeOfDay, int)? onSlotSelected;
   final VoidCallback onClose;
+  final VoidCallback? onBack; // Optional back button callback
   final DayAvailability? Function() getAvailability;
 
   const SlotPickerContentWithLoading({
@@ -5249,6 +5267,7 @@ class SlotPickerContentWithLoading extends StatefulWidget {
     required this.isDark,
     this.onSlotSelected,
     required this.onClose,
+    this.onBack,
     required this.getAvailability,
   });
 
@@ -5268,19 +5287,34 @@ class _SlotPickerContentWithLoadingState extends State<SlotPickerContentWithLoad
 
   Future<void> _pollForAvailability() async {
     // Poll every 100ms for up to 30 seconds
+    int pollCount = 0;
     for (int i = 0; i < 300; i++) {
       if (!mounted) return;
 
       final availability = widget.getAvailability();
+
+      // Log first few polls to debug
+      if (i < 5 || (i % 10 == 0 && i < 50)) {
+        debugPrint('🔍 [SlotPicker-Poll#$i] Checking availability... data=${availability != null ? "exists (${availability.allPeriods?.length ?? 0} periods)" : "null"}');
+      }
+
       if (availability != null && availability.allPeriods?.isNotEmpty == true) {
         setState(() {
           _allPeriods = availability.allPeriods ?? [];
         });
+        // Debug: Print received periods and their availability status
+        debugPrint('🔍 [SlotPicker] ✅ Received ${_allPeriods.length} periods for ${widget.selectedVisitType} after $i polls:');
+        for (var period in _allPeriods) {
+          debugPrint('  - ${period.label}: available=${period.available}${period.blockedBy != null ? " (blocked by: ${period.blockedBy})" : ""}');
+        }
         return; // Stop polling once we have data
       }
 
       await Future.delayed(const Duration(milliseconds: 100));
+      pollCount++;
     }
+
+    debugPrint('⚠️ [SlotPicker] Polling timed out after 30 seconds without data');
   }
 
   @override
@@ -5294,6 +5328,7 @@ class _SlotPickerContentWithLoadingState extends State<SlotPickerContentWithLoad
       isDark: widget.isDark,
       onSlotSelected: widget.onSlotSelected,
       onClose: widget.onClose,
+      onBack: widget.onBack,
     );
   }
 }
@@ -5309,6 +5344,7 @@ class SlotPickerContent extends StatefulWidget {
   final bool isDark;
   final Function(TimeOfDay, int)? onSlotSelected;
   final VoidCallback onClose;
+  final VoidCallback? onBack; // Optional back button callback
 
   const SlotPickerContent({
     super.key,
@@ -5320,6 +5356,7 @@ class SlotPickerContent extends StatefulWidget {
     required this.isDark,
     this.onSlotSelected,
     required this.onClose,
+    this.onBack,
   });
 
   @override
@@ -5369,11 +5406,26 @@ class _SlotPickerContentState extends State<SlotPickerContent> {
                     children: [
                       IconButton(
                         onPressed: () {
-                          Navigator.of(context).pop();
-                          widget.onClose();
+                          if (widget.onBack != null) {
+                            // For back: First trigger back callback to show previous drawer,
+                            // THEN close current drawer in next frame
+                            widget.onBack!();
+                            WidgetsBinding.instance.addPostFrameCallback((_) {
+                              if (Navigator.of(context).canPop()) {
+                                Navigator.of(context).pop();
+                              }
+                            });
+                          } else {
+                            // For close: just pop and call onClose
+                            Navigator.of(context).pop();
+                            widget.onClose();
+                          }
                         },
-                        icon: Icon(Icons.close, color: widget.isDark ? Colors.white : Colors.black),
-                        tooltip: 'Close',
+                        icon: Icon(
+                          widget.onBack != null ? Icons.arrow_back : Icons.close,
+                          color: widget.isDark ? Colors.white : Colors.black,
+                        ),
+                        tooltip: widget.onBack != null ? 'Back' : 'Close',
                       ),
                       const SizedBox(width: 8),
                       Expanded(
