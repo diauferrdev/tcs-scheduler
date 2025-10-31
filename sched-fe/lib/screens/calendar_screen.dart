@@ -64,6 +64,10 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
   late PageController _pageController;
   int _currentPage = 12; // Start at index 12 (allows scrolling 12 months back)
 
+  // PageView state for year scrolling
+  late PageController _yearPageController;
+  int _currentYearPage = 10; // Start at index 10 (allows scrolling back/forward)
+
   // Availability state
   final Map<String, DayAvailability> _availabilityCache = {};
   DayAvailability? _selectedDayAvailability;
@@ -83,6 +87,7 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
   void initState() {
     super.initState();
     _pageController = PageController(initialPage: _currentPage);
+    _yearPageController = PageController(initialPage: _currentYearPage);
     _selectedDate = DateTime.now(); // Select current day by default
     _loadBookings();
     _loadDayAvailability(_selectedDate!); // Load availability for current day
@@ -1168,17 +1173,42 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
                 )
               : Column(
                   children: [
-                    // Compact calendar with indicators (70% of space - more room)
+                    // Calendar container with fixed header and animated content
                     Expanded(
-                      flex: 70,
-                      child: _buildCompactCalendar(isDark, isMobile, authProvider),
+                      flex: _selectedTab == 'Year' ? 100 : 70,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: isDark ? Colors.black : Colors.white,
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        padding: const EdgeInsets.all(12),
+                        child: Column(
+                          children: [
+                            // FIXED HEADER - stays the same for both views
+                            _buildCalendarHeader(isDark),
+                            const SizedBox(height: 12),
+                            // CONTENT - cached views, instant switch
+                            Expanded(
+                              child: IndexedStack(
+                                index: _selectedTab == 'Month' ? 0 : 1,
+                                children: [
+                                  _buildMonthContent(isDark, authProvider),
+                                  _buildYearContent(isDark, authProvider),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
-                    const SizedBox(height: 12),
-                    // Events list for selected day (30% of space - scrollable if needed)
-                    Expanded(
-                      flex: 30,
-                      child: _buildEventsSection(isDark, isMobile, isUserRole),
-                    ),
+                    // Events section - only visible in Month view
+                    if (_selectedTab != 'Year') ...[
+                      const SizedBox(height: 12),
+                      Expanded(
+                        flex: 30,
+                        child: _buildEventsSection(isDark, isMobile, isUserRole),
+                      ),
+                    ],
                   ],
                 ),
     );
@@ -1190,7 +1220,8 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
     final canCreateBooking = _selectedDate != null &&
         authProvider.user?.role != UserRole.ADMIN &&
         _isDateBookable(_selectedDate!) &&
-        _getAvailableSlots(_selectedDate!).isNotEmpty;
+        _getAvailableSlots(_selectedDate!).isNotEmpty &&
+        _selectedTab != 'Year'; // Hide button in Year view
 
     return Stack(
       children: [
@@ -1198,14 +1229,14 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
         // Cancel confirmation dialog
         if (_showCancelDialog)
           _buildCancelDialog(isDark),
-        // Floating Action Button for creating new events
+        // Floating Action Button for creating new events - hidden in Year view
         if (canCreateBooking)
           Positioned(
             bottom: 20,
             right: 20,
             child: FloatingActionButton.extended(
               onPressed: () {
-                _handleDayClick(_selectedDate!);
+                _showVisitTypeSelectionDialog(_selectedDate!);
               },
               backgroundColor: Colors.white,
               foregroundColor: Colors.black,
@@ -1264,6 +1295,170 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
     );
   }
 
+  /// Fixed header for both Month and Year views
+  Widget _buildCalendarHeader(bool isDark) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        // Calendar icon + date label
+        Row(
+          children: [
+            Icon(
+              Icons.calendar_today,
+              size: 18,
+              color: isDark ? Colors.white : Colors.black,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              _selectedTab == 'Year'
+                  ? DateFormat('yyyy').format(_currentMonth)
+                  : DateFormat('yyyy/MM').format(_currentMonth),
+              style: TextStyle(
+                fontFamily: 'BasisGrotesquePro',
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                color: isDark ? Colors.white : Colors.black,
+              ),
+            ),
+          ],
+        ),
+        // Month/Year tabs
+        Row(
+          children: [
+            GestureDetector(
+              onTap: () => setState(() => _selectedTab = 'Month'),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                decoration: BoxDecoration(
+                  color: _selectedTab == 'Month'
+                      ? (isDark ? const Color(0xFF1F1F1F) : const Color(0xFFF5F5F5))
+                      : Colors.transparent,
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(4),
+                    bottomLeft: Radius.circular(4),
+                  ),
+                  border: Border.all(
+                    color: isDark ? Colors.white.withOpacity(0.2) : Colors.black.withOpacity(0.2),
+                    width: 1,
+                  ),
+                ),
+                child: Text(
+                  'Month',
+                  style: TextStyle(
+                    fontFamily: 'BasisGrotesquePro',
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: _selectedTab == 'Month'
+                        ? (isDark ? Colors.white : Colors.black)
+                        : (isDark ? Colors.white.withOpacity(0.5) : Colors.black.withOpacity(0.5)),
+                  ),
+                ),
+              ),
+            ),
+            GestureDetector(
+              onTap: () => setState(() => _selectedTab = 'Year'),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                decoration: BoxDecoration(
+                  color: _selectedTab == 'Year'
+                      ? (isDark ? const Color(0xFF1F1F1F) : const Color(0xFFF5F5F5))
+                      : Colors.transparent,
+                  borderRadius: const BorderRadius.only(
+                    topRight: Radius.circular(4),
+                    bottomRight: Radius.circular(4),
+                  ),
+                  border: Border.all(
+                    color: isDark ? Colors.white.withOpacity(0.2) : Colors.black.withOpacity(0.2),
+                    width: 1,
+                  ),
+                ),
+                child: Text(
+                  'Year',
+                  style: TextStyle(
+                    fontFamily: 'BasisGrotesquePro',
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: _selectedTab == 'Year'
+                        ? (isDark ? Colors.white : Colors.black)
+                        : (isDark ? Colors.white.withOpacity(0.5) : Colors.black.withOpacity(0.5)),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  /// Month view content (without header)
+  Widget _buildMonthContent(bool isDark, AuthProvider authProvider) {
+    return ScrollConfiguration(
+      key: const ValueKey('month-content'),
+      behavior: ScrollConfiguration.of(context).copyWith(
+        dragDevices: {PointerDeviceKind.touch, PointerDeviceKind.mouse},
+      ),
+      child: PageView.builder(
+        controller: _pageController,
+        scrollDirection: Axis.vertical,
+        physics: const ClampingScrollPhysics(),
+        padEnds: false,
+        onPageChanged: (page) {
+          setState(() {
+            _currentPage = page;
+            final monthOffset = page - 12;
+            final now = DateTime.now();
+            _currentMonth = DateTime(now.year, now.month + monthOffset, 1);
+          });
+        },
+        itemBuilder: (context, index) {
+          final monthOffset = index - 12;
+          final now = DateTime.now();
+          final month = DateTime(now.year, now.month + monthOffset, 1);
+          return Padding(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            child: _buildMonthGrid(month, isDark, authProvider),
+          );
+        },
+      ),
+    );
+  }
+
+  /// Year view content (without header)
+  Widget _buildYearContent(bool isDark, AuthProvider authProvider) {
+    final monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                        'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+    return ScrollConfiguration(
+      key: const ValueKey('year-content'),
+      behavior: ScrollConfiguration.of(context).copyWith(
+        dragDevices: {PointerDeviceKind.touch, PointerDeviceKind.mouse},
+      ),
+      child: PageView.builder(
+        controller: _yearPageController,
+        scrollDirection: Axis.vertical,
+        physics: const ClampingScrollPhysics(),
+        onPageChanged: (page) {
+          setState(() {
+            _currentYearPage = page;
+            final yearOffset = page - 10;
+            final now = DateTime.now();
+            _currentMonth = DateTime(now.year + yearOffset, _currentMonth.month, 1);
+          });
+        },
+        itemBuilder: (context, index) {
+          final yearOffset = index - 10;
+          final now = DateTime.now();
+          final year = now.year + yearOffset;
+          return Padding(
+            padding: const EdgeInsets.symmetric(vertical: 40),
+            child: _buildYearGrid(year, monthNames, isDark, authProvider),
+          );
+        },
+      ),
+    );
+  }
+
   Widget _buildLegendItem(String label, Color lightColor, Color darkColor, bool isDark) {
     return Row(
       mainAxisSize: MainAxisSize.min,
@@ -1302,7 +1497,7 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
 
     return Container(
       decoration: BoxDecoration(
-        color: Colors.black,
+        color: isDark ? Colors.black : Colors.white,
         borderRadius: BorderRadius.circular(16),
       ),
       padding: const EdgeInsets.all(12),
@@ -1321,15 +1516,15 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
                       Icon(
                         Icons.calendar_today,
                         size: 18,
-                        color: Colors.white,
+                        color: isDark ? Colors.white : Colors.black,
                       ),
                       const SizedBox(width: 8),
                       Text(
                         DateFormat('yyyy/MM').format(_currentMonth),
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
-                          color: Colors.white,
+                          color: isDark ? Colors.white : Colors.black,
                         ),
                       ),
                     ],
@@ -1347,13 +1542,15 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                           decoration: BoxDecoration(
-                            color: _selectedTab == 'Month' ? const Color(0xFF1F1F1F) : Colors.transparent,
+                            color: _selectedTab == 'Month'
+                                ? (isDark ? const Color(0xFF1F1F1F) : const Color(0xFFF5F5F5))
+                                : Colors.transparent,
                             borderRadius: const BorderRadius.only(
                               topLeft: Radius.circular(4),
                               bottomLeft: Radius.circular(4),
                             ),
                             border: Border.all(
-                              color: Colors.white.withOpacity(0.2),
+                              color: isDark ? Colors.white.withOpacity(0.2) : Colors.black.withOpacity(0.2),
                               width: 1,
                             ),
                           ),
@@ -1362,7 +1559,9 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
                             style: TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.w600,
-                              color: _selectedTab == 'Month' ? Colors.white : Colors.white.withOpacity(0.5),
+                              color: _selectedTab == 'Month'
+                                  ? (isDark ? Colors.white : Colors.black)
+                                  : (isDark ? Colors.white.withOpacity(0.5) : Colors.black.withOpacity(0.5)),
                             ),
                           ),
                         ),
@@ -1377,13 +1576,15 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                           decoration: BoxDecoration(
-                            color: _selectedTab == 'Year' ? const Color(0xFF1F1F1F) : Colors.transparent,
+                            color: _selectedTab == 'Year'
+                                ? (isDark ? const Color(0xFF1F1F1F) : const Color(0xFFF5F5F5))
+                                : Colors.transparent,
                             borderRadius: const BorderRadius.only(
                               topRight: Radius.circular(4),
                               bottomRight: Radius.circular(4),
                             ),
                             border: Border.all(
-                              color: Colors.white.withOpacity(0.2),
+                              color: isDark ? Colors.white.withOpacity(0.2) : Colors.black.withOpacity(0.2),
                               width: 1,
                             ),
                           ),
@@ -1392,7 +1593,9 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
                             style: TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.w600,
-                              color: _selectedTab == 'Year' ? Colors.white : Colors.white.withOpacity(0.5),
+                              color: _selectedTab == 'Year'
+                                  ? (isDark ? Colors.white : Colors.black)
+                                  : (isDark ? Colors.white.withOpacity(0.5) : Colors.black.withOpacity(0.5)),
                             ),
                           ),
                         ),
@@ -1463,6 +1666,325 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
           ),
         ],
       ),
+    );
+  }
+
+  /// Year view showing all 12 months in a grid with vertical scroll between years
+  Widget _buildYearView(bool isDark, bool isMobile, AuthProvider authProvider) {
+    final monthNames = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+    ];
+
+    return Container(
+      key: const ValueKey('year-view'),
+      decoration: BoxDecoration(
+        color: Colors.black,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        children: [
+          // Year header with calendar icon - Month/Year tabs remain visible
+          Column(
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.calendar_today, size: 18, color: Colors.white),
+                      const SizedBox(width: 8),
+                      Text(
+                        DateFormat('yyyy').format(_currentMonth),
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
+                  ),
+                  // Month/Year tabs
+                  Row(
+                    children: [
+                      GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            _selectedTab = 'Month';
+                          });
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: _selectedTab == 'Month'
+                                ? (isDark ? const Color(0xFF1F1F1F) : const Color(0xFFF5F5F5))
+                                : Colors.transparent,
+                            borderRadius: const BorderRadius.only(
+                              topLeft: Radius.circular(4),
+                              bottomLeft: Radius.circular(4),
+                            ),
+                            border: Border.all(
+                              color: isDark ? Colors.white.withOpacity(0.2) : Colors.black.withOpacity(0.2),
+                              width: 1,
+                            ),
+                          ),
+                          child: Text(
+                            'Month',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: _selectedTab == 'Month'
+                                  ? (isDark ? Colors.white : Colors.black)
+                                  : (isDark ? Colors.white.withOpacity(0.5) : Colors.black.withOpacity(0.5)),
+                            ),
+                          ),
+                        ),
+                      ),
+                      GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            _selectedTab = 'Year';
+                          });
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: _selectedTab == 'Year'
+                                ? (isDark ? const Color(0xFF1F1F1F) : const Color(0xFFF5F5F5))
+                                : Colors.transparent,
+                            borderRadius: const BorderRadius.only(
+                              topRight: Radius.circular(4),
+                              bottomRight: Radius.circular(4),
+                            ),
+                            border: Border.all(
+                              color: isDark ? Colors.white.withOpacity(0.2) : Colors.black.withOpacity(0.2),
+                              width: 1,
+                            ),
+                          ),
+                          child: Text(
+                            'Year',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: _selectedTab == 'Year'
+                                  ? (isDark ? Colors.white : Colors.black)
+                                  : (isDark ? Colors.white.withOpacity(0.5) : Colors.black.withOpacity(0.5)),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          // PageView for years with snap scrolling
+          Expanded(
+            child: ScrollConfiguration(
+              behavior: ScrollConfiguration.of(context).copyWith(
+                dragDevices: {
+                  PointerDeviceKind.touch,
+                  PointerDeviceKind.mouse,
+                },
+              ),
+              child: PageView.builder(
+                controller: _yearPageController,
+                scrollDirection: Axis.vertical,
+                physics: const PageScrollPhysics(),
+                onPageChanged: (page) {
+                  setState(() {
+                    _currentYearPage = page;
+                    final yearOffset = page - 10;
+                    final now = DateTime.now();
+                    _currentMonth = DateTime(now.year + yearOffset, _currentMonth.month, 1);
+                  });
+                },
+                itemBuilder: (context, index) {
+                  final yearOffset = index - 10;
+                  final now = DateTime.now();
+                  final year = now.year + yearOffset;
+
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 24),
+                    child: _buildYearGrid(year, monthNames, isDark, authProvider),
+                  );
+                },
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Build grid of 12 months for a specific year
+  Widget _buildYearGrid(int year, List<String> monthNames, bool isDark, AuthProvider authProvider) {
+    return Column(
+      children: List.generate(4, (rowIndex) {
+        return Expanded(
+          child: Padding(
+            padding: EdgeInsets.only(
+              top: rowIndex == 0 ? 0 : 18,
+              bottom: rowIndex == 3 ? 0 : 18,
+            ),
+            child: Row(
+              children: List.generate(3, (colIndex) {
+                final monthIndex = rowIndex * 3 + colIndex;
+                final month = DateTime(year, monthIndex + 1, 1);
+                return Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    child: _buildCompactMonthForYear(month, monthNames[monthIndex], isDark, authProvider),
+                  ),
+                );
+              }),
+            ),
+          ),
+        );
+      }),
+    );
+  }
+
+  /// Build a compact month calendar for year view
+  Widget _buildCompactMonthForYear(DateTime month, String monthName, bool isDark, AuthProvider authProvider) {
+    final today = DateTime.now();
+    final firstDayOfMonth = DateTime(month.year, month.month, 1);
+    final lastDayOfMonth = DateTime(month.year, month.month + 1, 0);
+    final firstWeekday = firstDayOfMonth.weekday % 7; // 0 = Sunday
+    final daysInMonth = lastDayOfMonth.day;
+    final isCurrentMonth = month.year == today.year && month.month == today.month;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Month name - VERY BIG and highlighted if current month - ALIGNED LEFT
+        Padding(
+          padding: const EdgeInsets.only(left: 4, bottom: 4),
+          child: Text(
+            monthName,
+            style: TextStyle(
+              fontFamily: 'HouschkaRoundedAlt',
+              fontSize: 28,
+              fontWeight: FontWeight.w500,
+              color: isCurrentMonth
+                  ? const Color(0xFFF05E1B)
+                  : (isDark ? Colors.white : Colors.black),
+              height: 1.0,
+              letterSpacing: 0.2,
+            ),
+          ),
+        ),
+        // Days grid (up to 6 weeks) - MORE COMPACT
+        Expanded(
+          child: Column(
+            children: List.generate(6, (weekIndex) {
+              return Expanded(
+                child: Row(
+                  children: List.generate(7, (dayIndex) {
+                    final cellIndex = weekIndex * 7 + dayIndex;
+                    final dayNumber = cellIndex - firstWeekday + 1;
+
+                    if (dayNumber < 1 || dayNumber > daysInMonth) {
+                      return const Expanded(child: SizedBox());
+                    }
+
+                    final day = DateTime(month.year, month.month, dayNumber);
+                    final isToday = day.year == today.year && day.month == today.month && day.day == today.day;
+                    final isPast = day.isBefore(DateTime(today.year, today.month, today.day));
+                    final dayBookings = _getBookingsForDay(day);
+                    final availableSlots = _getAvailableSlots(day);
+                    final isBookable = _isDateBookable(day);
+
+                    // Determine indicator (similar to month view)
+                    bool morningOccupied = false;
+                    bool afternoonOccupied = false;
+
+                    final confirmedBookings = dayBookings.where((b) => b.status == BookingStatus.APPROVED).toList();
+                    for (final booking in confirmedBookings) {
+                      final startHour = int.parse(booking.startTime.split(':')[0]);
+                      if (startHour < 13) morningOccupied = true;
+                      if (startHour >= 13) afternoonOccupied = true;
+                    }
+
+                    final isFull = morningOccupied && afternoonOccupied;
+                    final isPartial = (morningOccupied || afternoonOccupied) && !isFull;
+                    final hasAvailableSlots = availableSlots.isNotEmpty;
+
+                    Color? indicatorColor;
+                    // Only show indicator for bookable future days with available slots
+                    if (isBookable && !isPast && hasAvailableSlots) {
+                      if (isPartial) {
+                        indicatorColor = const Color(0xFFF05E1B); // Ember for partial
+                      } else {
+                        indicatorColor = const Color(0xFF10B981); // Green for fully available
+                      }
+                    }
+
+                    return Expanded(
+                      child: GestureDetector(
+                        onTap: (isBookable && !isPast && hasAvailableSlots) ? () {
+                          // Zoom in to this month and select this day - only if clickable
+                          setState(() {
+                            _selectedTab = 'Month';
+                            _selectedDate = day;
+                            _currentMonth = DateTime(day.year, day.month, 1);
+                            // Navigate PageView to this month
+                            final now = DateTime.now();
+                            final monthOffset = (day.year - now.year) * 12 + (day.month - now.month);
+                            _pageController.jumpToPage(12 + monthOffset);
+                          });
+                        } : null,
+                        child: Container(
+                          margin: const EdgeInsets.symmetric(vertical: 0.5),
+                          padding: EdgeInsets.zero,
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              // Day number - today gets ember color on number itself
+                              Text(
+                                '$dayNumber',
+                                style: TextStyle(
+                                  fontFamily: 'BasisGrotesquePro',
+                                  fontSize: 10,
+                                  height: 1.0,
+                                  fontWeight: isToday ? FontWeight.w700 : FontWeight.w500,
+                                  color: isToday
+                                      ? const Color(0xFFF05E1B)
+                                      : !isBookable || isPast || !hasAvailableSlots
+                                          ? (isDark ? const Color(0xFF666666) : const Color(0xFFD1D5DB))
+                                          : (isDark ? Colors.white : Colors.black),
+                                ),
+                              ),
+                              // Indicator line - close to number
+                              if (indicatorColor != null)
+                                Container(
+                                  margin: const EdgeInsets.only(top: 1.0),
+                                  width: 8,
+                                  height: 1.0,
+                                  decoration: BoxDecoration(
+                                    color: indicatorColor,
+                                    borderRadius: BorderRadius.circular(0.5),
+                                  ),
+                                )
+                              else
+                                const SizedBox(height: 1.0),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  }),
+                ),
+              );
+            }),
+          ),
+        ),
+      ],
     );
   }
 
@@ -1629,7 +2151,7 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
                                 child: TweenAnimationBuilder<double>(
                                   duration: const Duration(milliseconds: 180),
                                   curve: Curves.easeOutQuad,
-                                  tween: Tween(begin: 1.0, end: isSelected ? 1.06 : 1.0),
+                                  tween: Tween(begin: 1.0, end: isSelected ? 1.10 : 1.0),
                                   builder: (context, scale, child) {
                                     return Transform.scale(
                                       scale: scale,
@@ -1639,8 +2161,8 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
                                           fontSize: 25,
                                           fontWeight: FontWeight.bold,
                                           color: !isBookable || isFull
-                                              ? const Color(0xFF666666)
-                                              : Colors.white,
+                                              ? (isDark ? const Color(0xFF666666) : const Color(0xFFD1D5DB))
+                                              : (isDark ? Colors.white : Colors.black),
                                         ),
                                       ),
                                     );
@@ -1668,7 +2190,7 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
                                         child: Container(
                                           width: 32 * progress,
                                           height: 6.5,
-                                          color: Colors.white.withOpacity(0.65 * progress),
+                                          color: (isDark ? Colors.white : Colors.black).withOpacity(0.65 * progress),
                                         ),
                                       );
                                     },
@@ -1714,7 +2236,7 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
 
     if (_selectedDate == null) {
       return Container(
-        color: Colors.black,  // Same as calendar background
+        color: isDark ? Colors.black : Colors.white,  // Same as calendar background
         child: Center(
           child: Text(
             'Select a date',
@@ -1774,7 +2296,7 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
     });
 
     return Container(
-      color: Colors.black,  // Same as calendar background, no border
+      color: isDark ? Colors.black : Colors.white,  // Same as calendar background, no border
       padding: const EdgeInsets.all(12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1782,10 +2304,10 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
           // Compact header
           Text(
             DateFormat('EEE, MMM d').format(_selectedDate!),
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 15,
               fontWeight: FontWeight.bold,
-              color: Colors.white,
+              color: isDark ? Colors.white : Colors.black,
             ),
           ),
           const SizedBox(height: 12),
@@ -1823,14 +2345,14 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
               },
               child: combinedEvents.isEmpty
                 ? Center(
-                    key: const ValueKey('empty'),  // Same key for all empty states - no animation between empty days
+                    key: const ValueKey('empty'),  // Same key for all empty states - no animation
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Icon(
                           Icons.event_busy,
                           size: 48,
-                          color: const Color(0xFF3F3F46),
+                          color: isDark ? const Color(0xFF3F3F46) : const Color(0xFFD1D5DB),
                         ),
                         const SizedBox(height: 12),
                         Text(
