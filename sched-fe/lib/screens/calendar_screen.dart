@@ -1830,8 +1830,8 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
         return Expanded(
           child: Padding(
             padding: EdgeInsets.only(
-              top: rowIndex == 0 ? 0 : 18,
-              bottom: rowIndex == 3 ? 0 : 18,
+              top: rowIndex == 0 ? 0 : 10,
+              bottom: rowIndex == 3 ? 0 : 10,
             ),
             child: Row(
               children: List.generate(3, (colIndex) {
@@ -1839,7 +1839,7 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
                 final month = DateTime(year, monthIndex + 1, 1);
                 return Expanded(
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    padding: const EdgeInsets.symmetric(horizontal: 5),
                     child: _buildCompactMonthForYear(month, monthNames[monthIndex], isDark, authProvider),
                   ),
                 );
@@ -1954,7 +1954,7 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
                                   '$dayNumber',
                                   style: TextStyle(
                                     fontFamily: 'BasisGrotesquePro',
-                                    fontSize: 10,
+                                    fontSize: 11,
                                     height: 1.0,
                                     fontWeight: isToday ? FontWeight.w700 : FontWeight.w500,
                                     color: isToday
@@ -2001,8 +2001,32 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
     final firstWeekday = firstDayOfMonth.weekday % 7; // 0 = Sunday
     final daysInMonth = lastDayOfMonth.day;
 
+    final weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
     return Column(
-      children: List.generate(5, (weekIndex) {
+      children: [
+        // Weekday header row
+        SizedBox(
+          height: 24,
+          child: Row(
+            children: weekDays.map((day) => Expanded(
+              child: Center(
+                child: Text(
+                  day,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: isDark ? Colors.white.withOpacity(0.5) : Colors.black.withOpacity(0.5),
+                    fontFamily: 'BasisGrotesquePro',
+                  ),
+                ),
+              ),
+            )).toList(),
+          ),
+        ),
+        const SizedBox(height: 8),
+        // Calendar grid
+        ...List.generate(5, (weekIndex) {
         return Expanded(
           child: Row(
             children: List.generate(7, (dayIndex) {
@@ -2231,6 +2255,7 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
           ),
         );
       }),
+      ],
     );
   }
 
