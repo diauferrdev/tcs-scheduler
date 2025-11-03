@@ -296,16 +296,9 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
         widget.onTicketUpdated!(ticket);
       }
 
-      // Scroll to bottom on load instantly (no animation when opening conversation)
+      // Scroll to bottom on load instantly - no animation
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (_scrollController.hasClients) {
-          _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
-        }
-      });
-
-      // Extra scroll attempt after a short delay to ensure content is rendered
-      Future.delayed(const Duration(milliseconds: 100), () {
-        if (mounted && _scrollController.hasClients) {
+        if (_scrollController.hasClients && mounted) {
           _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
         }
       });

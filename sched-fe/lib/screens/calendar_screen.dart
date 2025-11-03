@@ -1377,10 +1377,8 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
                     ),
                     child: LayoutBuilder(
                       builder: (context, constraints) {
-                        const underlineOffset = 6; // ← AJUSTE AQUI: distância do traço abaixo do número
-                        const labelOffset = 0.20; // ← AJUSTE AQUI: % da altura (0.20 = 20% do fundo)
-
                         return Stack(
+                          clipBehavior: Clip.none,
                           children: [
                             // Number - centered
                             Positioned.fill(
@@ -1408,11 +1406,11 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
                                 ),
                               ),
                             ),
-                            // Underline - fixed offset from center
+                            // Underline - absolute overlay, anchored 6px below number center
                             Positioned(
                               left: 0,
                               right: 0,
-                              top: constraints.maxHeight / 2 + underlineOffset,
+                              top: constraints.maxHeight / 2 + 6,
                               child: Center(
                                 child: SizedBox(
                                   width: 32,
@@ -1436,12 +1434,12 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
                                 ),
                               ),
                             ),
-                            // Availability label - % from bottom
+                            // Availability label - absolute overlay, anchored 18px below number center
                             if (availabilityLabel != null)
                               Positioned(
                                 left: 0,
                                 right: 0,
-                                bottom: constraints.maxHeight * labelOffset,
+                                top: constraints.maxHeight / 2 + 11,
                                 child: Center(
                                   child: Text(
                                     availabilityLabel,
