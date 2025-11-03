@@ -784,10 +784,10 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
       return const Center(child: Text('Ticket not found'));
     }
 
-    // Chat colors - theme-aware
+    // Chat colors - theme-aware (black/white only)
     final bgColor = isDark ? const Color(0xFF181818) : const Color(0xFFF5F5F5);
-    final myBubbleColor = isDark ? const Color(0xFF222222) : const Color(0xFFDCF8C6); // My messages (sent)
-    final otherBubbleColor = isDark ? const Color(0xFF2F2F2F) : Colors.white; // Received messages
+    final myBubbleColor = isDark ? const Color(0xFF222222) : const Color(0xFFE5E5E5); // My messages - light gray
+    final otherBubbleColor = isDark ? const Color(0xFF2F2F2F) : Colors.white; // Received messages - white
     final textColor = isDark ? Colors.white : Colors.black;
 
     return Container(

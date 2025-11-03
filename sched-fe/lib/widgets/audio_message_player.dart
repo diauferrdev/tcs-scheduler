@@ -163,7 +163,7 @@ class _AudioMessagePlayerState extends State<AudioMessagePlayer> {
         ? _position.inMilliseconds / _duration.inMilliseconds
         : 0.0;
 
-    // Theme-aware colors
+    // Theme-aware colors (black/white only)
     // INVERTED colors compared to text messages:
     // - When I send audio (isCurrentUser=true): use RECEIVED message color
     // - When I receive audio (isCurrentUser=false): use SENT message color
@@ -173,7 +173,7 @@ class _AudioMessagePlayerState extends State<AudioMessagePlayer> {
             : const Color(0xFF222222)) // Darker (like sent text in dark mode)
         : (widget.isCurrentUser
             ? Colors.white              // White (like received text in light mode)
-            : const Color(0xFFDCF8C6)); // Green tint (like sent text in light mode)
+            : const Color(0xFFE5E5E5)); // Light gray (like sent text in light mode)
 
     final textColor = widget.isDark ? Colors.white70 : Colors.black54;
     final waveformColor = widget.isDark ? Colors.white : Colors.black;
