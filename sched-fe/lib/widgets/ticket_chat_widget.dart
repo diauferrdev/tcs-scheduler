@@ -46,7 +46,7 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
   final ApiService _api = ApiService();
   final WebSocketService _ws = WebSocketService();
   final TextEditingController _messageController = TextEditingController();
-  final ScrollController _scrollController = ScrollController();
+  final ScrollController _scrollController = ScrollController(keepScrollOffset: false);
   final FocusNode _messageFocusNode = FocusNode();
   final AudioRecorder _audioRecorder = AudioRecorder();
 
@@ -108,7 +108,9 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
 
   void _setupScrollListener() {
     _scrollController.addListener(() {
-      if (_scrollController.position.pixels < 200 &&
+      // With reverse: true, we load more when scrolling UP (pixels increase from 0)
+      // Check if we're near the END of the reversed list (which is the TOP visually)
+      if (_scrollController.position.pixels > _scrollController.position.maxScrollExtent - 200 &&
           !_isLoadingMore &&
           _hasMoreMessages) {
         _loadMoreMessages();
@@ -217,21 +219,8 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
       return;
     }
 
-    // Check if user is near bottom BEFORE adding message
-    bool shouldAutoScroll = false;
-    if (_scrollController.hasClients) {
-      final position = _scrollController.position;
-      // Consider "near bottom" if within 200px of the bottom (very generous)
-      // OR if already at the very bottom (difference < 1px for floating point precision)
-      final distanceFromBottom = position.maxScrollExtent - position.pixels;
-      shouldAutoScroll = distanceFromBottom < 200 || distanceFromBottom.abs() < 1.0;
-    } else {
-      // If no clients yet, always scroll (initial load)
-      shouldAutoScroll = true;
-    }
-
-    debugPrint('[AutoScroll] Should scroll: $shouldAutoScroll, Distance from bottom: ${_scrollController.hasClients ? (_scrollController.position.maxScrollExtent - _scrollController.position.pixels).toStringAsFixed(1) : "N/A"}px');
-
+    // With reverse: true, pixels == 0 means we're at the "bottom" (newest messages)
+    // No need to scroll - ListView automatically adjusts when reverse: true
     setState(() {
       // Remove optimistic message if it exists
       _optimisticMessages.removeWhere((m) =>
@@ -244,19 +233,7 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
       _messages.sort((a, b) => a.createdAt.compareTo(b.createdAt));
     });
 
-    // Scroll AFTER setState completes - smooth animation
-    if (shouldAutoScroll) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (_scrollController.hasClients && mounted) {
-          _scrollController.animateTo(
-            _scrollController.position.maxScrollExtent,
-            duration: const Duration(milliseconds: 400),
-            curve: Curves.easeInOutCubic,
-          );
-          debugPrint('[AutoScroll] ✅ Scrolling to bottom');
-        }
-      });
-    }
+    // With reverse ListView, no manual scroll needed - it stays at bottom automatically
 
     // Mark new message as read if it's from someone else
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
@@ -297,13 +274,7 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
         widget.onTicketUpdated!(ticket);
       }
 
-      // Scroll to bottom instantly - NO ANIMATION
-      // Execute in the same frame to avoid any visual scroll
-      SchedulerBinding.instance.addPostFrameCallback((_) {
-        if (_scrollController.hasClients && mounted) {
-          _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
-        }
-      });
+      // NO SCROLL NEEDED - reverse ListView starts at bottom naturally
 
       // Mark messages as read when entering conversation
       _markAllMessagesAsRead();
@@ -479,16 +450,7 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
       if (!mounted) return;
       _messageController.clear();
 
-      // Scroll to bottom after sending with smooth animation
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (_scrollController.hasClients) {
-          _scrollController.animateTo(
-            _scrollController.position.maxScrollExtent,
-            duration: const Duration(milliseconds: 400),
-            curve: Curves.easeInOutCubic,
-          );
-        }
-      });
+      // No scroll needed - reverse ListView stays at bottom automatically
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -525,16 +487,7 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
     final messageText = _messageController.text;
     _messageController.clear();
 
-    // Scroll to bottom after attachment with smooth animation
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_scrollController.hasClients) {
-        _scrollController.animateTo(
-          _scrollController.position.maxScrollExtent,
-          duration: const Duration(milliseconds: 400),
-          curve: Curves.easeInOutCubic,
-        );
-      }
-    });
+    // No scroll needed - reverse ListView stays at bottom automatically
 
     try {
       final response = await _api.uploadAttachment(bytes, fileName);
@@ -913,26 +866,31 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
                   )
                 : ListView.builder(
                     controller: _scrollController,
+                    reverse: true,
                     padding: const EdgeInsets.symmetric(vertical: 8),
                     itemCount: (_isLoadingMore ? 1 : 0) + _messages.length + _optimisticMessages.length,
                     itemBuilder: (context, index) {
-                      if (_isLoadingMore && index == 0) {
+                      // With reverse: true, index 0 is at the bottom (newest messages)
+                      // Optimistic messages come first (bottom), then regular messages, then loading
+                      final totalOptimistic = _optimisticMessages.length;
+                      final totalMessages = _messages.length;
+
+                      if (index < totalOptimistic) {
+                        // Render optimistic messages (newest first, reversed)
+                        final optimisticMsg = _optimisticMessages[totalOptimistic - 1 - index];
+                        return _buildOptimisticMessage(optimisticMsg, myBubbleColor, textColor);
+                      } else if (index < totalOptimistic + totalMessages) {
+                        // Render regular messages (reversed order)
+                        final messageIndex = totalMessages - 1 - (index - totalOptimistic);
+                        final message = _messages[messageIndex];
+                        final isCurrentUser = message.author.id == user?.id;
+                        return _buildMessageBubble(message, isCurrentUser, myBubbleColor, otherBubbleColor, textColor);
+                      } else {
+                        // Loading indicator at top (oldest messages)
                         return const Padding(
                           padding: EdgeInsets.all(16),
                           child: Center(child: CircularProgressIndicator()),
                         );
-                      }
-
-                      final adjustedIndex = _isLoadingMore ? index - 1 : index;
-
-                      if (adjustedIndex < _messages.length) {
-                        final message = _messages[adjustedIndex];
-                        final isCurrentUser = message.author.id == user?.id;
-                        return _buildMessageBubble(message, isCurrentUser, myBubbleColor, otherBubbleColor, textColor);
-                      } else {
-                        final optimisticIndex = adjustedIndex - _messages.length;
-                        final optimisticMsg = _optimisticMessages[optimisticIndex];
-                        return _buildOptimisticMessage(optimisticMsg, myBubbleColor, textColor);
                       }
                     },
                   ),
