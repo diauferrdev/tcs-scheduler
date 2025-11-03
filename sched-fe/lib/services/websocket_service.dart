@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io' show WebSocket, Platform;
 import 'package:flutter/foundation.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
+import 'package:web_socket_channel/io.dart';
 import '../config/api_config.dart';
 
 class WebSocketService {
@@ -39,29 +41,52 @@ class WebSocketService {
     _isConnecting = true;
     _messageController ??= StreamController<Map<String, dynamic>>.broadcast();
 
-    try {
-      // Convert http/https to ws/wss
-      var wsUrl = ApiConfig.baseUrl;
+    // Convert http/https to ws/wss
+    var wsUrl = ApiConfig.baseUrl;
 
-      // Ensure we're using the correct protocol
-      if (wsUrl.startsWith('https://')) {
-        wsUrl = wsUrl.replaceFirst('https://', 'wss://');
-      } else if (wsUrl.startsWith('http://')) {
-        wsUrl = wsUrl.replaceFirst('http://', 'ws://');
+    // Ensure we're using the correct protocol
+    if (wsUrl.startsWith('https://')) {
+      wsUrl = wsUrl.replaceFirst('https://', 'wss://');
+    } else if (wsUrl.startsWith('http://')) {
+      wsUrl = wsUrl.replaceFirst('http://', 'ws://');
+    }
+
+    final uri = Uri.parse('$wsUrl/ws?userId=$userId');
+    debugPrint('[WS] Connecting to: $uri (platform: ${kIsWeb ? "web" : "mobile"})');
+
+    // Use native dart:io WebSocket on mobile for better compatibility
+    // Use web_socket_channel on web
+    if (kIsWeb) {
+      try {
+        _channel = WebSocketChannel.connect(
+          uri,
+          protocols: ['websocket'],
+        );
+        _setupConnection();
+      } catch (e) {
+        debugPrint('[WS] ❌ Connection error: $e');
+        _isConnecting = false;
+        _handleDisconnect();
       }
-
-      // Remove any port if present, as it may cause issues on mobile
-      final baseUri = Uri.parse(wsUrl);
-      final cleanWsUrl = '${baseUri.scheme}://${baseUri.host}';
-
-      final uri = Uri.parse('$cleanWsUrl/ws?userId=$userId');
-      debugPrint('[WS] Connecting to: $uri (scheme: ${uri.scheme}, host: ${uri.host}, path: ${uri.path})');
-
-      _channel = WebSocketChannel.connect(
-        uri,
+    } else {
+      // Mobile: Use native dart:io WebSocket
+      debugPrint('[WS] Using native dart:io WebSocket for mobile');
+      WebSocket.connect(
+        uri.toString(),
         protocols: ['websocket'],
-      );
+      ).then((socket) {
+        _channel = IOWebSocketChannel(socket);
+        _setupConnection();
+      }).catchError((e) {
+        debugPrint('[WS] ❌ Connection error: $e');
+        _isConnecting = false;
+        _handleDisconnect();
+      });
+    }
+  }
 
+  void _setupConnection() {
+    try {
       // Start heartbeat
       _startHeartbeat();
 
@@ -95,7 +120,7 @@ class WebSocketService {
       _isConnecting = false;
       debugPrint('[WS] ✅ Connected successfully');
     } catch (e) {
-      debugPrint('[WS] ❌ Connection error: $e');
+      debugPrint('[WS] ❌ Setup error: $e');
       _isConnecting = false;
       _handleDisconnect();
     }
