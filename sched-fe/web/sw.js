@@ -85,7 +85,7 @@ self.addEventListener('notificationclick', (event) => {
   if (screen === 'approvals' && bookingId) {
     urlToOpen = `/app/pending?bookingId=${bookingId}`;
   } else if (screen === 'my_bookings') {
-    urlToOpen = bookingId ? `/app/my-bookings?bookingId=${bookingId}` : '/app/my-bookings';
+    urlToOpen = bookingId ? `/app/my-visits?bookingId=${bookingId}` : '/app/my-visits';
   } else if (screen === 'booking_details' && bookingId) {
     urlToOpen = `/app/booking/${bookingId}`;
   } else if (bookingId) {

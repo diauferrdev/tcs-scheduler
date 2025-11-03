@@ -114,10 +114,10 @@
       ]
     },
     {
-      "name": "My Bookings",
-      "short_name": "Bookings",
-      "description": "View your booking history and status",
-      "url": "/app/my-bookings",
+      "name": "My Visits",
+      "short_name": "Visits",
+      "description": "View your visit history and status",
+      "url": "/app/my-visits",
       "icons": [
         {
           "src": "icons/shortcut-bookings.png",

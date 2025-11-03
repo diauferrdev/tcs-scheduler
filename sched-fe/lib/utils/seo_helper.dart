@@ -65,11 +65,11 @@ class SeoHelper {
           'Create a new office visit booking. View availability, select dates, and schedule your visit.',
       'keywords': 'New Booking, Create Booking, Office Calendar, Schedule Management, TCS Pace',
     },
-    'my-bookings': {
-      'title': 'My Bookings | TCS Pace Scheduler',
+    'my-visits': {
+      'title': 'My Visits | TCS Pace Scheduler',
       'description':
           'View and manage your office visit bookings. Check booking status, invitations, and visit history.',
-      'keywords': 'My Bookings, Booking History, Office Visits, TCS Pace',
+      'keywords': 'My Visits, Booking History, Office Visits, TCS Pace',
     },
     'invitations': {
       'title': 'Invitations | TCS Pace Scheduler',

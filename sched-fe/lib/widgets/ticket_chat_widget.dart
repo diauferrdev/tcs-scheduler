@@ -85,6 +85,7 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
   @override
   void initState() {
     super.initState();
+    debugPrint('[TicketChat-${widget.ticketId}] 🟢 INIT - Widget created for ticket ${widget.ticketId}');
     // Initialize scroll controller with position 0 (which is bottom when reverse: true)
     _scrollController = ScrollController(
       initialScrollOffset: 0.0,
@@ -99,6 +100,7 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
 
   @override
   void dispose() {
+    debugPrint('[TicketChat-${widget.ticketId}] 🔴 DISPOSE - Widget destroyed for ticket ${widget.ticketId}');
     _wsSubscription?.cancel();
     _messageController.dispose();
     _scrollController.dispose();
@@ -136,7 +138,9 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
         final type = message['type'] as String?;
         if (type == 'ticket_message') {
           final data = message['data'];
+          debugPrint('[TicketChat-${widget.ticketId}] 📨 Received ticket_message for ticket: ${data?['ticketId']}');
           if (data != null && data['ticketId'] == widget.ticketId) {
+            debugPrint('[TicketChat-${widget.ticketId}] ✅ Message is for THIS ticket, processing...');
             try {
               final newMessage = TicketMessage.fromJson(data);
               _addMessageToList(newMessage);
@@ -144,12 +148,14 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
               // Auto-mark as read since we're in the chat
               final authProvider = Provider.of<AuthProvider>(context, listen: false);
               if (newMessage.author.id != authProvider.user?.id) {
-                debugPrint('[TicketChat] 📖 Auto-marking new message as read');
+                debugPrint('[TicketChat-${widget.ticketId}] 📖 Auto-marking new message as read');
                 _markSingleMessageAsRead(newMessage.id);
               }
             } catch (e) {
-              debugPrint('[TicketChat] Error parsing message: $e');
+              debugPrint('[TicketChat-${widget.ticketId}] Error parsing message: $e');
             }
+          } else {
+            debugPrint('[TicketChat-${widget.ticketId}] ❌ Message is for DIFFERENT ticket (${data?['ticketId']}), ignoring');
           }
         } else if (type == 'message_read') {
           // Real-time read receipts
@@ -263,7 +269,8 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final userId = authProvider.user?.id;
     if (userId != null && message.author.id != userId && message.readAt == null) {
-      _markAllMessagesAsRead();
+      debugPrint('[TicketChat] 📖 Auto-marking new message as read (addMessageToList)');
+      _markSingleMessageAsRead(message.id);
     }
   }
 

@@ -58,8 +58,8 @@ class NavigationService {
 
   /// Navigate to booking details (goes to My Bookings first, then opens details drawer)
   void navigateToBookingDetails(String bookingId) {
-    navigateTo('/app/my-bookings?bookingId=$bookingId');
-    debugPrint('[NavigationService] Navigated to My Bookings with booking details: $bookingId');
+    navigateTo('/app/my-visits?bookingId=$bookingId');
+    debugPrint('[NavigationService] Navigated to My Visits with booking details: $bookingId');
   }
 
   /// Navigate to approvals with booking details (for ADMIN/MANAGER)

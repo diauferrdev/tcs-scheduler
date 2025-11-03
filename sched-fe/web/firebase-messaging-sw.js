@@ -52,7 +52,7 @@ self.addEventListener('notificationclick', (event) => {
   if (screen === 'booking_details' && bookingId) {
     url = `/booking/${bookingId}`;
   } else if (screen === 'my_bookings') {
-    url = '/my-bookings';
+    url = '/my-visits';
   } else if (screen === 'approvals') {
     url = '/approvals';
   } else if (screen === 'calendar') {

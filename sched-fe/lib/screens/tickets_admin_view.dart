@@ -39,6 +39,7 @@ class _TicketsAdminViewState extends State<TicketsAdminView> {
   @override
   void initState() {
     super.initState();
+    debugPrint('[AdminTickets] 🟢 INIT - AdminView created, _selectedTicket: ${_selectedTicket?.id ?? "null"}');
     _loadTickets();
     _setupWebSocket();
   }
@@ -206,6 +207,7 @@ class _TicketsAdminViewState extends State<TicketsAdminView> {
 
   @override
   void dispose() {
+    debugPrint('[AdminTickets] 🔴 DISPOSE - AdminView destroyed, _selectedTicket was: ${_selectedTicket?.id ?? "null"}');
     _wsSubscription?.cancel();
     _searchController.dispose();
     super.dispose();
@@ -484,9 +486,11 @@ class _TicketsAdminViewState extends State<TicketsAdminView> {
                     onTicketUpdated: _onTicketUpdated,
                     isAdminView: true,
                     onBackPressed: () {
+                      debugPrint('[AdminTickets] 🔙 Back pressed (desktop), deselecting ticket ${_selectedTicket?.id}');
                       setState(() {
                         _selectedTicket = null;
                       });
+                      debugPrint('[AdminTickets] Selection is now: null');
                     },
                   ),
           ),
@@ -573,13 +577,16 @@ class _TicketsAdminViewState extends State<TicketsAdminView> {
                   ],
                 )
               : TicketChatWidget(
+                  key: ValueKey(_selectedTicket!.id),
                   ticketId: _selectedTicket!.id,
                   onTicketUpdated: _onTicketUpdated,
                   isAdminView: true,
                   onBackPressed: () {
+                    debugPrint('[AdminTickets] 🔙 Back pressed, deselecting ticket ${_selectedTicket?.id}');
                     setState(() {
                       _selectedTicket = null;
                     });
+                    debugPrint('[AdminTickets] Selection is now: null');
                   },
                 ),
     );
@@ -638,10 +645,12 @@ class _TicketsAdminViewState extends State<TicketsAdminView> {
           : Colors.transparent,
       child: InkWell(
         onTap: () {
-          debugPrint('[AdminTickets] Ticket tapped: ${ticket.id}, isMobile: $isMobile');
+          debugPrint('[AdminTickets] 🔘 Ticket tapped: ${ticket.id}, isMobile: $isMobile');
+          debugPrint('[AdminTickets] Previous selection: ${_selectedTicket?.id ?? "null"}');
           setState(() {
             _selectedTicket = ticket;
           });
+          debugPrint('[AdminTickets] New selection: ${_selectedTicket?.id}');
         },
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
