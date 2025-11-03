@@ -801,14 +801,26 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
                             // FIXED HEADER - stays the same for both views
                             _buildCalendarHeader(isDark),
                             const SizedBox(height: 12),
-                            // CONTENT - cached views, instant switch
+                            // CONTENT - cached views with smooth fade in
                             Expanded(
-                              child: IndexedStack(
-                                index: _selectedTab == 'Month' ? 0 : 1,
-                                children: [
-                                  _buildMonthContent(isDark, authProvider),
-                                  _buildYearContent(isDark, authProvider),
-                                ],
+                              child: TweenAnimationBuilder<double>(
+                                key: ValueKey(_selectedTab),
+                                duration: const Duration(milliseconds: 250),
+                                curve: Curves.easeInOut,
+                                tween: Tween(begin: 0.0, end: 1.0),
+                                builder: (context, opacity, child) {
+                                  return Opacity(
+                                    opacity: opacity,
+                                    child: child,
+                                  );
+                                },
+                                child: IndexedStack(
+                                  index: _selectedTab == 'Month' ? 0 : 1,
+                                  children: [
+                                    _buildMonthContent(isDark, authProvider),
+                                    _buildYearContent(isDark, authProvider),
+                                  ],
+                                ),
                               ),
                             ),
                           ],
@@ -872,7 +884,7 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-        // Calendar icon + date label
+        // Calendar icon + date label with animated transition
         Row(
           children: [
             Icon(
@@ -881,15 +893,34 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
               color: isDark ? Colors.white : Colors.black,
             ),
             const SizedBox(width: 8),
-            Text(
-              _selectedTab == 'Year'
-                  ? DateFormat('yyyy').format(_currentMonth)
-                  : DateFormat('yyyy/MM').format(_currentMonth),
-              style: TextStyle(
-                fontFamily: 'BasisGrotesquePro',
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-                color: isDark ? Colors.white : Colors.black,
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 300),
+              transitionBuilder: (Widget child, Animation<double> animation) {
+                return FadeTransition(
+                  opacity: animation,
+                  child: SlideTransition(
+                    position: Tween<Offset>(
+                      begin: const Offset(0.0, -0.3),
+                      end: Offset.zero,
+                    ).animate(CurvedAnimation(
+                      parent: animation,
+                      curve: Curves.easeOutCubic,
+                    )),
+                    child: child,
+                  ),
+                );
+              },
+              child: Text(
+                _selectedTab == 'Year'
+                    ? DateFormat('yyyy').format(_currentMonth)
+                    : DateFormat('yyyy/MM').format(_currentMonth),
+                key: ValueKey('${_selectedTab}_${DateFormat(_selectedTab == 'Year' ? 'yyyy' : 'yyyy/MM').format(_currentMonth)}'),
+                style: TextStyle(
+                  fontFamily: 'BasisGrotesquePro',
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  color: isDark ? Colors.white : Colors.black,
+                ),
               ),
             ),
           ],
@@ -974,8 +1005,10 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
       child: PageView.builder(
         controller: _pageController,
         scrollDirection: Axis.vertical,
-        physics: const ClampingScrollPhysics(),
+        physics: const PageScrollPhysics(),
         padEnds: false,
+        allowImplicitScrolling: true,
+        pageSnapping: true,
         onPageChanged: (page) {
           setState(() {
             _currentPage = page;
@@ -988,9 +1021,11 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
           final monthOffset = index - 12;
           final now = DateTime.now();
           final month = DateTime(now.year, now.month + monthOffset, 1);
-          return Padding(
-            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
-            child: _buildMonthGrid(month, isDark, authProvider),
+          return _KeepAlivePage(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+              child: _buildMonthGrid(month, isDark, authProvider),
+            ),
           );
         },
       ),
@@ -1010,7 +1045,10 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
       child: PageView.builder(
         controller: _yearPageController,
         scrollDirection: Axis.vertical,
-        physics: const ClampingScrollPhysics(),
+        physics: const PageScrollPhysics(),
+        padEnds: false,
+        allowImplicitScrolling: true,
+        pageSnapping: true,
         onPageChanged: (page) {
           setState(() {
             _currentYearPage = page;
@@ -1023,9 +1061,11 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
           final yearOffset = index - 10;
           final now = DateTime.now();
           final year = now.year + yearOffset;
-          return Padding(
-            padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 12),
-            child: _buildYearGrid(year, monthNames, isDark, authProvider),
+          return _KeepAlivePage(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 12),
+              child: _buildYearGrid(year, monthNames, isDark, authProvider),
+            ),
           );
         },
       ),
@@ -1152,44 +1192,53 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
                             _pageController.jumpToPage(12 + monthOffset);
                           });
                         } : null,
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 1.5, horizontal: 1.0),
-                          child: FittedBox(
-                            fit: BoxFit.scaleDown,
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                // Day number - today gets ember color on number itself
-                                Text(
-                                  '$dayNumber',
-                                  style: TextStyle(
-                                    fontFamily: 'BasisGrotesquePro',
-                                    fontSize: 11,
-                                    height: 1.0,
-                                    fontWeight: isToday ? FontWeight.w700 : FontWeight.w500,
-                                    color: isToday
-                                        ? const Color(0xFFF05E1B)
-                                        : !isBookable || isPast || !hasAvailableSlots
-                                            ? (isDark ? const Color(0xFF666666) : const Color(0xFFD1D5DB))
-                                            : (isDark ? Colors.white : Colors.black),
-                                  ),
-                                ),
-                                // Indicator line - close to number
-                                if (indicatorColor != null)
-                                  Container(
-                                    margin: const EdgeInsets.only(top: 1.0),
-                                    width: 8,
-                                    height: 1.0,
-                                    decoration: BoxDecoration(
-                                      color: indicatorColor,
-                                      borderRadius: BorderRadius.circular(0.5),
+                        child: Container(
+                          margin: const EdgeInsets.all(0.5),
+                          child: LayoutBuilder(
+                            builder: (context, constraints) {
+                              return Stack(
+                                clipBehavior: Clip.none,
+                                children: [
+                                  // Day number - centered (anchor)
+                                  Positioned.fill(
+                                    child: Align(
+                                      alignment: Alignment.center,
+                                      child: Text(
+                                        '$dayNumber',
+                                        style: TextStyle(
+                                          fontFamily: 'BasisGrotesquePro',
+                                          fontSize: MediaQuery.of(context).size.width > 800 ? 15 : 13,
+                                          height: 1.0,
+                                          fontWeight: isToday ? FontWeight.w700 : FontWeight.w600,
+                                          color: isToday
+                                              ? const Color(0xFFF05E1B)
+                                              : !isBookable || isPast || !hasAvailableSlots
+                                                  ? (isDark ? const Color(0xFF666666) : const Color(0xFFD1D5DB))
+                                                  : (isDark ? Colors.white : Colors.black),
+                                        ),
+                                      ),
                                     ),
-                                  )
-                                else
-                                  const SizedBox(height: 1.0),
-                              ],
-                            ),
+                                  ),
+                                  // Indicator line - absolute overlay, anchored 4px below number center
+                                  if (indicatorColor != null)
+                                    Positioned(
+                                      left: 0,
+                                      right: 0,
+                                      top: constraints.maxHeight / 2 + 7,
+                                      child: Center(
+                                        child: Container(
+                                          width: 10,
+                                          height: 1.5,
+                                          decoration: BoxDecoration(
+                                            color: indicatorColor,
+                                            borderRadius: BorderRadius.circular(0.75),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                ],
+                              );
+                            },
                           ),
                         ),
                       ),
@@ -3314,5 +3363,26 @@ class _SlotPickerContentState extends State<SlotPickerContent> {
     if (widget.onSlotSelected != null) {
       widget.onSlotSelected!(startTime, duration);
     }
+  }
+}
+
+/// Helper widget to keep PageView pages alive and prevent rebuilds
+class _KeepAlivePage extends StatefulWidget {
+  final Widget child;
+
+  const _KeepAlivePage({required this.child});
+
+  @override
+  State<_KeepAlivePage> createState() => _KeepAlivePageState();
+}
+
+class _KeepAlivePageState extends State<_KeepAlivePage> with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context); // Must call super for AutomaticKeepAliveClientMixin
+    return widget.child;
   }
 }
