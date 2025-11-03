@@ -3,8 +3,8 @@ import { Hono } from 'hono';
 const app = new Hono();
 
 const versionData = {
-  version: '1.1.34',
-  buildNumber: 89,
+  version: '1.2.10',
+  buildNumber: 116,
   minVersion: '1.0.0',
   forceUpdate: false,
   downloadUrl: {
@@ -19,7 +19,7 @@ const versionData = {
     'pt-BR': 'Melhorias na interface de bug reports: layout otimizado, botão de upvote reposicionado, rollback automático de anexos em caso de falha, e grid compacto de arquivos.',
     'en': 'Bug report UI improvements: optimized layout, repositioned upvote button, automatic attachment rollback on failure, and compact file grid.',
   },
-  releaseDate: '2025-10-28T09:25:00-03:00',
+  releaseDate: '2025-11-03T03:09:15-03:00',
   critical: false,
 };
 

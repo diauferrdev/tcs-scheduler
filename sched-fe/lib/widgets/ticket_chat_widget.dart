@@ -465,19 +465,45 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
     _typingKeepAliveTimer?.cancel();
     _sendTypingIndicator(false);
 
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final tempId = 'temp_${DateTime.now().millisecondsSinceEpoch}';
+
+    // OPTIMISTIC UPDATE - Add message immediately to UI
     setState(() {
       _isSendingMessage = true;
+      _optimisticMessages.add({
+        'id': tempId,
+        'content': content,
+        'isUploading': true,
+        'timestamp': DateTime.now(),
+        'authorId': authProvider.user?.id,
+        'authorName': authProvider.user?.name,
+        'authorAvatar': authProvider.user?.avatarUrl,
+      });
     });
+
+    _messageController.clear();
 
     try {
       final body = {'content': content};
-      await _api.post('/api/tickets/${widget.ticketId}/messages', body);
+      final response = await _api.post('/api/tickets/${widget.ticketId}/messages', body);
 
       if (!mounted) return;
-      _messageController.clear();
+
+      // Replace optimistic message with real one
+      setState(() {
+        _optimisticMessages.removeWhere((msg) => msg['id'] == tempId);
+      });
+
       // reverse ListView auto-scrolls when new message added
     } catch (e) {
       if (!mounted) return;
+
+      // Remove optimistic message on error
+      setState(() {
+        _optimisticMessages.removeWhere((msg) => msg['id'] == tempId);
+      });
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error sending message: $e')),
       );
@@ -653,26 +679,56 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
           bytes = await file.readAsBytes();
         }
 
-        setState(() => _uploadingAttachment = true);
+        final authProvider = Provider.of<AuthProvider>(context, listen: false);
+        final tempId = 'temp_${DateTime.now().millisecondsSinceEpoch}';
 
-        final response = await _api.uploadAttachment(bytes, fileName);
+        // OPTIMISTIC UPDATE - Add audio message immediately
+        setState(() {
+          _uploadingAttachment = true;
+          _optimisticMessages.add({
+            'id': tempId,
+            'content': '',
+            'fileName': fileName,
+            'bytes': bytes,
+            'isUploading': true,
+            'timestamp': DateTime.now(),
+            'authorId': authProvider.user?.id,
+            'authorName': authProvider.user?.name,
+            'authorAvatar': authProvider.user?.avatarUrl,
+          });
+        });
 
-        setState(() => _uploadingAttachment = false);
+        try {
+          final response = await _api.uploadAttachment(bytes, fileName);
 
-        // Duration will be extracted automatically by backend using ffprobe
-        final body = <String, dynamic>{
-          'content': '',
-          'attachments': [
-            {
-              'fileName': response['filename'],
-              'fileUrl': response['url'],
-              'fileSize': response['size'],
-              'mimeType': response['type'],
-            }
-          ],
-        };
+          // Duration will be extracted automatically by backend using ffprobe
+          final body = <String, dynamic>{
+            'content': '',
+            'attachments': [
+              {
+                'fileName': response['filename'],
+                'fileUrl': response['url'],
+                'fileSize': response['size'],
+                'mimeType': response['type'],
+              }
+            ],
+          };
 
-        await _api.post('/api/tickets/${widget.ticketId}/messages', body);
+          await _api.post('/api/tickets/${widget.ticketId}/messages', body);
+
+          // Remove optimistic message - real one will come from WebSocket
+          setState(() {
+            _uploadingAttachment = false;
+            _optimisticMessages.removeWhere((msg) => msg['id'] == tempId);
+          });
+        } catch (e) {
+          // Remove optimistic message on error
+          setState(() {
+            _uploadingAttachment = false;
+            _optimisticMessages.removeWhere((msg) => msg['id'] == tempId);
+          });
+          rethrow;
+        }
 
         if (!kIsWeb) {
           try {
