@@ -104,7 +104,7 @@ class _BugReportsScreenState extends State<BugReportsScreen> {
         _sortBugReports();
       });
 
-    } catch (e, stackTrace) {
+    } catch (e) {
     }
   }
 
@@ -123,7 +123,7 @@ class _BugReportsScreenState extends State<BugReportsScreen> {
           _sortBugReports();
         }
       });
-    } catch (e, stackTrace) {
+    } catch (e) {
     }
   }
 
@@ -160,7 +160,7 @@ class _BugReportsScreenState extends State<BugReportsScreen> {
         final removedCount = _bugReports.length;
         _bugReports.removeWhere((b) => b.id == bugId);
       });
-    } catch (e, stackTrace) {
+    } catch (e) {
     }
   }
 
@@ -180,7 +180,7 @@ class _BugReportsScreenState extends State<BugReportsScreen> {
           }
         }
       });
-    } catch (e, stackTrace) {
+    } catch (e) {
     }
   }
 

@@ -175,22 +175,18 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
   void _setupRealtimeListeners() {
     // Create listener references
     _onBookingCreatedListener = (booking) {
-      final timestamp = DateTime.now().millisecondsSinceEpoch;
       _loadBookings(showLoading: false); // Silent refresh on WebSocket update
     };
 
     _onBookingUpdatedListener = (booking) {
-      final timestamp = DateTime.now().millisecondsSinceEpoch;
       _loadBookings(showLoading: false); // Silent refresh on WebSocket update
     };
 
     _onBookingApprovedListener = (booking) {
-      final timestamp = DateTime.now().millisecondsSinceEpoch;
       _loadBookings(showLoading: false); // Silent refresh on WebSocket update
     };
 
     _onBookingDeletedListener = (bookingId) {
-      final timestamp = DateTime.now().millisecondsSinceEpoch;
       _loadBookings(showLoading: false); // Silent refresh on WebSocket update
     };
 
@@ -213,8 +209,6 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
   }
 
   Future<void> _loadBookings({bool showLoading = true}) async {
-    final timestamp = DateTime.now().millisecondsSinceEpoch;
-
     try {
       if (showLoading) {
         setState(() {

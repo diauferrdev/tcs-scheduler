@@ -50,11 +50,11 @@ void notificationTapBackgroundHandler(NotificationResponse details) {
 Future<void> _requestPermissions() async {
   try {
     // Request microphone permission for audio recording
-    final micStatus = await Permission.microphone.request();
+    await Permission.microphone.request();
 
     // Request storage permission for file uploads/downloads
     if (Platform.isAndroid) {
-      final storageStatus = await Permission.storage.request();
+      await Permission.storage.request();
     }
   } catch (e) {
   }

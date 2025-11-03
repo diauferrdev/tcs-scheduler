@@ -129,7 +129,7 @@ class TicketMessage {
         createdAt: DateTime.parse(json['createdAt'] as String),
         updatedAt: DateTime.parse(json['updatedAt'] as String),
       );
-    } catch (e, stackTrace) {
+    } catch (e) {
       rethrow;
     }
   }
