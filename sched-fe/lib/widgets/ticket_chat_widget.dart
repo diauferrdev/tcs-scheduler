@@ -1143,8 +1143,15 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
   }
 
   Widget _buildOptimisticMessage(Map<String, dynamic> msg, Color bubbleColor, Color textColor) {
+    final fileName = msg['fileName'].toString();
     final isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp'].any(
-      (ext) => msg['fileName'].toString().toLowerCase().endsWith('.$ext'),
+      (ext) => fileName.toLowerCase().endsWith('.$ext'),
+    );
+    final isVideo = ['mp4', 'webm', 'ogg', 'mov', 'avi'].any(
+      (ext) => fileName.toLowerCase().endsWith('.$ext'),
+    );
+    final isAudio = ['mp3', 'm4a', 'wav', 'ogg', 'aac'].any(
+      (ext) => fileName.toLowerCase().endsWith('.$ext'),
     );
 
     return Padding(
@@ -1172,61 +1179,153 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      // IMAGE preview
                       if (isImage)
                         ClipRRect(
                           borderRadius: BorderRadius.circular(6),
                           child: SizedBox(
                             width: 200,
                             height: 200,
-                            child: msg['isUploading'] == true
-                                ? Stack(
-                                    children: [
-                                      // Skeleton background
-                                      Container(
-                                        color: textColor.withValues(alpha: 0.1),
-                                        child: Image.memory(
-                                          msg['bytes'],
-                                          fit: BoxFit.cover,
-                                          opacity: const AlwaysStoppedAnimation(0.3),
-                                        ),
+                            child: Stack(
+                              children: [
+                                // Show preview immediately
+                                Image.memory(
+                                  msg['bytes'],
+                                  fit: BoxFit.cover,
+                                  opacity: msg['isUploading'] == true
+                                      ? const AlwaysStoppedAnimation(0.5)
+                                      : const AlwaysStoppedAnimation(1.0),
+                                ),
+                                // Loading overlay when uploading
+                                if (msg['isUploading'] == true)
+                                  Container(
+                                    color: Colors.black.withValues(alpha: 0.4),
+                                    child: Center(
+                                      child: Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          SizedBox(
+                                            width: 32,
+                                            height: 32,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 3,
+                                              valueColor: AlwaysStoppedAnimation<Color>(
+                                                textColor.withValues(alpha: 0.9),
+                                              ),
+                                            ),
+                                          ),
+                                          const SizedBox(height: 8),
+                                          Text(
+                                            'Uploading...',
+                                            style: TextStyle(
+                                              color: textColor.withValues(alpha: 0.9),
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w500,
+                                              fontFamily: 'BasisGrotesquePro',
+                                            ),
+                                          ),
+                                        ],
                                       ),
-                                      // Loading overlay
-                                      Container(
-                                        color: Colors.black.withValues(alpha: 0.3),
-                                        child: Center(
-                                          child: Column(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              SizedBox(
-                                                width: 32,
-                                                height: 32,
-                                                child: CircularProgressIndicator(
-                                                  strokeWidth: 3,
-                                                  valueColor: AlwaysStoppedAnimation<Color>(
-                                                    textColor.withValues(alpha: 0.9),
-                                                  ),
-                                                ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      // VIDEO preview
+                      if (isVideo)
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(6),
+                          child: SizedBox(
+                            width: 200,
+                            height: 200,
+                            child: Stack(
+                              children: [
+                                // Gray background placeholder
+                                Container(
+                                  color: Colors.grey.shade800,
+                                  child: const Center(
+                                    child: Icon(Icons.play_circle_outline, size: 64, color: Colors.white70),
+                                  ),
+                                ),
+                                // Loading overlay
+                                if (msg['isUploading'] == true)
+                                  Container(
+                                    color: Colors.black.withValues(alpha: 0.6),
+                                    child: Center(
+                                      child: Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          SizedBox(
+                                            width: 32,
+                                            height: 32,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 3,
+                                              valueColor: AlwaysStoppedAnimation<Color>(
+                                                textColor.withValues(alpha: 0.9),
                                               ),
-                                              const SizedBox(height: 8),
-                                              Text(
-                                                'Uploading...',
-                                                style: TextStyle(
-                                                  color: textColor.withValues(alpha: 0.9),
-                                                  fontSize: 11,
-                                                  fontWeight: FontWeight.w500,
-                                                  fontFamily: 'BasisGrotesquePro',
-                                                ),
-                                              ),
-                                            ],
+                                            ),
+                                          ),
+                                          const SizedBox(height: 8),
+                                          Text(
+                                            'Uploading...',
+                                            style: TextStyle(
+                                              color: textColor.withValues(alpha: 0.9),
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w500,
+                                              fontFamily: 'BasisGrotesquePro',
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      // AUDIO preview
+                      if (isAudio)
+                        Container(
+                          width: 200,
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: bubbleColor,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(Icons.audiotrack, color: textColor, size: 24),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      fileName,
+                                      style: TextStyle(
+                                        color: textColor,
+                                        fontSize: 12,
+                                        fontFamily: 'BasisGrotesquePro',
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    if (msg['isUploading'] == true)
+                                      Padding(
+                                        padding: const EdgeInsets.only(top: 4),
+                                        child: SizedBox(
+                                          height: 2,
+                                          child: LinearProgressIndicator(
+                                            valueColor: AlwaysStoppedAnimation<Color>(textColor.withValues(alpha: 0.5)),
+                                            backgroundColor: textColor.withValues(alpha: 0.1),
                                           ),
                                         ),
                                       ),
-                                    ],
-                                  )
-                                : Image.memory(
-                                    msg['bytes'],
-                                    fit: BoxFit.cover,
-                                  ),
+                                  ],
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       if (msg['content'] != null && msg['content'].toString().isNotEmpty) ...[
