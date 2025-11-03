@@ -1253,12 +1253,12 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
                                       ),
                                     ),
                                   ),
-                                  // Indicator line - absolute overlay, anchored 4px below number center
+                                  // Indicator line - absolute overlay, anchored below number center (same as month view)
                                   if (indicatorColor != null)
                                     Positioned(
                                       left: 0,
                                       right: 0,
-                                      top: constraints.maxHeight / 2 + 7,
+                                      top: constraints.maxHeight / 2 + 6,
                                       child: Center(
                                         child: Container(
                                           width: 10,
