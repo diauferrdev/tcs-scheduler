@@ -48,7 +48,10 @@ class WebSocketService {
       final uri = Uri.parse('$wsUrl/ws?userId=$userId');
       debugPrint('[WS] Connecting to: $uri');
 
-      _channel = WebSocketChannel.connect(uri);
+      _channel = WebSocketChannel.connect(
+        uri,
+        protocols: ['websocket'],
+      );
 
       // Start heartbeat
       _startHeartbeat();
