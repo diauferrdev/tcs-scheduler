@@ -22,12 +22,10 @@ class LocalNotificationService {
     void Function(NotificationResponse)? onBackgroundNotificationResponse,
   }) async {
     if (_initialized) {
-      debugPrint('[LocalNotification] Already initialized');
       return;
     }
 
     try {
-      debugPrint('[LocalNotification] Starting initialization...');
 
       // Android initialization settings
       const androidSettings = AndroidInitializationSettings('@mipmap/tcs_pace_scheduler');
@@ -51,46 +49,37 @@ class LocalNotificationService {
       );
 
       // Initialize with both foreground and background handlers
-      debugPrint('[LocalNotification] Calling _notifications.initialize()...');
       final initialized = await _notifications.initialize(
         initSettings,
         onDidReceiveNotificationResponse: _onNotificationTapped,
         onDidReceiveBackgroundNotificationResponse: onBackgroundNotificationResponse,
       );
 
-      debugPrint('[LocalNotification] Plugin initialized: $initialized');
 
       // CRITICAL: Create notification channels for Android 8.0+
       await _createNotificationChannels();
 
       _initialized = true;
-      debugPrint('[LocalNotification] ✅ Initialized (permissions NOT requested yet)');
     } catch (e, stackTrace) {
-      debugPrint('[LocalNotification] ❌ Initialization error: $e');
-      debugPrint('[LocalNotification] Stack trace: $stackTrace');
 
       // CRITICAL: Set initialized to true anyway for basic functionality
       // Even if there were errors, we want to try showing notifications
       _initialized = true;
-      debugPrint('[LocalNotification] ⚠️ Initialized with errors (will try to show notifications anyway)');
     }
   }
 
   /// Create notification channels (Android 8.0+)
   /// WITHOUT channels, Android SILENTLY IGNORES notifications
   Future<void> _createNotificationChannels() async {
-    debugPrint('[LocalNotification] _createNotificationChannels() called');
 
     final androidPlugin = _notifications.resolvePlatformSpecificImplementation<
         AndroidFlutterLocalNotificationsPlugin>();
 
     if (androidPlugin == null) {
-      debugPrint('[LocalNotification] Not Android, skipping channel creation');
       return;
     }
 
     try {
-      debugPrint('[LocalNotification] Creating notification channels...');
 
       // Bookings channel (high importance)
       await androidPlugin.createNotificationChannel(
@@ -146,9 +135,7 @@ class LocalNotificationService {
         ),
       );
 
-      debugPrint('[LocalNotification] ✅ Notification channels created');
     } catch (e) {
-      debugPrint('[LocalNotification] Error creating channels: $e');
     }
   }
 
@@ -156,7 +143,6 @@ class LocalNotificationService {
   /// CALL THIS AFTER USER LOGS IN
   Future<bool> requestPermissions() async {
     try {
-      debugPrint('[LocalNotification] Requesting permissions...');
 
       // Request Android permissions (API 33+)
       final androidPermission = await _notifications
@@ -164,7 +150,6 @@ class LocalNotificationService {
               AndroidFlutterLocalNotificationsPlugin>()
           ?.requestNotificationsPermission();
 
-      debugPrint('[LocalNotification] Android permission: $androidPermission');
 
       // Request iOS permissions
       final iosPermission = await _notifications
@@ -176,28 +161,21 @@ class LocalNotificationService {
             sound: true,
           );
 
-      debugPrint('[LocalNotification] iOS permission: $iosPermission');
 
       final granted = (androidPermission != false && iosPermission != false);
 
       if (!granted) {
-        debugPrint('[LocalNotification] ⚠️ Notification permissions denied');
       } else {
-        debugPrint('[LocalNotification] ✅ Notification permissions granted');
       }
 
       return granted;
     } catch (e) {
-      debugPrint('[LocalNotification] Error requesting permissions: $e');
       return false;
     }
   }
 
   /// Handle notification tap
   void _onNotificationTapped(NotificationResponse response) {
-    debugPrint('[LocalNotification] Notification tapped');
-    debugPrint('[LocalNotification] Payload: ${response.payload}');
-    debugPrint('[LocalNotification] Action ID: ${response.actionId}');
 
     _handleNotificationAction(response.payload, response.actionId);
   }
@@ -205,7 +183,6 @@ class LocalNotificationService {
   /// Handle notification action (tap or action button)
   Future<void> _handleNotificationAction(String? payload, String? actionId) async {
     if (payload == null) {
-      debugPrint('[LocalNotification] No payload, just opening app');
       return; // Just open app, don't navigate anywhere
     }
 
@@ -221,11 +198,9 @@ class LocalNotificationService {
       final metadata = data['metadata'] as Map<String, dynamic>?;
       final screen = metadata?['screen'] as String?;
 
-      debugPrint('[LocalNotification] Type: $type, BookingId: $bookingId, ActionId: $actionId, Screen: $screen');
 
       // TEST NOTIFICATIONS - Just open app, don't navigate
       if (type == 'test' || payload == 'test') {
-        debugPrint('[LocalNotification] Test notification - opening app only');
         return;
       }
 
@@ -238,11 +213,9 @@ class LocalNotificationService {
       // Handle notification tap - navigate based on 'screen' field from backend
       if (screen == 'approvals' && bookingId != null && bookingId.isNotEmpty) {
         // New booking notifications for managers - go to approvals screen
-        debugPrint('[LocalNotification] Navigating to approvals with booking: $bookingId');
         navigationService.navigateToApprovalsWithBooking(bookingId);
       } else if (screen == 'my_bookings') {
         // Booking cancelled, reschedule needed, etc. - go to my bookings
-        debugPrint('[LocalNotification] Navigating to my bookings');
         if (bookingId != null && bookingId.isNotEmpty) {
           navigationService.navigateToBookingDetails(bookingId);
         } else {
@@ -250,16 +223,12 @@ class LocalNotificationService {
         }
       } else if (bookingId != null && bookingId.isNotEmpty) {
         // Default: booking_details or no screen specified - show booking details
-        debugPrint('[LocalNotification] Navigating to booking details: $bookingId');
         navigationService.navigateToBookingDetails(bookingId);
       } else {
         // No bookingId and no specific screen - just open app without navigation
-        debugPrint('[LocalNotification] No bookingId or screen - opening app only');
       }
 
-      debugPrint('[LocalNotification] ✅ Navigation handled for type: $type');
     } catch (e) {
-      debugPrint('[LocalNotification] Error handling notification action: $e');
       // On error, just open app without navigation
     }
   }
@@ -272,7 +241,6 @@ class LocalNotificationService {
     dynamic calendarService,
     dynamic navigationService,
   ) async {
-    debugPrint('[LocalNotification] Handling action: $actionId with bookingId: $bookingId');
 
     switch (actionId) {
       case 'calendar':
@@ -288,7 +256,6 @@ class LocalNotificationService {
               eventType: metadata['eventType'],
             );
 
-            debugPrint('[LocalNotification] Add to calendar result: $success');
 
             // Show local notification to confirm
             if (success) {
@@ -312,7 +279,6 @@ class LocalNotificationService {
               );
             }
           } catch (e) {
-            debugPrint('[LocalNotification] Error adding to calendar: $e');
           }
         }
         break;
@@ -320,23 +286,19 @@ class LocalNotificationService {
       case 'view':
         // View details - navigate to booking details if bookingId exists
         if (bookingId != null && bookingId.isNotEmpty) {
-          debugPrint('[LocalNotification] Navigating to booking details from view button: $bookingId');
           navigationService?.navigateToBookingDetails(bookingId);
         } else {
-          debugPrint('[LocalNotification] No bookingId for view action, navigating to calendar');
           navigationService?.navigateToCalendar();
         }
         break;
 
       case 'reschedule':
         // Navigate to calendar for rescheduling
-        debugPrint('[LocalNotification] Opening calendar for rescheduling');
         navigationService?.navigateToCalendar();
         break;
 
       case 'directions':
         // Open Google Maps with TCS Pace location
-        debugPrint('[LocalNotification] Opening directions to TCS Pace');
         // This would require url_launcher package
         break;
 
@@ -349,7 +311,6 @@ class LocalNotificationService {
 
       case 'snooze':
         // Snooze reminder for 10 minutes
-        debugPrint('[LocalNotification] Snoozing reminder for 10 minutes');
         // Would need to reschedule notification
         break;
 
@@ -357,11 +318,9 @@ class LocalNotificationService {
       case 'test_action_1':
       case 'test_action_2':
         // Just dismiss, no action
-        debugPrint('[LocalNotification] Notification dismissed or test action');
         break;
 
       default:
-        debugPrint('[LocalNotification] Unknown action: $actionId');
     }
   }
 
@@ -385,7 +344,6 @@ class LocalNotificationService {
       }
       return {'type': str};
     } catch (e) {
-      debugPrint('[LocalNotification] Error decoding JSON: $e');
       return {'type': str};
     }
   }
@@ -425,11 +383,8 @@ class LocalNotificationService {
     String? bookingId,
   }) async {
     try {
-      debugPrint('[LocalNotification] 📅 showNewBookingNotification() called');
-      debugPrint('[LocalNotification] Company: $companyName, Date: $date, Time: $time');
 
       if (!_initialized) {
-        debugPrint('[LocalNotification] ⚠️ Service not initialized, cannot show notification');
         return;
       }
 
@@ -498,7 +453,6 @@ class LocalNotificationService {
     );
 
       final notificationId = DateTime.now().millisecondsSinceEpoch % 100000;
-      debugPrint('[LocalNotification] Calling _notifications.show() with ID: $notificationId');
 
       // Build payload with bookingId for navigation
       final payload = _buildPayload(
@@ -522,10 +476,7 @@ class LocalNotificationService {
         payload: payload,
       );
 
-      debugPrint('[LocalNotification] ✅ New booking notification shown');
     } catch (e, stackTrace) {
-      debugPrint('[LocalNotification] ❌ Error showing new booking notification: $e');
-      debugPrint('[LocalNotification] Stack trace: $stackTrace');
     }
   }
 
@@ -985,11 +936,8 @@ class LocalNotificationService {
     Map<String, dynamic>? metadata,
   }) async {
     try {
-      debugPrint('[LocalNotification] 🔔 showGenericNotification() called');
-      debugPrint('[LocalNotification] Title: $title, Message: $message');
 
       if (!_initialized) {
-        debugPrint('[LocalNotification] ⚠️ Service not initialized, cannot show notification');
         return;
       }
 
@@ -1054,26 +1002,19 @@ class LocalNotificationService {
         payload: payload,
       );
 
-      debugPrint('[LocalNotification] ✅ Generic notification shown');
     } catch (e, stackTrace) {
-      debugPrint('[LocalNotification] ❌ Error showing generic notification: $e');
-      debugPrint('[LocalNotification] Stack trace: $stackTrace');
     }
   }
 
   /// Test notification (for debug button)
   Future<void> showTestNotification() async {
     try {
-      debugPrint('[LocalNotification] 🧪 showTestNotification() called');
-      debugPrint('[LocalNotification] Initialized: $_initialized');
 
       if (!_initialized) {
-        debugPrint('[LocalNotification] ⚠️ Service not initialized, cannot show notification');
         return;
       }
 
       final notificationId = DateTime.now().millisecondsSinceEpoch % 100000;
-      debugPrint('[LocalNotification] Notification ID: $notificationId');
 
       final testList = <String>[
         '✅ Notification system working',
@@ -1144,7 +1085,6 @@ class LocalNotificationService {
         linux: linuxDetails,
       );
 
-      debugPrint('[LocalNotification] Calling _notifications.show()...');
       await _notifications.show(
         notificationId,
         '🔔 Test Notification',
@@ -1152,10 +1092,7 @@ class LocalNotificationService {
         details,
         payload: 'test',
       );
-      debugPrint('[LocalNotification] ✅ Notification shown successfully');
     } catch (e, stackTrace) {
-      debugPrint('[LocalNotification] ❌ Error showing test notification: $e');
-      debugPrint('[LocalNotification] Stack trace: $stackTrace');
     }
   }
 

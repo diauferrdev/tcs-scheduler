@@ -31,7 +31,6 @@ class _NotificationBellState extends State<NotificationBell> {
       }
     });
 
-    debugPrint('[NotificationBell] Initialized with count: $_unreadCount');
   }
 
   @override

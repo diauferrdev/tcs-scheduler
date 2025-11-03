@@ -96,7 +96,6 @@ class UnifiedNotificationService {
 
       _initialized = true;
     } catch (e) {
-      debugPrint('[Notification] ❌ Init error: $e');
     }
   }
 
@@ -136,7 +135,6 @@ class UnifiedNotificationService {
 
       return permissionGranted;
     } catch (e) {
-      debugPrint('[Notification] ❌ Permission error: $e');
       return false;
     }
   }
@@ -212,7 +210,6 @@ class UnifiedNotificationService {
 
   /// Handle incoming notification from WebSocket
   void _handleIncomingNotification(Map<String, dynamic> data) {
-    debugPrint('[UnifiedNotification] WebSocket notification received');
 
     // Broadcast to listeners (only if not closed)
     if (!_notificationController.isClosed) {
@@ -223,7 +220,6 @@ class UnifiedNotificationService {
     // - FCM: Handles notifications when app is CLOSED/BACKGROUND (Android, iOS, Web)
     // - Local Notifications: Handles notifications when app is OPEN/FOREGROUND (all platforms)
     // Messages are now synchronized in backend, so both show identical content
-    debugPrint('[UnifiedNotification] 🔔 App is OPEN - showing local notification (FCM handles when app is closed)');
     _showNativeNotification(data);
 
     // Increment badge count (only if not closed)
@@ -236,8 +232,6 @@ class UnifiedNotificationService {
   /// Show native notification based on platform
   Future<void> _showNativeNotification(Map<String, dynamic> data) async {
     try {
-      debugPrint('[UnifiedNotification] 🔔 _showNativeNotification() called');
-      debugPrint('[UnifiedNotification] Data: $data');
 
       final title = data['title'] as String? ?? 'New Notification';
       final message = data['message'] as String? ?? '';
@@ -245,12 +239,10 @@ class UnifiedNotificationService {
       final metadata = data['metadata'] as Map<String, dynamic>?;
       final bookingId = data['bookingId'] as String?;
 
-      debugPrint('[UnifiedNotification] Title: $title, Type: $type, Platform: ${kIsWeb ? 'web' : Platform.operatingSystem}');
 
       if (kIsWeb) {
         // Web: Show browser notification when app is OPEN
         // User wants to see notifications even when page is open
-        debugPrint('[UnifiedNotification] Web: Showing browser notification');
         await _webNotificationService.showNotification(
           title: title,
           body: message,
@@ -266,7 +258,6 @@ class UnifiedNotificationService {
       // Check if Windows/Linux desktop
       if (Platform.isWindows || Platform.isLinux) {
         // Desktop: Use local_notifier (simpler notifications)
-        debugPrint('[UnifiedNotification] Showing desktop notification');
         await _showDesktopNotification(title, message, metadata);
         return;
       }
@@ -274,7 +265,6 @@ class UnifiedNotificationService {
       // Mobile/macOS: Use flutter_local_notifications
       // IMPORTANT: Use generic notification to match FCM exactly
       // No emojis, no title modifications - use exact backend title and message
-      debugPrint('[UnifiedNotification] Showing mobile/macOS notification (generic - matching FCM)');
       await _localNotificationService.showGenericNotification(
         title: title,
         message: message,
@@ -285,10 +275,7 @@ class UnifiedNotificationService {
         },
       );
 
-      debugPrint('[UnifiedNotification] ✅ Native notification processing complete');
     } catch (e, stackTrace) {
-      debugPrint('[UnifiedNotification] ❌ Error showing native notification: $e');
-      debugPrint('[UnifiedNotification] Stack trace: $stackTrace');
     }
   }
 
@@ -320,16 +307,13 @@ class UnifiedNotificationService {
         body: body,
       );
 
-      debugPrint('[UnifiedNotification] Desktop notification shown: $title');
     } catch (e) {
-      debugPrint('[UnifiedNotification] Error showing desktop notification: $e');
     }
   }
 
   /// Refresh unread count from API
   Future<void> refreshUnreadCount() async {
     try {
-      debugPrint('[UnifiedNotification] Fetching unread count from API...');
 
       final response = await _apiService.getNotifications(
         isRead: false,
@@ -337,11 +321,9 @@ class UnifiedNotificationService {
         offset: 0,
       );
 
-      debugPrint('[UnifiedNotification] API Response: $response');
 
       final count = response['unreadCount'] as int? ?? response['total'] as int? ?? 0;
 
-      debugPrint('[UnifiedNotification] Extracted count: $count, Current count: $_unreadCount');
 
       if (_unreadCount != count) {
         final oldCount = _unreadCount;
@@ -349,25 +331,18 @@ class UnifiedNotificationService {
         if (!_badgeController.isClosed) {
           _badgeController.add(_unreadCount);
         }
-        debugPrint('[UnifiedNotification] ✅ Badge updated: $oldCount → $_unreadCount');
       } else {
-        debugPrint('[UnifiedNotification] Count unchanged, no update needed');
       }
     } catch (e) {
-      debugPrint('[UnifiedNotification] ❌ Error refreshing unread count: $e');
     }
   }
 
   /// Mark notification as read (via Native WebSocket)
   Future<void> markAsRead(String notificationId) async {
-    debugPrint('[UnifiedNotification] markAsRead called for: $notificationId');
-    debugPrint('[UnifiedNotification] Current unread count: $_unreadCount');
 
     try {
       // Update via API
-      debugPrint('[UnifiedNotification] Calling API to mark as read...');
       await _apiService.markNotificationAsRead(notificationId);
-      debugPrint('[UnifiedNotification] API call successful');
 
       // Decrement local count immediately for instant UI update
       if (_unreadCount > 0) {
@@ -375,15 +350,12 @@ class UnifiedNotificationService {
         if (!_badgeController.isClosed) {
           _badgeController.add(_unreadCount);
         }
-        debugPrint('[UnifiedNotification] ✅ Badge decremented: ${_unreadCount + 1} → $_unreadCount');
       }
 
       // Refresh from server to ensure accuracy (runs in background)
       refreshUnreadCount();
 
-      debugPrint('[UnifiedNotification] Marked as read: $notificationId');
     } catch (e) {
-      debugPrint('[UnifiedNotification] Error marking as read: $e');
       // Refresh count on error to restore correct value
       await refreshUnreadCount();
       rethrow;
@@ -402,14 +374,11 @@ class UnifiedNotificationService {
       if (!_badgeController.isClosed) {
         _badgeController.add(_unreadCount);
       }
-      debugPrint('[UnifiedNotification] ✅ Badge cleared: $oldCount → 0');
 
       // Refresh from server to ensure accuracy (runs in background)
       refreshUnreadCount();
 
-      debugPrint('[UnifiedNotification] Marked all as read');
     } catch (e) {
-      debugPrint('[UnifiedNotification] Error marking all as read: $e');
       // Refresh count on error to restore correct value
       await refreshUnreadCount();
       rethrow;
@@ -418,7 +387,6 @@ class UnifiedNotificationService {
 
   /// Disconnect on logout (but keep service initialized for next login)
   Future<void> disconnectWebSocket() async {
-    debugPrint('[UnifiedNotification] Disconnecting on logout...');
 
     await _realtimeService.disconnect();
 
@@ -426,9 +394,7 @@ class UnifiedNotificationService {
     if (_fcmService != null) {
       try {
         await _fcmService!.dispose();
-        debugPrint('[UnifiedNotification] ✅ FCM cleaned up');
       } catch (e) {
-        debugPrint('[UnifiedNotification] Error cleaning up FCM: $e');
       }
     }
 
@@ -438,12 +404,10 @@ class UnifiedNotificationService {
       _badgeController.add(_unreadCount);
     }
 
-    debugPrint('[UnifiedNotification] Cleanup complete on logout');
   }
 
   /// Cleanup
   Future<void> dispose() async {
-    debugPrint('[UnifiedNotification] Disposing...');
 
     await _badgeController.close();
     await _notificationController.close();

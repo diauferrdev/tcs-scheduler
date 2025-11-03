@@ -34,11 +34,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
   /// Setup real-time listener for new notifications
   void _setupRealtimeListener() {
-    debugPrint('[NotificationsScreen] Setting up real-time listener...');
 
     _notificationSubscription = _notificationService.notificationStream.listen(
       (notificationData) {
-        debugPrint('[NotificationsScreen] Received new notification via stream: ${notificationData['title']}');
 
         if (!mounted) return;
 
@@ -59,13 +57,10 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             duration: const Duration(seconds: 2),
           );
 
-          debugPrint('[NotificationsScreen] ✅ Added new notification to list');
         } catch (e) {
-          debugPrint('[NotificationsScreen] Error processing notification: $e');
         }
       },
       onError: (error) {
-        debugPrint('[NotificationsScreen] Error in notification stream: $error');
       },
     );
   }
@@ -101,7 +96,6 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         });
       }
     } catch (e) {
-      debugPrint('[NotificationsScreen] Error loading notifications: $e');
       if (mounted) {
         setState(() {
           _error = e.toString();
@@ -123,7 +117,6 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       return;
     }
 
-    debugPrint('[NotificationsScreen] Marking notification as read: ${notification.id}');
 
     // Optimistic update - update UI immediately
     if (mounted) {
@@ -151,7 +144,6 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     try {
       await _notificationService.markAsRead(notification.id);
     } catch (e) {
-      debugPrint('[NotificationsScreen] Error marking notification as read: $e');
       // Rollback on error
       if (mounted) {
         setState(() {
@@ -412,7 +404,6 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     Navigator.pop(context); // Close menu
 
     try {
-      debugPrint('[NotificationsScreen] Sending push notification: $type');
 
       await _apiService.sendTestNotification(
         type: type,
@@ -434,7 +425,6 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       await Future.delayed(const Duration(seconds: 2));
       await _loadNotifications();
     } catch (e) {
-      debugPrint('[NotificationsScreen] Error sending push: $e');
 
       if (mounted) {
         ToastNotification.show(
@@ -859,7 +849,6 @@ class _NotificationsDrawerState extends State<NotificationsDrawer> {
             _notifications.insert(0, newNotification);
           });
         } catch (e) {
-          debugPrint('[NotificationsDrawer] Error processing notification: $e');
         }
       },
     );
@@ -984,7 +973,6 @@ class _NotificationsDrawerState extends State<NotificationsDrawer> {
     try {
       await _notificationService.markAsRead(notification.id);
     } catch (e) {
-      debugPrint('[NotificationsDrawer] Error marking as read: $e');
       // Rollback on error
       if (mounted) {
         setState(() {
@@ -1021,7 +1009,6 @@ class _NotificationsDrawerState extends State<NotificationsDrawer> {
     try {
       await _notificationService.markAllAsRead();
     } catch (e) {
-      debugPrint('[NotificationsDrawer] Error marking all as read: $e');
       // Rollback on error
       if (mounted) {
         setState(() {
@@ -1040,7 +1027,6 @@ class _NotificationsDrawerState extends State<NotificationsDrawer> {
         });
       }
     } catch (e) {
-      debugPrint('[NotificationsDrawer] Error deleting: $e');
     }
   }
 

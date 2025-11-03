@@ -18,11 +18,8 @@ Future<Uint8List> readFileBytes(File file) async {
     // Check if we have bytes stored for this file
     final bytes = _webFileBytes[file.path];
     if (bytes != null) {
-      debugPrint('[readFileBytes] ✅ Found ${bytes.length} bytes for ${file.path}');
       return bytes;
     } else {
-      debugPrint('[readFileBytes] ❌ No bytes found for ${file.path}');
-      debugPrint('[readFileBytes] Available paths: ${_webFileBytes.keys.toList()}');
       throw Exception('File bytes not found in web storage for ${file.path}');
     }
   }
@@ -267,7 +264,6 @@ class AttachmentPicker extends StatelessWidget {
         onFilesPicked([File(image.path)]);
       }
     } catch (e) {
-      debugPrint('[AttachmentPicker] Camera error: $e');
       if (context.mounted) {
         _showErrorDialog(context, 'Failed to take photo: $e');
       }
@@ -309,7 +305,6 @@ class AttachmentPicker extends StatelessWidget {
         onFilesPicked(images.map((e) => File(e.path)).toList());
       }
     } catch (e) {
-      debugPrint('[AttachmentPicker] Gallery error: $e');
       if (context.mounted) {
         _showErrorDialog(context, 'Failed to pick images: $e');
       }
@@ -366,7 +361,6 @@ class AttachmentPicker extends StatelessWidget {
         onFilesPicked(files);
       }
     } catch (e) {
-      debugPrint('[AttachmentPicker] File picker error: $e');
       if (context.mounted) {
         _showErrorDialog(context, 'Failed to pick files: $e');
       }
@@ -395,7 +389,6 @@ class AttachmentPicker extends StatelessWidget {
           }
         }
       } catch (e) {
-        debugPrint('[AttachmentPicker] Error processing file ${platformFile.name}: $e');
       }
     }
 
@@ -419,7 +412,6 @@ class AttachmentPicker extends StatelessWidget {
     // Create file object reference (doesn't write to actual filesystem on web)
     final file = File(filePath);
 
-    debugPrint('[AttachmentPicker] Web file created: $filePath (${bytes.length} bytes)');
 
     return file;
   }

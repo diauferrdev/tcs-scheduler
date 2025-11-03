@@ -537,9 +537,7 @@ class ApiService {
         'token': token,
         if (deviceInfo != null) 'deviceInfo': deviceInfo,
       });
-      debugPrint('[API] FCM token registered: $response');
     } catch (e) {
-      debugPrint('[API] Error registering FCM token: $e');
       rethrow;
     }
   }
@@ -548,9 +546,7 @@ class ApiService {
   Future<void> unregisterFCMToken(String token) async {
     try {
       final response = await post('/api/fcm/unregister', {'token': token});
-      debugPrint('[API] FCM token unregistered: $response');
     } catch (e) {
-      debugPrint('[API] Error unregistering FCM token: $e');
       rethrow;
     }
   }
@@ -558,12 +554,9 @@ class ApiService {
   /// Send test FCM notification to all devices (ADMIN only)
   Future<Map<String, dynamic>> sendTestFCMNotification() async {
     try {
-      debugPrint('[API] Sending test FCM notification to all devices...');
       final response = await post('/api/fcm/test-notification', {});
-      debugPrint('[API] Test FCM notification sent: $response');
       return response;
     } catch (e) {
-      debugPrint('[API] Error sending test FCM notification: $e');
       rethrow;
     }
   }
@@ -610,9 +603,7 @@ class ApiService {
     // Add session cookie
     if (_sessionCookie != null) {
       request.headers['Cookie'] = _sessionCookie!;
-      debugPrint('[API] Sending cookie in multipart request: ${_sessionCookie!.substring(0, 50)}...');
     } else {
-      debugPrint('[API] WARNING: No session cookie available for upload!');
     }
 
     // Detect MIME type from file extension
@@ -644,13 +635,11 @@ class ApiService {
       contentType: contentType,
     ));
 
-    debugPrint('[API] Uploading avatar - Size: ${fileBytes.length} bytes, Name: $fileName');
 
     // Send using the same client to maintain session
     final streamedResponse = await _client.send(request).timeout(const Duration(minutes: 2));
     final response = await http.Response.fromStream(streamedResponse);
 
-    debugPrint('[API] Upload response status: ${response.statusCode}');
 
     return _handleResponse(response);
   }
@@ -688,13 +677,11 @@ class ApiService {
       contentType: contentType,
     ));
 
-    debugPrint('[API] Uploading attachment - Size: ${fileBytes.length} bytes, Name: $fileName');
 
     // Send using the same client to maintain session
     final streamedResponse = await _client.send(request).timeout(const Duration(minutes: 5));
     final response = await http.Response.fromStream(streamedResponse);
 
-    debugPrint('[API] Upload response status: ${response.statusCode}');
 
     return _handleResponse(response);
   }
@@ -869,7 +856,6 @@ class ApiService {
   ) async {
     await initialize();
 
-    debugPrint('[API] Uploading ${files.length} attachments for comment $commentId');
 
     final url = Uri.parse('${ApiConfig.baseUrl}/api/feedback/comments/$commentId/attachments');
     final request = http.MultipartRequest('POST', url);
@@ -885,15 +871,12 @@ class ApiService {
     // Add session cookie
     if (_sessionCookie != null) {
       request.headers['Cookie'] = _sessionCookie!;
-      debugPrint('[API] Sending cookie in comment attachment upload: ${_sessionCookie!.substring(0, min(50, _sessionCookie!.length))}...');
     } else {
-      debugPrint('[API] WARNING: No session cookie available for comment attachment upload!');
     }
 
     // Add all files
     for (var file in files) {
       if (file.bytes != null) {
-        debugPrint('[API] Adding file: ${file.name} (${file.bytes!.length} bytes)');
         request.files.add(http.MultipartFile.fromBytes(
           'files',
           file.bytes!,
@@ -902,12 +885,9 @@ class ApiService {
       }
     }
 
-    debugPrint('[API] Sending request to: $url');
     final streamedResponse = await request.send();
     final response = await http.Response.fromStream(streamedResponse);
 
-    debugPrint('[API] Response status: ${response.statusCode}');
-    debugPrint('[API] Response body: ${response.body}');
 
     if (response.statusCode == 201 || response.statusCode == 200) {
       // Extract and save any cookies from response
@@ -1034,12 +1014,10 @@ class ApiService {
       contentType: contentType,
     ));
 
-    debugPrint('[API] Uploading bug attachment - Size: ${fileBytes.length} bytes, Name: $fileName');
 
     final streamedResponse = await _client.send(request).timeout(const Duration(minutes: 5));
     final response = await http.Response.fromStream(streamedResponse);
 
-    debugPrint('[API] Bug attachment upload response status: ${response.statusCode}');
 
     return _handleResponse(response);
   }

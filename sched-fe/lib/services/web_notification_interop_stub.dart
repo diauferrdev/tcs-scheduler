@@ -6,7 +6,6 @@ import 'package:flutter/foundation.dart';
 
 /// Request notification permission (stub)
 Future<String> requestWebNotificationPermission() async {
-  debugPrint('[WebInterop] Stub: Not on web platform');
   return 'denied';
 }
 
@@ -22,12 +21,10 @@ bool isServiceWorkerSupported() {
 
 /// Show notification using browser API (stub)
 void showBrowserNotification(String title, String body, {String? icon}) {
-  debugPrint('[WebInterop] Stub: Not on web platform');
 }
 
 /// Subscribe to push notifications (stub)
 Future<String?> subscribeToPushNotifications(String vapidPublicKey) async {
-  debugPrint('[WebInterop] Stub: Not on web platform');
   return null;
 }
 
@@ -43,5 +40,4 @@ void injectPushManagerHelper() {
 /// Setup listener for Service Worker messages (stub)
 void setupServiceWorkerMessageListener(void Function(String url, String? bookingId, String? screen) onNavigate) {
   // No-op on non-web platforms
-  debugPrint('[WebInterop] Stub: Not on web platform, Service Worker listener not needed');
 }

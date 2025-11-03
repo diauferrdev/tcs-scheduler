@@ -32,8 +32,6 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
     // Initialize Firebase (required for background isolate)
     await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
-    debugPrint('[FCM Background] Message received: ${message.notification?.title}');
-    debugPrint('[FCM Background] Data: ${message.data}');
 
     // Note: UnifiedNotificationService handles showing the notification
     // when the app comes back to foreground
@@ -45,7 +43,6 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 /// The @pragma annotation ensures this function isn't tree-shaken by Dart AOT compiler
 @pragma('vm:entry-point')
 void notificationTapBackgroundHandler(NotificationResponse details) {
-  debugPrint('[Background] Notification tapped: ${details.payload}');
   // Navigation will be handled when app resumes to foreground
 }
 
@@ -54,15 +51,12 @@ Future<void> _requestPermissions() async {
   try {
     // Request microphone permission for audio recording
     final micStatus = await Permission.microphone.request();
-    debugPrint('[Permissions] Microphone: $micStatus');
 
     // Request storage permission for file uploads/downloads
     if (Platform.isAndroid) {
       final storageStatus = await Permission.storage.request();
-      debugPrint('[Permissions] Storage: $storageStatus');
     }
   } catch (e) {
-    debugPrint('[Permissions] Error requesting permissions: $e');
   }
 }
 
@@ -75,19 +69,14 @@ void main() async {
   // Initialize Firebase ONLY on supported platforms (Android, iOS, web, macOS)
   // Windows and Linux desktop use local_notifier instead
   if (_isFirebaseSupported) {
-    debugPrint('[Firebase] Initializing Firebase (platform: ${kIsWeb ? 'web' : Platform.operatingSystem})...');
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
-    debugPrint('[Firebase] ✅ Firebase initialized successfully');
 
     // Setup Firebase Cloud Messaging background handler
     // This allows push notifications to arrive even when app is completely closed/terminated
     FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
-    debugPrint('[FCM] ✅ Background message handler registered');
   } else {
-    debugPrint('[Firebase] ⏩ Skipping Firebase initialization (platform: ${Platform.operatingSystem})');
-    debugPrint('[Firebase] Desktop notifications will use local_notifier instead');
   }
 
   // Initialize unified notification service with background handler support
@@ -155,12 +144,9 @@ class _AppRouterState extends State<_AppRouter> {
   }
 
   void _onSplashComplete() {
-    debugPrint('[Main] 🎬 Splash complete callback received!');
     setState(() {
-      debugPrint('[Main] 🔄 Switching from splash to main app...');
       _showSplash = false;
     });
-    debugPrint('[Main] ✅ Now showing main app');
   }
 
   @override
@@ -178,7 +164,6 @@ class _AppRouterState extends State<_AppRouter> {
 
         // Show animated splash screen on mobile only (web has its own splash)
         if (_showSplash) {
-          debugPrint('[Main] 🎬 Showing AnimatedSplashScreen (_showSplash = true)');
           return MaterialApp(
             debugShowCheckedModeBanner: false,
             theme: ThemeProvider.lightTheme,
@@ -191,7 +176,6 @@ class _AppRouterState extends State<_AppRouter> {
           );
         }
 
-        debugPrint('[Main] 🚀 Showing main app (_showSplash = false)');
         return app;
       },
     );

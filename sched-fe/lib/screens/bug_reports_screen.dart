@@ -45,7 +45,6 @@ class _BugReportsScreenState extends State<BugReportsScreen> {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final userId = authProvider.user?.id;
 
-    debugPrint('[BugReportsScreen] Setting up WebSocket for user: $userId');
 
     if (userId != null) {
       _ws.connect(userId);
@@ -53,52 +52,39 @@ class _BugReportsScreenState extends State<BugReportsScreen> {
       _wsSubscription = _ws.messages.listen(
         (message) {
           if (!mounted) {
-            debugPrint('[BugReportsScreen] Not mounted, ignoring message');
             return;
           }
 
           final type = message['type'] as String?;
-          debugPrint('[BugReportsScreen] 📨 WS Event: $type');
-          debugPrint('[BugReportsScreen] 📦 Data: ${message['data']}');
 
           switch (type) {
             case 'bug_created':
-              debugPrint('[BugReportsScreen] Handling bug_created');
               _handleBugCreated(message['data']);
               break;
             case 'bug_updated':
-              debugPrint('[BugReportsScreen] Handling bug_updated');
               _handleBugUpdated(message['data']);
               break;
             case 'bug_deleted':
-              debugPrint('[BugReportsScreen] Handling bug_deleted');
               _handleBugDeleted(message['data']);
               break;
             case 'bug_liked':
             case 'bug_unliked':
-              debugPrint('[BugReportsScreen] Handling bug_liked/unliked');
               _handleBugLikeChanged(message['data']);
               break;
             case 'bug_comment_created':
             case 'bug_comment_updated':
             case 'bug_comment_deleted':
-              debugPrint('[BugReportsScreen] Handling comment event');
               _handleCommentChanged(message['data']);
               break;
             default:
-              debugPrint('[BugReportsScreen] Unknown event type: $type');
           }
         },
         onError: (error) {
-          debugPrint('[BugReportsScreen] ❌ WS Error: $error');
         },
         onDone: () {
-          debugPrint('[BugReportsScreen] WS stream closed');
         },
       );
-      debugPrint('[BugReportsScreen] ✅ WebSocket listener set up');
     } else {
-      debugPrint('[BugReportsScreen] ❌ No userId, cannot setup WebSocket');
     }
   }
 
@@ -111,51 +97,37 @@ class _BugReportsScreenState extends State<BugReportsScreen> {
 
   void _handleBugCreated(dynamic data) {
     try {
-      debugPrint('[BugReportsScreen] 🆕 Creating new bug from data');
       final newBug = BugReport.fromJson(data);
-      debugPrint('[BugReportsScreen] ✅ Bug parsed: ${newBug.id} - ${newBug.title}');
-      debugPrint('[BugReportsScreen] Current bugs count: ${_bugReports.length}');
 
       setState(() {
         _bugReports.add(newBug);
         _sortBugReports();
       });
 
-      debugPrint('[BugReportsScreen] ✅ Bug added and sorted. New count: ${_bugReports.length}');
     } catch (e, stackTrace) {
-      debugPrint('[BugReportsScreen] ❌ Error handling bug_created: $e');
-      debugPrint('[BugReportsScreen] StackTrace: $stackTrace');
     }
   }
 
   void _handleBugUpdated(dynamic data) {
     try {
-      debugPrint('[BugReportsScreen] 🔄 Updating bug from data');
       final updatedBug = BugReport.fromJson(data);
-      debugPrint('[BugReportsScreen] ✅ Bug parsed: ${updatedBug.id}');
 
       setState(() {
         final index = _bugReports.indexWhere((b) => b.id == updatedBug.id);
-        debugPrint('[BugReportsScreen] Found bug at index: $index');
         if (index != -1) {
           _bugReports[index] = updatedBug;
-          debugPrint('[BugReportsScreen] ✅ Bug updated at index $index');
           // Reorder if needed (e.g., if updatedAt changed and we're sorting by updatedAt)
           _sortBugReports();
         } else {
-          debugPrint('[BugReportsScreen] ⚠️ Bug not found in list, adding it');
           _bugReports.add(updatedBug);
           _sortBugReports();
         }
       });
     } catch (e, stackTrace) {
-      debugPrint('[BugReportsScreen] ❌ Error handling bug_updated: $e');
-      debugPrint('[BugReportsScreen] StackTrace: $stackTrace');
     }
   }
 
   void _sortBugReports() {
-    debugPrint('[BugReportsScreen] 🔄 Sorting by: $_sortBy ($_order)');
 
     switch (_sortBy) {
       case 'likeCount':
@@ -178,22 +150,17 @@ class _BugReportsScreenState extends State<BugReportsScreen> {
         break;
     }
 
-    debugPrint('[BugReportsScreen] ✅ Sorted successfully');
   }
 
   void _handleBugDeleted(dynamic data) {
     try {
       final bugId = data['id'] as String;
-      debugPrint('[BugReportsScreen] 🗑️ Deleting bug: $bugId');
 
       setState(() {
         final removedCount = _bugReports.length;
         _bugReports.removeWhere((b) => b.id == bugId);
-        debugPrint('[BugReportsScreen] ✅ Removed ${removedCount - _bugReports.length} bug(s)');
       });
     } catch (e, stackTrace) {
-      debugPrint('[BugReportsScreen] ❌ Error handling bug_deleted: $e');
-      debugPrint('[BugReportsScreen] StackTrace: $stackTrace');
     }
   }
 
@@ -201,24 +168,19 @@ class _BugReportsScreenState extends State<BugReportsScreen> {
     try {
       final bugId = data['bugId'] as String;
       final likeCount = data['likeCount'] as int;
-      debugPrint('[BugReportsScreen] 👍 Like changed for bug: $bugId, new count: $likeCount');
 
       setState(() {
         final index = _bugReports.indexWhere((b) => b.id == bugId);
         if (index != -1) {
           _bugReports[index] = _bugReports[index].copyWith(likeCount: likeCount);
-          debugPrint('[BugReportsScreen] Updated bug at index $index');
 
           // Reorder if sorting by likeCount
           if (_sortBy == 'likeCount') {
-            debugPrint('[BugReportsScreen] Reordering by likeCount');
             _sortBugReports();
           }
         }
       });
     } catch (e, stackTrace) {
-      debugPrint('[BugReportsScreen] ❌ Error handling like change: $e');
-      debugPrint('[BugReportsScreen] StackTrace: $stackTrace');
     }
   }
 
@@ -233,7 +195,6 @@ class _BugReportsScreenState extends State<BugReportsScreen> {
         _loadBugReports();
       }
     } catch (e) {
-      debugPrint('[BugReportsScreen] Error handling comment change: $e');
     }
   }
 
@@ -797,7 +758,6 @@ class _BugReportsScreenState extends State<BugReportsScreen> {
                   );
                 },
                 errorBuilder: (context, error, stackTrace) {
-                  debugPrint('[Preview] Error loading image: $error');
                   return Center(
                     child: Icon(
                       Icons.broken_image,

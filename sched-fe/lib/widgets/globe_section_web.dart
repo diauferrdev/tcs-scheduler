@@ -86,7 +86,6 @@ class _GlobeSectionState extends State<GlobeSection> {
   void _registerView() {
     if (_isRegistered) return;
 
-    debugPrint('[GlobeSection] Registering view: $viewId');
 
     ui_web.platformViewRegistry.registerViewFactory(
       viewId,
@@ -106,7 +105,6 @@ class _GlobeSectionState extends State<GlobeSection> {
           ..style.overflow = 'hidden'
           ..append(canvas);
 
-        debugPrint('[GlobeSection] Canvas created: $canvasId');
         return container;
       },
     );
@@ -118,22 +116,18 @@ class _GlobeSectionState extends State<GlobeSection> {
     if (_viewerCreated) return;
 
     try {
-      debugPrint('[GlobeSection] Initializing globe viewer for canvas: $canvasId');
 
       if (js.context['BABYLON'] == null) {
-        debugPrint('[GlobeSection] ❌ BABYLON.js not loaded!');
         return;
       }
 
       final globeViewerClass = js.context['GlobeViewer'];
       if (globeViewerClass == null) {
-        debugPrint('[GlobeSection] ❌ GlobeViewer class not found!');
         return;
       }
 
       final viewerManager = js.context['viewerManager'];
       if (viewerManager == null) {
-        debugPrint('[GlobeSection] ⚠️ ViewerManager not found!');
       }
 
       final config = js.JsObject.jsify({
@@ -153,16 +147,11 @@ class _GlobeSectionState extends State<GlobeSection> {
           js.context.callMethod('eval', ['window.viewerManager.registerViewer("$canvasId", window["$canvasId"+"_viewer"])']);
           // Store viewer reference globally for manager access
           js.context['${canvasId}_viewer'] = viewer;
-          debugPrint('[GlobeSection] ✅ Registered with ViewerManager: $canvasId');
         } catch (e) {
-          debugPrint('[GlobeSection] ⚠️ Failed to register with ViewerManager: $e');
         }
       }
 
-      debugPrint('[GlobeSection] ✅ Globe viewer created successfully');
     } catch (e, stackTrace) {
-      debugPrint('[GlobeSection] ❌ Error initializing: $e');
-      debugPrint('[GlobeSection] Stack trace: $stackTrace');
     }
   }
 
@@ -185,7 +174,6 @@ class _GlobeSectionState extends State<GlobeSection> {
 
         // Initialize viewer when visible
         if (nowVisible && !_viewerCreated) {
-          debugPrint('[VisibilityDetector] Globe section is ${(info.visibleFraction * 100).toStringAsFixed(1)}% visible, initializing viewer');
           Future.delayed(const Duration(milliseconds: 300), () {
             if (mounted && !_viewerCreated) {
               _initialize3DViewer();

@@ -113,7 +113,6 @@ class RealtimeService {
     if (_isConnected) return;
 
     try {
-      debugPrint('[Realtime] 1. Connecting WebSocket (${kIsWeb ? "Web" : "Mobile"})...');
 
       String wsUrl;
 
@@ -131,7 +130,6 @@ class RealtimeService {
         }
 
         if (sessionCookie == null) {
-          debugPrint('[Realtime] ❌ No session cookie, retrying in 5s');
           _scheduleReconnect();
           return;
         }
@@ -149,7 +147,6 @@ class RealtimeService {
         }
 
         if (sessionId == null) {
-          debugPrint('[Realtime] ❌ Could not extract session ID');
           _scheduleReconnect();
           return;
         }
@@ -164,7 +161,6 @@ class RealtimeService {
       _channel!.stream.listen(
         _handleMessage,
         onError: (error) {
-          debugPrint('[Realtime] ❌ Error: $error');
           _handleDisconnection();
         },
         onDone: _handleDisconnection,
@@ -172,13 +168,11 @@ class RealtimeService {
       );
 
       _isConnected = true;
-      debugPrint('[Realtime] 2. ✅ Connected successfully');
 
       _startPingTimer();
       onNotificationConnected?.call();
       onCalendarConnected?.call();
     } catch (e) {
-      debugPrint('[Realtime] ❌ Connection failed: $e');
       _scheduleReconnect();
     }
   }
@@ -195,7 +189,6 @@ class RealtimeService {
 
       switch (type) {
         case 'connected':
-          debugPrint('[Realtime] 3. ✅ Server confirmed connection');
           break;
 
         case 'pong':
@@ -209,7 +202,6 @@ class RealtimeService {
           break;
 
         case 'booking_created':
-          debugPrint('[Realtime] 📩 New booking created');
           if (data is Map<String, dynamic> && data['booking'] != null) {
             final booking = data['booking'] as Map<String, dynamic>;
             for (final listener in _onBookingCreatedListeners) {
@@ -220,7 +212,6 @@ class RealtimeService {
           break;
 
         case 'booking_updated':
-          debugPrint('[Realtime] 📩 Booking updated');
           if (data is Map<String, dynamic> && data['booking'] != null) {
             final booking = data['booking'] as Map<String, dynamic>;
             for (final listener in _onBookingUpdatedListeners) {
@@ -231,7 +222,6 @@ class RealtimeService {
           break;
 
         case 'booking_deleted':
-          debugPrint('[Realtime] 📩 Booking deleted');
           if (data is Map<String, dynamic> && data['bookingId'] != null) {
             final bookingId = data['bookingId'] as String;
             for (final listener in _onBookingDeletedListeners) {
@@ -242,7 +232,6 @@ class RealtimeService {
           break;
 
         case 'booking_approved':
-          debugPrint('[Realtime] 📩 Booking approved');
           if (data is Map<String, dynamic> && data['booking'] != null) {
             final booking = data['booking'] as Map<String, dynamic>;
             for (final listener in _onBookingApprovedListeners) {
@@ -253,7 +242,6 @@ class RealtimeService {
           break;
       }
     } catch (e) {
-      debugPrint('[Realtime] ❌ Message error: $e');
     }
   }
 
@@ -272,7 +260,6 @@ class RealtimeService {
     try {
       _channel?.sink.add(jsonEncode({'type': 'ping'}));
     } catch (e) {
-      debugPrint('[Realtime] ❌ Ping error: $e');
     }
   }
 
@@ -314,7 +301,6 @@ class RealtimeService {
         'data': data,
       }));
     } catch (e) {
-      debugPrint('[Realtime] ❌ Send error: $e');
     }
   }
 }

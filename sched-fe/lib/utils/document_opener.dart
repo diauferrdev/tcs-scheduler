@@ -49,7 +49,6 @@ class DocumentOpener {
       // Open file with external app
       final result = await OpenFile.open(file.path);
 
-      debugPrint('[DocumentOpener] Open result: ${result.type} - ${result.message}');
 
       // Handle errors
       if (result.type != ResultType.done) {
@@ -58,7 +57,6 @@ class DocumentOpener {
         }
       }
     } catch (e) {
-      debugPrint('[DocumentOpener] Error: $e');
 
       // Close loading dialog if still open
       if (context.mounted) {
@@ -84,13 +82,11 @@ class DocumentOpener {
       if (response.statusCode == 200) {
         final file = File(filePath);
         await file.writeAsBytes(response.bodyBytes);
-        debugPrint('[DocumentOpener] Downloaded file to: $filePath');
         return file;
       } else {
         throw Exception('Failed to download file: ${response.statusCode}');
       }
     } catch (e) {
-      debugPrint('[DocumentOpener] Download error: $e');
       rethrow;
     }
   }

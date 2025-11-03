@@ -88,7 +88,6 @@ class _TicketsUserViewState extends State<TicketsUserView> {
       _ws.connect(userId);
       _wsSubscription = _ws.messages.listen((message) {
         if (!mounted) return;
-        debugPrint('[TicketsScreen] WS Message: $message');
         final type = message['type'] as String?;
 
         if (type == 'ticket_message') {
@@ -133,23 +132,19 @@ class _TicketsUserViewState extends State<TicketsUserView> {
                     // Re-sort all tickets to maintain proper order
                     _sortTickets();
 
-                    debugPrint('[TicketsScreen] ✅ Badge updated for ticket $ticketId - new message added');
                   }
                 }
               });
             } catch (e) {
-              debugPrint('[TicketsScreen] Error parsing message: $e');
               // Fallback to reload
               _loadTickets();
             }
           }
         } else if (type == 'ticket_created' || type == 'ticket_updated') {
-          debugPrint('[TicketsScreen] Reloading tickets due to: $type');
           _loadTickets();
         } else if (type == 'message_read') {
           // Real-time read receipt update for badge counter
           final data = message['data'];
-          debugPrint('[TicketsScreen] 📨 message_read received: $data');
 
           if (data != null) {
             final ticketId = data['ticketId'] as String?;
@@ -159,12 +154,10 @@ class _TicketsUserViewState extends State<TicketsUserView> {
             if (ticketId != null && messageId != null && readAt != null) {
               setState(() {
                 final ticketIndex = _tickets.indexWhere((t) => t.id == ticketId);
-                debugPrint('[TicketsScreen] Looking for ticket $ticketId, found at index: $ticketIndex');
 
                 if (ticketIndex != -1) {
                   final oldTicket = _tickets[ticketIndex];
                   final msgIndex = oldTicket.messages.indexWhere((m) => m.id == messageId);
-                  debugPrint('[TicketsScreen] Looking for message $messageId in ticket, found at index: $msgIndex');
 
                   if (msgIndex != -1) {
                     // Create NEW messages list with updated readAt
@@ -201,12 +194,9 @@ class _TicketsUserViewState extends State<TicketsUserView> {
                       attachmentCount: oldTicket.attachmentCount,
                     );
 
-                    debugPrint('[TicketsScreen] ✅ Badge updated for ticket $ticketId after marking message $messageId as read');
                   } else {
-                    debugPrint('[TicketsScreen] ⚠️ Message $messageId not found in ticket $ticketId messages');
                   }
                 } else {
-                  debugPrint('[TicketsScreen] ⚠️ Ticket $ticketId not found in list');
                 }
               });
             }
@@ -227,11 +217,9 @@ class _TicketsUserViewState extends State<TicketsUserView> {
                       _tickets[ticketIndex].messages[existingMsgIndex] = updatedMsg;
                     }
                   }
-                  debugPrint('[TicketsScreen] ✅ Updated readAt for ticket ${updatedTicket.id}');
                 }
               });
             } catch (e) {
-              debugPrint('[TicketsScreen] Error updating ticket_read: $e');
             }
           }
         }
@@ -672,7 +660,6 @@ class _TicketsUserViewState extends State<TicketsUserView> {
       color: Colors.transparent,
       child: InkWell(
         onTap: () {
-          debugPrint('[UserTickets] Ticket tapped: ${ticket.id}, isDesktop: $isDesktop');
           setState(() {
             _selectedTicket = ticket;
           });

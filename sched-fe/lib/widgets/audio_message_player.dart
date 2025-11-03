@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'dart:async';
 import 'dart:math';
+import '../utils/toast_notification.dart';
 import 'download_helper_stub.dart'
     if (dart.library.html) 'download_helper_web.dart'
     if (dart.library.io) 'download_helper_io.dart';
@@ -59,7 +60,6 @@ class _AudioMessagePlayerState extends State<AudioMessagePlayer> {
     // Client-side extraction DISABLED - causing crashes
     // Backend must provide duration
     if (widget.durationMs == null) {
-      debugPrint('[AudioPlayer] ⚠️ Backend duration null for: ${widget.fileName}');
     }
   }
 
@@ -102,7 +102,6 @@ class _AudioMessagePlayerState extends State<AudioMessagePlayer> {
     try {
       if (_audioPlayer == null) {
         // First play - create player
-        debugPrint('[AudioPlayer] 🎵 Creating player on-demand for: ${widget.fileName}');
 
         final player = AudioPlayer();
         _audioPlayer = player;
@@ -122,11 +121,8 @@ class _AudioMessagePlayerState extends State<AudioMessagePlayer> {
         }
       }
     } catch (e) {
-      debugPrint('[AudioPlayer] ❌ Error: $e');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Erro ao reproduzir áudio')),
-        );
+        ToastNotification.show(context, message: 'Erro ao reproduzir áudio');
       }
     }
   }
@@ -143,16 +139,11 @@ class _AudioMessagePlayerState extends State<AudioMessagePlayer> {
       // Download file - web implementation will handle the download automatically
       await downloadFile(widget.audioUrl, widget.fileName, []);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Downloading ${widget.fileName}')),
-        );
+        ToastNotification.show(context, message: 'Downloading ${widget.fileName}');
       }
     } catch (e) {
-      debugPrint('[AudioPlayer] Download error: $e');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to download audio')),
-        );
+        ToastNotification.show(context, message: 'Failed to download audio');
       }
     }
   }

@@ -19,10 +19,8 @@ Future<String> requestWebNotificationPermission() async {
 
   try {
     final result = await requestNotificationPermission().toDart;
-    debugPrint('[WebInterop] Permission result: $result');
     return result.toString();
   } catch (e) {
-    debugPrint('[WebInterop] Error requesting permission: $e');
     return 'denied';
   }
 }
@@ -34,7 +32,6 @@ String getNotificationPermission() {
   try {
     return notificationPermission;
   } catch (e) {
-    debugPrint('[WebInterop] Error getting permission: $e');
     return 'denied';
   }
 }
@@ -75,11 +72,8 @@ void showBrowserNotification(String title, String body, {String? icon}) {
   if (!kIsWeb) return;
 
   try {
-    debugPrint('[WebInterop] 🔔 Attempting to show notification: $title');
-    debugPrint('[WebInterop] Current permission: $notificationPermission');
 
     if (notificationPermission == 'granted') {
-      debugPrint('[WebInterop] Permission granted, creating notification...');
       final notification = Notification(
         title,
         NotificationOptions(
@@ -87,15 +81,9 @@ void showBrowserNotification(String title, String body, {String? icon}) {
           icon: icon ?? '/icons/Icon-192.png',
         ),
       );
-      debugPrint('[WebInterop] ✅ Notification created successfully: $title');
-      debugPrint('[WebInterop] Notification object: $notification');
     } else {
-      debugPrint('[WebInterop] ⚠️ Cannot show notification - Permission: $notificationPermission');
-      debugPrint('[WebInterop] Please grant notification permissions in your browser settings');
     }
   } catch (e, stack) {
-    debugPrint('[WebInterop] ❌ Error showing notification: $e');
-    debugPrint('[WebInterop] Stack trace: $stack');
   }
 }
 
@@ -108,17 +96,14 @@ Future<String?> subscribeToPushNotifications(String vapidPublicKey) async {
   if (!kIsWeb) return null;
 
   try {
-    debugPrint('[WebInterop] Subscribing to push with VAPID key...');
 
     // Wait for service worker to be ready
     final registrationAny = await serviceWorkerReady.toDart;
     if (registrationAny == null) {
-      debugPrint('[WebInterop] Service Worker registration is null');
       return null;
     }
 
     final registration = registrationAny as JSObject;
-    debugPrint('[WebInterop] Service Worker ready');
 
     // Convert VAPID key from base64 to Uint8Array
     final applicationServerKey = urlBase64ToUint8Array(vapidPublicKey);
@@ -128,11 +113,9 @@ Future<String?> subscribeToPushNotifications(String vapidPublicKey) async {
 
     // Convert subscription to JSON string
     final subscriptionJson = _subscriptionToJson(subscription);
-    debugPrint('[WebInterop] Subscription created');
 
     return subscriptionJson;
   } catch (e) {
-    debugPrint('[WebInterop] Error subscribing to push: $e');
     return null;
   }
 }
@@ -149,7 +132,6 @@ void injectBase64Helper() {
     // This will be injected once
     _injectBase64HelperScript();
   } catch (e) {
-    debugPrint('[WebInterop] Error injecting helper: $e');
   }
 }
 
@@ -179,7 +161,6 @@ void _injectBase64HelperScript() {
   try {
     _eval(script);
   } catch (e) {
-    debugPrint('[WebInterop] Error evaluating helper script: $e');
   }
 }
 
@@ -237,7 +218,6 @@ void injectPushManagerHelper() {
   try {
     _eval(script);
   } catch (e) {
-    debugPrint('[WebInterop] Error injecting push manager helper: $e');
   }
 }
 
@@ -277,9 +257,7 @@ void setupServiceWorkerMessageListener(void Function(String url, String? booking
     // Register Flutter callback
     _registerNavigationCallback(onNavigate);
 
-    debugPrint('[WebInterop] ✅ Service Worker message listener registered');
   } catch (e) {
-    debugPrint('[WebInterop] Error setting up Service Worker listener: $e');
   }
 }
 
@@ -300,6 +278,5 @@ void _registerNavigationCallback(void Function(String url, String? bookingId, St
   try {
     _eval(callbackScript);
   } catch (e) {
-    debugPrint('[WebInterop] Error registering navigation callback: $e');
   }
 }

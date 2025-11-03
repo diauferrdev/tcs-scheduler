@@ -110,10 +110,8 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
             _formData = BookingFormData.fromBooking(updatedBooking);
           }
         });
-        debugPrint('[BookingDetails] Updated booking via WebSocket');
       }
     } catch (e) {
-      debugPrint('[BookingDetails] Error handling booking update: $e');
     }
   }
 
@@ -136,7 +134,6 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
     }
 
     try {
-      debugPrint('[BookingDetails] Loading booking: ${widget.bookingId}');
       final response = await _apiService.getBookingById(widget.bookingId);
 
       if (mounted) {
@@ -146,7 +143,6 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
         });
       }
     } catch (e) {
-      debugPrint('[BookingDetails] Error loading booking: $e');
       if (mounted) {
         setState(() {
           _error = e.toString();
@@ -2163,7 +2159,6 @@ Enterprise Office Visit Management
             InkWell(
               onTap: () {
                 // TODO: Open LinkedIn profile
-                debugPrint('Opening LinkedIn: ${attendee.linkedinProfile}');
               },
               child: Container(
                 padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),

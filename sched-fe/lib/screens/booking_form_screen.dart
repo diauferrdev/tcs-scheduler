@@ -242,7 +242,6 @@ class BookingFormScreenState extends State<BookingFormScreen> {
         bookingData.remove('startTime');
         bookingData.remove('duration');
 
-        debugPrint('[BOOKING] Updating booking ${widget.existingBooking!.id}: ${json.encode(bookingData)}');
 
         await apiService.updateBooking(widget.existingBooking!.id, bookingData);
 
@@ -262,7 +261,6 @@ class BookingFormScreenState extends State<BookingFormScreen> {
         // CREATE MODE: Create new booking
         final bookingData = _buildBookingData();
 
-        debugPrint('[BOOKING] Creating booking: ${json.encode(bookingData)}');
 
         await apiService.createBooking(bookingData);
 

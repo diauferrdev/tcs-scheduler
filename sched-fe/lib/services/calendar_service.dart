@@ -20,13 +20,10 @@ class CalendarService {
     String? eventType,
   }) async {
     try {
-      debugPrint('[CalendarService] Adding booking to calendar');
-      debugPrint('[CalendarService] Company: $companyName, Date: $date, Time: $time');
 
       // Parse date and time
       final DateTime? startDate = _parseDateTime(date, time);
       if (startDate == null) {
-        debugPrint('[CalendarService] ⚠️ Could not parse date/time');
         return false;
       }
 
@@ -57,22 +54,16 @@ class CalendarService {
         ),
       );
 
-      debugPrint('[CalendarService] Event created: ${event.title}');
-      debugPrint('[CalendarService] Start: ${event.startDate}, End: ${event.endDate}');
 
       // Add to calendar
       final bool result = await Add2Calendar.addEvent2Cal(event);
 
       if (result) {
-        debugPrint('[CalendarService] ✅ Event added to calendar successfully');
       } else {
-        debugPrint('[CalendarService] ⚠️ User cancelled or event not added');
       }
 
       return result;
     } catch (e, stackTrace) {
-      debugPrint('[CalendarService] ❌ Error adding to calendar: $e');
-      debugPrint('[CalendarService] Stack trace: $stackTrace');
       return false;
     }
   }
@@ -99,7 +90,6 @@ class CalendarService {
       }
 
       if (parsedDate == null) {
-        debugPrint('[CalendarService] Could not parse date: $dateStr');
         return null;
       }
 
@@ -108,7 +98,6 @@ class CalendarService {
       final match = timeRegex.firstMatch(timeStr);
 
       if (match == null) {
-        debugPrint('[CalendarService] Could not parse time: $timeStr');
         return DateTime(parsedDate.year, parsedDate.month, parsedDate.day, 9, 0); // Default to 9 AM
       }
 
@@ -130,7 +119,6 @@ class CalendarService {
         minute,
       );
     } catch (e) {
-      debugPrint('[CalendarService] Error parsing date/time: $e');
       return null;
     }
   }

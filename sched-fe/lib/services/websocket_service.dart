@@ -30,12 +30,10 @@ class WebSocketService {
     _userId = userId;
 
     if (_isConnecting) {
-      debugPrint('[WS] Already connecting, skipping...');
       return;
     }
 
     if (_channel != null) {
-      debugPrint('[WS] Already connected, skipping...');
       return;
     }
 
@@ -47,7 +45,6 @@ class WebSocketService {
     final token = await tokenStorage.readToken();
 
     if (token == null) {
-      debugPrint('[WS] ❌ No auth token found, cannot connect');
       _isConnecting = false;
       return;
     }
@@ -67,8 +64,6 @@ class WebSocketService {
         ? Uri.parse('$wsUrl/ws?userId=$userId&token=$token')
         : Uri.parse('$wsUrl/ws?userId=$userId');
 
-    debugPrint('[WS] Connecting to: $uri (platform: ${kIsWeb ? "web" : "mobile"}) with auth token');
-
     // Prepare headers with auth token (mobile only)
     final headers = {
       'Authorization': 'Bearer $token',
@@ -85,13 +80,11 @@ class WebSocketService {
         );
         _setupConnection();
       } catch (e) {
-        debugPrint('[WS] ❌ Connection error: $e');
         _isConnecting = false;
         _handleDisconnect();
       }
     } else {
       // Mobile: Use native dart:io WebSocket with auth headers
-      debugPrint('[WS] Using native dart:io WebSocket for mobile with auth headers');
       WebSocket.connect(
         uri.toString(),
         headers: headers,
@@ -100,7 +93,6 @@ class WebSocketService {
         _channel = IOWebSocketChannel(socket);
         _setupConnection();
       }).catchError((e) {
-        debugPrint('[WS] ❌ Connection error: $e');
         _isConnecting = false;
         _handleDisconnect();
       });
@@ -118,7 +110,6 @@ class WebSocketService {
           try {
             final data = json.decode(message as String) as Map<String, dynamic>;
             final type = data['type'] as String?;
-            debugPrint('[WS] ✅ Received: $type');
 
             if (type != 'pong') {
               _messageController!.add(data);
@@ -126,23 +117,18 @@ class WebSocketService {
 
             _reconnectAttempts = 0; // Reset on successful message
           } catch (e) {
-            debugPrint('[WS] ❌ Error decoding message: $e');
           }
         },
         onError: (error) {
-          debugPrint('[WS] ❌ Error: $error');
           _handleDisconnect();
         },
         onDone: () {
-          debugPrint('[WS] Connection closed');
           _handleDisconnect();
         },
       );
 
       _isConnecting = false;
-      debugPrint('[WS] ✅ Connected successfully');
     } catch (e) {
-      debugPrint('[WS] ❌ Setup error: $e');
       _isConnecting = false;
       _handleDisconnect();
     }
@@ -154,9 +140,7 @@ class WebSocketService {
       if (_channel != null) {
         try {
           sendMessage({'type': 'ping'});
-          debugPrint('[WS] 💓 Sent heartbeat');
         } catch (e) {
-          debugPrint('[WS] ❌ Heartbeat failed: $e');
           _handleDisconnect();
         }
       }
@@ -171,17 +155,14 @@ class WebSocketService {
     // Attempt reconnection if we have a userId
     if (_userId != null && _reconnectAttempts < _maxReconnectAttempts) {
       _reconnectAttempts++;
-      debugPrint('[WS] 🔄 Reconnecting in ${_reconnectDelay.inSeconds}s (attempt $_reconnectAttempts/$_maxReconnectAttempts)');
 
       _reconnectTimer?.cancel();
       _reconnectTimer = Timer(_reconnectDelay, () {
-        debugPrint('[WS] Attempting reconnect...');
         if (_userId != null) {
           connect(_userId!);
         }
       });
     } else {
-      debugPrint('[WS] ❌ Max reconnect attempts reached or no userId');
     }
   }
 
@@ -189,13 +170,11 @@ class WebSocketService {
     if (_channel != null) {
       _channel!.sink.add(json.encode(message));
     } else {
-      debugPrint('[WS] Cannot send message: not connected');
     }
   }
 
   /// Mark ticket messages as read via WebSocket (real-time)
   void markTicketAsRead(String ticketId) {
-    debugPrint('[WS] 📖 Sending mark_as_read for ticket: $ticketId');
     sendMessage({
       'type': 'mark_as_read',
       'ticketId': ticketId,
@@ -220,7 +199,6 @@ class WebSocketService {
   }
 
   void disconnect() {
-    debugPrint('[WS] Disconnecting...');
     _reconnectTimer?.cancel();
     _channel?.sink.close();
     _channel = null;

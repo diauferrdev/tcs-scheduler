@@ -65,7 +65,6 @@ class _FullscreenAudioPlayerState extends State<FullscreenAudioPlayer> {
             _duration = duration;
             _isLoading = false;
           });
-          debugPrint('[FullscreenAudioPlayer] Duration loaded: ${_formatDuration(duration)}');
         }
       });
 
@@ -97,7 +96,6 @@ class _FullscreenAudioPlayerState extends State<FullscreenAudioPlayer> {
         }
       });
     } catch (e) {
-      debugPrint('[FullscreenAudioPlayer] Error initializing: $e');
       if (mounted) {
         setState(() {
           _isLoading = false;
@@ -125,7 +123,6 @@ class _FullscreenAudioPlayerState extends State<FullscreenAudioPlayer> {
         await _audioPlayer!.resume();
       }
     } catch (e) {
-      debugPrint('[FullscreenAudioPlayer] Playback error: $e');
     }
   }
 

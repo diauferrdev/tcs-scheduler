@@ -22,9 +22,7 @@ class DesktopNotificationService {
       );
 
       _initialized = true;
-      debugPrint('[DesktopNotification] Initialized successfully');
     } catch (e) {
-      debugPrint('[DesktopNotification] Initialization error: $e');
     }
   }
 
@@ -35,7 +33,6 @@ class DesktopNotificationService {
     String? subtitle,
   }) async {
     if (!_initialized) {
-      debugPrint('[DesktopNotification] Not initialized, skipping notification');
       return;
     }
 
@@ -47,9 +44,7 @@ class DesktopNotificationService {
       );
 
       await notification.show();
-      debugPrint('[DesktopNotification] Shown: $title');
     } catch (e) {
-      debugPrint('[DesktopNotification] Error showing notification: $e');
     }
   }
 

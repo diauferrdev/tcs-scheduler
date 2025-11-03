@@ -130,9 +130,6 @@ class TicketMessage {
         updatedAt: DateTime.parse(json['updatedAt'] as String),
       );
     } catch (e, stackTrace) {
-      debugPrint('[TicketMessage.fromJson] ❌ Error parsing message: $e');
-      debugPrint('[TicketMessage.fromJson] JSON: $json');
-      debugPrint('[TicketMessage.fromJson] Stack: $stackTrace');
       rethrow;
     }
   }

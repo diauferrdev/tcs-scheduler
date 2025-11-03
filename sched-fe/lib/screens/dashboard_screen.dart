@@ -10,6 +10,7 @@ import '../providers/auth_provider.dart';
 import '../services/api_service.dart';
 import '../services/universal_update_service.dart';
 import '../models/dashboard.dart';
+import '../utils/toast_notification.dart';
 
 class DashboardScreen extends StatefulWidget {
   final bool skipLayout;
@@ -2170,29 +2171,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
         try {
           Navigator.of(context, rootNavigator: true).pop();
         } catch (e) {
-          debugPrint('[Dashboard] Error closing dialog: $e');
         }
       }
 
       // Show success message
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Row(
-            children: [
-              const Icon(Icons.check_circle, color: Colors.white),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  'Test notification sent to ${response['deviceCount'] ?? 'all'} devices!',
-                  style: const TextStyle(color: Colors.white),
-                ),
-              ),
-            ],
-          ),
-          backgroundColor: Colors.green,
-          duration: const Duration(seconds: 3),
-        ),
+      ToastNotification.show(
+        context,
+        message: 'Test notification sent to ${response['deviceCount'] ?? 'all'} devices!',
+        type: ToastType.success,
       );
     } catch (e) {
       // Close loading dialog safely
@@ -2200,29 +2187,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
         try {
           Navigator.of(context, rootNavigator: true).pop();
         } catch (navError) {
-          debugPrint('[Dashboard] Error closing dialog: $navError');
         }
       }
 
       // Show error message
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Row(
-            children: [
-              const Icon(Icons.error, color: Colors.white),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  'Error sending test notification: ${e.toString()}',
-                  style: const TextStyle(color: Colors.white),
-                ),
-              ),
-            ],
-          ),
-          backgroundColor: Colors.red,
-          duration: const Duration(seconds: 5),
-        ),
+      ToastNotification.show(
+        context,
+        message: 'Error sending test notification: ${e.toString()}',
+        type: ToastType.error,
       );
     }
   }

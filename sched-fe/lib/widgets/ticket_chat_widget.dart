@@ -21,6 +21,7 @@ import '../widgets/ticket_details_drawer.dart';
 import '../widgets/audio_message_player.dart';
 import '../widgets/video_message_player.dart' as video_player;
 import '../widgets/audio_recording_button.dart';
+import '../utils/toast_notification.dart';
 import '../widgets/blob_helper_stub.dart'
     if (dart.library.html) '../widgets/blob_helper_web.dart';
 
@@ -85,7 +86,6 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
   @override
   void initState() {
     super.initState();
-    debugPrint('[TicketChat-${widget.ticketId}] 🟢 INIT - Widget created for ticket ${widget.ticketId}');
     // Initialize scroll controller with position 0 (which is bottom when reverse: true)
     _scrollController = ScrollController(
       initialScrollOffset: 0.0,
@@ -100,7 +100,6 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
 
   @override
   void dispose() {
-    debugPrint('[TicketChat-${widget.ticketId}] 🔴 DISPOSE - Widget destroyed for ticket ${widget.ticketId}');
     _wsSubscription?.cancel();
     _messageController.dispose();
     _scrollController.dispose();
@@ -138,9 +137,7 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
         final type = message['type'] as String?;
         if (type == 'ticket_message') {
           final data = message['data'];
-          debugPrint('[TicketChat-${widget.ticketId}] 📨 Received ticket_message for ticket: ${data?['ticketId']}');
           if (data != null && data['ticketId'] == widget.ticketId) {
-            debugPrint('[TicketChat-${widget.ticketId}] ✅ Message is for THIS ticket, processing...');
             try {
               final newMessage = TicketMessage.fromJson(data);
               _addMessageToList(newMessage);
@@ -148,29 +145,23 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
               // Auto-mark as read since we're in the chat
               final authProvider = Provider.of<AuthProvider>(context, listen: false);
               if (newMessage.author.id != authProvider.user?.id) {
-                debugPrint('[TicketChat-${widget.ticketId}] 📖 Auto-marking new message as read');
                 _markSingleMessageAsRead(newMessage.id);
               }
             } catch (e) {
-              debugPrint('[TicketChat-${widget.ticketId}] Error parsing message: $e');
             }
           } else {
-            debugPrint('[TicketChat-${widget.ticketId}] ❌ Message is for DIFFERENT ticket (${data?['ticketId']}), ignoring');
           }
         } else if (type == 'message_read') {
           // Real-time read receipts
-          debugPrint('[TicketChat] 🔔 Received message_read: $message');
           final data = message['data'];
           if (data != null && data['ticketId'] == widget.ticketId) {
             final messageId = data['messageId'] as String?;
             final readAt = data['readAt'] as String?;
 
             if (messageId != null && readAt != null) {
-              debugPrint('[TicketChat] ✅ Updating message $messageId as read');
               setState(() {
                 final index = _messages.indexWhere((m) => m.id == messageId);
                 if (index != -1) {
-                  debugPrint('[TicketChat] ✅ Found message at index $index, updating readAt');
                   _messages[index] = TicketMessage(
                     id: _messages[index].id,
                     content: _messages[index].content,
@@ -183,40 +174,32 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
                     attachments: _messages[index].attachments,
                   );
                 } else {
-                  debugPrint('[TicketChat] ❌ Message $messageId not found in list');
                 }
               });
             }
           } else {
-            debugPrint('[TicketChat] ❌ message_read ignored (wrong ticket or null data)');
           }
         } else if (type == 'user_typing') {
           // Real-time typing indicator
-          debugPrint('[TicketChat] 🔔 Received user_typing: $message');
           final data = message['data'];
           if (data != null && data['ticketId'] == widget.ticketId) {
             final isTyping = data['isTyping'] == true;
             final userName = data['userName'] as String?;
-            debugPrint('[TicketChat] ✅ Typing indicator: $userName is ${isTyping ? "typing" : "stopped"}');
             setState(() {
               _otherUserTyping = isTyping;
             });
           } else {
-            debugPrint('[TicketChat] ❌ Typing indicator ignored (wrong ticket)');
           }
         } else if (type == 'user_recording') {
           // Real-time recording indicator
-          debugPrint('[TicketChat] 🔔 Received user_recording: $message');
           final data = message['data'];
           if (data != null && data['ticketId'] == widget.ticketId) {
             final isRecording = data['isRecording'] == true;
             final userName = data['userName'] as String?;
-            debugPrint('[TicketChat] ✅ Recording indicator: $userName is ${isRecording ? "recording" : "stopped"}');
             setState(() {
               _otherUserRecording = isRecording;
             });
           } else {
-            debugPrint('[TicketChat] ❌ Recording indicator ignored (wrong ticket)');
           }
         } else if (type == 'ticket_updated') {
           _loadTicketAndMessages();
@@ -269,7 +252,6 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final userId = authProvider.user?.id;
     if (userId != null && message.author.id != userId && message.readAt == null) {
-      debugPrint('[TicketChat] 📖 Auto-marking new message as read (addMessageToList)');
       _markSingleMessageAsRead(message.id);
     }
   }
@@ -358,7 +340,6 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
         _isLoadingMore = false;
       });
     } catch (e) {
-      debugPrint('[TicketChat] Error loading more messages: $e');
       setState(() {
         _isLoadingMore = false;
       });
@@ -375,9 +356,7 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
       await _api.post('/api/tickets/${widget.ticketId}/read', {
         'messageIds': [messageId],
       });
-      debugPrint('[TicketChat] ✅ Marked message $messageId as read');
     } catch (e) {
-      debugPrint('[TicketChat] ❌ Error marking message as read: $e');
     }
   }
 
@@ -387,7 +366,6 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
       final userId = authProvider.user?.id;
 
       if (userId == null) {
-        debugPrint('[TicketChat] ❌ Cannot mark as read: userId is null');
         return;
       }
 
@@ -397,44 +375,34 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
       ).toList();
 
       if (unreadMessages.isEmpty) {
-        debugPrint('[TicketChat] ℹ️ No unread messages to mark');
         return;
       }
 
-      debugPrint('[TicketChat] 📖 Marking ${unreadMessages.length} messages as read');
 
       // Mark as read via API
       await _api.post('/api/tickets/${widget.ticketId}/read', {
         'messageIds': unreadMessages.map((m) => m.id).toList(),
       });
 
-      debugPrint('[TicketChat] ✅ Marked ${unreadMessages.length} messages as read successfully');
     } catch (e) {
-      debugPrint('[TicketChat] ❌ Error marking messages as read: $e');
     }
   }
 
   Future<void> _sendTypingIndicator(bool isTyping) async {
     try {
-      debugPrint('[TicketChat] 📤 Sending typing indicator: $isTyping for ticket ${widget.ticketId}');
       await _api.post('/api/tickets/${widget.ticketId}/typing', {
         'isTyping': isTyping,
       });
-      debugPrint('[TicketChat] ✅ Typing indicator sent successfully');
     } catch (e) {
-      debugPrint('[TicketChat] ❌ Error sending typing indicator: $e');
     }
   }
 
   Future<void> _sendRecordingIndicator(bool isRecording) async {
     try {
-      debugPrint('[TicketChat] 📤 Sending recording indicator: $isRecording for ticket ${widget.ticketId}');
       await _api.post('/api/tickets/${widget.ticketId}/recording', {
         'isRecording': isRecording,
       });
-      debugPrint('[TicketChat] ✅ Recording indicator sent successfully');
     } catch (e) {
-      debugPrint('[TicketChat] ❌ Error sending recording indicator: $e');
     }
   }
 
@@ -532,9 +500,7 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
         _optimisticMessages.removeWhere((msg) => msg['id'] == tempId);
       });
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error sending message: $e')),
-      );
+      ToastNotification.show(context, message: 'Error sending message: $e');
     } finally {
       if (mounted) {
         setState(() {
@@ -613,9 +579,7 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
         }
       });
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Upload failed: $e'), backgroundColor: Colors.red),
-      );
+      ToastNotification.show(context, message: 'Upload failed: $e', type: ToastType.error);
 
       // Remove failed message after 5 seconds
       Future.delayed(const Duration(seconds: 5), () {
@@ -669,7 +633,6 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
         });
       }
     } catch (e) {
-      debugPrint('[Recording] Error: $e');
       setState(() {
         _isRecording = false;
         _recordingDuration = Duration.zero;
@@ -698,17 +661,12 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
 
         if (kIsWeb) {
           // On web, use the blob URL and convert to bytes
-          debugPrint('[Recording] Web audio path: $path');
 
           try {
             bytes = await blobUrlToBytes(path);
-            debugPrint('[Recording] ✅ Converted blob to ${bytes.length} bytes');
           } catch (e) {
-            debugPrint('[Recording] ❌ Error converting blob: $e');
             if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Error processing audio: $e'), backgroundColor: Colors.red),
-              );
+              ToastNotification.show(context, message: 'Error processing audio: $e', type: ToastType.error);
             }
             return;
           }
@@ -782,12 +740,10 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
             final file = File(path);
             await file.delete();
           } catch (e) {
-            debugPrint('[Recording] Error deleting temp file: $e');
           }
         }
       }
     } catch (e) {
-      debugPrint('[Recording] Error: $e');
       setState(() {
         _isRecording = false;
         _uploadingAttachment = false;
@@ -857,9 +813,7 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
             }
           } catch (e) {
             if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Error sending GIF: $e'), backgroundColor: Colors.red),
-              );
+              ToastNotification.show(context, message: 'Error sending GIF: $e', type: ToastType.error);
             }
           } finally {
             if (mounted) {
@@ -871,7 +825,6 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
         }
       }
     } catch (e) {
-      debugPrint('[GIF Picker] Error: $e');
     }
   }
 
@@ -928,7 +881,6 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
                       IconButton(
                         icon: Icon(Icons.arrow_back, color: isDark ? Colors.white : Colors.black),
                         onPressed: () {
-                          debugPrint('[TicketChat] Back button pressed');
                           if (widget.onBackPressed != null) {
                             widget.onBackPressed!();
                           } else {

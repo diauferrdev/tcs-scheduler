@@ -46,7 +46,6 @@ class _WebVideoPlayerState extends State<_WebVideoPlayer> {
 
         // Add error handling
         videoElement.onError.listen((event) {
-          debugPrint('[WebVideoPlayer] Error loading video');
         });
 
         return videoElement;

@@ -116,7 +116,6 @@ class _AgendaScreenState extends State<AgendaScreen> {
         });
       }
     } catch (e) {
-      debugPrint('[Agenda] Error handling realtime update: $e');
     }
   }
 
@@ -139,7 +138,6 @@ class _AgendaScreenState extends State<AgendaScreen> {
 
     try {
       final monthStr = DateFormat('yyyy-MM').format(month);
-      debugPrint('[Agenda] Loading month: $monthStr');
 
       final response = await _apiService.getConfirmedBookings(month: monthStr);
       final bookings = (response['bookings'] as List)
@@ -160,9 +158,7 @@ class _AgendaScreenState extends State<AgendaScreen> {
         _isLoading = false;
       });
 
-      debugPrint('[Agenda] Loaded ${bookings.length} bookings for $monthStr');
     } catch (e) {
-      debugPrint('[Agenda] Error loading month: $e');
       if (mounted) {
         setState(() {
           _error = e.toString();

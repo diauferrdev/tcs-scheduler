@@ -11,6 +11,7 @@ import '../services/api_service.dart';
 import '../services/websocket_service.dart';
 import '../utils/url_helper.dart';
 import '../utils/device_info_helper.dart';
+import '../utils/toast_notification.dart';
 import '../widgets/media_viewer_dialog.dart';
 import 'edit_bug_report_screen.dart';
 
@@ -108,7 +109,6 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
         });
       }
     } catch (e) {
-      debugPrint('[BugDetail] Error handling bug_updated: $e');
     }
   }
 
@@ -135,7 +135,6 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
         }
       }
     } catch (e) {
-      debugPrint('[BugDetail] Error handling like change: $e');
     }
   }
 
@@ -161,7 +160,6 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
         });
       }
     } catch (e) {
-      debugPrint('[BugDetail] Error handling comment_created: $e');
     }
   }
 
@@ -179,7 +177,6 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
         });
       }
     } catch (e) {
-      debugPrint('[BugDetail] Error handling comment_updated: $e');
     }
   }
 
@@ -196,7 +193,6 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
         });
       }
     } catch (e) {
-      debugPrint('[BugDetail] Error handling comment_deleted: $e');
     }
   }
 
@@ -252,9 +248,7 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
       });
 
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e')),
-      );
+      ToastNotification.show(context, message: 'Error: $e', type: ToastType.error);
     }
   }
 
@@ -271,11 +265,10 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
         final totalFiles = _selectedFiles.length + result.files.length;
         if (totalFiles > 6) {
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Maximum 6 files allowed. You have ${_selectedFiles.length} selected.'),
-                backgroundColor: Colors.orange,
-              ),
+            ToastNotification.show(
+              context,
+              message: 'Maximum 6 files allowed. You have ${_selectedFiles.length} selected.',
+              type: ToastType.warning,
             );
           }
           return;
@@ -287,9 +280,7 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error selecting files: $e')),
-        );
+        ToastNotification.show(context, message: 'Error selecting files: $e', type: ToastType.error);
       }
     }
   }
@@ -323,14 +314,11 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
             await _api.uploadCommentAttachments(commentId, _selectedFiles);
           } catch (uploadError) {
             // For edits, attachment failure is not critical (comment already exists)
-            debugPrint('[BugDetail] Attachment upload failed for edit: $uploadError');
             if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('Comment updated but attachment upload failed: $uploadError'),
-                  backgroundColor: Colors.orange,
-                  duration: const Duration(seconds: 4),
-                ),
+              ToastNotification.show(
+                context,
+                message: 'Comment updated but attachment upload failed: $uploadError',
+                type: ToastType.warning,
               );
             }
             // Don't throw - comment edit succeeded
@@ -351,14 +339,11 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
           try {
             await _api.uploadCommentAttachments(commentId, _selectedFiles);
           } catch (uploadError) {
-            debugPrint('[BugDetail] Attachment upload failed, rolling back comment creation');
 
             // ROLLBACK: Delete the comment since attachments failed
             try {
               await _api.deleteBugComment(commentId);
-              debugPrint('[BugDetail] Successfully rolled back comment creation');
             } catch (deleteError) {
-              debugPrint('[BugDetail] Failed to rollback comment: $deleteError');
             }
 
             // Rethrow to show error to user
@@ -384,23 +369,18 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
 
       // Show success message
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(_editingCommentId != null ? 'Comment updated successfully' : 'Comment posted successfully'),
-            duration: const Duration(seconds: 2),
-            backgroundColor: Colors.green,
-          ),
+        ToastNotification.show(
+          context,
+          message: _editingCommentId != null ? 'Comment updated successfully' : 'Comment posted successfully',
+          type: ToastType.success,
         );
       }
     } catch (e) {
-      debugPrint('[BugDetail] Error in _submitComment: $e');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: $e'),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 4),
-          ),
+        ToastNotification.show(
+          context,
+          message: 'Error: $e',
+          type: ToastType.error,
         );
       }
     } finally {
@@ -441,15 +421,11 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
       await _api.deleteBugComment(commentId);
       await _loadBugDetails();
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Comment deleted')),
-        );
+        ToastNotification.show(context, message: 'Comment deleted', type: ToastType.success);
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error deleting comment: $e')),
-      );
+      ToastNotification.show(context, message: 'Error deleting comment: $e');
     }
   }
 
@@ -514,15 +490,11 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
       _loadBugDetails();
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Status updated to ${newStatus.name}')),
-        );
+        ToastNotification.show(context, message: 'Status updated to ${newStatus.name}');
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error updating status: $e')),
-      );
+      ToastNotification.show(context, message: 'Error updating status: $e');
     }
   }
 
@@ -556,16 +528,12 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
       await _api.deleteBugReport(widget.bugId);
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Bug report deleted')),
-        );
+        ToastNotification.show(context, message: 'Bug report deleted', type: ToastType.success);
         Navigator.pop(context, true);
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error deleting bug report: $e')),
-      );
+      ToastNotification.show(context, message: 'Error deleting bug report: $e');
     }
   }
 

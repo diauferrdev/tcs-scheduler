@@ -50,7 +50,6 @@ class _VideoMessagePreviewState extends State<VideoMessagePreview> {
         });
       }
     } catch (e) {
-      debugPrint('[VideoPreview] Error initializing: $e');
       if (mounted) {
         setState(() {
           _hasError = true;

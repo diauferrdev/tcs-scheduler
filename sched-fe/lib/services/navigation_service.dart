@@ -19,16 +19,13 @@ class NavigationService {
   void navigateTo(String path) {
     if (context != null) {
       context!.go(path);
-      debugPrint('[NavigationService] Navigated to: $path');
     } else {
-      debugPrint('[NavigationService] ⚠️ No context available for navigation');
     }
   }
 
   /// Navigate to calendar with optional date
   void navigateToCalendar({DateTime? date}) {
     navigateTo('/app/schedule');
-    debugPrint('[NavigationService] Navigated to calendar${date != null ? ' with date: $date' : ''}');
   }
 
   /// Navigate to notifications
@@ -59,13 +56,11 @@ class NavigationService {
   /// Navigate to booking details (goes to My Bookings first, then opens details drawer)
   void navigateToBookingDetails(String bookingId) {
     navigateTo('/app/my-visits?bookingId=$bookingId');
-    debugPrint('[NavigationService] Navigated to My Visits with booking details: $bookingId');
   }
 
   /// Navigate to approvals with booking details (for ADMIN/MANAGER)
   void navigateToApprovalsWithBooking(String bookingId) {
     navigateTo('/app/pending?bookingId=$bookingId');
-    debugPrint('[NavigationService] Navigated to Pending with booking details: $bookingId');
   }
 
   /// Show snackbar

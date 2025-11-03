@@ -39,7 +39,6 @@ class _TicketsAdminViewState extends State<TicketsAdminView> {
   @override
   void initState() {
     super.initState();
-    debugPrint('[AdminTickets] 🟢 INIT - AdminView created, _selectedTicket: ${_selectedTicket?.id ?? "null"}');
     _loadTickets();
     _setupWebSocket();
   }
@@ -52,7 +51,6 @@ class _TicketsAdminViewState extends State<TicketsAdminView> {
       _ws.connect(userId);
       _wsSubscription = _ws.messages.listen((message) {
         if (!mounted) return;
-        debugPrint('[AdminView] WS Message: $message');
         final type = message['type'] as String?;
 
         if (type == 'ticket_message') {
@@ -97,12 +95,10 @@ class _TicketsAdminViewState extends State<TicketsAdminView> {
                     // Re-sort all tickets to maintain proper order
                     _sortTickets();
 
-                    debugPrint('[AdminView] ✅ Badge updated for ticket $ticketId - new message added');
                   }
                 }
               });
             } catch (e) {
-              debugPrint('[AdminView] Error parsing message: $e');
               // Fallback to reload
               _loadTickets();
             }
@@ -112,7 +108,6 @@ class _TicketsAdminViewState extends State<TicketsAdminView> {
         } else if (type == 'message_read') {
           // Real-time read receipt update for badge counter
           final data = message['data'];
-          debugPrint('[AdminView] 📨 message_read received: $data');
 
           if (data != null) {
             final ticketId = data['ticketId'] as String?;
@@ -122,12 +117,10 @@ class _TicketsAdminViewState extends State<TicketsAdminView> {
             if (ticketId != null && messageId != null && readAt != null) {
               setState(() {
                 final ticketIndex = _tickets.indexWhere((t) => t.id == ticketId);
-                debugPrint('[AdminView] Looking for ticket $ticketId, found at index: $ticketIndex');
 
                 if (ticketIndex != -1) {
                   final oldTicket = _tickets[ticketIndex];
                   final msgIndex = oldTicket.messages.indexWhere((m) => m.id == messageId);
-                  debugPrint('[AdminView] Looking for message $messageId in ticket, found at index: $msgIndex');
 
                   if (msgIndex != -1) {
                     // Create NEW messages list with updated readAt
@@ -164,12 +157,9 @@ class _TicketsAdminViewState extends State<TicketsAdminView> {
                       attachmentCount: oldTicket.attachmentCount,
                     );
 
-                    debugPrint('[AdminView] ✅ Badge updated for ticket $ticketId after marking message $messageId as read');
                   } else {
-                    debugPrint('[AdminView] ⚠️ Message $messageId not found in ticket $ticketId messages');
                   }
                 } else {
-                  debugPrint('[AdminView] ⚠️ Ticket $ticketId not found in list');
                 }
               });
             }
@@ -190,16 +180,13 @@ class _TicketsAdminViewState extends State<TicketsAdminView> {
                       _tickets[ticketIndex].messages[existingMsgIndex] = updatedMsg;
                     }
                   }
-                  debugPrint('[AdminView] ✅ Updated readAt for ticket ${updatedTicket.id}');
                 }
               });
             } catch (e) {
-              debugPrint('[AdminView] Error updating ticket_read: $e');
             }
           }
         } else if (type == 'mark_as_read_success') {
           // Just log success, no action needed in admin view
-          debugPrint('[AdminView] ✅ Messages marked as read');
         }
       });
     }
@@ -207,7 +194,6 @@ class _TicketsAdminViewState extends State<TicketsAdminView> {
 
   @override
   void dispose() {
-    debugPrint('[AdminTickets] 🔴 DISPOSE - AdminView destroyed, _selectedTicket was: ${_selectedTicket?.id ?? "null"}');
     _wsSubscription?.cancel();
     _searchController.dispose();
     super.dispose();
@@ -486,11 +472,9 @@ class _TicketsAdminViewState extends State<TicketsAdminView> {
                     onTicketUpdated: _onTicketUpdated,
                     isAdminView: true,
                     onBackPressed: () {
-                      debugPrint('[AdminTickets] 🔙 Back pressed (desktop), deselecting ticket ${_selectedTicket?.id}');
                       setState(() {
                         _selectedTicket = null;
                       });
-                      debugPrint('[AdminTickets] Selection is now: null');
                     },
                   ),
           ),
@@ -582,11 +566,9 @@ class _TicketsAdminViewState extends State<TicketsAdminView> {
                   onTicketUpdated: _onTicketUpdated,
                   isAdminView: true,
                   onBackPressed: () {
-                    debugPrint('[AdminTickets] 🔙 Back pressed, deselecting ticket ${_selectedTicket?.id}');
                     setState(() {
                       _selectedTicket = null;
                     });
-                    debugPrint('[AdminTickets] Selection is now: null');
                   },
                 ),
     );
@@ -645,12 +627,9 @@ class _TicketsAdminViewState extends State<TicketsAdminView> {
           : Colors.transparent,
       child: InkWell(
         onTap: () {
-          debugPrint('[AdminTickets] 🔘 Ticket tapped: ${ticket.id}, isMobile: $isMobile');
-          debugPrint('[AdminTickets] Previous selection: ${_selectedTicket?.id ?? "null"}');
           setState(() {
             _selectedTicket = ticket;
           });
-          debugPrint('[AdminTickets] New selection: ${_selectedTicket?.id}');
         },
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),

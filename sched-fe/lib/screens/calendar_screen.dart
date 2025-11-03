@@ -124,7 +124,6 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
         }
       });
     } catch (e) {
-      debugPrint('[Calendar] Error loading draft: $e');
       if (mounted) {
         ToastNotification.show(
           context,
@@ -177,43 +176,22 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
     // Create listener references
     _onBookingCreatedListener = (booking) {
       final timestamp = DateTime.now().millisecondsSinceEpoch;
-      debugPrint('📡 [Calendar-WS-$timestamp] ========== BOOKING CREATED EVENT ==========');
-      debugPrint('📡 [Calendar-WS-$timestamp] Booking: ${booking['title']}');
-      debugPrint('📡 [Calendar-WS-$timestamp] ID: ${booking['id']}');
-      debugPrint('📡 [Calendar-WS-$timestamp] Current _loading state: $_loading');
-      debugPrint('📡 [Calendar-WS-$timestamp] Calling _loadBookings(showLoading: false)');
       _loadBookings(showLoading: false); // Silent refresh on WebSocket update
-      debugPrint('📡 [Calendar-WS-$timestamp] ========== EVENT PROCESSED ==========\n');
     };
 
     _onBookingUpdatedListener = (booking) {
       final timestamp = DateTime.now().millisecondsSinceEpoch;
-      debugPrint('📡 [Calendar-WS-$timestamp] ========== BOOKING UPDATED EVENT ==========');
-      debugPrint('📡 [Calendar-WS-$timestamp] Booking ID: ${booking['id']}');
-      debugPrint('📡 [Calendar-WS-$timestamp] Current _loading state: $_loading');
-      debugPrint('📡 [Calendar-WS-$timestamp] Calling _loadBookings(showLoading: false)');
       _loadBookings(showLoading: false); // Silent refresh on WebSocket update
-      debugPrint('📡 [Calendar-WS-$timestamp] ========== EVENT PROCESSED ==========\n');
     };
 
     _onBookingApprovedListener = (booking) {
       final timestamp = DateTime.now().millisecondsSinceEpoch;
-      debugPrint('📡 [Calendar-WS-$timestamp] ========== BOOKING APPROVED EVENT ==========');
-      debugPrint('📡 [Calendar-WS-$timestamp] Company: ${booking['companyName']}');
-      debugPrint('📡 [Calendar-WS-$timestamp] Current _loading state: $_loading');
-      debugPrint('📡 [Calendar-WS-$timestamp] Calling _loadBookings(showLoading: false)');
       _loadBookings(showLoading: false); // Silent refresh on WebSocket update
-      debugPrint('📡 [Calendar-WS-$timestamp] ========== EVENT PROCESSED ==========\n');
     };
 
     _onBookingDeletedListener = (bookingId) {
       final timestamp = DateTime.now().millisecondsSinceEpoch;
-      debugPrint('📡 [Calendar-WS-$timestamp] ========== BOOKING DELETED EVENT ==========');
-      debugPrint('📡 [Calendar-WS-$timestamp] Booking ID: $bookingId');
-      debugPrint('📡 [Calendar-WS-$timestamp] Current _loading state: $_loading');
-      debugPrint('📡 [Calendar-WS-$timestamp] Calling _loadBookings(showLoading: false)');
       _loadBookings(showLoading: false); // Silent refresh on WebSocket update
-      debugPrint('📡 [Calendar-WS-$timestamp] ========== EVENT PROCESSED ==========\n');
     };
 
     // Add listeners to service
@@ -236,24 +214,17 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
 
   Future<void> _loadBookings({bool showLoading = true}) async {
     final timestamp = DateTime.now().millisecondsSinceEpoch;
-    debugPrint('🔄 [Calendar-Load-$timestamp] ========== _loadBookings CALLED ==========');
-    debugPrint('🔄 [Calendar-Load-$timestamp] showLoading parameter: $showLoading');
-    debugPrint('🔄 [Calendar-Load-$timestamp] Current _loading state BEFORE: $_loading');
 
     try {
       if (showLoading) {
-        debugPrint('🔄 [Calendar-Load-$timestamp] Setting _loading = true (showing spinner)');
         setState(() {
           _loading = true;
           _error = null;
         });
-        debugPrint('✅ [Calendar-Load-$timestamp] _loading state set to true');
       } else {
-        debugPrint('🔄 [Calendar-Load-$timestamp] Silent mode - NOT setting _loading = true');
         setState(() {
           _error = null;
         });
-        debugPrint('✅ [Calendar-Load-$timestamp] Error cleared (silent mode)');
       }
 
       // Get user role to determine which endpoint to use
@@ -262,18 +233,14 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
 
       // ADMIN/MANAGER: Use availability-admin endpoint (shows PENDING + APPROVED)
       // USER: Use availability endpoint (shows only APPROVED bookings, not PENDING)
-      debugPrint('🔄 [Calendar-Load-$timestamp] Fetching bookings from API (role: $userRole)...');
       final response = (userRole == UserRole.ADMIN || userRole == UserRole.MANAGER)
           ? await _apiService.getBookingsAvailabilityForAdmins(null)
           : await _apiService.getBookingsAvailability(null);
       final bookingsData = response['bookings'] as List;
-      debugPrint('✅ [Calendar-Load-$timestamp] API returned ${bookingsData.length} bookings');
 
-      debugPrint('🔄 [Calendar-Load-$timestamp] Updating state with bookings...');
 
       // Check if still mounted before setState (WebSocket can trigger after navigation)
       if (!mounted) {
-        debugPrint('⚠️ [Calendar-Load-$timestamp] Widget disposed, skipping setState');
         return;
       }
 
@@ -291,19 +258,13 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
         });
         if (showLoading) {
           _loading = false;
-          debugPrint('✅ [Calendar-Load-$timestamp] _loading set to FALSE (spinner hidden)');
         } else {
-          debugPrint('✅ [Calendar-Load-$timestamp] Silent mode - _loading NOT changed (currently: $_loading)');
         }
       });
-      debugPrint('🟢 [Calendar-Load-$timestamp] ========== _loadBookings SUCCESS ==========\n');
     } catch (e) {
-      debugPrint('🔴 [Calendar-Load-$timestamp] ========== _loadBookings ERROR ==========');
-      debugPrint('🔴 [Calendar-Load-$timestamp] Error: $e');
 
       // Check if still mounted before setState
       if (!mounted) {
-        debugPrint('⚠️ [Calendar-Load-$timestamp] Widget disposed, skipping error setState');
         return;
       }
 
@@ -311,10 +272,8 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
         _error = e.toString();
         if (showLoading) {
           _loading = false;
-          debugPrint('✅ [Calendar-Load-$timestamp] _loading set to FALSE (error state)');
         }
       });
-      debugPrint('🔴 [Calendar-Load-$timestamp] ========== _loadBookings ERROR END ==========\n');
     }
   }
 
@@ -560,7 +519,6 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
         _selectedDayAvailability = null;
       });
 
-      debugPrint('🔍 [LoadAvailability] Calling API for date=$dateStr, visitType=$visitType');
       final response = await _apiService.checkAvailability(dateStr, visitType: visitType);
 
       setState(() {
@@ -569,15 +527,12 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
         _selectedDayAvailability = availability;
 
         // Debug: Print API response
-        debugPrint('🔍 [LoadAvailability] API returned ${availability.allPeriods?.length ?? 0} periods:');
         if (availability.allPeriods != null) {
           for (var period in availability.allPeriods!) {
-            debugPrint('  - ${period.label}: available=${period.available}${period.blockedBy != null ? " (blocked by: ${period.blockedBy})" : ""}');
           }
         }
       });
     } catch (e) {
-      debugPrint('Failed to load availability: $e');
     }
   }
 
@@ -1340,7 +1295,6 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
                   _selectedDate!.day == day.day;
 
               if (isSelected) {
-                debugPrint('[Calendar] Day $dayNumber is SELECTED');
               }
 
               final dayBookings = _getBookingsForDay(day);
@@ -1448,12 +1402,10 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
               return Expanded(
                 child: GestureDetector(
                   onTap: canClickDay ? () {
-                    debugPrint('[Calendar] Day clicked: $day, canClick: $canClickDay');
                     setState(() {
                       _selectedDate = day;
                       // Clear cache to force rebuild with new selection
                       _monthGridCache.clear();
-                      debugPrint('[Calendar] Selected date set to: $_selectedDate, cache cleared');
                     });
                   } : null,
                   child: AnimatedContainer(
@@ -3062,7 +3014,6 @@ class _SlotPickerContentWithLoadingState extends State<SlotPickerContentWithLoad
 
       // Log first few polls to debug
       if (i < 5 || (i % 10 == 0 && i < 50)) {
-        debugPrint('🔍 [SlotPicker-Poll#$i] Checking availability... data=${availability != null ? "exists (${availability.allPeriods?.length ?? 0} periods)" : "null"}');
       }
 
       if (availability != null && availability.allPeriods?.isNotEmpty == true) {
@@ -3070,9 +3021,7 @@ class _SlotPickerContentWithLoadingState extends State<SlotPickerContentWithLoad
           _allPeriods = availability.allPeriods ?? [];
         });
         // Debug: Print received periods and their availability status
-        debugPrint('🔍 [SlotPicker] ✅ Received ${_allPeriods.length} periods for ${widget.selectedVisitType} after $i polls:');
         for (var period in _allPeriods) {
-          debugPrint('  - ${period.label}: available=${period.available}${period.blockedBy != null ? " (blocked by: ${period.blockedBy})" : ""}');
         }
         return; // Stop polling once we have data
       }
@@ -3081,7 +3030,6 @@ class _SlotPickerContentWithLoadingState extends State<SlotPickerContentWithLoad
       // Poll count tracking removed
     }
 
-    debugPrint('⚠️ [SlotPicker] Polling timed out after 30 seconds without data');
   }
 
   @override

@@ -50,13 +50,11 @@ class _Device3DViewState extends State<Device3DView> {
   void _registerView() {
     if (_isRegistered) return;
 
-    debugPrint('[Device3DView] Registering view: $viewId');
 
     // Register the view factory
     ui_web.platformViewRegistry.registerViewFactory(
       viewId,
       (int viewIdInt) {
-        debugPrint('[Device3DView] Creating canvas for: $viewId');
 
         final canvas = html.CanvasElement()
           ..id = 'renderCanvas-$viewId'
@@ -74,7 +72,6 @@ class _Device3DViewState extends State<Device3DView> {
           ..style.backgroundColor = '#0A0A0A'
           ..append(canvas);
 
-        debugPrint('[Device3DView] Canvas created with ID: ${canvas.id}');
 
         // Initialize after a delay
         Future.delayed(const Duration(milliseconds: 500), () {
@@ -86,27 +83,22 @@ class _Device3DViewState extends State<Device3DView> {
     );
 
     _isRegistered = true;
-    debugPrint('[Device3DView] View registered successfully');
   }
 
   void _initialize3DViewer(String canvasId) {
     try {
-      debugPrint('[Device3DView] Initializing 3D viewer for $canvasId');
 
       // Check if Babylon.js is loaded
       if (js.context['BABYLON'] == null) {
-        debugPrint('[Device3DView] ❌ BABYLON.js not loaded!');
         return;
       }
 
       // Check if DeviceViewer class exists
       final deviceViewerClass = js.context['DeviceViewer'];
       if (deviceViewerClass == null) {
-        debugPrint('[Device3DView] ❌ DeviceViewer class not found!');
         return;
       }
 
-      debugPrint('[Device3DView] ✅ BABYLON.js and DeviceViewer found');
 
       // Create config object
       final config = js.JsObject.jsify({
@@ -139,15 +131,11 @@ class _Device3DViewState extends State<Device3DView> {
         },
       });
 
-      debugPrint('[Device3DView] Creating DeviceViewer instance...');
 
       // Create the DeviceViewer instance
       final viewer = js.JsObject(deviceViewerClass, [config]);
 
-      debugPrint('[Device3DView] ✅ DeviceViewer instance created: $viewer');
     } catch (e, stackTrace) {
-      debugPrint('[Device3DView] ❌ Error initializing 3D viewer: $e');
-      debugPrint('[Device3DView] Stack trace: $stackTrace');
     }
   }
 

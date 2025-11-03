@@ -154,7 +154,6 @@ class TokenStorage {
   void _log(String message) {
     // Logs disabled in production for cleaner output
     if (kDebugMode && !kIsWeb) {
-      debugPrint(message);
     }
   }
 }

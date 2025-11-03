@@ -7,8 +7,6 @@ void signalAppReady() {
   try {
     // Dispatch custom event for web splash screen
     html.window.dispatchEvent(html.CustomEvent('app-ready'));
-    debugPrint('[WebHelper] ✅ App ready signal sent to web');
   } catch (e) {
-    debugPrint('[WebHelper] Error dispatching app-ready event: $e');
   }
 }

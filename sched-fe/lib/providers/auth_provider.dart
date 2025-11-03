@@ -33,7 +33,6 @@ class AuthProvider with ChangeNotifier {
       try {
         await UnifiedNotificationService().requestPermissionsAfterLogin();
       } catch (e) {
-        debugPrint('[Auth] ❌ Permission error: $e');
       }
     } catch (e) {
       _user = null;
@@ -54,7 +53,6 @@ class AuthProvider with ChangeNotifier {
         WebHelper.signalAppReady();
       });
     } catch (e) {
-      debugPrint('[Auth] ❌ App ready signal error: $e');
     }
   }
 
@@ -78,14 +76,12 @@ class AuthProvider with ChangeNotifier {
         // Also save the token (cookie value) to TokenStorage for WebSocket auth
         final tokenStorage = TokenStorage();
         await tokenStorage.saveToken(cookieValue);
-        debugPrint('[Auth] ✅ Token saved to TokenStorage for WebSocket auth');
       }
 
       // Request notification permissions after successful login
       try {
         await UnifiedNotificationService().requestPermissionsAfterLogin();
       } catch (e) {
-        debugPrint('[Auth] ❌ Notification permission error: $e');
       }
 
       notifyListeners();
@@ -106,12 +102,10 @@ class AuthProvider with ChangeNotifier {
       // Clear token from storage
       final tokenStorage = TokenStorage();
       await tokenStorage.deleteToken();
-      debugPrint('[Auth] ✅ Token cleared from TokenStorage');
 
       try {
         await UnifiedNotificationService().disconnectWebSocket();
       } catch (e) {
-        debugPrint('[Auth] ❌ Disconnect error: $e');
       }
 
       notifyListeners();

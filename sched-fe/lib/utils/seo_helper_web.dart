@@ -48,7 +48,6 @@ void updatePageMetaImpl({
     }
   } catch (e) {
     if (kDebugMode) {
-      debugPrint('[SEO] Error updating meta tags: $e');
     }
   }
 }
@@ -61,7 +60,6 @@ void updateCanonicalUrlImpl(String url) {
     }
   } catch (e) {
     if (kDebugMode) {
-      debugPrint('[SEO] Error updating canonical URL: $e');
     }
   }
 }
@@ -85,7 +83,6 @@ void _updateMetaTag(String attribute, String attributeValue, String content) {
     }
   } catch (e) {
     if (kDebugMode) {
-      debugPrint('[SEO] Error updating meta tag $attributeValue: $e');
     }
   }
 }

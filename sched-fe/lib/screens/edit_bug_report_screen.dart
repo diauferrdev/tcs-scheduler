@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import '../models/bug_report.dart';
 import '../providers/theme_provider.dart';
 import '../services/api_service.dart';
+import '../utils/toast_notification.dart';
 
 class EditBugReportScreen extends StatefulWidget {
   final BugReport bug;
@@ -50,9 +51,7 @@ class _EditBugReportScreenState extends State<EditBugReportScreen> {
 
   Future<void> _showAttachmentOptions() async {
     if (_totalAttachments >= 6) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Maximum 6 attachments allowed')),
-      );
+      ToastNotification.show(context, message: 'Maximum 6 attachments allowed');
       return;
     }
 
@@ -133,9 +132,7 @@ class _EditBugReportScreenState extends State<EditBugReportScreen> {
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error picking image: $e')),
-      );
+      ToastNotification.show(context, message: 'Error picking image: $e');
     }
   }
 
@@ -158,9 +155,7 @@ class _EditBugReportScreenState extends State<EditBugReportScreen> {
 
         if (bytes.length > maxSize) {
           if (!mounted) return;
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('File must be less than ${isVideo ? "300MB" : "30MB"}')),
-          );
+          ToastNotification.show(context, message: 'File must be less than ${isVideo ? "300MB" : "30MB"}');
           return;
         }
 
@@ -175,9 +170,7 @@ class _EditBugReportScreenState extends State<EditBugReportScreen> {
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error picking file: $e')),
-      );
+      ToastNotification.show(context, message: 'Error picking file: $e');
     }
   }
 
@@ -229,7 +222,6 @@ class _EditBugReportScreenState extends State<EditBugReportScreen> {
             'fileType': response['type'] ?? attachment.type,
           });
         } catch (e) {
-          debugPrint('[EditBugReport] Error uploading attachment: $e');
           throw Exception('Failed to upload ${attachment.name}');
         }
       }
@@ -251,9 +243,7 @@ class _EditBugReportScreenState extends State<EditBugReportScreen> {
       await _api.updateBugReport(widget.bug.id, updateData);
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Bug report updated successfully')),
-        );
+        ToastNotification.show(context, message: 'Bug report updated successfully');
         Navigator.pop(context, true);
       }
     } catch (e) {
@@ -262,9 +252,7 @@ class _EditBugReportScreenState extends State<EditBugReportScreen> {
         _isLoading = false;
       });
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e')),
-      );
+      ToastNotification.show(context, message: 'Error: $e');
     }
   }
 

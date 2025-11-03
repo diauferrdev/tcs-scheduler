@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
+import '../utils/toast_notification.dart';
 
 class AttachmentPickerDialog extends StatelessWidget {
   final Function(List<int> bytes, String fileName) onFilePicked;
@@ -60,9 +61,7 @@ class AttachmentPickerDialog extends StatelessWidget {
   }
 
   void _showError(BuildContext context, String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), backgroundColor: Colors.red),
-    );
+    ToastNotification.show(context, message: message, type: ToastType.error);
   }
 
   @override

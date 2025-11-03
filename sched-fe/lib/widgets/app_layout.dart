@@ -33,12 +33,9 @@ class _AppLayoutState extends State<AppLayout> {
     if (_initialized) return;
 
     try {
-      debugPrint('[AppLayout] Initializing notification system...');
       await _notificationService.initialize();
       _initialized = true;
-      debugPrint('[AppLayout] Notification system initialized successfully');
     } catch (e) {
-      debugPrint('[AppLayout] Error initializing notifications: $e');
     }
   }
 

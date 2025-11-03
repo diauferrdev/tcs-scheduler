@@ -22,26 +22,22 @@ class UniversalUpdateService {
   Future<void> checkForUpdate(BuildContext context) async {
     // Skip update check for web - web apps auto-update on reload
     if (kIsWeb) {
-      debugPrint('[Update] Skipping update check on web platform');
       return;
     }
 
     if (_isChecking) {
-      debugPrint('[Update] Already checking, skipping');
       return;
     }
 
     _isChecking = true;
 
     try {
-      debugPrint('[Update] Checking for updates...');
 
       // Get current app version
       final packageInfo = await PackageInfo.fromPlatform();
       final currentVersion = packageInfo.version;
       final currentBuild = int.tryParse(packageInfo.buildNumber) ?? 0;
 
-      debugPrint('[Update] Current version: $currentVersion (build $currentBuild)');
 
       // Check backend for latest version
       final response = await _apiService.get('/api/version/current');
@@ -53,12 +49,9 @@ class UniversalUpdateService {
       final downloadUrls = response['downloadUrl'] as Map<String, dynamic>;
       final releaseNotes = response['releaseNotes'] as Map<String, dynamic>;
 
-      debugPrint('[Update] Latest version: $latestVersion');
-      debugPrint('[Update] Minimum version: $minVersion');
 
       // Check if app is below minimum version (BLOCKED)
       if (_isOlderThan(currentVersion, minVersion)) {
-        debugPrint('[Update] ⚠️ App is OUTDATED! Current: $currentVersion < Min: $minVersion');
         if (!context.mounted) return;
         await _showBlockingUpdateDialog(
           context: context,
@@ -72,7 +65,6 @@ class UniversalUpdateService {
 
       // Check if new version is available (OPTIONAL)
       if (_isNewerVersion(latestVersion, currentVersion) || forceUpdate) {
-        debugPrint('[Update] ✅ Update available: $currentVersion -> $latestVersion');
         if (!context.mounted) return;
         await _showOptionalUpdateDialog(
           context: context,
@@ -83,11 +75,8 @@ class UniversalUpdateService {
           releaseNotes: releaseNotes['pt-BR'] ?? releaseNotes['en'] ?? 'Nova versão disponível!',
         );
       } else {
-        debugPrint('[Update] App is up to date ✅');
       }
     } catch (e, stackTrace) {
-      debugPrint('[Update] ❌ Error checking for updates: $e');
-      debugPrint('[Update] Stack trace: $stackTrace');
     } finally {
       _isChecking = false;
     }
@@ -375,11 +364,9 @@ class UniversalUpdateService {
   /// Handle update based on platform
   Future<void> _handleUpdate(String downloadUrl) async {
     try {
-      debugPrint('[Update] Opening download URL: $downloadUrl');
 
       if (kIsWeb) {
         // Web: Force reload to get latest version
-        debugPrint('[Update] Web: Reloading page...');
         html.window.location.reload();
         return;
       }
@@ -388,12 +375,9 @@ class UniversalUpdateService {
       final uri = Uri.parse(downloadUrl);
       if (await canLaunchUrl(uri)) {
         await launchUrl(uri, mode: LaunchMode.externalApplication);
-        debugPrint('[Update] ✅ Download URL opened');
       } else {
-        debugPrint('[Update] ❌ Cannot open URL: $downloadUrl');
       }
     } catch (e) {
-      debugPrint('[Update] ❌ Error opening download URL: $e');
     }
   }
 }

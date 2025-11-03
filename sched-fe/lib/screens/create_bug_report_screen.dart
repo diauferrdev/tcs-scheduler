@@ -8,6 +8,7 @@ import '../providers/theme_provider.dart';
 import '../services/api_service.dart';
 import '../utils/device_info_helper.dart';
 import 'bug_detail_screen.dart';
+import '../utils/toast_notification.dart';
 
 class CreateBugReportScreen extends StatefulWidget {
   const CreateBugReportScreen({super.key});
@@ -56,7 +57,6 @@ class _CreateBugReportScreenState extends State<CreateBugReportScreen> {
         _isAutoDetectingPlatform = false;
       });
     } catch (e) {
-      debugPrint('[CreateBugReport] Error auto-detecting platform: $e');
       setState(() {
         _selectedPlatform = model.Platform.WEB;
         _isAutoDetectingPlatform = false;
@@ -132,9 +132,7 @@ class _CreateBugReportScreenState extends State<CreateBugReportScreen> {
 
   Future<void> _pickImage() async {
     if (_attachments.length >= 6) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Maximum 6 attachments allowed')),
-      );
+      ToastNotification.show(context, message: 'Maximum 6 attachments allowed');
       return;
     }
 
@@ -162,20 +160,15 @@ class _CreateBugReportScreenState extends State<CreateBugReportScreen> {
         });
       }
     } catch (e) {
-      debugPrint('[CreateBugReport] Error picking image: $e');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error picking image: ${e.toString()}')),
-        );
+        ToastNotification.show(context, message: 'Error picking image: ${e.toString()}', type: ToastType.error);
       }
     }
   }
 
   Future<void> _pickVideo() async {
     if (_attachments.length >= 6) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Maximum 6 attachments allowed')),
-      );
+      ToastNotification.show(context, message: 'Maximum 6 attachments allowed');
       return;
     }
 
@@ -188,9 +181,7 @@ class _CreateBugReportScreenState extends State<CreateBugReportScreen> {
         // Check file size (max 300MB)
         if (bytes.length > 300 * 1024 * 1024) {
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Video must be less than 300MB')),
-            );
+            ToastNotification.show(context, message: 'Video must be less than 300MB');
           }
           return;
         }
@@ -209,11 +200,8 @@ class _CreateBugReportScreenState extends State<CreateBugReportScreen> {
         });
       }
     } catch (e) {
-      debugPrint('[CreateBugReport] Error picking video: $e');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error picking video: ${e.toString()}')),
-        );
+        ToastNotification.show(context, message: 'Error picking video: ${e.toString()}', type: ToastType.error);
       }
     }
   }
@@ -221,9 +209,7 @@ class _CreateBugReportScreenState extends State<CreateBugReportScreen> {
   Future<void> _pickFile() async {
     if (_attachments.length >= 6) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Maximum 6 attachments allowed')),
-        );
+        ToastNotification.show(context, message: 'Maximum 6 attachments allowed');
       }
       return;
     }
@@ -252,9 +238,7 @@ class _CreateBugReportScreenState extends State<CreateBugReportScreen> {
 
         if (bytes.length > maxSize) {
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('File must be less than ${isVideo ? "300MB" : "30MB"}')),
-            );
+            ToastNotification.show(context, message: 'File must be less than ${isVideo ? "300MB" : "30MB"}');
           }
           return;
         }
@@ -275,11 +259,8 @@ class _CreateBugReportScreenState extends State<CreateBugReportScreen> {
         });
       }
     } catch (e) {
-      debugPrint('[CreateBugReport] Error picking file: $e');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error picking file: ${e.toString()}')),
-        );
+        ToastNotification.show(context, message: 'Error picking file: ${e.toString()}', type: ToastType.error);
       }
     }
   }
@@ -319,9 +300,7 @@ class _CreateBugReportScreenState extends State<CreateBugReportScreen> {
   Future<void> _submitBugReport() async {
     if (!_formKey.currentState!.validate()) return;
     if (_selectedPlatform == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select a platform')),
-      );
+      ToastNotification.show(context, message: 'Please select a platform');
       return;
     }
 
@@ -348,7 +327,6 @@ class _CreateBugReportScreenState extends State<CreateBugReportScreen> {
             'fileType': response['type'] ?? attachment.type,
           });
         } catch (e) {
-          debugPrint('[CreateBugReport] Error uploading attachment: $e');
           throw Exception('Failed to upload ${attachment.name}');
         }
       }
@@ -363,9 +341,7 @@ class _CreateBugReportScreenState extends State<CreateBugReportScreen> {
       );
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Bug report submitted successfully')),
-        );
+        ToastNotification.show(context, message: 'Bug report submitted successfully');
         // Navigate to bug detail screen instead of going back to list
         Navigator.pushReplacement(
           context,
@@ -380,9 +356,7 @@ class _CreateBugReportScreenState extends State<CreateBugReportScreen> {
         _isLoading = false;
       });
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e')),
-      );
+      ToastNotification.show(context, message: 'Error: $e');
     }
   }
 

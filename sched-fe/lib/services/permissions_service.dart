@@ -24,7 +24,6 @@ class PermissionsService {
 
     if (status.isDenied || status.isLimited || status.isPermanentlyDenied) {
       final newStatus = await Permission.notification.request();
-      debugPrint('[Permissions] Notification permission: $newStatus');
       return newStatus.isGranted;
     }
 
@@ -37,7 +36,6 @@ class PermissionsService {
 
     if (status.isDenied || status.isPermanentlyDenied) {
       final newStatus = await Permission.microphone.request();
-      debugPrint('[Permissions] Microphone permission: $newStatus');
       return newStatus.isGranted;
     }
 
@@ -50,7 +48,6 @@ class PermissionsService {
 
     if (status.isDenied || status.isPermanentlyDenied) {
       final newStatus = await Permission.camera.request();
-      debugPrint('[Permissions] Camera permission: $newStatus');
       return newStatus.isGranted;
     }
 
@@ -63,7 +60,6 @@ class PermissionsService {
 
     if (status.isDenied || status.isPermanentlyDenied) {
       final newStatus = await Permission.storage.request();
-      debugPrint('[Permissions] Storage permission: $newStatus');
       return newStatus.isGranted;
     }
 
