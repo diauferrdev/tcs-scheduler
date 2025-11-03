@@ -54,6 +54,7 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
   List<TicketMessage> _messages = [];
   bool _isLoading = true;
   bool _isLoadingMore = false;
+  bool _initialLoad = true;
   bool _hasMoreMessages = true;
   bool _isSendingMessage = false;
   bool _uploadingAttachment = false;
@@ -266,6 +267,7 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
         _ticket = ticket;
         _messages = messages;
         _isLoading = false;
+        _initialLoad = false;
         _hasMoreMessages = ticket.messages.length > _messagesPerPage;
         _currentOffset = messages.length;
       });
@@ -273,8 +275,6 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
       if (widget.onTicketUpdated != null) {
         widget.onTicketUpdated!(ticket);
       }
-
-      // NO SCROLL NEEDED - reverse ListView starts at bottom naturally
 
       // Mark messages as read when entering conversation
       _markAllMessagesAsRead();
@@ -857,19 +857,21 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
 
           // Messages
           Expanded(
-            child: _messages.isEmpty && _optimisticMessages.isEmpty
-                ? Center(
-                    child: Text(
-                      'No messages yet',
-                      style: TextStyle(color: Colors.white.withValues(alpha: 0.4)),
-                    ),
-                  )
-                : ListView.builder(
-                    controller: _scrollController,
-                    reverse: true,
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    itemCount: (_isLoadingMore ? 1 : 0) + _messages.length + _optimisticMessages.length,
-                    itemBuilder: (context, index) {
+            child: _initialLoad
+                ? const SizedBox.shrink() // Don't render anything until first load complete
+                : _messages.isEmpty && _optimisticMessages.isEmpty
+                    ? Center(
+                        child: Text(
+                          'No messages yet',
+                          style: TextStyle(color: Colors.white.withValues(alpha: 0.4)),
+                        ),
+                      )
+                    : ListView.builder(
+                        controller: _scrollController,
+                        reverse: true,
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        itemCount: (_isLoadingMore ? 1 : 0) + _messages.length + _optimisticMessages.length,
+                        itemBuilder: (context, index) {
                       // With reverse: true, index 0 is at the bottom (newest messages)
                       // Optimistic messages come first (bottom), then regular messages, then loading
                       final totalOptimistic = _optimisticMessages.length;
