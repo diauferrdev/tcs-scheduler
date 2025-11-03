@@ -41,12 +41,21 @@ class WebSocketService {
 
     try {
       // Convert http/https to ws/wss
-      final wsUrl = ApiConfig.baseUrl
-          .replaceFirst('http://', 'ws://')
-          .replaceFirst('https://', 'wss://');
+      var wsUrl = ApiConfig.baseUrl;
 
-      final uri = Uri.parse('$wsUrl/ws?userId=$userId');
-      debugPrint('[WS] Connecting to: $uri');
+      // Ensure we're using the correct protocol
+      if (wsUrl.startsWith('https://')) {
+        wsUrl = wsUrl.replaceFirst('https://', 'wss://');
+      } else if (wsUrl.startsWith('http://')) {
+        wsUrl = wsUrl.replaceFirst('http://', 'ws://');
+      }
+
+      // Remove any port if present, as it may cause issues on mobile
+      final baseUri = Uri.parse(wsUrl);
+      final cleanWsUrl = '${baseUri.scheme}://${baseUri.host}';
+
+      final uri = Uri.parse('$cleanWsUrl/ws?userId=$userId');
+      debugPrint('[WS] Connecting to: $uri (scheme: ${uri.scheme}, host: ${uri.host}, path: ${uri.path})');
 
       _channel = WebSocketChannel.connect(
         uri,

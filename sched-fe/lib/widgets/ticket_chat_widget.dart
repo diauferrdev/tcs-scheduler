@@ -490,10 +490,19 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
 
       if (!mounted) return;
 
-      // Replace optimistic message with real one
+      // Mark optimistic message as sent (remove uploading state)
       setState(() {
-        _optimisticMessages.removeWhere((msg) => msg['id'] == tempId);
+        final optimisticMsg = _optimisticMessages.firstWhere(
+          (msg) => msg['id'] == tempId,
+          orElse: () => <String, dynamic>{},
+        );
+        if (optimisticMsg.isNotEmpty) {
+          optimisticMsg['isUploading'] = false;
+        }
       });
+
+      // Don't remove optimistic message here - it will be removed when
+      // the real message arrives via WebSocket in _addMessageToList
 
       // reverse ListView auto-scrolls when new message added
     } catch (e) {
@@ -561,8 +570,18 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
 
       if (mounted) {
         setState(() {
-          _optimisticMessages.removeWhere((m) => m['id'] == tempId);
+          // Mark optimistic message as sent (remove uploading state)
+          final optimisticMsg = _optimisticMessages.firstWhere(
+            (msg) => msg['id'] == tempId,
+            orElse: () => <String, dynamic>{},
+          );
+          if (optimisticMsg.isNotEmpty) {
+            optimisticMsg['isUploading'] = false;
+          }
         });
+
+        // Don't remove optimistic message here - it will be removed when
+        // the real message arrives via WebSocket in _addMessageToList
       }
     } catch (e) {
       if (!mounted) return;
@@ -716,11 +735,20 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
 
           await _api.post('/api/tickets/${widget.ticketId}/messages', body);
 
-          // Remove optimistic message - real one will come from WebSocket
+          // Mark optimistic message as sent (remove uploading state)
           setState(() {
             _uploadingAttachment = false;
-            _optimisticMessages.removeWhere((msg) => msg['id'] == tempId);
+            final optimisticMsg = _optimisticMessages.firstWhere(
+              (msg) => msg['id'] == tempId,
+              orElse: () => <String, dynamic>{},
+            );
+            if (optimisticMsg.isNotEmpty) {
+              optimisticMsg['isUploading'] = false;
+            }
           });
+
+          // Don't remove optimistic message here - it will be removed when
+          // the real message arrives via WebSocket in _addMessageToList
         } catch (e) {
           // Remove optimistic message on error
           setState(() {
