@@ -428,25 +428,30 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
       });
     }
 
-    // Send typing indicator periodically while text exists
+    // Optimized typing indicator - send every 3 seconds, not every keystroke
     _typingTimer?.cancel();
-    _typingKeepAliveTimer?.cancel();
 
     if (hasText) {
-      // Send immediately
-      _sendTypingIndicator(true);
-
-      // Keep sending every 2 seconds while text exists
-      _typingKeepAliveTimer = Timer.periodic(const Duration(seconds: 2), (_) {
+      // If no keep-alive timer exists, start one (send immediately then every 3 seconds)
+      if (_typingKeepAliveTimer == null || !_typingKeepAliveTimer!.isActive) {
         _sendTypingIndicator(true);
-      });
+        _typingKeepAliveTimer = Timer.periodic(const Duration(seconds: 3), (_) {
+          if (_messageController.text.trim().isNotEmpty) {
+            _sendTypingIndicator(true);
+          }
+        });
+      }
 
-      // Stop after 3 seconds of no typing
-      _typingTimer = Timer(const Duration(seconds: 3), () {
+      // Reset the stop timer - cancel typing after 4 seconds of no changes
+      _typingTimer = Timer(const Duration(seconds: 4), () {
         _typingKeepAliveTimer?.cancel();
+        _typingKeepAliveTimer = null;
         _sendTypingIndicator(false);
       });
     } else {
+      // Input is empty - stop typing immediately
+      _typingKeepAliveTimer?.cancel();
+      _typingKeepAliveTimer = null;
       _sendTypingIndicator(false);
     }
   }
@@ -592,9 +597,11 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
           }
         });
 
-        // Send recording indicator periodically every 2 seconds
-        _recordingKeepAliveTimer = Timer.periodic(const Duration(seconds: 2), (_) {
-          _sendRecordingIndicator(true);
+        // Send recording indicator periodically every 3 seconds while recording
+        _recordingKeepAliveTimer = Timer.periodic(const Duration(seconds: 3), (_) {
+          if (_isRecording) {
+            _sendRecordingIndicator(true);
+          }
         });
       }
     } catch (e) {
