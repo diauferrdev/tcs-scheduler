@@ -1291,18 +1291,123 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
                             ),
                           ),
                         ),
-                      // AUDIO preview
+                      // AUDIO preview - same layout as AudioMessagePlayer
                       if (isAudio)
                         Container(
-                          width: 200,
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
                             color: bubbleColor,
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(16),
                           ),
                           child: Row(
                             children: [
-                              Icon(Icons.audiotrack, color: textColor, size: 24),
+                              // Play button placeholder (disabled while uploading)
+                              Container(
+                                width: 40,
+                                height: 40,
+                                decoration: BoxDecoration(
+                                  color: textColor.withValues(alpha: msg['isUploading'] == true ? 0.3 : 0.8),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Icon(
+                                  Icons.play_arrow,
+                                  color: bubbleColor,
+                                  size: 24,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              // Waveform placeholder and time
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    // Waveform placeholder (same height as real waveform)
+                                    SizedBox(
+                                      height: 32,
+                                      child: Row(
+                                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                                        crossAxisAlignment: CrossAxisAlignment.center,
+                                        children: List.generate(
+                                          20,
+                                          (index) => Container(
+                                            width: 2,
+                                            height: 8 + (index % 5) * 4.0,
+                                            decoration: BoxDecoration(
+                                              color: textColor.withValues(alpha: 0.3),
+                                              borderRadius: BorderRadius.circular(1),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    // Time display with loading indicator
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Text(
+                                          '0:00',
+                                          style: TextStyle(
+                                            color: textColor.withValues(alpha: 0.7),
+                                            fontSize: 11,
+                                            fontFamily: 'BasisGrotesquePro',
+                                          ),
+                                        ),
+                                        if (msg['isUploading'] == true)
+                                          SizedBox(
+                                            width: 12,
+                                            height: 12,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 1.5,
+                                              valueColor: AlwaysStoppedAnimation<Color>(
+                                                textColor.withValues(alpha: 0.6),
+                                              ),
+                                            ),
+                                          )
+                                        else
+                                          Text(
+                                            '0:00',
+                                            style: TextStyle(
+                                              color: textColor.withValues(alpha: 0.7),
+                                              fontSize: 11,
+                                              fontFamily: 'BasisGrotesquePro',
+                                            ),
+                                          ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      // DOCUMENT/FILE preview
+                      if (!isImage && !isVideo && !isAudio)
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: bubbleColor.withValues(alpha: 0.5),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: textColor.withValues(alpha: 0.2),
+                              width: 1,
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: textColor.withValues(alpha: 0.1),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Icon(
+                                  _getFileIconForPreview(fileName),
+                                  size: 32,
+                                  color: textColor.withValues(alpha: 0.8),
+                                ),
+                              ),
                               const SizedBox(width: 12),
                               Expanded(
                                 child: Column(
@@ -1312,21 +1417,45 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
                                       fileName,
                                       style: TextStyle(
                                         color: textColor,
-                                        fontSize: 12,
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w500,
                                         fontFamily: 'BasisGrotesquePro',
                                       ),
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
                                     ),
+                                    const SizedBox(height: 4),
                                     if (msg['isUploading'] == true)
-                                      Padding(
-                                        padding: const EdgeInsets.only(top: 4),
-                                        child: SizedBox(
-                                          height: 2,
-                                          child: LinearProgressIndicator(
-                                            valueColor: AlwaysStoppedAnimation<Color>(textColor.withValues(alpha: 0.5)),
-                                            backgroundColor: textColor.withValues(alpha: 0.1),
+                                      Row(
+                                        children: [
+                                          SizedBox(
+                                            width: 12,
+                                            height: 12,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 1.5,
+                                              valueColor: AlwaysStoppedAnimation<Color>(
+                                                textColor.withValues(alpha: 0.6),
+                                              ),
+                                            ),
                                           ),
+                                          const SizedBox(width: 6),
+                                          Text(
+                                            'Uploading...',
+                                            style: TextStyle(
+                                              color: textColor.withValues(alpha: 0.6),
+                                              fontSize: 11,
+                                              fontFamily: 'BasisGrotesquePro',
+                                            ),
+                                          ),
+                                        ],
+                                      )
+                                    else
+                                      Text(
+                                        _getFileTypeLabel(fileName),
+                                        style: TextStyle(
+                                          color: textColor.withValues(alpha: 0.6),
+                                          fontSize: 11,
+                                          fontFamily: 'BasisGrotesquePro',
                                         ),
                                       ),
                                   ],
@@ -1656,6 +1785,28 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
     if (['txt'].contains(ext)) return Icons.text_snippet;
     if (['zip', 'rar', '7z'].contains(ext)) return Icons.folder_zip;
     return Icons.insert_drive_file;
+  }
+
+  IconData _getFileIconForPreview(String fileName) {
+    final ext = fileName.toLowerCase().split('.').last;
+    if (['pdf'].contains(ext)) return Icons.picture_as_pdf;
+    if (['doc', 'docx'].contains(ext)) return Icons.description;
+    if (['xls', 'xlsx'].contains(ext)) return Icons.table_chart;
+    if (['ppt', 'pptx'].contains(ext)) return Icons.slideshow;
+    if (['txt'].contains(ext)) return Icons.text_snippet;
+    if (['zip', 'rar', '7z'].contains(ext)) return Icons.folder_zip;
+    return Icons.insert_drive_file;
+  }
+
+  String _getFileTypeLabel(String fileName) {
+    final ext = fileName.toLowerCase().split('.').last;
+    if (ext == 'pdf') return 'PDF Document';
+    if (['doc', 'docx'].contains(ext)) return 'Word Document';
+    if (['xls', 'xlsx'].contains(ext)) return 'Excel Spreadsheet';
+    if (['ppt', 'pptx'].contains(ext)) return 'PowerPoint';
+    if (ext == 'txt') return 'Text File';
+    if (['zip', 'rar', '7z'].contains(ext)) return 'Compressed File';
+    return 'File';
   }
 
   String _formatFileSize(int bytes) {

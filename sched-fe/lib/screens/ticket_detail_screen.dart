@@ -203,7 +203,13 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
         elevation: 0,
         leading: IconButton(
           icon: Icon(Icons.arrow_back, color: textColor),
-          onPressed: () => context.go('/app/support'),
+          onPressed: () {
+            if (Navigator.of(context).canPop()) {
+              context.pop();
+            } else {
+              context.go('/app/support');
+            }
+          },
         ),
         title: _isLoading
             ? const SizedBox.shrink()

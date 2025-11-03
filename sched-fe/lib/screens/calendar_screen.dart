@@ -1338,6 +1338,10 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
                   _selectedDate!.month == day.month &&
                   _selectedDate!.day == day.day;
 
+              if (isSelected) {
+                debugPrint('[Calendar] Day $dayNumber is SELECTED');
+              }
+
               final dayBookings = _getBookingsForDay(day);
 
               // Check for pending vs confirmed bookings
@@ -1443,8 +1447,12 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
               return Expanded(
                 child: GestureDetector(
                   onTap: canClickDay ? () {
+                    debugPrint('[Calendar] Day clicked: $day, canClick: $canClickDay');
                     setState(() {
                       _selectedDate = day;
+                      // Clear cache to force rebuild with new selection
+                      _monthGridCache.clear();
+                      debugPrint('[Calendar] Selected date set to: $_selectedDate, cache cleared');
                     });
                   } : null,
                   child: AnimatedContainer(
@@ -1491,7 +1499,7 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
                               Positioned(
                                 left: 0,
                                 right: 0,
-                                top: constraints.maxHeight / 2 + 18,
+                                top: constraints.maxHeight / 2 + 6,
                                 child: Center(
                                   child: Container(
                                     width: 32,
@@ -1500,40 +1508,41 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
                                   ),
                                 ),
                               ),
-                            // Selection indicator - animated line (always show with animation)
-                            Positioned(
-                              left: 0,
-                              right: 0,
-                              top: constraints.maxHeight / 2 + 18,
-                              child: Center(
-                                child: SizedBox(
-                                  width: 32,
-                                  height: 6.5,
-                                  child: TweenAnimationBuilder<double>(
-                                    key: ValueKey('underline_${dayNumber}_${isSelected}'),
-                                    duration: const Duration(milliseconds: 300),
-                                    curve: Curves.easeOutCubic,
-                                    tween: Tween(begin: 0.0, end: isSelected ? 1.0 : 0.0),
-                                    builder: (context, progress, child) {
-                                      return Align(
-                                        alignment: Alignment.centerLeft,
-                                        child: Container(
-                                          width: 32 * progress,
-                                          height: 6.5,
-                                          color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.65 * progress),
-                                        ),
-                                      );
-                                    },
+                            // Selection indicator - animated line on top of current day indicator
+                            if (isSelected)
+                              Positioned(
+                                left: 0,
+                                right: 0,
+                                top: constraints.maxHeight / 2 + 6,
+                                child: Center(
+                                  child: SizedBox(
+                                    width: 32,
+                                    height: 6.5,
+                                    child: TweenAnimationBuilder<double>(
+                                      key: ValueKey('underline_$dayNumber'),
+                                      duration: const Duration(milliseconds: 300),
+                                      curve: Curves.easeOutCubic,
+                                      tween: Tween(begin: 0.0, end: 1.0),
+                                      builder: (context, progress, child) {
+                                        return Align(
+                                          alignment: Alignment.centerLeft,
+                                          child: Container(
+                                            width: 32 * progress,
+                                            height: 6.5,
+                                            color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.65 * progress),
+                                          ),
+                                        );
+                                      },
+                                    ),
                                   ),
                                 ),
                               ),
-                            ),
-                            // Availability label - absolute overlay, anchored 18px below number center
+                            // Availability label - absolute overlay, anchored below indicators
                             if (availabilityLabel != null)
                               Positioned(
                                 left: 0,
                                 right: 0,
-                                top: constraints.maxHeight / 2 + 11,
+                                top: constraints.maxHeight / 2 + 16,
                                 child: Center(
                                   child: Text(
                                     availabilityLabel,

@@ -64,8 +64,8 @@ class NavigationService {
 
   /// Navigate to approvals with booking details (for ADMIN/MANAGER)
   void navigateToApprovalsWithBooking(String bookingId) {
-    navigateTo('/app/approvals?bookingId=$bookingId');
-    debugPrint('[NavigationService] Navigated to Approvals with booking details: $bookingId');
+    navigateTo('/app/pending?bookingId=$bookingId');
+    debugPrint('[NavigationService] Navigated to Pending with booking details: $bookingId');
   }
 
   /// Show snackbar
