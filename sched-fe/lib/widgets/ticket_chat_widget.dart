@@ -479,6 +479,7 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
         'authorId': authProvider.user?.id,
         'authorName': authProvider.user?.name,
         'authorAvatar': authProvider.user?.avatarUrl,
+        'attachments': [], // Empty attachments for text-only messages
       });
     });
 

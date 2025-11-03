@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:web_socket_channel/io.dart';
 import '../config/api_config.dart';
+import 'token_storage.dart';
 
 class WebSocketService {
   static final WebSocketService _instance = WebSocketService._internal();
@@ -25,7 +26,7 @@ class WebSocketService {
   Stream<Map<String, dynamic>> get messages => _messageController!.stream;
   bool get isConnected => _channel != null;
 
-  void connect(String userId) {
+  void connect(String userId) async {
     _userId = userId;
 
     if (_isConnecting) {
@@ -41,6 +42,16 @@ class WebSocketService {
     _isConnecting = true;
     _messageController ??= StreamController<Map<String, dynamic>>.broadcast();
 
+    // Get auth token
+    final tokenStorage = TokenStorage();
+    final token = await tokenStorage.readToken();
+
+    if (token == null) {
+      debugPrint('[WS] ❌ No auth token found, cannot connect');
+      _isConnecting = false;
+      return;
+    }
+
     // Convert http/https to ws/wss
     var wsUrl = ApiConfig.baseUrl;
 
@@ -52,7 +63,13 @@ class WebSocketService {
     }
 
     final uri = Uri.parse('$wsUrl/ws?userId=$userId');
-    debugPrint('[WS] Connecting to: $uri (platform: ${kIsWeb ? "web" : "mobile"})');
+    debugPrint('[WS] Connecting to: $uri (platform: ${kIsWeb ? "web" : "mobile"}) with auth token');
+
+    // Prepare headers with auth token
+    final headers = {
+      'Authorization': 'Bearer $token',
+      'Cookie': 'auth_session=$token',
+    };
 
     // Use native dart:io WebSocket on mobile for better compatibility
     // Use web_socket_channel on web
@@ -69,10 +86,11 @@ class WebSocketService {
         _handleDisconnect();
       }
     } else {
-      // Mobile: Use native dart:io WebSocket
-      debugPrint('[WS] Using native dart:io WebSocket for mobile');
+      // Mobile: Use native dart:io WebSocket with auth headers
+      debugPrint('[WS] Using native dart:io WebSocket for mobile with auth headers');
       WebSocket.connect(
         uri.toString(),
+        headers: headers,
         protocols: ['websocket'],
       ).then((socket) {
         _channel = IOWebSocketChannel(socket);
