@@ -531,7 +531,7 @@ class ApiService {
   /// Register FCM token with backend
   Future<void> registerFCMToken(String token, {String? deviceInfo}) async {
     try {
-      final response = await post('/api/fcm/register', {
+      await post('/api/fcm/register', {
         'token': token,
         if (deviceInfo != null) 'deviceInfo': deviceInfo,
       });
@@ -543,7 +543,7 @@ class ApiService {
   /// Unregister FCM token from backend
   Future<void> unregisterFCMToken(String token) async {
     try {
-      final response = await post('/api/fcm/unregister', {'token': token});
+      await post('/api/fcm/unregister', {'token': token});
     } catch (e) {
       rethrow;
     }

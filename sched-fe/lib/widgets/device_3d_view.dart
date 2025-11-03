@@ -133,9 +133,9 @@ class _Device3DViewState extends State<Device3DView> {
 
 
       // Create the DeviceViewer instance
-      final viewer = js.JsObject(deviceViewerClass, [config]);
+      js.JsObject(deviceViewerClass, [config]);
 
-    } catch (e, stackTrace) {
+    } catch (e) {
     }
   }
 

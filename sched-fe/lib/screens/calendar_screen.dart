@@ -521,10 +521,7 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
         _selectedDayAvailability = availability;
 
         // Debug: Print API response
-        if (availability.allPeriods != null) {
-          for (var period in availability.allPeriods!) {
-          }
-        }
+        // Availability data loaded successfully
       });
     } catch (e) {
     }
@@ -3014,9 +3011,7 @@ class _SlotPickerContentWithLoadingState extends State<SlotPickerContentWithLoad
         setState(() {
           _allPeriods = availability.allPeriods ?? [];
         });
-        // Debug: Print received periods and their availability status
-        for (var period in _allPeriods) {
-        }
+        // Debug: Periods loaded successfully
         return; // Stop polling once we have data
       }
 

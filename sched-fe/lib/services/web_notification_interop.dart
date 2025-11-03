@@ -74,7 +74,7 @@ void showBrowserNotification(String title, String body, {String? icon}) {
   try {
 
     if (notificationPermission == 'granted') {
-      final notification = Notification(
+      Notification(
         title,
         NotificationOptions(
           body: body,
@@ -83,7 +83,7 @@ void showBrowserNotification(String title, String body, {String? icon}) {
       );
     } else {
     }
-  } catch (e, stack) {
+  } catch (e) {
   }
 }
 

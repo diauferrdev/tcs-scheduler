@@ -275,7 +275,7 @@ class UnifiedNotificationService {
         },
       );
 
-    } catch (e, stackTrace) {
+    } catch (e) {
     }
   }
 
@@ -326,12 +326,10 @@ class UnifiedNotificationService {
 
 
       if (_unreadCount != count) {
-        final oldCount = _unreadCount;
         _unreadCount = count;
         if (!_badgeController.isClosed) {
           _badgeController.add(_unreadCount);
         }
-      } else {
       }
     } catch (e) {
     }
@@ -369,7 +367,6 @@ class UnifiedNotificationService {
       await _apiService.markAllNotificationsAsRead();
 
       // Set local count to 0 immediately for instant UI update
-      final oldCount = _unreadCount;
       _unreadCount = 0;
       if (!_badgeController.isClosed) {
         _badgeController.add(_unreadCount);

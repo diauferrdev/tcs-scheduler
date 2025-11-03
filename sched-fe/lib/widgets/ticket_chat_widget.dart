@@ -184,7 +184,6 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
           final data = message['data'];
           if (data != null && data['ticketId'] == widget.ticketId) {
             final isTyping = data['isTyping'] == true;
-            final userName = data['userName'] as String?;
             setState(() {
               _otherUserTyping = isTyping;
             });
@@ -195,7 +194,6 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
           final data = message['data'];
           if (data != null && data['ticketId'] == widget.ticketId) {
             final isRecording = data['isRecording'] == true;
-            final userName = data['userName'] as String?;
             setState(() {
               _otherUserRecording = isRecording;
             });
@@ -212,14 +210,6 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
     // Check if message already exists - avoid duplicates
     if (_messages.any((m) => m.id == message.id)) {
       return;
-    }
-
-    // With reverse: true, pixels close to 0 means user is at bottom
-    bool shouldAutoScroll = false;
-    if (_scrollController.hasClients) {
-      shouldAutoScroll = _scrollController.position.pixels < 100;
-    } else {
-      shouldAutoScroll = true;
     }
 
     setState(() {
@@ -473,7 +463,7 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
 
     try {
       final body = {'content': content};
-      final response = await _api.post('/api/tickets/${widget.ticketId}/messages', body);
+      await _api.post('/api/tickets/${widget.ticketId}/messages', body);
 
       if (!mounted) return;
 

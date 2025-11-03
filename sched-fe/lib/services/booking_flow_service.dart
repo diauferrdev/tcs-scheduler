@@ -311,8 +311,6 @@ class BookingFlowService {
 
   /// Submit the booking with all collected data
   Future<void> _submitBooking(BuildContext context) async {
-    final timestamp = DateTime.now().millisecondsSinceEpoch;
-
     if (_selectedDate == null || _startTime == null || _baseInfo == null) {
       ToastNotification.show(
         context,
@@ -328,7 +326,6 @@ class BookingFlowService {
     final userRole = authProvider.user?.role;
 
     bool dialogShown = false;
-    bool navigationStarted = false;
 
     // CRITICAL: Get Navigator reference BEFORE any async operations
     // The WebSocket event can rebuild Calendar and unmount drawer context
@@ -392,8 +389,6 @@ class BookingFlowService {
 
       // Navigate IMMEDIATELY without delay - use WidgetsBinding to ensure it happens after current frame
       // CRITICAL: This MUST always execute, even if context is unmounted (we have _rootContext fallback)
-      navigationStarted = true;
-
       WidgetsBinding.instance.addPostFrameCallback((_) {
 
         // Try drawer context first, fallback to root context
@@ -414,7 +409,7 @@ class BookingFlowService {
       });
 
 
-    } catch (e, stackTrace) {
+    } catch (e) {
 
       // Close dialog using captured navigator (doesn't depend on context)
       if (dialogShown) {

@@ -62,7 +62,7 @@ class CalendarService {
       }
 
       return result;
-    } catch (e, stackTrace) {
+    } catch (e) {
       return false;
     }
   }

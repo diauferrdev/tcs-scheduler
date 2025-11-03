@@ -2,8 +2,6 @@
 /// This file is used when compiling for mobile/desktop to avoid compilation errors
 library;
 
-import 'package:flutter/foundation.dart';
-
 /// Request notification permission (stub)
 Future<String> requestWebNotificationPermission() async {
   return 'denied';

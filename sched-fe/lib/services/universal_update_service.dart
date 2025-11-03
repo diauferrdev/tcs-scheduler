@@ -36,8 +36,6 @@ class UniversalUpdateService {
       // Get current app version
       final packageInfo = await PackageInfo.fromPlatform();
       final currentVersion = packageInfo.version;
-      final currentBuild = int.tryParse(packageInfo.buildNumber) ?? 0;
-
 
       // Check backend for latest version
       final response = await _apiService.get('/api/version/current');
@@ -76,7 +74,7 @@ class UniversalUpdateService {
         );
       } else {
       }
-    } catch (e, stackTrace) {
+    } catch (e) {
     } finally {
       _isChecking = false;
     }

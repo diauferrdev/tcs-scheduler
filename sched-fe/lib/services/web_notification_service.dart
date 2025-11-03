@@ -193,7 +193,7 @@ class WebNotificationService {
       // Always try to show notification, even if not fully initialized
       // This ensures notifications work even if push subscription failed
       showBrowserNotification(title, body);
-    } catch (e, stack) {
+    } catch (e) {
     }
   }
 

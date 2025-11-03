@@ -157,7 +157,6 @@ class _BugReportsScreenState extends State<BugReportsScreen> {
       final bugId = data['id'] as String;
 
       setState(() {
-        final removedCount = _bugReports.length;
         _bugReports.removeWhere((b) => b.id == bugId);
       });
     } catch (e) {

@@ -48,7 +48,7 @@ class LocalNotificationService {
       );
 
       // Initialize with both foreground and background handlers
-      final initialized = await _notifications.initialize(
+      await _notifications.initialize(
         initSettings,
         onDidReceiveNotificationResponse: _onNotificationTapped,
         onDidReceiveBackgroundNotificationResponse: onBackgroundNotificationResponse,
@@ -59,7 +59,7 @@ class LocalNotificationService {
       await _createNotificationChannels();
 
       _initialized = true;
-    } catch (e, stackTrace) {
+    } catch (e) {
 
       // CRITICAL: Set initialized to true anyway for basic functionality
       // Even if there were errors, we want to try showing notifications
@@ -475,7 +475,7 @@ class LocalNotificationService {
         payload: payload,
       );
 
-    } catch (e, stackTrace) {
+    } catch (e) {
     }
   }
 
@@ -1001,7 +1001,7 @@ class LocalNotificationService {
         payload: payload,
       );
 
-    } catch (e, stackTrace) {
+    } catch (e) {
     }
   }
 
@@ -1091,7 +1091,7 @@ class LocalNotificationService {
         details,
         payload: 'test',
       );
-    } catch (e, stackTrace) {
+    } catch (e) {
     }
   }
 

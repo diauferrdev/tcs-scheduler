@@ -86,7 +86,7 @@ class FCMService {
       }
 
       _initialized = true;
-    } catch (e, stackTrace) {
+    } catch (e) {
     }
   }
 
@@ -143,10 +143,7 @@ class FCMService {
 
   /// Handle notification tap (app in background/terminated)
   void _handleNotificationTap(RemoteMessage message) {
-
-    final notificationId = message.data['notificationId'] as String?;
     final bookingId = message.data['bookingId'] as String?;
-    final type = message.data['type'] as String?;
     final screen = message.data['screen'] as String?;
 
 
@@ -174,7 +171,7 @@ class FCMService {
           // No bookingId and no specific screen - just open app
         }
 
-      } catch (e, stackTrace) {
+      } catch (e) {
       }
     });
   }

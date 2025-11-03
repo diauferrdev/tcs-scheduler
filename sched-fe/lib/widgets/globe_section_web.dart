@@ -151,7 +151,7 @@ class _GlobeSectionState extends State<GlobeSection> {
         }
       }
 
-    } catch (e, stackTrace) {
+    } catch (e) {
     }
   }
 
