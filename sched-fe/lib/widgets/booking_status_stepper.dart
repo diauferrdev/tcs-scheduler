@@ -404,9 +404,9 @@ class _BookingStatusStepperState extends State<BookingStatusStepper>
     // Middle step label depends on current review status
     String middleLabel;
     if (widget.currentStatus == BookingStatus.NEED_EDIT) {
-      middleLabel = 'Change Request';
+      middleLabel = 'Change\nRequest'; // Add line break to prevent wrapping
     } else if (widget.currentStatus == BookingStatus.NEED_RESCHEDULE) {
-      middleLabel = 'Need Reschedule';
+      middleLabel = 'Need\nReschedule'; // Add line break to prevent wrapping
     } else {
       middleLabel = 'Under Review';
     }

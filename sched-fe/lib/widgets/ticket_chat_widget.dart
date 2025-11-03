@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
@@ -991,7 +992,25 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
                       color: isDark ? const Color(0xFF222222) : const Color(0xFFF0F0F0),
                       borderRadius: BorderRadius.circular(20),
                     ),
-                    child: TextField(
+                    child: Focus(
+                      onKey: (node, event) {
+                        if (event is KeyDownEvent) {
+                          // Check if Enter key is pressed
+                          if (event.logicalKey.keyLabel == 'Enter') {
+                            // If Shift is not pressed, send message
+                            if (!HardwareKeyboard.instance.isShiftPressed) {
+                              if (!_isTicketFinished()) {
+                                _sendMessage();
+                              }
+                              return KeyEventResult.handled;
+                            }
+                            // If Shift is pressed, allow new line (default behavior)
+                            return KeyEventResult.ignored;
+                          }
+                        }
+                        return KeyEventResult.ignored;
+                      },
+                      child: TextField(
                       controller: _messageController,
                       focusNode: _messageFocusNode,
                       enabled: !_isTicketFinished(),
@@ -1001,6 +1020,8 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
                         fontFamily: 'BasisGrotesquePro',
                       ),
                       maxLines: null,
+                      keyboardType: TextInputType.multiline,
+                      textInputAction: TextInputAction.newline,
                       decoration: InputDecoration(
                         hintText: _isTicketFinished() ? 'Ticket closed' : 'Message',
                         hintStyle: TextStyle(
@@ -1011,7 +1032,7 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
                         border: InputBorder.none,
                         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                       ),
-                      onSubmitted: _isTicketFinished() ? null : (_) => _sendMessage(),
+                      ),
                     ),
                   ),
                 ),

@@ -1452,9 +1452,7 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
                     curve: Curves.easeOutQuad,
                     margin: const EdgeInsets.all(1),
                     decoration: BoxDecoration(
-                      color: isToday
-                          ? const Color(0xFF3F3F46)
-                          : Colors.transparent,
+                      color: Colors.transparent, // No background color for today
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: LayoutBuilder(
@@ -1488,34 +1486,49 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
                                 ),
                               ),
                             ),
-                            // Underline - absolute overlay, anchored 6px below number center
-                            Positioned(
-                              left: 0,
-                              right: 0,
-                              top: constraints.maxHeight / 2 + 6,
-                              child: Center(
-                                child: SizedBox(
-                                  width: 32,
-                                  height: 6.5,
-                                  child: TweenAnimationBuilder<double>(
-                                    key: ValueKey('underline_$dayNumber'),
-                                    duration: const Duration(milliseconds: 300),
-                                    curve: Curves.easeOutCubic,
-                                    tween: Tween(begin: 0.0, end: isSelected ? 1.0 : 0.0),
-                                    builder: (context, progress, child) {
-                                      return Align(
-                                        alignment: Alignment.centerLeft,
-                                        child: Container(
-                                          width: 32 * progress,
-                                          height: 6.5,
-                                          color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.65 * progress),
-                                        ),
-                                      );
-                                    },
+                            // Current day indicator - permanent line with lighter color
+                            if (isToday)
+                              Positioned(
+                                left: 0,
+                                right: 0,
+                                top: constraints.maxHeight / 2 + 6,
+                                child: Center(
+                                  child: Container(
+                                    width: 32,
+                                    height: 6.5,
+                                    color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.25),
                                   ),
                                 ),
                               ),
-                            ),
+                            // Selection indicator - animated line on top of current day indicator
+                            if (isSelected)
+                              Positioned(
+                                left: 0,
+                                right: 0,
+                                top: constraints.maxHeight / 2 + 6,
+                                child: Center(
+                                  child: SizedBox(
+                                    width: 32,
+                                    height: 6.5,
+                                    child: TweenAnimationBuilder<double>(
+                                      key: ValueKey('underline_$dayNumber'),
+                                      duration: const Duration(milliseconds: 300),
+                                      curve: Curves.easeOutCubic,
+                                      tween: Tween(begin: 0.0, end: 1.0),
+                                      builder: (context, progress, child) {
+                                        return Align(
+                                          alignment: Alignment.centerLeft,
+                                          child: Container(
+                                            width: 32 * progress,
+                                            height: 6.5,
+                                            color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.65 * progress),
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                  ),
+                                ),
+                              ),
                             // Availability label - absolute overlay, anchored 18px below number center
                             if (availabilityLabel != null)
                               Positioned(
