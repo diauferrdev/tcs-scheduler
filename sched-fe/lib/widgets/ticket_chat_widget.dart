@@ -55,7 +55,6 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
   bool _isLoading = true;
   bool _isLoadingMore = false;
   bool _hasMoreMessages = true;
-  bool _showChat = false; // Control visibility to prevent scroll animation
   bool _isSendingMessage = false;
   bool _uploadingAttachment = false;
   bool _hasText = false;
@@ -272,22 +271,13 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
         widget.onTicketUpdated!(ticket);
       }
 
-      // Set state WITHOUT triggering scroll - data ready but not visible yet
+      // Single setState with all data ready - ListView will render at correct position
       setState(() {
         _ticket = ticket;
         _messages = messages;
+        _isLoading = false;
         _hasMoreMessages = ticket.messages.length > _messagesPerPage;
         _currentOffset = messages.length;
-      });
-
-      // Wait one frame for layout, THEN make visible (no scroll animation)
-      SchedulerBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
-          setState(() {
-            _isLoading = false;
-            _showChat = true; // NOW show ListView with opacity
-          });
-        }
       });
 
       // Mark messages as read when entering conversation
@@ -871,23 +861,24 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
 
           // Messages
           Expanded(
-            child: _messages.isEmpty && _optimisticMessages.isEmpty
-                ? Center(
-                    child: Text(
-                      _isLoading ? 'Loading messages...' : 'No messages yet',
-                      style: TextStyle(color: Colors.white.withValues(alpha: 0.4)),
-                    ),
-                  )
-                : Opacity(
-                    opacity: _showChat ? 1.0 : 0.0,
-                    child: ListView.builder(
-                      controller: _scrollController,
-                      reverse: true,
-                      physics: const ClampingScrollPhysics(),
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      cacheExtent: 1000,
-                      itemCount: (_isLoadingMore ? 1 : 0) + _messages.length + _optimisticMessages.length,
-                      itemBuilder: (context, index) {
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : _messages.isEmpty && _optimisticMessages.isEmpty
+                    ? Center(
+                        child: Text(
+                          'No messages yet',
+                          style: TextStyle(color: Colors.white.withValues(alpha: 0.4)),
+                        ),
+                      )
+                    : ListView.builder(
+                        key: ValueKey('chat-${widget.ticketId}-${_messages.length}'),
+                        controller: _scrollController,
+                        reverse: true,
+                        physics: const ClampingScrollPhysics(),
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        cacheExtent: 1000,
+                        itemCount: (_isLoadingMore ? 1 : 0) + _messages.length + _optimisticMessages.length,
+                        itemBuilder: (context, index) {
                       // With reverse: true, index 0 is at the bottom (newest messages)
                       // Optimistic messages come first (bottom), then regular messages, then loading
                       final totalOptimistic = _optimisticMessages.length;
@@ -911,8 +902,7 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
                         );
                       }
                     },
-                    ),
-                  ),
+                      ),
           ),
 
           // Typing/Recording Indicator
