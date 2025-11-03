@@ -235,10 +235,21 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
 
     setState(() {
       // Remove optimistic message if it exists
-      _optimisticMessages.removeWhere((m) =>
-        m['fileName'] == message.attachments.firstOrNull?.fileName ||
-        m['content'] == message.content
-      );
+      // For text messages: match by content (and no attachments on both sides)
+      // For file messages: match by fileName
+      _optimisticMessages.removeWhere((m) {
+        final hasAttachment = message.attachments.isNotEmpty;
+        final optHasFile = m['fileName'] != null && m['fileName'].toString().trim().isNotEmpty;
+
+        if (hasAttachment && optHasFile) {
+          // Both have files - match by filename
+          return m['fileName'] == message.attachments.first.fileName;
+        } else if (!hasAttachment && !optHasFile) {
+          // Both are text-only - match by content
+          return m['content'] == message.content;
+        }
+        return false;
+      });
 
       // Add message and sort
       _messages.add(message);
@@ -1578,16 +1589,35 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
                     ],
                   ),
                 ),
-                // Timestamp
+                // Timestamp and status indicator
                 Padding(
                   padding: const EdgeInsets.only(top: 2, right: 4),
-                  child: Text(
-                    DateFormat('HH:mm').format(msg['timestamp']),
-                    style: const TextStyle(
-                      color: Colors.grey,
-                      fontSize: 11,
-                      fontFamily: 'BasisGrotesquePro',
-                    ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        DateFormat('HH:mm').format(msg['timestamp']),
+                        style: const TextStyle(
+                          color: Colors.grey,
+                          fontSize: 11,
+                          fontFamily: 'BasisGrotesquePro',
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      // Status indicator: 1 checkmark while uploading, 2 when sent
+                      if (msg['isUploading'] == true)
+                        const Icon(
+                          Icons.check,
+                          size: 14,
+                          color: Colors.grey,
+                        )
+                      else if (msg['hasFailed'] != true)
+                        const Icon(
+                          Icons.done_all,
+                          size: 14,
+                          color: Colors.grey,
+                        ),
+                    ],
                   ),
                 ),
               ],
