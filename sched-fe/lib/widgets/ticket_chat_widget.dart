@@ -993,10 +993,10 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Focus(
-                      onKey: (node, event) {
+                      onKeyEvent: (node, event) {
                         if (event is KeyDownEvent) {
                           // Check if Enter key is pressed
-                          if (event.logicalKey.keyLabel == 'Enter') {
+                          if (event.logicalKey == LogicalKeyboardKey.enter) {
                             // If Shift is not pressed, send message
                             if (!HardwareKeyboard.instance.isShiftPressed) {
                               if (!_isTicketFinished()) {
