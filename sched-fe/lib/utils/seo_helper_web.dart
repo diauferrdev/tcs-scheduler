@@ -1,6 +1,6 @@
-// ignore: avoid_web_libraries_in_flutter
+// ignore_for_file: avoid_web_libraries_in_flutter, deprecated_member_use
 import 'dart:html' as html;
-import 'package:flutter/foundation.dart' show kDebugMode;
+import 'package:flutter/foundation.dart' show kDebugMode, debugPrint;
 
 /// Web-specific implementation for SEO helper
 void updatePageMetaImpl({
@@ -48,7 +48,7 @@ void updatePageMetaImpl({
     }
   } catch (e) {
     if (kDebugMode) {
-      print('[SEO] Error updating meta tags: $e');
+      debugPrint('[SEO] Error updating meta tags: $e');
     }
   }
 }
@@ -61,7 +61,7 @@ void updateCanonicalUrlImpl(String url) {
     }
   } catch (e) {
     if (kDebugMode) {
-      print('[SEO] Error updating canonical URL: $e');
+      debugPrint('[SEO] Error updating canonical URL: $e');
     }
   }
 }
@@ -85,7 +85,7 @@ void _updateMetaTag(String attribute, String attributeValue, String content) {
     }
   } catch (e) {
     if (kDebugMode) {
-      print('[SEO] Error updating meta tag $attributeValue: $e');
+      debugPrint('[SEO] Error updating meta tag $attributeValue: $e');
     }
   }
 }

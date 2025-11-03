@@ -62,7 +62,7 @@ class _BackgroundPainter extends CustomPainter {
     final gridSpacing = 100.0;
     final offset = animation * gridSpacing;
 
-    paint.color = Colors.white.withOpacity(0.02);
+    paint.color = Colors.white.withValues(alpha: 0.02);
 
     // Vertical lines
     for (double x = -gridSpacing + offset; x < size.width + gridSpacing; x += gridSpacing) {
@@ -93,7 +93,7 @@ class _BackgroundPainter extends CustomPainter {
       final y = baseY + floatOffset;
 
       final particleSize = 2.0 + random.nextDouble() * 2;
-      paint.color = Colors.white.withOpacity(0.1);
+      paint.color = Colors.white.withValues(alpha: 0.1);
 
       canvas.drawCircle(Offset(x, y), particleSize, paint);
     }

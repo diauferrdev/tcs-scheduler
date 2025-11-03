@@ -552,6 +552,7 @@ model TicketAttachment {
   fileUrl     String
   fileSize    Int
   mimeType    String
+  duration    Int?            // Audio duration in milliseconds (null for non-audio files)
 
   // Can be attached to ticket or message
   ticket      Ticket?         @relation(fields: [ticketId], references: [id], onDelete: Cascade)

@@ -4,7 +4,6 @@ import '../services/api_service.dart';
 import '../services/realtime_service.dart';
 import '../services/drawer_service.dart';
 import '../widgets/pending_approval_card.dart';
-import '../widgets/reschedule_dialog.dart';
 
 class ApprovalsScreen extends StatefulWidget {
   final String? initialBookingId;
@@ -141,17 +140,6 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
         });
       }
     }
-  }
-
-  void _showRescheduleDialog(Booking booking) {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => RescheduleDialog(
-        booking: booking,
-        onRescheduled: _loadAllBookings,
-      ),
-    );
   }
 
   @override

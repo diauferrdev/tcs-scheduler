@@ -57,7 +57,7 @@ class _InvitationsScreenState extends State<InvitationsScreen> {
 
   Future<void> _createInvitation({String? email}) async {
     try {
-      final result = await _apiService.createInvitation(
+      await _apiService.createInvitation(
         email: email,
         expiresInDays: 7,
       );
@@ -275,7 +275,7 @@ class _InvitationsScreenState extends State<InvitationsScreen> {
                             Icon(
                               Icons.error_outline,
                               size: 64,
-                              color: Colors.red.withOpacity(0.5),
+                              color: Colors.red.withValues(alpha: 0.5),
                             ),
                             const SizedBox(height: 16),
                             Text(
@@ -300,8 +300,8 @@ class _InvitationsScreenState extends State<InvitationsScreen> {
                                   Icons.link_off,
                                   size: 64,
                                   color: isDark
-                                      ? Colors.white.withOpacity(0.3)
-                                      : Colors.black.withOpacity(0.3),
+                                      ? Colors.white.withValues(alpha: 0.3)
+                                      : Colors.black.withValues(alpha: 0.3),
                                 ),
                                 const SizedBox(height: 16),
                                 Text(
@@ -385,7 +385,7 @@ class _InvitationsScreenState extends State<InvitationsScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: _getStatusColor(invitation).withOpacity(0.1),
+                  color: _getStatusColor(invitation).withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: Text(

@@ -1,3 +1,6 @@
+// ignore_for_file: constant_identifier_names
+
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'user.dart';
 
 enum TicketStatus {
@@ -33,12 +36,19 @@ enum Platform {
   WEB,
 }
 
+enum MessageDeliveryStatus {
+  SENDING,  // 1 check - enviando
+  SENT,     // 2 checks - enviado
+  READ,     // 2 checks azuis - lido
+}
+
 class TicketAttachment {
   final String id;
   final String fileName;
   final String fileUrl;
   final int fileSize;
   final String mimeType;
+  final int? duration; // Audio duration in milliseconds (null for non-audio)
   final String uploadedById;
   final DateTime createdAt;
 
@@ -48,6 +58,7 @@ class TicketAttachment {
     required this.fileUrl,
     required this.fileSize,
     required this.mimeType,
+    this.duration,
     required this.uploadedById,
     required this.createdAt,
   });
@@ -59,6 +70,7 @@ class TicketAttachment {
       fileUrl: json['fileUrl'],
       fileSize: json['fileSize'],
       mimeType: json['mimeType'],
+      duration: json['duration'],
       uploadedById: json['uploadedById'],
       createdAt: DateTime.parse(json['createdAt']),
     );
@@ -71,6 +83,7 @@ class TicketAttachment {
       'fileUrl': fileUrl,
       'fileSize': fileSize,
       'mimeType': mimeType,
+      'duration': duration,
       'uploadedById': uploadedById,
       'createdAt': createdAt.toIso8601String(),
     };
@@ -117,9 +130,9 @@ class TicketMessage {
         updatedAt: DateTime.parse(json['updatedAt'] as String),
       );
     } catch (e, stackTrace) {
-      print('[TicketMessage.fromJson] ❌ Error parsing message: $e');
-      print('[TicketMessage.fromJson] JSON: $json');
-      print('[TicketMessage.fromJson] Stack: $stackTrace');
+      debugPrint('[TicketMessage.fromJson] ❌ Error parsing message: $e');
+      debugPrint('[TicketMessage.fromJson] JSON: $json');
+      debugPrint('[TicketMessage.fromJson] Stack: $stackTrace');
       rethrow;
     }
   }

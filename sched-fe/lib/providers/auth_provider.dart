@@ -2,13 +2,11 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import '../models/user.dart';
 import '../services/api_service.dart';
-import '../services/token_storage.dart';
 import '../services/unified_notification_service.dart';
 import '../utils/web_helper.dart';
 
 class AuthProvider with ChangeNotifier {
   final ApiService _apiService = ApiService();
-  final TokenStorage _tokenStorage = TokenStorage();
   User? _user;
   bool _loading = true;
 

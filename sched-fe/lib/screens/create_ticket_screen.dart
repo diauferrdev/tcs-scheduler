@@ -1,16 +1,13 @@
-import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
-import 'package:image_picker/image_picker.dart';
 import '../models/ticket.dart';
-import '../providers/auth_provider.dart';
 import '../providers/theme_provider.dart';
 import '../services/api_service.dart';
 import '../utils/device_info_helper.dart';
-import '../widgets/attachment_picker.dart';
+import '../widgets/attachment_picker_dialog.dart';
 
 class AppTheme {
   static const Color primaryBlack = Color(0xFF000000);
@@ -34,11 +31,13 @@ class _CreateTicketScreenState extends State<CreateTicketScreen> {
   TicketPriority _selectedPriority = TicketPriority.MEDIUM;
   Platform? _selectedPlatform;
 
-  List<File> _selectedFiles = [];
-  List<Map<String, dynamic>> _uploadedAttachments = [];
+  // Store files as bytes + filename instead of File objects
+  List<Map<String, dynamic>> _selectedFiles = []; // { 'bytes': Uint8List, 'name': String }
+  final List<Map<String, dynamic>> _uploadedAttachments = [];
+  final Map<int, double> _uploadProgress = {}; // Progress for each file (0.0 - 1.0)
+  final Map<int, bool> _uploadFailed = {}; // Track failed uploads
   bool _isSubmitting = false;
   bool _isUploadingFiles = false;
-  bool _isAutoDetectingPlatform = true;
   Map<String, dynamic>? _deviceInfo;
 
   @override
@@ -63,44 +62,97 @@ class _CreateTicketScreenState extends State<CreateTicketScreen> {
           (p) => p.name == platformName,
           orElse: () => Platform.WEB,
         );
-        _isAutoDetectingPlatform = false;
       });
     } catch (e) {
       debugPrint('[CreateTicket] Error auto-detecting platform: $e');
       setState(() {
         _selectedPlatform = Platform.WEB;
-        _isAutoDetectingPlatform = false;
       });
     }
   }
 
+  int _mockDataIndex = 0;
+  final List<Map<String, dynamic>> _mockDataOptions = [
+    {
+      'title': 'Dashboard metrics not loading properly',
+      'description': 'When trying to access the metrics dashboard, the page stays in infinite loading and does not render the charts. Tested on different browsers and the problem persists. Console shows no errors.',
+      'category': TicketCategory.BUG,
+      'priority': TicketPriority.HIGH,
+    },
+    {
+      'title': 'Mobile app crashes on booking submission',
+      'description': 'The mobile application crashes immediately after clicking the "Submit Booking" button. This happens consistently on both Android and iOS devices. Error logs show a null pointer exception in the booking service.',
+      'category': TicketCategory.BUG,
+      'priority': TicketPriority.URGENT,
+    },
+    {
+      'title': 'Add dark mode support',
+      'description': 'Request for dark mode theme support across the entire application. Many users prefer dark mode for reduced eye strain, especially when using the app during evening hours.',
+      'category': TicketCategory.FEATURE_REQUEST,
+      'priority': TicketPriority.MEDIUM,
+    },
+    {
+      'title': 'How to export booking history?',
+      'description': 'I need to export my booking history for the last 6 months in CSV or PDF format. Could you please guide me on how to do this or add this feature if it is not available?',
+      'category': TicketCategory.QUESTION,
+      'priority': TicketPriority.LOW,
+    },
+    {
+      'title': 'Calendar integration with Google Calendar',
+      'description': 'Would be great to have automatic sync with Google Calendar so bookings appear in my personal calendar. This would help avoid scheduling conflicts.',
+      'category': TicketCategory.FEATURE_REQUEST,
+      'priority': TicketPriority.MEDIUM,
+    },
+    {
+      'title': 'Push notifications not working on iOS',
+      'description': 'Not receiving push notifications on iPhone 14 Pro running iOS 17. Tried reinstalling the app and checking notification settings - everything is enabled. Android users report notifications are working fine.',
+      'category': TicketCategory.BUG,
+      'priority': TicketPriority.HIGH,
+    },
+  ];
+
   void _fillMockData() {
+    final mock = _mockDataOptions[_mockDataIndex];
     setState(() {
-      _titleController.text = 'Dashboard metrics not loading properly';
-      _descriptionController.text = 'When trying to access the metrics dashboard, the page stays in infinite loading and does not render the charts. Tested on different browsers and the problem persists. Console shows no errors.';
-      _selectedCategory = TicketCategory.BUG;
-      _selectedPriority = TicketPriority.HIGH;
+      _titleController.text = mock['title'];
+      _descriptionController.text = mock['description'];
+      _selectedCategory = mock['category'];
+      _selectedPriority = mock['priority'];
+      // Cycle through mock data options
+      _mockDataIndex = (_mockDataIndex + 1) % _mockDataOptions.length;
     });
   }
 
   void _pickAttachments() {
-    AttachmentPicker.show(
-      context,
-      onFilesPicked: (files) {
-        setState(() {
-          _selectedFiles.addAll(files);
-          // Limit to 6 files max
-          if (_selectedFiles.length > 6) {
-            _selectedFiles = _selectedFiles.take(6).toList();
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Maximum 6 files allowed')),
-            );
-          }
-        });
-      },
-      maxFiles: 6,
-      allowImages: true,
-      allowDocuments: true,
+    // Check if we already have 6 files
+    if (_selectedFiles.length >= 6) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Maximum 6 files allowed')),
+      );
+      return;
+    }
+
+    showDialog(
+      context: context,
+      builder: (context) => AttachmentPickerDialog(
+        onFilePicked: (bytes, fileName) {
+          setState(() {
+            // Add file as bytes + name
+            _selectedFiles.add({
+              'bytes': Uint8List.fromList(bytes),
+              'name': fileName,
+            });
+
+            // Limit to 6 files max
+            if (_selectedFiles.length > 6) {
+              _selectedFiles = _selectedFiles.take(6).toList();
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Maximum 6 files allowed')),
+              );
+            }
+          });
+        },
+      ),
     );
   }
 
@@ -115,36 +167,94 @@ class _CreateTicketScreenState extends State<CreateTicketScreen> {
 
     setState(() {
       _isUploadingFiles = true;
+      _uploadProgress.clear();
+      _uploadFailed.clear();
     });
 
     try {
       _uploadedAttachments.clear();
 
-      for (final file in _selectedFiles) {
-        final bytes = await readFileBytes(file);
-        final filename = file.path.split('/').last;
+      for (int i = 0; i < _selectedFiles.length; i++) {
+        if (_uploadFailed[i] == true) continue; // Skip failed uploads
 
-        final response = await _api.uploadAttachment(bytes, filename);
+        try {
+          setState(() {
+            _uploadProgress[i] = 0.0;
+          });
 
-        _uploadedAttachments.add({
-          'fileName': response['filename'],
-          'fileUrl': response['url'],
-          'fileSize': response['size'],
-          'mimeType': response['type'],
-        });
+          final fileData = _selectedFiles[i];
+          final bytes = fileData['bytes'] as Uint8List;
+          final filename = fileData['name'] as String;
+
+          // Simulate progress (in real app, you'd use progress callback from http)
+          setState(() {
+            _uploadProgress[i] = 0.3;
+          });
+
+          final response = await _api.uploadAttachment(bytes, filename);
+
+          setState(() {
+            _uploadProgress[i] = 1.0;
+          });
+
+          _uploadedAttachments.add({
+            'fileName': response['filename'],
+            'fileUrl': response['url'],
+            'fileSize': response['size'],
+            'mimeType': response['type'],
+          });
+
+          debugPrint('[CreateTicket] Uploaded file ${i + 1}/${_selectedFiles.length}: $filename');
+        } catch (e) {
+          debugPrint('[CreateTicket] Failed to upload file $i: $e');
+          setState(() {
+            _uploadFailed[i] = true;
+          });
+
+          if (!mounted) return;
+
+          // Show error but continue with other files
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Failed to upload ${_selectedFiles[i]['name']}'),
+              backgroundColor: Colors.red,
+              duration: const Duration(seconds: 2),
+            ),
+          );
+        }
       }
 
-      debugPrint('[CreateTicket] Uploaded ${_uploadedAttachments.length} files');
+      // Remove failed uploads from the list with animation
+      await Future.delayed(const Duration(milliseconds: 500));
+      if (mounted) {
+        final failedIndexes = _uploadFailed.entries
+            .where((e) => e.value == true)
+            .map((e) => e.key)
+            .toList()
+          ..sort((a, b) => b.compareTo(a)); // Sort descending to remove from end
+
+        for (final index in failedIndexes) {
+          setState(() {
+            _selectedFiles.removeAt(index);
+            _uploadFailed.remove(index);
+            _uploadProgress.remove(index);
+          });
+          await Future.delayed(const Duration(milliseconds: 100));
+        }
+      }
+
+      debugPrint('[CreateTicket] Successfully uploaded ${_uploadedAttachments.length} files');
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error uploading files: $e')),
+        SnackBar(content: Text('Error uploading files: $e'), backgroundColor: Colors.red),
       );
       rethrow;
     } finally {
       if (mounted) {
         setState(() {
           _isUploadingFiles = false;
+          _uploadProgress.clear();
         });
       }
     }
@@ -250,7 +360,7 @@ class _CreateTicketScreenState extends State<CreateTicketScreen> {
                 style: TextStyle(color: textColor),
                 decoration: InputDecoration(
                   hintText: 'Brief summary of your issue',
-                  hintStyle: TextStyle(color: textColor.withOpacity(0.5)),
+                  hintStyle: TextStyle(color: textColor.withValues(alpha: 0.5)),
                   filled: true,
                   fillColor: cardColor,
                   border: OutlineInputBorder(
@@ -283,7 +393,7 @@ class _CreateTicketScreenState extends State<CreateTicketScreen> {
                 maxLines: 6,
                 decoration: InputDecoration(
                   hintText: 'Detailed description of your issue',
-                  hintStyle: TextStyle(color: textColor.withOpacity(0.5)),
+                  hintStyle: TextStyle(color: textColor.withValues(alpha: 0.5)),
                   filled: true,
                   fillColor: cardColor,
                   border: OutlineInputBorder(
@@ -412,7 +522,7 @@ class _CreateTicketScreenState extends State<CreateTicketScreen> {
                           value: platform,
                           child: Text(_getPlatformLabel(platform)),
                         );
-                      }).toList(),
+                      }),
                     ],
                     onChanged: (value) {
                       setState(() {
@@ -440,11 +550,11 @@ class _CreateTicketScreenState extends State<CreateTicketScreen> {
                 onPressed: _selectedFiles.length < 6 ? _pickAttachments : null,
                 icon: const Icon(Icons.attach_file),
                 label: Text(_selectedFiles.isEmpty
-                    ? 'Add Files (Images, Videos, Documents)'
-                    : 'Add More Files (${_selectedFiles.length}/6)'),
+                    ? 'Add Media (Up to 6 files)'
+                    : 'Add More (${_selectedFiles.length}/6)'),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: textColor,
-                  side: BorderSide(color: textColor.withOpacity(0.3)),
+                  side: BorderSide(color: textColor.withValues(alpha: 0.3)),
                   padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
@@ -453,30 +563,9 @@ class _CreateTicketScreenState extends State<CreateTicketScreen> {
               ),
               const SizedBox(height: 12),
 
-              // Display selected files with preview
+              // Display selected files in 2x3 grid with preview
               if (_selectedFiles.isNotEmpty) ...[
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: cardColor,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      for (int i = 0; i < _selectedFiles.length; i++)
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 12),
-                          child: _buildFilePreview(
-                            _selectedFiles[i],
-                            i,
-                            textColor,
-                            isDark,
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
+                _buildAttachmentsGrid(isDark, textColor, cardColor),
                 const SizedBox(height: 8),
               ],
               const SizedBox(height: 24),
@@ -579,6 +668,248 @@ class _CreateTicketScreenState extends State<CreateTicketScreen> {
     }
   }
 
+  Widget _buildAttachmentsGrid(bool isDark, Color textColor, Color cardColor) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: cardColor,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isDark ? Colors.white.withValues(alpha: 0.1) : Colors.black.withValues(alpha: 0.1),
+        ),
+      ),
+      child: GridView.builder(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 3, // 3 columns (2x3 grid for 6 items)
+          crossAxisSpacing: 12,
+          mainAxisSpacing: 12,
+          childAspectRatio: 1.0,
+        ),
+        itemCount: _selectedFiles.length,
+        itemBuilder: (context, index) {
+          return _buildGridItem(_selectedFiles[index], index, isDark, textColor);
+        },
+      ),
+    );
+  }
+
+  Widget _buildGridItem(Map<String, dynamic> fileData, int index, bool isDark, Color textColor) {
+    final fileName = fileData['name'] as String;
+    final bytes = fileData['bytes'] as Uint8List;
+    final extension = fileName.toLowerCase().split('.').last;
+    final isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp'].contains(extension);
+    final isVideo = ['mp4', 'webm', 'mov', 'avi'].contains(extension);
+    final isUploading = _uploadProgress.containsKey(index);
+    final hasFailed = _uploadFailed[index] == true;
+    final uploadProgress = _uploadProgress[index] ?? 0.0;
+
+    return AnimatedOpacity(
+      duration: const Duration(milliseconds: 300),
+      opacity: hasFailed ? 0.5 : 1.0,
+      child: GestureDetector(
+        onTap: hasFailed || isUploading ? null : () => _viewAttachmentFullscreen(bytes, fileName),
+        child: Stack(
+          children: [
+            Container(
+              decoration: BoxDecoration(
+                color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.03),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: hasFailed
+                      ? Colors.red.withValues(alpha: 0.5)
+                      : (isDark ? Colors.white.withValues(alpha: 0.1) : Colors.black.withValues(alpha: 0.1)),
+                  width: hasFailed ? 2 : 1,
+                ),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: isImage
+                    ? Image.memory(
+                        bytes,
+                        fit: BoxFit.cover,
+                        width: double.infinity,
+                        height: double.infinity,
+                      )
+                    : Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              _getFileIcon(fileName),
+                              size: 32,
+                              color: textColor.withValues(alpha: 0.6),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              extension.toUpperCase(),
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: textColor.withValues(alpha: 0.5),
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+              ),
+            ),
+
+            // Upload progress overlay
+            if (isUploading && !hasFailed)
+              Positioned.fill(
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.6),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      SizedBox(
+                        width: 40,
+                        height: 40,
+                        child: CircularProgressIndicator(
+                          value: uploadProgress,
+                          color: Colors.white,
+                          strokeWidth: 3,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        '${(uploadProgress * 100).toInt()}%',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+            // Failed overlay
+            if (hasFailed)
+              Positioned.fill(
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.red.withValues(alpha: 0.7),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.error_outline,
+                        color: Colors.white,
+                        size: 40,
+                      ),
+                      SizedBox(height: 8),
+                      Text(
+                        'Upload Failed',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+            // Remove button (hide during upload)
+            if (!isUploading)
+              Positioned(
+                top: 4,
+                right: 4,
+                child: GestureDetector(
+                  onTap: () => _removeAttachment(index),
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: hasFailed ? Colors.red.shade700 : Colors.red,
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.3),
+                          blurRadius: 4,
+                        ),
+                      ],
+                    ),
+                    child: const Icon(
+                      Icons.close,
+                      color: Colors.white,
+                      size: 16,
+                    ),
+                  ),
+                ),
+              ),
+
+            // Video play icon
+            if (isVideo && !isUploading && !hasFailed)
+              const Center(
+                child: Icon(
+                  Icons.play_circle_outline,
+                  color: Colors.white,
+                  size: 40,
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _viewAttachmentFullscreen(Uint8List bytes, String fileName) async {
+    final extension = fileName.toLowerCase().split('.').last;
+    final isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp'].contains(extension);
+    final isVideo = ['mp4', 'webm', 'mov', 'avi'].contains(extension);
+    final isPdf = extension == 'pdf';
+
+    if (!isImage && !isVideo && !isPdf) {
+      // For non-media files, just show a dialog
+      final fileSize = bytes.length;
+
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text(fileName),
+          content: Text('File type: ${extension.toUpperCase()}\nSize: ${_formatFileSize(fileSize)}'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Close'),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+
+    // For media files, show fullscreen viewer
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => _AttachmentFullscreenViewer(
+          bytes: bytes,
+          fileName: fileName,
+          isImage: isImage,
+          isVideo: isVideo,
+          isPdf: isPdf,
+        ),
+      ),
+    );
+  }
+
+  String _formatFileSize(int bytes) {
+    if (bytes < 1024) return '$bytes B';
+    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
+    if (bytes < 1024 * 1024 * 1024) return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+    return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
+  }
+
   IconData _getFileIcon(String filePath) {
     final extension = filePath.toLowerCase().split('.').last;
 
@@ -592,109 +923,86 @@ class _CreateTicketScreenState extends State<CreateTicketScreen> {
       return Icons.videocam;
     }
 
+    // Audio
+    if (['mp3', 'wav', 'ogg', 'm4a', 'aac'].contains(extension)) {
+      return Icons.audio_file;
+    }
+
     // Documents
     if (extension == 'pdf') return Icons.picture_as_pdf;
     if (['doc', 'docx'].contains(extension)) return Icons.description;
     if (['xls', 'xlsx', 'csv'].contains(extension)) return Icons.table_chart;
 
+    // Archives
+    if (['zip', 'rar', '7z', 'tar', 'gz'].contains(extension)) return Icons.folder_zip;
+
+    // Executables
+    if (['exe', 'apk', 'dmg'].contains(extension)) return Icons.apps;
+
     // Default
-    return Icons.attach_file;
+    return Icons.insert_drive_file;
   }
 
-  Widget _buildFilePreview(File file, int index, Color textColor, bool isDark) {
-    final fileName = file.path.split('/').last;
-    final extension = fileName.toLowerCase().split('.').last;
-    final isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp'].contains(extension);
-    final isVideo = ['mp4', 'webm', 'mov', 'avi'].contains(extension);
+}
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // File info row
-        Row(
-          children: [
-            Icon(
-              _getFileIcon(file.path),
-              color: textColor.withOpacity(0.7),
-              size: 20,
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                fileName,
-                style: TextStyle(
-                  color: textColor,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            IconButton(
-              icon: const Icon(Icons.close, color: Colors.red, size: 20),
-              onPressed: () => _removeAttachment(index),
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(),
-            ),
-          ],
+/// Fullscreen viewer for local file attachments
+class _AttachmentFullscreenViewer extends StatelessWidget {
+  final Uint8List bytes;
+  final String fileName;
+  final bool isImage;
+  final bool isVideo;
+  final bool isPdf;
+
+  const _AttachmentFullscreenViewer({
+    required this.bytes,
+    required this.fileName,
+    required this.isImage,
+    required this.isVideo,
+    required this.isPdf,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        iconTheme: const IconThemeData(color: Colors.white),
+        title: Text(
+          fileName,
+          style: const TextStyle(color: Colors.white, fontSize: 16),
+          overflow: TextOverflow.ellipsis,
         ),
-        // Image preview
-        if (isImage) ...[
-          const SizedBox(height: 8),
-          FutureBuilder<Uint8List>(
-            future: readFileBytes(file),
-            builder: (context, snapshot) {
-              if (snapshot.hasData) {
-                return ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: Image.memory(
-                    snapshot.data!,
-                    height: 150,
-                    width: double.infinity,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) {
-                      return Container(
-                        height: 150,
-                        color: Colors.grey.withOpacity(0.2),
-                        child: const Center(
-                          child: Icon(Icons.broken_image, size: 40, color: Colors.grey),
-                        ),
-                      );
-                    },
+      ),
+      body: Center(
+        child: isImage
+            ? InteractiveViewer(
+                minScale: 0.5,
+                maxScale: 4.0,
+                child: Image.memory(bytes),
+              )
+            : Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    isVideo ? Icons.videocam : Icons.insert_drive_file,
+                    size: 80,
+                    color: Colors.white,
                   ),
-                );
-              }
-              return Container(
-                height: 150,
-                color: Colors.grey.withOpacity(0.1),
-                child: const Center(child: CircularProgressIndicator()),
-              );
-            },
-          ),
-        ],
-        // Video thumbnail placeholder
-        if (isVideo) ...[
-          const SizedBox(height: 8),
-          Container(
-            height: 100,
-            decoration: BoxDecoration(
-              color: Colors.black.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(
-                color: textColor.withOpacity(0.2),
+                  const SizedBox(height: 24),
+                  Text(
+                    fileName,
+                    style: const TextStyle(color: Colors.white, fontSize: 18),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Preview not available',
+                    style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 14),
+                  ),
+                ],
               ),
-            ),
-            child: Center(
-              child: Icon(
-                Icons.play_circle_outline,
-                size: 48,
-                color: textColor.withOpacity(0.5),
-              ),
-            ),
-          ),
-        ],
-      ],
+      ),
     );
   }
 }

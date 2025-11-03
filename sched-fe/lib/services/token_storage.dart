@@ -1,5 +1,5 @@
 import 'dart:io' show Platform;
-import 'package:flutter/foundation.dart' show kIsWeb, kDebugMode;
+import 'package:flutter/foundation.dart' show kIsWeb, kDebugMode, debugPrint;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
@@ -154,7 +154,7 @@ class TokenStorage {
   void _log(String message) {
     // Logs disabled in production for cleaner output
     if (kDebugMode && !kIsWeb) {
-      print(message);
+      debugPrint(message);
     }
   }
 }

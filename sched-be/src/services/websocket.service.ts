@@ -132,6 +132,9 @@ export type WebSocketMessage =
   | { type: 'ticket_created'; data: any }
   | { type: 'ticket_updated'; data: any }
   | { type: 'ticket_message'; data: any }
+  | { type: 'message_read'; data: any }
+  | { type: 'user_typing'; data: any }
+  | { type: 'user_recording'; data: any }
   | { type: 'ping' }
   | { type: 'pong' };
 
@@ -230,5 +233,38 @@ export function sendTicketMessage(userIds: string[], message: any) {
   return sendToMultipleUsers(userIds, {
     type: 'ticket_message',
     data: message,
+  });
+}
+
+export function sendMessageRead(userId: string, data: any) {
+  console.log(`[WS] 📨 Sending message_read to user ${userId}: ${JSON.stringify(data)}`);
+  const result = sendToUser(userId, {
+    type: 'message_read',
+    data,
+  });
+  console.log(`[WS] ${result ? '✅' : '❌'} message_read delivery result: ${result}`);
+  return result;
+}
+
+export function broadcastTicketRead(userIds: string[], ticket: any) {
+  return sendToMultipleUsers(userIds, {
+    type: 'ticket_read',
+    data: ticket,
+  });
+}
+
+export function sendUserTyping(userIds: string[], data: { ticketId: string; userId: string; userName: string; isTyping: boolean }) {
+  console.log(`[WS] Sending user_typing to ${userIds.length} user(s): ${JSON.stringify(data)}`);
+  return sendToMultipleUsers(userIds, {
+    type: 'user_typing',
+    data,
+  });
+}
+
+export function sendUserRecording(userIds: string[], data: { ticketId: string; userId: string; userName: string; isRecording: boolean }) {
+  console.log(`[WS] Sending user_recording to ${userIds.length} user(s): ${JSON.stringify(data)}`);
+  return sendToMultipleUsers(userIds, {
+    type: 'user_recording',
+    data,
   });
 }

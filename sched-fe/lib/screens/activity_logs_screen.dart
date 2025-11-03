@@ -310,7 +310,7 @@ class _ActivityLogsScreenState extends State<ActivityLogsScreen> {
                             Icon(
                               Icons.error_outline,
                               size: 64,
-                              color: Colors.red.withOpacity(0.5),
+                              color: Colors.red.withValues(alpha: 0.5),
                             ),
                             const SizedBox(height: 16),
                             Text(
@@ -335,8 +335,8 @@ class _ActivityLogsScreenState extends State<ActivityLogsScreen> {
                                   Icons.history,
                                   size: 64,
                                   color: isDark
-                                      ? Colors.white.withOpacity(0.3)
-                                      : Colors.black.withOpacity(0.3),
+                                      ? Colors.white.withValues(alpha: 0.3)
+                                      : Colors.black.withValues(alpha: 0.3),
                                 ),
                                 const SizedBox(height: 16),
                                 Text(
@@ -410,7 +410,7 @@ class _ActivityLogsScreenState extends State<ActivityLogsScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: _getActionColor(log.action).withOpacity(0.1),
+                  color: _getActionColor(log.action).withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: Row(

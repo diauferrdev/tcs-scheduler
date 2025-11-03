@@ -119,26 +119,6 @@ class _EditBookingDrawerState extends State<EditBookingDrawer> {
     return false;
   }
 
-  String _durationToEnum(int hours) {
-    switch (hours) {
-      case 1:
-        return 'ONE_HOUR';
-      case 2:
-        return 'TWO_HOURS';
-      case 3:
-        return 'THREE_HOURS';
-      case 4:
-        return 'FOUR_HOURS';
-      case 5:
-        return 'FIVE_HOURS';
-      case 6:
-        return 'SIX_HOURS';
-      case 7:
-        return 'SEVEN_HOURS';
-      default:
-        return 'TWO_HOURS';
-    }
-  }
 
   Map<String, dynamic> _buildUpdateData() {
     final updateData = {

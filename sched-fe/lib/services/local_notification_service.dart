@@ -400,12 +400,6 @@ class LocalNotificationService {
     return CalendarService();
   }
 
-  /// Navigate to notifications screen (fallback)
-  void _navigateToNotifications() {
-    final navigationService = NavigationService();
-    navigationService.navigateToNotifications();
-  }
-
   /// Build JSON payload for notification
   String _buildPayload({
     required String type,

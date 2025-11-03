@@ -35,7 +35,6 @@ class _ScrollRevealState extends State<ScrollReveal>
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
   bool _hasAnimated = false;
-  bool _isVisible = false;
 
   @override
   void initState() {
@@ -85,7 +84,6 @@ class _ScrollRevealState extends State<ScrollReveal>
     if (_hasAnimated) return;
 
     _hasAnimated = true;
-    setState(() => _isVisible = true);
 
     Future.delayed(widget.delay, () {
       if (mounted) {

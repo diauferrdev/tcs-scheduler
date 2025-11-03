@@ -42,7 +42,6 @@ class ToastNotification {
         icon = Icons.warning;
         break;
       case ToastType.info:
-      default:
         backgroundColor = isDark ? const Color(0xFF18181B) : Colors.white;
         textColor = isDark ? Colors.white : Colors.black;
         iconColor = isDark ? Colors.white : Colors.black;
@@ -183,12 +182,12 @@ class _ToastWidgetState extends State<_ToastWidget> with SingleTickerProviderSta
                   color: widget.backgroundColor,
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
-                    color: widget.iconColor.withOpacity(0.3),
+                    color: widget.iconColor.withValues(alpha: 0.3),
                     width: 1.5,
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.15),
+                      color: Colors.black.withValues(alpha: 0.15),
                       blurRadius: 20,
                       offset: const Offset(0, 8),
                     ),
@@ -222,7 +221,7 @@ class _ToastWidgetState extends State<_ToastWidget> with SingleTickerProviderSta
                         child: Icon(
                           Icons.close,
                           size: 18,
-                          color: widget.textColor.withOpacity(0.7),
+                          color: widget.textColor.withValues(alpha: 0.7),
                         ),
                       ),
                     ),

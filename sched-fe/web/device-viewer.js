@@ -211,6 +211,35 @@ class DeviceViewer {
         // Only attach controls if interaction is enabled (disabled for mobile)
         if (this.config.enableInteraction) {
             this.camera.attachControl(this.canvas, true);
+        } else {
+            // For mobile: Allow horizontal rotation (X-axis) but prevent vertical scroll interference
+            // Only listen to horizontal pointer movements
+            let lastPointerX = null;
+
+            this.canvas.addEventListener('pointerdown', (evt) => {
+                lastPointerX = evt.clientX;
+                evt.preventDefault(); // Prevent default only when touching canvas
+            }, { passive: false });
+
+            this.canvas.addEventListener('pointermove', (evt) => {
+                if (lastPointerX !== null) {
+                    const deltaX = evt.clientX - lastPointerX;
+
+                    // Only rotate horizontally (alpha), ignore vertical (beta)
+                    this.camera.alpha -= deltaX * 0.01;
+
+                    lastPointerX = evt.clientX;
+                    evt.preventDefault(); // Prevent scroll while dragging horizontally
+                }
+            }, { passive: false });
+
+            this.canvas.addEventListener('pointerup', () => {
+                lastPointerX = null;
+            });
+
+            this.canvas.addEventListener('pointercancel', () => {
+                lastPointerX = null;
+            });
         }
 
         if (this.config.deviceType === 'notebook') {

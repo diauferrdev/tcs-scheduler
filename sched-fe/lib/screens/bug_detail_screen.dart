@@ -108,7 +108,7 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
         });
       }
     } catch (e) {
-      print('[BugDetail] Error handling bug_updated: $e');
+      debugPrint('[BugDetail] Error handling bug_updated: $e');
     }
   }
 
@@ -135,7 +135,7 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
         }
       }
     } catch (e) {
-      print('[BugDetail] Error handling like change: $e');
+      debugPrint('[BugDetail] Error handling like change: $e');
     }
   }
 
@@ -161,7 +161,7 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
         });
       }
     } catch (e) {
-      print('[BugDetail] Error handling comment_created: $e');
+      debugPrint('[BugDetail] Error handling comment_created: $e');
     }
   }
 
@@ -179,7 +179,7 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
         });
       }
     } catch (e) {
-      print('[BugDetail] Error handling comment_updated: $e');
+      debugPrint('[BugDetail] Error handling comment_updated: $e');
     }
   }
 
@@ -196,7 +196,7 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
         });
       }
     } catch (e) {
-      print('[BugDetail] Error handling comment_deleted: $e');
+      debugPrint('[BugDetail] Error handling comment_deleted: $e');
     }
   }
 
@@ -251,6 +251,7 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
         );
       });
 
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error: $e')),
       );
@@ -445,6 +446,7 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
         );
       }
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error deleting comment: $e')),
       );
@@ -479,9 +481,9 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
             maxLines: 3,
             decoration: InputDecoration(
               hintText: 'Describe how this was resolved (optional)',
-              hintStyle: TextStyle(color: AppTheme.primaryWhite.withOpacity(0.5)),
+              hintStyle: TextStyle(color: AppTheme.primaryWhite.withValues(alpha: 0.5)),
               filled: true,
-              fillColor: AppTheme.primaryWhite.withOpacity(0.05),
+              fillColor: AppTheme.primaryWhite.withValues(alpha: 0.05),
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
             ),
           ),
@@ -517,6 +519,7 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
         );
       }
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error updating status: $e')),
       );
@@ -559,6 +562,7 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
         Navigator.pop(context, true);
       }
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error deleting bug report: $e')),
       );
@@ -697,7 +701,7 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
                                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                                     decoration: BoxDecoration(
                                       color: _isUpvoted
-                                          ? Colors.orange.withOpacity(0.15)
+                                          ? Colors.orange.withValues(alpha: 0.15)
                                           : (themeProvider.isDark ? const Color(0xFF27272A) : const Color(0xFFF3F4F6)),
                                       borderRadius: BorderRadius.circular(6),
                                       border: Border.all(
@@ -830,7 +834,7 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
                                           Container(
                                             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                             decoration: BoxDecoration(
-                                              color: _getRoleColor(_bug!.reportedBy.role).withOpacity(0.2),
+                                              color: _getRoleColor(_bug!.reportedBy.role).withValues(alpha: 0.2),
                                               borderRadius: BorderRadius.circular(4),
                                               border: Border.all(
                                                 color: _getRoleColor(_bug!.reportedBy.role),
@@ -959,7 +963,7 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
                                       Container(
                                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                         decoration: BoxDecoration(
-                                          color: Colors.blue.withOpacity(0.2),
+                                          color: Colors.blue.withValues(alpha: 0.2),
                                           borderRadius: BorderRadius.circular(12),
                                         ),
                                         child: Text(
@@ -992,7 +996,7 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
                             Container(
                               padding: const EdgeInsets.all(16),
                               decoration: BoxDecoration(
-                                color: Colors.green.withOpacity(0.1),
+                                color: Colors.green.withValues(alpha: 0.1),
                                 borderRadius: BorderRadius.circular(12),
                                 border: Border.all(color: Colors.green),
                               ),
@@ -1345,7 +1349,7 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
                           decoration: BoxDecoration(
-                            color: _getRoleColor(comment.user.role).withOpacity(0.2),
+                            color: _getRoleColor(comment.user.role).withValues(alpha: 0.2),
                             borderRadius: BorderRadius.circular(4),
                             border: Border.all(
                               color: _getRoleColor(comment.user.role),
@@ -1604,7 +1608,7 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
               child: Text(
                 'Edited',
                 style: TextStyle(
-                  color: AppTheme.primaryWhite.withOpacity(0.4),
+                  color: AppTheme.primaryWhite.withValues(alpha: 0.4),
                   fontSize: 11,
                   fontStyle: FontStyle.italic,
                 ),
@@ -1635,9 +1639,9 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.15),
+        color: color.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: color.withOpacity(0.3)),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Text(
         status.name.replaceAll('_', ' '),
@@ -1664,13 +1668,13 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
             Icon(
               Icons.attachment,
               size: 16,
-              color: AppTheme.primaryWhite.withOpacity(0.7),
+              color: AppTheme.primaryWhite.withValues(alpha: 0.7),
             ),
             const SizedBox(width: 6),
             Text(
               'Attachments (${allAttachments.length}/6)',
               style: TextStyle(
-                color: AppTheme.primaryWhite.withOpacity(0.9),
+                color: AppTheme.primaryWhite.withValues(alpha: 0.9),
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
               ),
@@ -1679,7 +1683,7 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
             Text(
               'Max: Images 30MB • Videos 300MB',
               style: TextStyle(
-                color: AppTheme.primaryWhite.withOpacity(0.4),
+                color: AppTheme.primaryWhite.withValues(alpha: 0.4),
                 fontSize: 10,
               ),
             ),
@@ -1722,10 +1726,10 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
         width: width,
         height: height,
         decoration: BoxDecoration(
-          color: AppTheme.primaryWhite.withOpacity(0.05),
+          color: AppTheme.primaryWhite.withValues(alpha: 0.05),
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
-            color: AppTheme.primaryWhite.withOpacity(0.15),
+            color: AppTheme.primaryWhite.withValues(alpha: 0.15),
           ),
         ),
         child: ClipRRect(
@@ -1741,13 +1745,13 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
                   placeholder: (context, url) => Center(
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
-                      color: AppTheme.primaryWhite.withOpacity(0.5),
+                      color: AppTheme.primaryWhite.withValues(alpha: 0.5),
                     ),
                   ),
                   errorWidget: (context, url, error) => Center(
                     child: Icon(
                       Icons.broken_image,
-                      color: AppTheme.primaryWhite.withOpacity(0.4),
+                      color: AppTheme.primaryWhite.withValues(alpha: 0.4),
                       size: 32,
                     ),
                   ),
@@ -1759,18 +1763,18 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
                     child: Icon(
                       Icons.play_circle_filled,
                       size: 48,
-                      color: AppTheme.primaryWhite.withOpacity(0.9),
+                      color: AppTheme.primaryWhite.withValues(alpha: 0.9),
                     ),
                   ),
                 )
               else
                 Container(
-                  color: AppTheme.primaryWhite.withOpacity(0.08),
+                  color: AppTheme.primaryWhite.withValues(alpha: 0.08),
                   child: Center(
                     child: Icon(
                       _getDocumentIcon(attachment.fileType),
                       size: 40,
-                      color: AppTheme.primaryWhite.withOpacity(0.7),
+                      color: AppTheme.primaryWhite.withValues(alpha: 0.7),
                     ),
                   ),
                 ),
@@ -1788,7 +1792,7 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
                       end: Alignment.bottomCenter,
                       colors: [
                         Colors.transparent,
-                        Colors.black.withOpacity(0.8),
+                        Colors.black.withValues(alpha: 0.8),
                       ],
                     ),
                   ),
@@ -1810,7 +1814,7 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
                       Text(
                         _formatFileSize(attachment.fileSize),
                         style: TextStyle(
-                          color: Colors.white.withOpacity(0.7),
+                          color: Colors.white.withValues(alpha: 0.7),
                           fontSize: 9,
                         ),
                       ),
@@ -1826,7 +1830,7 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 3),
                   decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.7),
+                    color: Colors.black.withValues(alpha: 0.7),
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Text(

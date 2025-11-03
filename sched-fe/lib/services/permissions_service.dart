@@ -71,34 +71,6 @@ class PermissionsService {
   }
 
   /// Show permission explanation dialog
-  Future<bool?> _showPermissionDialog(
-    BuildContext context,
-    String title,
-    String message,
-    String permissionType,
-  ) async {
-    return showDialog<bool>(
-      context: context,
-      barrierDismissible: false,
-      builder: (BuildContext dialogContext) {
-        return AlertDialog(
-          title: Text('Permissão: $title'),
-          content: Text(message),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(false),
-              child: const Text('Agora não'),
-            ),
-            ElevatedButton(
-              onPressed: () => Navigator.of(dialogContext).pop(true),
-              child: const Text('Permitir'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
   /// Check if all critical permissions are granted
   Future<bool> areAllCriticalPermissionsGranted() async {
     final notificationStatus = await Permission.notification.status;

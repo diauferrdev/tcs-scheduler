@@ -45,7 +45,7 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
           playedColor: Colors.blue,
           handleColor: Colors.blueAccent,
           backgroundColor: Colors.grey,
-          bufferedColor: Colors.lightBlue.withOpacity(0.5),
+          bufferedColor: Colors.lightBlue.withValues(alpha: 0.5),
         ),
         placeholder: Container(
           color: Colors.black,

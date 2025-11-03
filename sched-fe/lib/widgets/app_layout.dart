@@ -53,15 +53,18 @@ class _AppLayoutState extends State<AppLayout> {
     final authProvider = context.watch<AuthProvider>();
     final themeProvider = context.watch<ThemeProvider>();
     final user = authProvider.user;
+    final isDark = themeProvider.isDark;
 
     if (user == null) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
+      // Don't show a loading indicator here - the native web splash screen
+      // (index.html) already handles the initial loading state
+      return Scaffold(
+        backgroundColor: isDark ? Colors.black : Colors.white,
+        body: Container(),
       );
     }
 
     final isMobile = MediaQuery.of(context).size.width < 768;
-    final isDark = themeProvider.isDark;
 
     return Scaffold(
       backgroundColor: isDark ? Colors.black : Colors.white,

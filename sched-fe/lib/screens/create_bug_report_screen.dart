@@ -1,4 +1,3 @@
-import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
@@ -84,7 +83,7 @@ class _CreateBugReportScreenState extends State<CreateBugReportScreen> {
               height: 4,
               margin: const EdgeInsets.only(bottom: 20),
               decoration: BoxDecoration(
-                color: (isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280)).withOpacity(0.5),
+                color: (isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280)).withValues(alpha: 0.5),
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -380,6 +379,7 @@ class _CreateBugReportScreenState extends State<CreateBugReportScreen> {
         _errorMessage = e.toString();
         _isLoading = false;
       });
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error: $e')),
       );
@@ -392,7 +392,6 @@ class _CreateBugReportScreenState extends State<CreateBugReportScreen> {
     final isDark = themeProvider.isDark;
     final backgroundColor = isDark ? Colors.black : const Color(0xFFF9FAFB);
     final textColor = isDark ? Colors.white : Colors.black;
-    final cardColor = isDark ? const Color(0xFF18181B) : Colors.white;
 
     return Scaffold(
       backgroundColor: backgroundColor,
@@ -527,7 +526,7 @@ class _CreateBugReportScreenState extends State<CreateBugReportScreen> {
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                               decoration: BoxDecoration(
-                                color: Colors.green.withOpacity(0.2),
+                                color: Colors.green.withValues(alpha: 0.2),
                                 borderRadius: BorderRadius.circular(4),
                                 border: Border.all(color: Colors.green),
                               ),
@@ -551,7 +550,7 @@ class _CreateBugReportScreenState extends State<CreateBugReportScreen> {
                                 setState(() => _selectedPlatform = platform);
                               },
                               backgroundColor: isDark ? const Color(0xFF3F3F46) : const Color(0xFFE5E7EB),
-                              selectedColor: Colors.green.withOpacity(0.15),
+                              selectedColor: Colors.green.withValues(alpha: 0.15),
                               checkmarkColor: Colors.green,
                               labelStyle: TextStyle(
                                 color: isSelected ? Colors.green : textColor,
@@ -630,7 +629,7 @@ class _CreateBugReportScreenState extends State<CreateBugReportScreen> {
                           const SizedBox(height: 16),
                           ..._attachments.asMap().entries.map((entry) {
                             return _buildAttachmentTile(entry.value, entry.key, isDark, textColor);
-                          }).toList(),
+                          }),
                         ],
                       ],
                     ),
@@ -672,7 +671,7 @@ class _CreateBugReportScreenState extends State<CreateBugReportScreen> {
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: Colors.red.withOpacity(0.1),
+                        color: Colors.red.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(color: Colors.red),
                       ),
@@ -727,7 +726,7 @@ class _CreateBugReportScreenState extends State<CreateBugReportScreen> {
               width: 56,
               height: 56,
               decoration: BoxDecoration(
-                color: (isVideo ? Colors.red : Colors.orange).withOpacity(0.2),
+                color: (isVideo ? Colors.red : Colors.orange).withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(6),
               ),
               child: Icon(
@@ -756,7 +755,7 @@ class _CreateBugReportScreenState extends State<CreateBugReportScreen> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                       decoration: BoxDecoration(
-                        color: (isImage ? Colors.blue : isVideo ? Colors.red : Colors.orange).withOpacity(0.2),
+                        color: (isImage ? Colors.blue : isVideo ? Colors.red : Colors.orange).withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(3),
                       ),
                       child: Text(

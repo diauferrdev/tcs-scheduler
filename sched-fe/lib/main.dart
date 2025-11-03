@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'firebase_options.dart';
 import 'providers/auth_provider.dart';
 import 'providers/theme_provider.dart';
@@ -48,6 +49,23 @@ void notificationTapBackgroundHandler(NotificationResponse details) {
   // Navigation will be handled when app resumes to foreground
 }
 
+/// Request necessary permissions for the app
+Future<void> _requestPermissions() async {
+  try {
+    // Request microphone permission for audio recording
+    final micStatus = await Permission.microphone.request();
+    debugPrint('[Permissions] Microphone: $micStatus');
+
+    // Request storage permission for file uploads/downloads
+    if (Platform.isAndroid) {
+      final storageStatus = await Permission.storage.request();
+      debugPrint('[Permissions] Storage: $storageStatus');
+    }
+  } catch (e) {
+    debugPrint('[Permissions] Error requesting permissions: $e');
+  }
+}
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -79,6 +97,11 @@ void main() async {
   await UnifiedNotificationService().initialize(
     onBackgroundNotificationResponse: notificationTapBackgroundHandler,
   );
+
+  // Request permissions for audio recording
+  if (!kIsWeb) {
+    await _requestPermissions();
+  }
 
   // Configure system UI
   SystemChrome.setSystemUIOverlayStyle(

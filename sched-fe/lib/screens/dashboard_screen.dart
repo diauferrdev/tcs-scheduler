@@ -133,13 +133,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
       return _buildLoadingCards(isDark);
     }
 
-    final total = _stats!.statusDistribution.pending +
-        _stats!.statusDistribution.approved +
-        _stats!.statusDistribution.notApproved;
-    final approvalRate = total > 0
-        ? (_stats!.statusDistribution.approved / total * 100)
-        : 0.0;
-
     final statCards = [
       _buildStatCard(
         'Total Bookings',
@@ -1823,12 +1816,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return colors[index % colors.length];
   }
 
-  String _formatOrgType(String type) {
-    return type.split('_').map((word) {
-      return word[0].toUpperCase() + word.substring(1).toLowerCase();
-    }).join(' ');
-  }
-
   String _formatVertical(String vertical) {
     return vertical.split('_').map((word) {
       return word[0].toUpperCase() + word.substring(1).toLowerCase();
@@ -1959,7 +1946,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
       child: _loading || _stats == null
           ? _buildLoadingIndicator(isDark)
           : () {
-              final dist = _stats!.visitTypeDistribution;
               final avgAttendees = _stats!.avgAttendees;
 
               // Simulate distribution - in reality would come from backend

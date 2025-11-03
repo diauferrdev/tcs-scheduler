@@ -233,7 +233,7 @@ class _BugReportsScreenState extends State<BugReportsScreen> {
         _loadBugReports();
       }
     } catch (e) {
-      print('[BugReportsScreen] Error handling comment change: $e');
+      debugPrint('[BugReportsScreen] Error handling comment change: $e');
     }
   }
 
@@ -291,7 +291,7 @@ class _BugReportsScreenState extends State<BugReportsScreen> {
   }
 
   Future<void> _navigateToBugDetail(BugReport bug) async {
-    final result = await Navigator.push(
+    await Navigator.push(
       context,
       MaterialPageRoute(builder: (context) => BugDetailScreen(bugId: bug.id)),
     );
@@ -301,14 +301,10 @@ class _BugReportsScreenState extends State<BugReportsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final authProvider = Provider.of<AuthProvider>(context);
     final themeProvider = Provider.of<ThemeProvider>(context);
-    final isAdmin = authProvider.user?.isAdmin ?? false;
-    final isManager = authProvider.user?.isManager ?? false;
 
     final backgroundColor = themeProvider.isDark ? AppTheme.primaryBlack : const Color(0xFFF9FAFB);
     final textColor = themeProvider.isDark ? AppTheme.primaryWhite : Colors.black;
-    final cardColor = themeProvider.isDark ? AppTheme.primaryWhite.withOpacity(0.05) : Colors.white;
 
     final bodyContent = Column(
       children: [
@@ -324,7 +320,7 @@ class _BugReportsScreenState extends State<BugReportsScreen> {
                     style: TextStyle(color: textColor),
                     decoration: InputDecoration(
                       hintText: 'Search by title or description...',
-                      hintStyle: TextStyle(color: textColor.withOpacity(0.5)),
+                      hintStyle: TextStyle(color: textColor.withValues(alpha: 0.5)),
                       prefixIcon: Icon(Icons.search, color: textColor),
                 suffixIcon: _searchController.text.isNotEmpty
                     ? IconButton(
@@ -336,7 +332,7 @@ class _BugReportsScreenState extends State<BugReportsScreen> {
                       )
                     : null,
                 filled: true,
-                fillColor: AppTheme.primaryWhite.withOpacity(0.1),
+                fillColor: AppTheme.primaryWhite.withValues(alpha: 0.1),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                   borderSide: BorderSide.none,
@@ -427,13 +423,13 @@ class _BugReportsScreenState extends State<BugReportsScreen> {
                                 Icon(
                                   Icons.bug_report_outlined,
                                   size: 64,
-                                  color: AppTheme.primaryWhite.withOpacity(0.3),
+                                  color: AppTheme.primaryWhite.withValues(alpha: 0.3),
                                 ),
                                 const SizedBox(height: 16),
                                 Text(
                                   'No bug reports found',
                                   style: TextStyle(
-                                    color: AppTheme.primaryWhite.withOpacity(0.5),
+                                    color: AppTheme.primaryWhite.withValues(alpha: 0.5),
                                     fontSize: 16,
                                   ),
                                 ),
@@ -516,11 +512,11 @@ class _BugReportsScreenState extends State<BugReportsScreen> {
     final timeAgo = _formatTimeAgo(bug.createdAt);
 
     // Theme-aware colors
-    final cardColor = isDark ? AppTheme.primaryWhite.withOpacity(0.05) : Colors.white;
+    final cardColor = isDark ? AppTheme.primaryWhite.withValues(alpha: 0.05) : Colors.white;
     final textColor = isDark ? AppTheme.primaryWhite : Colors.black87;
-    final subtextColor = isDark ? AppTheme.primaryWhite.withOpacity(0.6) : Colors.black54;
-    final borderColor = isDark ? AppTheme.primaryWhite.withOpacity(0.1) : Colors.grey.shade200;
-    final badgeBgColor = isDark ? AppTheme.primaryWhite.withOpacity(0.1) : Colors.grey.shade100;
+    final subtextColor = isDark ? AppTheme.primaryWhite.withValues(alpha: 0.6) : Colors.black54;
+    final borderColor = isDark ? AppTheme.primaryWhite.withValues(alpha: 0.1) : Colors.grey.shade200;
+    final badgeBgColor = isDark ? AppTheme.primaryWhite.withValues(alpha: 0.1) : Colors.grey.shade100;
 
     return Card(
       color: cardColor,
@@ -575,9 +571,9 @@ class _BugReportsScreenState extends State<BugReportsScreen> {
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                             decoration: BoxDecoration(
-                              color: Colors.blue.withOpacity(0.1),
+                              color: Colors.blue.withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(6),
-                              border: Border.all(color: Colors.blue.withOpacity(0.3)),
+                              border: Border.all(color: Colors.blue.withValues(alpha: 0.3)),
                             ),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
@@ -634,10 +630,10 @@ class _BugReportsScreenState extends State<BugReportsScreen> {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
                           decoration: BoxDecoration(
-                            color: bug.likeCount > 0 ? Colors.orange.withOpacity(0.15) : badgeBgColor,
+                            color: bug.likeCount > 0 ? Colors.orange.withValues(alpha: 0.15) : badgeBgColor,
                             borderRadius: BorderRadius.circular(4),
                             border: bug.likeCount > 0
-                                ? Border.all(color: Colors.orange.withOpacity(0.3))
+                                ? Border.all(color: Colors.orange.withValues(alpha: 0.3))
                                 : null,
                           ),
                           child: Row(
@@ -648,7 +644,7 @@ class _BugReportsScreenState extends State<BugReportsScreen> {
                                 size: 13,
                                 color: bug.likeCount > 0
                                     ? Colors.orange
-                                    : (isDark ? AppTheme.primaryWhite.withOpacity(0.5) : Colors.grey.shade600),
+                                    : (isDark ? AppTheme.primaryWhite.withValues(alpha: 0.5) : Colors.grey.shade600),
                               ),
                               const SizedBox(width: 3),
                               Text(
@@ -656,7 +652,7 @@ class _BugReportsScreenState extends State<BugReportsScreen> {
                                 style: TextStyle(
                                   color: bug.likeCount > 0
                                       ? Colors.orange
-                                      : (isDark ? AppTheme.primaryWhite.withOpacity(0.7) : Colors.grey.shade700),
+                                      : (isDark ? AppTheme.primaryWhite.withValues(alpha: 0.7) : Colors.grey.shade700),
                                   fontSize: 12,
                                   fontWeight: FontWeight.w600,
                                 ),
@@ -678,13 +674,13 @@ class _BugReportsScreenState extends State<BugReportsScreen> {
                               Icon(
                                 Icons.chat_bubble_outline,
                                 size: 13,
-                                color: isDark ? AppTheme.primaryWhite.withOpacity(0.7) : Colors.grey.shade700,
+                                color: isDark ? AppTheme.primaryWhite.withValues(alpha: 0.7) : Colors.grey.shade700,
                               ),
                               const SizedBox(width: 3),
                               Text(
                                 '$commentCount',
                                 style: TextStyle(
-                                  color: isDark ? AppTheme.primaryWhite.withOpacity(0.8) : Colors.black87,
+                                  color: isDark ? AppTheme.primaryWhite.withValues(alpha: 0.8) : Colors.black87,
                                   fontSize: 12,
                                   fontWeight: FontWeight.w600,
                                 ),
@@ -698,7 +694,7 @@ class _BugReportsScreenState extends State<BugReportsScreen> {
                           width: 20,
                           height: 20,
                           decoration: BoxDecoration(
-                            color: isDark ? AppTheme.primaryWhite.withOpacity(0.2) : Colors.grey.shade200,
+                            color: isDark ? AppTheme.primaryWhite.withValues(alpha: 0.2) : Colors.grey.shade200,
                             borderRadius: BorderRadius.circular(6),
                             image: bug.reportedBy.avatarUrl != null
                                 ? DecorationImage(
@@ -776,10 +772,10 @@ class _BugReportsScreenState extends State<BugReportsScreen> {
       width: 80,
       height: 80,
       decoration: BoxDecoration(
-        color: AppTheme.primaryWhite.withOpacity(0.05),
+        color: AppTheme.primaryWhite.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
-          color: AppTheme.primaryWhite.withOpacity(0.15),
+          color: AppTheme.primaryWhite.withValues(alpha: 0.15),
         ),
       ),
       child: ClipRRect(
@@ -796,16 +792,16 @@ class _BugReportsScreenState extends State<BugReportsScreen> {
                           ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
                           : null,
                       strokeWidth: 2,
-                      color: AppTheme.primaryWhite.withOpacity(0.5),
+                      color: AppTheme.primaryWhite.withValues(alpha: 0.5),
                     ),
                   );
                 },
                 errorBuilder: (context, error, stackTrace) {
-                  print('[Preview] Error loading image: $error');
+                  debugPrint('[Preview] Error loading image: $error');
                   return Center(
                     child: Icon(
                       Icons.broken_image,
-                      color: AppTheme.primaryWhite.withOpacity(0.3),
+                      color: AppTheme.primaryWhite.withValues(alpha: 0.3),
                       size: 40,
                     ),
                   );
@@ -822,7 +818,7 @@ class _BugReportsScreenState extends State<BugReportsScreen> {
                         child: Icon(
                           Icons.play_circle_filled,
                           size: 36,
-                          color: AppTheme.primaryWhite.withOpacity(0.9),
+                          color: AppTheme.primaryWhite.withValues(alpha: 0.9),
                         ),
                       ),
                     ],
@@ -830,7 +826,7 @@ class _BugReportsScreenState extends State<BugReportsScreen> {
                 : Center(
                     child: Icon(
                       Icons.attach_file,
-                      color: AppTheme.primaryWhite.withOpacity(0.5),
+                      color: AppTheme.primaryWhite.withValues(alpha: 0.5),
                       size: 32,
                     ),
                   ),
@@ -899,9 +895,9 @@ class _BugReportsScreenState extends State<BugReportsScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.15),
+        color: color.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: color.withOpacity(0.3)),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Text(
         label,
@@ -967,7 +963,7 @@ class _BugReportsScreenState extends State<BugReportsScreen> {
       title: Text(
         label,
         style: TextStyle(
-          color: isSelected ? AppTheme.primaryWhite : AppTheme.primaryWhite.withOpacity(0.7),
+          color: isSelected ? AppTheme.primaryWhite : AppTheme.primaryWhite.withValues(alpha: 0.7),
           fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
         ),
       ),
@@ -1018,7 +1014,7 @@ class _BugReportsScreenState extends State<BugReportsScreen> {
       title: Text(
         label,
         style: TextStyle(
-          color: isSelected ? AppTheme.primaryWhite : AppTheme.primaryWhite.withOpacity(0.7),
+          color: isSelected ? AppTheme.primaryWhite : AppTheme.primaryWhite.withValues(alpha: 0.7),
           fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
         ),
       ),
@@ -1066,7 +1062,7 @@ class _BugReportsScreenState extends State<BugReportsScreen> {
       title: Text(
         label,
         style: TextStyle(
-          color: isSelected ? AppTheme.primaryWhite : AppTheme.primaryWhite.withOpacity(0.7),
+          color: isSelected ? AppTheme.primaryWhite : AppTheme.primaryWhite.withValues(alpha: 0.7),
           fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
         ),
       ),

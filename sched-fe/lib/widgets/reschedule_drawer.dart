@@ -26,13 +26,11 @@ class RescheduleDrawer extends StatefulWidget {
 class _RescheduleDrawerState extends State<RescheduleDrawer> {
   final ApiService _apiService = ApiService();
 
-  DateTime? _selectedDay;
   bool _loading = false;
   bool _submitting = false;
 
   Future<void> _handleDaySelected(DateTime day) async {
     setState(() {
-      _selectedDay = day;
       _loading = true;
     });
 
@@ -170,7 +168,7 @@ class _RescheduleDrawerState extends State<RescheduleDrawer> {
           // Loading indicator overlay when loading availability or submitting
           if (_loading || _submitting)
             Container(
-              color: Colors.black.withOpacity(0.5),
+              color: Colors.black.withValues(alpha: 0.5),
               child: const Center(
                 child: CircularProgressIndicator(
                   valueColor: AlwaysStoppedAnimation<Color>(Colors.white),

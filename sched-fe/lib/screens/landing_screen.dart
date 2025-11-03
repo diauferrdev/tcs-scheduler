@@ -144,192 +144,6 @@ class _LandingScreenState extends State<LandingScreen> {
     );
   }
 
-  Widget _buildMultiTenancySection() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 80, vertical: 120),
-      child: ScrollReveal(
-        child: Column(
-          children: [
-            // Badge
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              decoration: BoxDecoration(
-                color: Colors.blue.withOpacity(0.1),
-                border: Border.all(color: Colors.blue.withOpacity(0.3), width: 1),
-                borderRadius: BorderRadius.circular(100),
-              ),
-              child: const Text(
-                'GLOBAL INFRASTRUCTURE',
-                style: TextStyle(
-                  fontSize: 11,
-                  color: Colors.blue,
-                  fontWeight: FontWeight.w700,
-                  fontFamily: 'NeueHaasGrotesk',
-                  letterSpacing: 1.5,
-                ),
-              ),
-            ),
-            const SizedBox(height: 32),
-
-            // Title
-            const Text(
-              'One Platform,\nUnlimited Locations',
-              style: TextStyle(
-                fontSize: 56,
-                fontWeight: FontWeight.w700,
-                color: Colors.white,
-                letterSpacing: -1.5,
-                fontFamily: 'HouskaPro',
-                height: 1.1,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 24),
-
-            // Description
-            Text(
-              'Built for TCS Pace São Paulo, ready for the world.\nOur multi-tenant architecture automatically detects your location\nand connects you to your local Pace Port office.',
-              style: TextStyle(
-                fontSize: 20,
-                color: Colors.white.withOpacity(0.7),
-                height: 1.6,
-                fontFamily: 'NeueHaasGrotesk',
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 80),
-
-            // Features grid
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 1000),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: _buildMultiTenancyFeature(
-                      Icons.location_on,
-                      'Auto-Detection',
-                      'System automatically identifies your location and connects to the nearest Pace Port',
-                    ),
-                  ),
-                  const SizedBox(width: 40),
-                  Expanded(
-                    child: _buildMultiTenancyFeature(
-                      Icons.public,
-                      'Global Ready',
-                      'Infrastructure ready to support Pace Ports worldwide with isolated data per location',
-                    ),
-                  ),
-                  const SizedBox(width: 40),
-                  Expanded(
-                    child: _buildMultiTenancyFeature(
-                      Icons.swap_horiz,
-                      'Easy Switching',
-                      'Manual location selector available on login for users across multiple offices',
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 60),
-
-            // Current location
-            Container(
-              padding: const EdgeInsets.all(32),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.05),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.white.withOpacity(0.1), width: 1),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    width: 12,
-                    height: 12,
-                    decoration: BoxDecoration(
-                      color: Colors.green,
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.green.withOpacity(0.5),
-                          blurRadius: 8,
-                          spreadRadius: 2,
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  const Text(
-                    'Currently serving: ',
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: Colors.white70,
-                      fontFamily: 'NeueHaasGrotesk',
-                    ),
-                  ),
-                  const Text(
-                    'TCS Pace São Paulo',
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: Colors.white,
-                      fontWeight: FontWeight.w700,
-                      fontFamily: 'HouskaPro',
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildMultiTenancyFeature(IconData icon, String title, String description) {
-    return Column(
-      children: [
-        Container(
-          width: 64,
-          height: 64,
-          decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.05),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Colors.white.withOpacity(0.1), width: 1),
-          ),
-          child: Icon(
-            icon,
-            size: 32,
-            color: Colors.white,
-          ),
-        ),
-        const SizedBox(height: 24),
-        Text(
-          title,
-          style: const TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.w700,
-            color: Colors.white,
-            fontFamily: 'HouskaPro',
-          ),
-          textAlign: TextAlign.center,
-        ),
-        const SizedBox(height: 12),
-        Text(
-          description,
-          style: TextStyle(
-            fontSize: 15,
-            color: Colors.white.withOpacity(0.6),
-            height: 1.6,
-            fontFamily: 'NeueHaasGrotesk',
-          ),
-          textAlign: TextAlign.center,
-        ),
-      ],
-    );
-  }
 
   Widget _buildDownloadSection() {
     final isMobile = ResponsiveHelper.isMobile(context);
@@ -362,7 +176,7 @@ class _LandingScreenState extends State<LandingScreen> {
               'One app, every device. Seamless synchronization across all platforms.',
               style: TextStyle(
                 fontSize: isMobile ? 16 : 20,
-                color: Colors.white.withOpacity(0.7),
+                color: Colors.white.withValues(alpha: 0.7),
                 height: 1.6,
                 fontFamily: 'NeueHaasGrotesk',
               ),
@@ -465,12 +279,12 @@ class _LandingScreenState extends State<LandingScreen> {
     return Container(
       decoration: BoxDecoration(
         color: enabled
-            ? Colors.white.withOpacity(0.05)
-            : Colors.white.withOpacity(0.02),
+            ? Colors.white.withValues(alpha: 0.05)
+            : Colors.white.withValues(alpha: 0.02),
         border: Border.all(
           color: enabled
-              ? Colors.white.withOpacity(0.1)
-              : Colors.white.withOpacity(0.05),
+              ? Colors.white.withValues(alpha: 0.1)
+              : Colors.white.withValues(alpha: 0.05),
           width: 1,
         ),
         borderRadius: BorderRadius.circular(16),
@@ -490,7 +304,7 @@ class _LandingScreenState extends State<LandingScreen> {
                         size: 32,
                         color: enabled
                             ? Colors.white
-                            : Colors.white.withOpacity(0.3),
+                            : Colors.white.withValues(alpha: 0.3),
                       ),
                       const SizedBox(width: 16),
                       Expanded(
@@ -507,7 +321,7 @@ class _LandingScreenState extends State<LandingScreen> {
                                     fontWeight: FontWeight.w700,
                                     color: enabled
                                         ? Colors.white
-                                        : Colors.white.withOpacity(0.3),
+                                        : Colors.white.withValues(alpha: 0.3),
                                     fontFamily: 'HouskaPro',
                                   ),
                                 ),
@@ -516,10 +330,10 @@ class _LandingScreenState extends State<LandingScreen> {
                                   Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                                     decoration: BoxDecoration(
-                                      color: Colors.orange.withOpacity(0.1),
+                                      color: Colors.orange.withValues(alpha: 0.1),
                                       borderRadius: BorderRadius.circular(20),
                                       border: Border.all(
-                                        color: Colors.orange.withOpacity(0.3),
+                                        color: Colors.orange.withValues(alpha: 0.3),
                                         width: 1,
                                       ),
                                     ),
@@ -528,7 +342,7 @@ class _LandingScreenState extends State<LandingScreen> {
                                       style: TextStyle(
                                         fontSize: 8,
                                         fontWeight: FontWeight.w700,
-                                        color: Colors.orange.withOpacity(0.7),
+                                        color: Colors.orange.withValues(alpha: 0.7),
                                         letterSpacing: 0.5,
                                         fontFamily: 'NeueHaasGrotesk',
                                       ),
@@ -543,8 +357,8 @@ class _LandingScreenState extends State<LandingScreen> {
                               style: TextStyle(
                                 fontSize: 12,
                                 color: enabled
-                                    ? Colors.white.withOpacity(0.6)
-                                    : Colors.white.withOpacity(0.2),
+                                    ? Colors.white.withValues(alpha: 0.6)
+                                    : Colors.white.withValues(alpha: 0.2),
                                 height: 1.4,
                                 fontFamily: 'NeueHaasGrotesk',
                               ),
@@ -558,8 +372,8 @@ class _LandingScreenState extends State<LandingScreen> {
                                   Icons.file_download,
                                   size: 10,
                                   color: enabled
-                                      ? Colors.white.withOpacity(0.5)
-                                      : Colors.white.withOpacity(0.2),
+                                      ? Colors.white.withValues(alpha: 0.5)
+                                      : Colors.white.withValues(alpha: 0.2),
                                 ),
                                 const SizedBox(width: 4),
                                 Text(
@@ -567,8 +381,8 @@ class _LandingScreenState extends State<LandingScreen> {
                                   style: TextStyle(
                                     fontSize: 10,
                                     color: enabled
-                                        ? Colors.white.withOpacity(0.5)
-                                        : Colors.white.withOpacity(0.2),
+                                        ? Colors.white.withValues(alpha: 0.5)
+                                        : Colors.white.withValues(alpha: 0.2),
                                     fontFamily: 'NeueHaasGrotesk',
                                   ),
                                 ),
@@ -577,8 +391,8 @@ class _LandingScreenState extends State<LandingScreen> {
                                   Icons.info_outline,
                                   size: 10,
                                   color: enabled
-                                      ? Colors.white.withOpacity(0.5)
-                                      : Colors.white.withOpacity(0.2),
+                                      ? Colors.white.withValues(alpha: 0.5)
+                                      : Colors.white.withValues(alpha: 0.2),
                                 ),
                                 const SizedBox(width: 4),
                                 Text(
@@ -586,8 +400,8 @@ class _LandingScreenState extends State<LandingScreen> {
                                   style: TextStyle(
                                     fontSize: 10,
                                     color: enabled
-                                        ? Colors.white.withOpacity(0.5)
-                                        : Colors.white.withOpacity(0.2),
+                                        ? Colors.white.withValues(alpha: 0.5)
+                                        : Colors.white.withValues(alpha: 0.2),
                                     fontFamily: 'NeueHaasGrotesk',
                                   ),
                                 ),
@@ -606,7 +420,7 @@ class _LandingScreenState extends State<LandingScreen> {
                         size: 40,
                         color: enabled
                             ? Colors.white
-                            : Colors.white.withOpacity(0.3),
+                            : Colors.white.withValues(alpha: 0.3),
                       ),
                       const SizedBox(height: 12),
                       Text(
@@ -616,7 +430,7 @@ class _LandingScreenState extends State<LandingScreen> {
                           fontWeight: FontWeight.w700,
                           color: enabled
                               ? Colors.white
-                              : Colors.white.withOpacity(0.3),
+                              : Colors.white.withValues(alpha: 0.3),
                           fontFamily: 'HouskaPro',
                         ),
                         textAlign: TextAlign.center,
@@ -627,8 +441,8 @@ class _LandingScreenState extends State<LandingScreen> {
                         style: TextStyle(
                           fontSize: 13,
                           color: enabled
-                              ? Colors.white.withOpacity(0.6)
-                              : Colors.white.withOpacity(0.2),
+                              ? Colors.white.withValues(alpha: 0.6)
+                              : Colors.white.withValues(alpha: 0.2),
                           height: 1.4,
                           fontFamily: 'NeueHaasGrotesk',
                         ),
@@ -643,8 +457,8 @@ class _LandingScreenState extends State<LandingScreen> {
                             Icons.file_download,
                             size: 12,
                             color: enabled
-                                ? Colors.white.withOpacity(0.5)
-                                : Colors.white.withOpacity(0.2),
+                                ? Colors.white.withValues(alpha: 0.5)
+                                : Colors.white.withValues(alpha: 0.2),
                           ),
                           const SizedBox(width: 4),
                           Text(
@@ -652,8 +466,8 @@ class _LandingScreenState extends State<LandingScreen> {
                             style: TextStyle(
                               fontSize: 11,
                               color: enabled
-                                  ? Colors.white.withOpacity(0.5)
-                                  : Colors.white.withOpacity(0.2),
+                                  ? Colors.white.withValues(alpha: 0.5)
+                                  : Colors.white.withValues(alpha: 0.2),
                               fontFamily: 'NeueHaasGrotesk',
                             ),
                           ),
@@ -662,8 +476,8 @@ class _LandingScreenState extends State<LandingScreen> {
                             Icons.info_outline,
                             size: 12,
                             color: enabled
-                                ? Colors.white.withOpacity(0.5)
-                                : Colors.white.withOpacity(0.2),
+                                ? Colors.white.withValues(alpha: 0.5)
+                                : Colors.white.withValues(alpha: 0.2),
                           ),
                           const SizedBox(width: 4),
                           Text(
@@ -671,8 +485,8 @@ class _LandingScreenState extends State<LandingScreen> {
                             style: TextStyle(
                               fontSize: 11,
                               color: enabled
-                                  ? Colors.white.withOpacity(0.5)
-                                  : Colors.white.withOpacity(0.2),
+                                  ? Colors.white.withValues(alpha: 0.5)
+                                  : Colors.white.withValues(alpha: 0.2),
                               fontFamily: 'NeueHaasGrotesk',
                             ),
                           ),
@@ -683,10 +497,10 @@ class _LandingScreenState extends State<LandingScreen> {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                           decoration: BoxDecoration(
-                            color: Colors.orange.withOpacity(0.1),
+                            color: Colors.orange.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(20),
                             border: Border.all(
-                              color: Colors.orange.withOpacity(0.3),
+                              color: Colors.orange.withValues(alpha: 0.3),
                               width: 1,
                             ),
                           ),
@@ -695,7 +509,7 @@ class _LandingScreenState extends State<LandingScreen> {
                             style: TextStyle(
                               fontSize: 9,
                               fontWeight: FontWeight.w700,
-                              color: Colors.orange.withOpacity(0.7),
+                              color: Colors.orange.withValues(alpha: 0.7),
                               letterSpacing: 0.8,
                               fontFamily: 'NeueHaasGrotesk',
                             ),
@@ -721,7 +535,7 @@ class _LandingScreenState extends State<LandingScreen> {
       ),
       decoration: BoxDecoration(
         border: Border(
-          top: BorderSide(color: Colors.white.withOpacity(0.1), width: 1),
+          top: BorderSide(color: Colors.white.withValues(alpha: 0.1), width: 1),
         ),
       ),
       child: isMobile
@@ -743,10 +557,10 @@ class _LandingScreenState extends State<LandingScreen> {
                           vertical: 4,
                         ),
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.05),
+                          color: Colors.white.withValues(alpha: 0.05),
                           borderRadius: BorderRadius.circular(20),
                           border: Border.all(
-                            color: Colors.white.withOpacity(0.1),
+                            color: Colors.white.withValues(alpha: 0.1),
                             width: 1,
                           ),
                         ),
@@ -754,7 +568,7 @@ class _LandingScreenState extends State<LandingScreen> {
                           'v${_versionInfo!['version']} • ${_versionInfo!['environment']}',
                           style: TextStyle(
                             fontSize: 9,
-                            color: Colors.white.withOpacity(0.5),
+                            color: Colors.white.withValues(alpha: 0.5),
                             fontWeight: FontWeight.w500,
                             fontFamily: 'NeueHaasGrotesk',
                           ),
@@ -770,7 +584,7 @@ class _LandingScreenState extends State<LandingScreen> {
                   '© 2025 Tata Consultancy Services',
                   style: TextStyle(
                     fontSize: 11,
-                    color: Colors.white.withOpacity(0.4),
+                    color: Colors.white.withValues(alpha: 0.4),
                     fontFamily: 'NeueHaasGrotesk',
                   ),
                   textAlign: TextAlign.center,
@@ -780,7 +594,7 @@ class _LandingScreenState extends State<LandingScreen> {
                   'Internal Project',
                   style: TextStyle(
                     fontSize: 11,
-                    color: Colors.white.withOpacity(0.4),
+                    color: Colors.white.withValues(alpha: 0.4),
                     fontFamily: 'NeueHaasGrotesk',
                   ),
                   textAlign: TextAlign.center,
@@ -805,10 +619,10 @@ class _LandingScreenState extends State<LandingScreen> {
                           vertical: 6,
                         ),
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.05),
+                          color: Colors.white.withValues(alpha: 0.05),
                           borderRadius: BorderRadius.circular(20),
                           border: Border.all(
-                            color: Colors.white.withOpacity(0.1),
+                            color: Colors.white.withValues(alpha: 0.1),
                             width: 1,
                           ),
                         ),
@@ -816,7 +630,7 @@ class _LandingScreenState extends State<LandingScreen> {
                           'v${_versionInfo!['version']} • ${_versionInfo!['environment']}',
                           style: TextStyle(
                             fontSize: 11,
-                            color: Colors.white.withOpacity(0.5),
+                            color: Colors.white.withValues(alpha: 0.5),
                             fontWeight: FontWeight.w500,
                             fontFamily: 'NeueHaasGrotesk',
                           ),
@@ -831,7 +645,7 @@ class _LandingScreenState extends State<LandingScreen> {
                   '© 2025 Tata Consultancy Services - Internal Project',
                   style: TextStyle(
                     fontSize: 13,
-                    color: Colors.white.withOpacity(0.4),
+                    color: Colors.white.withValues(alpha: 0.4),
                     fontFamily: 'NeueHaasGrotesk',
                   ),
                 ),

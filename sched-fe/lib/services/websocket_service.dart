@@ -130,12 +130,38 @@ class WebSocketService {
     if (_channel != null) {
       _channel!.sink.add(json.encode(message));
     } else {
-      print('[WS] Cannot send message: not connected');
+      debugPrint('[WS] Cannot send message: not connected');
     }
   }
 
+  /// Mark ticket messages as read via WebSocket (real-time)
+  void markTicketAsRead(String ticketId) {
+    debugPrint('[WS] 📖 Sending mark_as_read for ticket: $ticketId');
+    sendMessage({
+      'type': 'mark_as_read',
+      'ticketId': ticketId,
+    });
+  }
+
+  /// Send typing indicator for ticket
+  void sendTypingIndicator(String ticketId, bool isTyping) {
+    sendMessage({
+      'type': 'typing',
+      'ticketId': ticketId,
+      'isTyping': isTyping,
+    });
+  }
+
+  void sendRecordingIndicator(String ticketId, bool isRecording) {
+    sendMessage({
+      'type': 'recording',
+      'ticketId': ticketId,
+      'isRecording': isRecording,
+    });
+  }
+
   void disconnect() {
-    print('[WS] Disconnecting...');
+    debugPrint('[WS] Disconnecting...');
     _reconnectTimer?.cancel();
     _channel?.sink.close();
     _channel = null;

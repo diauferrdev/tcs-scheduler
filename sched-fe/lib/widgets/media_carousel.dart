@@ -65,12 +65,12 @@ class _MediaCarouselState extends State<MediaCarousel> {
                     width: double.infinity,
                     decoration: BoxDecoration(
                       color: widget.isDark
-                          ? AppTheme.primaryWhite.withOpacity(0.05)
+                          ? AppTheme.primaryWhite.withValues(alpha: 0.05)
                           : Colors.grey.shade100,
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
                         color: widget.isDark
-                            ? AppTheme.primaryWhite.withOpacity(0.1)
+                            ? AppTheme.primaryWhite.withValues(alpha: 0.1)
                             : Colors.grey.shade300,
                       ),
                     ),
@@ -92,7 +92,7 @@ class _MediaCarouselState extends State<MediaCarousel> {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.7),
+                  color: Colors.black.withValues(alpha: 0.7),
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Row(
@@ -130,7 +130,7 @@ class _MediaCarouselState extends State<MediaCarousel> {
               child: Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.7),
+                  color: Colors.black.withValues(alpha: 0.7),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: const Icon(
@@ -158,7 +158,7 @@ class _MediaCarouselState extends State<MediaCarousel> {
                     child: Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: Colors.black.withOpacity(0.7),
+                        color: Colors.black.withValues(alpha: 0.7),
                         shape: BoxShape.circle,
                       ),
                       child: const Icon(
@@ -188,7 +188,7 @@ class _MediaCarouselState extends State<MediaCarousel> {
                     child: Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: Colors.black.withOpacity(0.7),
+                        color: Colors.black.withValues(alpha: 0.7),
                         shape: BoxShape.circle,
                       ),
                       child: const Icon(
@@ -220,7 +220,7 @@ class _MediaCarouselState extends State<MediaCarousel> {
                           ? AppTheme.primaryWhite
                           : Colors.black87)
                       : (widget.isDark
-                          ? AppTheme.primaryWhite.withOpacity(0.3)
+                          ? AppTheme.primaryWhite.withValues(alpha: 0.3)
                           : Colors.grey.shade400),
                   borderRadius: BorderRadius.circular(4),
                 ),
@@ -239,7 +239,7 @@ class _MediaCarouselState extends State<MediaCarousel> {
                 widget.mediaAttachments[_currentIndex].fileName,
                 style: TextStyle(
                   color: widget.isDark
-                      ? AppTheme.primaryWhite.withOpacity(0.8)
+                      ? AppTheme.primaryWhite.withValues(alpha: 0.8)
                       : Colors.black87,
                   fontSize: 13,
                   fontWeight: FontWeight.w500,
@@ -254,7 +254,7 @@ class _MediaCarouselState extends State<MediaCarousel> {
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
                   color: widget.isDark
-                      ? AppTheme.primaryWhite.withOpacity(0.1)
+                      ? AppTheme.primaryWhite.withValues(alpha: 0.1)
                       : Colors.grey.shade200,
                   borderRadius: BorderRadius.circular(4),
                 ),
@@ -262,7 +262,7 @@ class _MediaCarouselState extends State<MediaCarousel> {
                   '${_currentIndex + 1}/${widget.mediaAttachments.length}',
                   style: TextStyle(
                     color: widget.isDark
-                        ? AppTheme.primaryWhite.withOpacity(0.7)
+                        ? AppTheme.primaryWhite.withValues(alpha: 0.7)
                         : Colors.grey.shade700,
                     fontSize: 11,
                     fontWeight: FontWeight.w600,
@@ -308,7 +308,7 @@ class _MediaCarouselState extends State<MediaCarousel> {
             child: Icon(
               Icons.videocam,
               size: 64,
-              color: Colors.white.withOpacity(0.3),
+              color: Colors.white.withValues(alpha: 0.3),
             ),
           ),
         ),
@@ -317,7 +317,7 @@ class _MediaCarouselState extends State<MediaCarousel> {
           child: Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: Colors.black.withOpacity(0.7),
+              color: Colors.black.withValues(alpha: 0.7),
               shape: BoxShape.circle,
             ),
             child: const Icon(
@@ -335,7 +335,7 @@ class _MediaCarouselState extends State<MediaCarousel> {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
-              color: Colors.black.withOpacity(0.7),
+              color: Colors.black.withValues(alpha: 0.7),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Text(

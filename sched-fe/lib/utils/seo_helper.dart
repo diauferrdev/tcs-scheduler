@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart' show kIsWeb, kDebugMode;
+import 'package:flutter/foundation.dart' show kIsWeb;
 
 // Conditional import: only use dart:html on web platform
 import 'seo_helper_stub.dart'

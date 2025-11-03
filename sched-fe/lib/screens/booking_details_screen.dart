@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 import '../services/api_service.dart';
@@ -263,6 +262,7 @@ Enterprise Office Visit Management
 ''';
 
       // Show share options
+      // ignore: deprecated_member_use
       final result = await Share.share(
         shareText,
         subject: 'Booking: ${booking.companyName} - ${dateFormat.format(booking.date)}',
@@ -295,48 +295,6 @@ Enterprise Office Visit Management
       _formData?.dispose();
       _formData = null;
     });
-  }
-
-  Future<void> _saveDraft() async {
-    if (_booking == null || _formData == null) return;
-
-    try {
-      setState(() => _processing = true);
-
-      final updateData = _formData!.toJson(
-        DateFormat('yyyy-MM-dd').format(_booking!.date),
-        _booking!.startTime,
-      );
-
-      // Add status to keep it as draft
-      updateData['status'] = 'DRAFT';
-
-      await _apiService.updateBooking(_booking!.id, updateData);
-
-      if (mounted) {
-        setState(() {
-          _isEditing = false;
-          _processing = false;
-        });
-
-        ToastNotification.show(
-          context,
-          message: 'Draft saved successfully!',
-          type: ToastType.success,
-        );
-
-        _loadBookingDetails();
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() => _processing = false);
-        ToastNotification.show(
-          context,
-          message: 'Error saving draft: $e',
-          type: ToastType.error,
-        );
-      }
-    }
   }
 
   Future<void> _submitForApproval() async {
@@ -417,70 +375,6 @@ Enterprise Office Visit Management
         ToastNotification.show(
           context,
           message: 'Error approving booking: $e',
-          type: ToastType.error,
-        );
-      }
-    }
-  }
-
-  Future<void> _handleDeny() async {
-    if (_booking == null) return;
-
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) {
-        final isDark = Theme.of(context).brightness == Brightness.dark;
-        return AlertDialog(
-          backgroundColor: isDark ? const Color(0xFF18181B) : Colors.white,
-          title: Text(
-            'Deny Booking',
-            style: TextStyle(color: isDark ? Colors.white : Colors.black),
-          ),
-          content: Text(
-            'Are you sure you want to deny this booking request?',
-            style: TextStyle(color: isDark ? Colors.grey[300] : Colors.grey[700]),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancel'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.pop(context, true),
-              style: TextButton.styleFrom(foregroundColor: Colors.red),
-              child: const Text('Deny'),
-            ),
-          ],
-        );
-      },
-    );
-
-    if (confirmed != true) return;
-
-    try {
-      setState(() => _processing = true);
-      await _apiService.deleteBooking(_booking!.id);
-
-      if (mounted) {
-        ToastNotification.show(
-          context,
-          message: 'Booking denied',
-          type: ToastType.error,
-        );
-
-        // Just close the drawer/screen
-        if (widget.onClose != null) {
-          widget.onClose!();
-        } else {
-          Navigator.of(context).pop();
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() => _processing = false);
-        ToastNotification.show(
-          context,
-          message: 'Error denying booking: $e',
           type: ToastType.error,
         );
       }
@@ -845,35 +739,6 @@ Enterprise Office Visit Management
     }
   }
 
-  Future<void> _handleMarkUnderReview() async {
-    if (_booking == null) return;
-
-    try {
-      setState(() => _processing = true);
-      await _apiService.markBookingAsUnderReview(_booking!.id);
-
-      if (mounted) {
-        ToastNotification.show(
-          context,
-          message: 'Booking marked as under review',
-          type: ToastType.warning,
-        );
-
-        _loadBookingDetails();
-        setState(() => _processing = false);
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() => _processing = false);
-        ToastNotification.show(
-          context,
-          message: 'Error marking booking as under review: $e',
-          type: ToastType.error,
-        );
-      }
-    }
-  }
-
   /// USER: Handle reschedule when status is NEED_RESCHEDULE
   Future<void> _handleUserReschedule() async {
     if (_booking == null) return;
@@ -894,145 +759,6 @@ Enterprise Office Visit Management
         );
       },
     );
-  }
-
-  /// CRITICAL: Handle "Continue" for draft - navigate to calendar with draft
-  void _handleContinueDraft() {
-    if (_booking == null) return;
-
-    // Close the drawer
-    if (widget.onClose != null) {
-      widget.onClose!();
-    } else {
-      Navigator.of(context).pop();
-    }
-
-    // Navigate to calendar with the draft's date and draft ID
-    context.go('/app/calendar?draftId=${_booking!.id}');
-  }
-
-  Future<void> _handleDelete() async {
-    if (_booking == null) return;
-
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          backgroundColor: isDark ? const Color(0xFF18181B) : Colors.white,
-          title: Text(
-            false ? 'Delete Draft?' : 'Delete Booking',
-            style: TextStyle(color: isDark ? Colors.white : Colors.black),
-          ),
-          content: Text(
-            false
-                ? 'Are you sure you want to delete this draft booking for ${_booking!.companyName}? This action cannot be undone.'
-                : 'Are you sure you want to delete this booking?',
-            style: TextStyle(color: isDark ? Colors.grey[300] : Colors.grey[700]),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancel'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.pop(context, true),
-              style: TextButton.styleFrom(foregroundColor: Colors.red),
-              child: const Text('Delete'),
-            ),
-          ],
-        );
-      },
-    );
-
-    if (confirmed != true) return;
-
-    try {
-      setState(() => _processing = true);
-      await _apiService.deleteBooking(_booking!.id);
-
-      if (mounted) {
-        ToastNotification.show(
-          context,
-          message: false
-                ? 'Draft deleted successfully'
-                : 'Booking deleted',
-          type: ToastType.success,
-        );
-
-        if (widget.onClose != null) {
-          widget.onClose!();
-        } else {
-          Navigator.of(context).pop();
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() => _processing = false);
-        ToastNotification.show(
-          context,
-          message: 'Error deleting ${false ? "draft" : "booking"}: $e',
-          type: ToastType.error,
-        );
-      }
-    }
-  }
-
-  Color _getStatusColor() {
-    if (_booking == null) return Colors.grey;
-    switch (_booking!.status) {
-      case BookingStatus.CREATED:
-        return const Color(0xFF6B7280);
-      case BookingStatus.UNDER_REVIEW:
-      case BookingStatus.NEED_EDIT:
-      case BookingStatus.NEED_RESCHEDULE:
-        return const Color(0xFFF05E1B);
-      case BookingStatus.APPROVED:
-        return const Color(0xFF10B981);
-      case BookingStatus.NOT_APPROVED:
-      case BookingStatus.CANCELLED:
-        return const Color(0xFFEF4444);
-    }
-  }
-
-  String _getStatusText() {
-    if (_booking == null) return '';
-    switch (_booking!.status) {
-      case BookingStatus.CREATED:
-        return 'Created';
-      case BookingStatus.UNDER_REVIEW:
-        return 'Under Review';
-      case BookingStatus.NEED_EDIT:
-        return 'Change Request';
-      case BookingStatus.NEED_RESCHEDULE:
-        return 'Needs Reschedule';
-      case BookingStatus.APPROVED:
-        return 'Approved';
-      case BookingStatus.NOT_APPROVED:
-        return 'Not Approved';
-      case BookingStatus.CANCELLED:
-        return 'Cancelled';
-    }
-  }
-
-  IconData _getStatusIcon() {
-    if (_booking == null) return Icons.info_outline;
-    switch (_booking!.status) {
-      case BookingStatus.CREATED:
-        return Icons.edit_note;
-      case BookingStatus.UNDER_REVIEW:
-        return Icons.pending;
-      case BookingStatus.NEED_EDIT:
-        return Icons.edit_outlined;
-      case BookingStatus.NEED_RESCHEDULE:
-        return Icons.event_busy;
-      case BookingStatus.APPROVED:
-        return Icons.check_circle;
-      case BookingStatus.NOT_APPROVED:
-        return Icons.cancel_outlined;
-      case BookingStatus.CANCELLED:
-        return Icons.cancel;
-    }
   }
 
   @override
@@ -1201,7 +927,7 @@ Enterprise Office Visit Management
                   ),
                   tooltip: 'Share Booking',
                   style: IconButton.styleFrom(
-                    backgroundColor: (isDark ? Colors.white : Colors.black).withOpacity(0.05),
+                    backgroundColor: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.05),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -1213,10 +939,10 @@ Enterprise Office Visit Management
                     child: Container(
                       padding: const EdgeInsets.all(6),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFF05E1B).withOpacity(0.1),
+                        color: const Color(0xFFF05E1B).withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(6),
                         border: Border.all(
-                          color: const Color(0xFFF05E1B).withOpacity(0.3),
+                          color: const Color(0xFFF05E1B).withValues(alpha: 0.3),
                         ),
                       ),
                       child: const Icon(
@@ -1236,10 +962,10 @@ Enterprise Office Visit Management
                     child: Container(
                       padding: const EdgeInsets.all(6),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFF05E1B).withOpacity(0.1),
+                        color: const Color(0xFFF05E1B).withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(6),
                         border: Border.all(
-                          color: const Color(0xFFF05E1B).withOpacity(0.3),
+                          color: const Color(0xFFF05E1B).withValues(alpha: 0.3),
                         ),
                       ),
                       child: const Icon(
@@ -1255,45 +981,8 @@ Enterprise Office Visit Management
           ),
 
           // Action buttons for DRAFTS
-          if (false) ...[
-            // "Use" button
-            ElevatedButton(
-              onPressed: _processing ? null : _handleContinueDraft,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: isDark ? Colors.white : Colors.black,
-                foregroundColor: isDark ? Colors.black : Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                minimumSize: const Size(0, 36),
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(6),
-                ),
-              ),
-              child: const Text(
-                'Use',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-            const SizedBox(width: 8),
-
-            // Delete icon button
-            IconButton(
-              onPressed: _processing ? null : _handleDelete,
-              icon: const Icon(Icons.delete_outline, size: 18),
-              style: IconButton.styleFrom(
-                foregroundColor: const Color(0xFFEF4444),
-                backgroundColor: const Color(0xFFEF4444).withOpacity(0.1),
-                padding: const EdgeInsets.all(8),
-              ),
-              tooltip: 'Delete draft',
-            ),
-          ],
-
           // Action buttons for non-drafts (only when in editing mode)
-          if (true && _isEditing) ...[
+          if (_isEditing) ...[
             // Cancel button
             IconButton(
               onPressed: _processing ? null : _cancelEdit,
@@ -1405,7 +1094,7 @@ Enterprise Office Visit Management
                           'Cancelled on ${DateFormat('MMM d, yyyy - HH:mm').format(_booking!.cancelledAt!)}',
                           style: TextStyle(
                             fontSize: 12,
-                            color: const Color(0xFF991B1B).withOpacity(0.7),
+                            color: const Color(0xFF991B1B).withValues(alpha: 0.7),
                             fontStyle: FontStyle.italic,
                           ),
                         ),
@@ -1467,7 +1156,7 @@ Enterprise Office Visit Management
                           'Rejected on ${DateFormat('MMM d, yyyy - HH:mm').format(_booking!.rejectedAt!)}',
                           style: TextStyle(
                             fontSize: 12,
-                            color: const Color(0xFF991B1B).withOpacity(0.7),
+                            color: const Color(0xFF991B1B).withValues(alpha: 0.7),
                             fontStyle: FontStyle.italic,
                           ),
                         ),
@@ -1486,10 +1175,10 @@ Enterprise Office Visit Management
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: isDark ? const Color(0xFF78350F).withOpacity(0.15) : const Color(0xFFFEF3C7),
+              color: isDark ? const Color(0xFF78350F).withValues(alpha: 0.15) : const Color(0xFFFEF3C7),
               borderRadius: BorderRadius.circular(8),
               border: Border.all(
-                color: const Color(0xFFF05E1B).withOpacity(0.3),
+                color: const Color(0xFFF05E1B).withValues(alpha: 0.3),
                 width: 1,
               ),
             ),
@@ -1519,7 +1208,7 @@ Enterprise Office Visit Management
                         _booking!.editRequestMessage ?? 'Please review and make the necessary changes to this booking.',
                         style: TextStyle(
                           fontSize: 12,
-                          color: isDark ? const Color(0xFFF05E1B).withOpacity(0.9) : const Color(0xFFF05E1B),
+                          color: isDark ? const Color(0xFFF05E1B).withValues(alpha: 0.9) : const Color(0xFFF05E1B),
                           height: 1.3,
                         ),
                       ),
@@ -1537,10 +1226,10 @@ Enterprise Office Visit Management
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: isDark ? const Color(0xFF78350F).withOpacity(0.15) : const Color(0xFFFEF3C7),
+              color: isDark ? const Color(0xFF78350F).withValues(alpha: 0.15) : const Color(0xFFFEF3C7),
               borderRadius: BorderRadius.circular(8),
               border: Border.all(
-                color: const Color(0xFFF05E1B).withOpacity(0.3),
+                color: const Color(0xFFF05E1B).withValues(alpha: 0.3),
                 width: 1,
               ),
             ),
@@ -1570,7 +1259,7 @@ Enterprise Office Visit Management
                         _booking!.rescheduleRequestMessage ?? 'Please reschedule this booking to a different date/time.',
                         style: TextStyle(
                           fontSize: 12,
-                          color: isDark ? const Color(0xFFF05E1B).withOpacity(0.9) : const Color(0xFFF05E1B),
+                          color: isDark ? const Color(0xFFF05E1B).withValues(alpha: 0.9) : const Color(0xFFF05E1B),
                           height: 1.3,
                         ),
                       ),
@@ -1631,7 +1320,7 @@ Enterprise Office Visit Management
             _buildInfoRow(
               Icons.event,
               'Visit Type',
-              _formatEnum(_booking!.visitType.name ?? 'Not specified'),
+              _formatEnum(_booking!.visitType.name),
               isDark,
             ),
             if (_booking!.objectiveInterest != null && _booking!.objectiveInterest!.isNotEmpty)
@@ -2043,7 +1732,7 @@ Enterprise Office Visit Management
                             style: OutlinedButton.styleFrom(
                               foregroundColor: isDark ? Colors.white : Colors.black,
                               side: BorderSide(
-                                color: isDark ? Colors.white.withOpacity(0.2) : Colors.black.withOpacity(0.2),
+                                color: isDark ? Colors.white.withValues(alpha: 0.2) : Colors.black.withValues(alpha: 0.2),
                               ),
                               padding: const EdgeInsets.symmetric(vertical: 10),
                               shape: RoundedRectangleBorder(
@@ -2064,7 +1753,7 @@ Enterprise Office Visit Management
                             style: OutlinedButton.styleFrom(
                               foregroundColor: isDark ? Colors.white : Colors.black,
                               side: BorderSide(
-                                color: isDark ? Colors.white.withOpacity(0.2) : Colors.black.withOpacity(0.2),
+                                color: isDark ? Colors.white.withValues(alpha: 0.2) : Colors.black.withValues(alpha: 0.2),
                               ),
                               padding: const EdgeInsets.symmetric(vertical: 10),
                               shape: RoundedRectangleBorder(
@@ -2085,7 +1774,7 @@ Enterprise Office Visit Management
                             style: OutlinedButton.styleFrom(
                               foregroundColor: isDark ? Colors.white : Colors.black,
                               side: BorderSide(
-                                color: isDark ? Colors.white.withOpacity(0.2) : Colors.black.withOpacity(0.2),
+                                color: isDark ? Colors.white.withValues(alpha: 0.2) : Colors.black.withValues(alpha: 0.2),
                               ),
                               padding: const EdgeInsets.symmetric(vertical: 10),
                               shape: RoundedRectangleBorder(
@@ -2171,7 +1860,7 @@ Enterprise Office Visit Management
                             style: OutlinedButton.styleFrom(
                               foregroundColor: isDark ? Colors.white : Colors.black,
                               side: BorderSide(
-                                color: isDark ? Colors.white.withOpacity(0.2) : Colors.black.withOpacity(0.2),
+                                color: isDark ? Colors.white.withValues(alpha: 0.2) : Colors.black.withValues(alpha: 0.2),
                               ),
                               padding: const EdgeInsets.symmetric(vertical: 10),
                               shape: RoundedRectangleBorder(
@@ -2192,7 +1881,7 @@ Enterprise Office Visit Management
                             style: OutlinedButton.styleFrom(
                               foregroundColor: isDark ? Colors.white : Colors.black,
                               side: BorderSide(
-                                color: isDark ? Colors.white.withOpacity(0.2) : Colors.black.withOpacity(0.2),
+                                color: isDark ? Colors.white.withValues(alpha: 0.2) : Colors.black.withValues(alpha: 0.2),
                               ),
                               padding: const EdgeInsets.symmetric(vertical: 10),
                               shape: RoundedRectangleBorder(
@@ -2479,7 +2168,7 @@ Enterprise Office Visit Management
               child: Container(
                 padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
                 decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF0A66C2).withOpacity(0.1) : const Color(0xFF0A66C2).withOpacity(0.05),
+                  color: isDark ? const Color(0xFF0A66C2).withValues(alpha: 0.1) : const Color(0xFF0A66C2).withValues(alpha: 0.05),
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(
                     color: const Color(0xFF0A66C2),
@@ -2548,37 +2237,6 @@ Enterprise Office Visit Management
           ),
         ),
       ],
-    );
-  }
-
-  Widget _buildAttendeeDetail(String label, String value, bool isDark) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 4),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 100,
-            child: Text(
-              label,
-              style: TextStyle(
-                fontSize: 11,
-                color: isDark ? Colors.grey[500] : Colors.grey[600],
-              ),
-            ),
-          ),
-          Expanded(
-            child: Text(
-              value,
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w500,
-                color: isDark ? Colors.grey[300] : Colors.grey[700],
-              ),
-            ),
-          ),
-        ],
-      ),
     );
   }
 

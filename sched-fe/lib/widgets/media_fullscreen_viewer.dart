@@ -3,10 +3,11 @@ import 'package:video_player/video_player.dart';
 import 'package:chewie/chewie.dart';
 import 'package:photo_view/photo_view.dart';
 import 'package:http/http.dart' as http;
-import 'dart:io';
-import 'package:path_provider/path_provider.dart';
-import 'package:open_file/open_file.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'download_helper_stub.dart'
+    if (dart.library.html) 'download_helper_web.dart'
+    if (dart.library.io) 'download_helper_io.dart';
+import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
+import 'fullscreen_audio_player.dart';
 
 class MediaFullscreenViewer extends StatefulWidget {
   final String url;
@@ -33,6 +34,11 @@ class _MediaFullscreenViewerState extends State<MediaFullscreenViewer> {
   @override
   void initState() {
     super.initState();
+    debugPrint('[MediaViewer] URL: ${widget.url}');
+    debugPrint('[MediaViewer] FileName: ${widget.fileName}');
+    debugPrint('[MediaViewer] MimeType: ${widget.mimeType}');
+    debugPrint('[MediaViewer] isImage: $_isImage, isVideo: $_isVideo, isAudio: $_isAudio, isPdf: $_isPdf');
+
     if (_isVideo) {
       _initializeVideoPlayer();
     }
@@ -47,6 +53,11 @@ class _MediaFullscreenViewerState extends State<MediaFullscreenViewer> {
 
   bool get _isImage => ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'].contains(widget.mimeType.toLowerCase());
   bool get _isVideo => ['video/mp4', 'video/webm', 'video/ogg', 'video/quicktime'].contains(widget.mimeType.toLowerCase());
+  bool get _isAudio => ['audio/mpeg', 'audio/mp3', 'audio/mp4', 'audio/m4a', 'audio/wav', 'audio/ogg', 'audio/aac'].contains(widget.mimeType.toLowerCase()) ||
+                       ['mp3', 'm4a', 'wav', 'ogg', 'aac'].any((ext) => widget.fileName.toLowerCase().endsWith('.$ext'));
+  bool get _isPdf => widget.mimeType.toLowerCase() == 'application/pdf' ||
+                     widget.mimeType.toLowerCase().contains('pdf') ||
+                     widget.fileName.toLowerCase().endsWith('.pdf');
 
   Future<void> _initializeVideoPlayer() async {
     _videoController = VideoPlayerController.networkUrl(Uri.parse(widget.url));
@@ -70,32 +81,17 @@ class _MediaFullscreenViewerState extends State<MediaFullscreenViewer> {
       final response = await http.get(Uri.parse(widget.url));
 
       if (response.statusCode == 200) {
-        if (kIsWeb) {
-          // For web, trigger browser download
-          // This would need additional web-specific implementation
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Download started in browser')),
-            );
-          }
-        } else {
-          // For mobile/desktop, save to downloads
-          final directory = await getDownloadsDirectory() ?? await getApplicationDocumentsDirectory();
-          final filePath = '${directory.path}/${widget.fileName}';
-          final file = File(filePath);
-          await file.writeAsBytes(response.bodyBytes);
+        // Use platform-specific download
+        await downloadFile(widget.url, widget.fileName, response.bodyBytes);
 
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Downloaded to: $filePath'),
-                action: SnackBarAction(
-                  label: 'Open',
-                  onPressed: () => OpenFile.open(filePath),
-                ),
-              ),
-            );
-          }
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Downloaded: ${widget.fileName}'),
+              backgroundColor: const Color(0xFF2563EB),
+              duration: const Duration(seconds: 2),
+            ),
+          );
         }
       }
     } catch (e) {
@@ -175,6 +171,55 @@ class _MediaFullscreenViewerState extends State<MediaFullscreenViewer> {
     } else if (_isVideo) {
       return const Center(
         child: CircularProgressIndicator(color: Colors.white),
+      );
+    } else if (_isAudio) {
+      // Audio player with waveform - centered and properly styled
+      return Container(
+        color: Colors.black,
+        child: Center(
+          child: Container(
+            width: double.infinity,
+            constraints: const BoxConstraints(maxWidth: 500),
+            margin: const EdgeInsets.symmetric(horizontal: 32),
+            child: FullscreenAudioPlayer(
+              audioUrl: widget.url,
+              fileName: widget.fileName,
+            ),
+          ),
+        ),
+      );
+    } else if (_isPdf) {
+      // PDF viewer using Syncfusion (100% local, no external APIs)
+      return SfPdfViewer.network(
+        widget.url,
+        canShowScrollHead: true,
+        canShowScrollStatus: true,
+        enableDoubleTapZooming: true,
+        enableTextSelection: true,
+        headers: {
+          'Accept': 'application/pdf',
+        },
+        onDocumentLoadFailed: (PdfDocumentLoadFailedDetails details) {
+          debugPrint('[PDF] ❌ Load failed!');
+          debugPrint('[PDF] Error: ${details.error}');
+          debugPrint('[PDF] Description: ${details.description}');
+          debugPrint('[PDF] URL: ${widget.url}');
+
+          // Show error to user
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Failed to load PDF: ${details.description}'),
+                backgroundColor: Colors.red,
+                duration: const Duration(seconds: 5),
+              ),
+            );
+          }
+        },
+        onDocumentLoaded: (PdfDocumentLoadedDetails details) {
+          debugPrint('[PDF] ✅ Document loaded successfully!');
+          debugPrint('[PDF] Pages: ${details.document.pages.count}');
+        },
       );
     } else {
       // Document or other file type

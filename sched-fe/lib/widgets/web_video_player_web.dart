@@ -1,4 +1,4 @@
-// ignore: avoid_web_libraries_in_flutter
+// ignore_for_file: avoid_web_libraries_in_flutter, deprecated_member_use
 import 'dart:html' as html;
 import 'dart:ui_web' as ui;
 import 'package:flutter/material.dart';
@@ -46,7 +46,7 @@ class _WebVideoPlayerState extends State<_WebVideoPlayer> {
 
         // Add error handling
         videoElement.onError.listen((event) {
-          print('[WebVideoPlayer] Error loading video');
+          debugPrint('[WebVideoPlayer] Error loading video');
         });
 
         return videoElement;

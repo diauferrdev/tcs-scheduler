@@ -345,8 +345,8 @@ class BookingFlowService {
       showDialog(
         context: context,
         barrierDismissible: false,
-        builder: (dialogContext) => WillPopScope(
-          onWillPop: () async => false, // Prevent back button from closing
+        builder: (dialogContext) => PopScope(
+          canPop: false, // Prevent back button from closing
           child: const Center(
             child: CircularProgressIndicator(
               valueColor: AlwaysStoppedAnimation<Color>(Colors.white),

@@ -78,6 +78,19 @@ app.use('/uploads/*', serveStatic({
     // Cache static files for 1 year (immutable content with unique filenames)
     c.header('Cache-Control', 'public, max-age=31536000, immutable');
     c.header('Access-Control-Allow-Origin', '*');
+    c.header('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
+    c.header('Access-Control-Allow-Headers', 'Range, Content-Type');
+    c.header('Access-Control-Expose-Headers', 'Content-Length, Content-Range, Accept-Ranges');
+    c.header('Accept-Ranges', 'bytes');
+
+    // Set appropriate Content-Type for PDFs and other documents
+    if (path.endsWith('.pdf')) {
+      c.header('Content-Type', 'application/pdf');
+    } else if (path.endsWith('.doc') || path.endsWith('.docx')) {
+      c.header('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+    } else if (path.endsWith('.xls') || path.endsWith('.xlsx')) {
+      c.header('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    }
   }
 }));
 
@@ -162,7 +175,7 @@ const server = Bun.serve<WebSocketData>({
       }));
     },
 
-    message(ws, message) {
+    async message(ws, message) {
       try {
         const data = typeof message === 'string' ? JSON.parse(message) : message;
         console.log('[WS] Message from user', ws.data.userId, ':', data);
@@ -170,6 +183,225 @@ const server = Bun.serve<WebSocketData>({
         // Handle ping/pong
         if (data.type === 'ping') {
           ws.send(JSON.stringify({ type: 'pong' }));
+        }
+
+        // Handle mark as read
+        else if (data.type === 'mark_as_read') {
+          const { ticketId } = data;
+          const userId = ws.data.userId;
+
+          console.log(`[WS] mark_as_read: ticket ${ticketId} by user ${userId}`);
+
+          // Import necessary services
+          const { prisma } = await import('./lib/prisma');
+          const ticketService = await import('./services/ticket.service');
+
+          try {
+            // Verify access to ticket
+            const ticket = await prisma.ticket.findUnique({
+              where: { id: ticketId },
+            });
+
+            if (!ticket) {
+              ws.send(JSON.stringify({ type: 'error', message: 'Ticket not found' }));
+              return;
+            }
+
+            // Get user to check role
+            const user = await prisma.user.findUnique({
+              where: { id: userId },
+            });
+
+            if (!user) {
+              ws.send(JSON.stringify({ type: 'error', message: 'User not found' }));
+              return;
+            }
+
+            // Check access permissions
+            if (user.role !== 'ADMIN' && ticket.createdById !== userId) {
+              ws.send(JSON.stringify({ type: 'error', message: 'Access denied' }));
+              return;
+            }
+
+            // Update all unread messages from OTHER users in this ticket
+            const result = await prisma.ticketMessage.updateMany({
+              where: {
+                ticketId,
+                authorId: { not: userId },
+                readAt: null,
+              },
+              data: {
+                readAt: new Date(),
+              },
+            });
+
+            console.log(`[WS] Marked ${result.count} messages as read for ticket ${ticketId} by user ${userId}`);
+
+            // Send real-time WebSocket update to all parties
+            if (result.count > 0) {
+              const userIdsToNotify: string[] = [];
+
+              if (user.role === 'ADMIN') {
+                // Notify ticket creator
+                userIdsToNotify.push(ticket.createdById);
+              } else {
+                // Notify assigned admin or all admins
+                if (ticket.assignedToId) {
+                  userIdsToNotify.push(ticket.assignedToId);
+                } else {
+                  const admins = await prisma.user.findMany({
+                    where: { role: 'ADMIN', isActive: true },
+                    select: { id: true },
+                  });
+                  userIdsToNotify.push(...admins.map(a => a.id));
+                }
+              }
+
+              // Also notify the reader so their UI updates
+              userIdsToNotify.push(userId);
+
+              // Get updated ticket
+              const updatedTicket = await ticketService.getTicketById(ticketId, userId, user.role);
+
+              websocketService.broadcastTicketRead(userIdsToNotify, updatedTicket);
+              console.log(`[WS] Broadcast ticket_read to ${userIdsToNotify.length} user(s)`);
+            }
+
+            // Send success response
+            ws.send(JSON.stringify({
+              type: 'mark_as_read_success',
+              data: { ticketId, count: result.count }
+            }));
+
+          } catch (error: any) {
+            console.error('[WS] Error marking as read:', error);
+            ws.send(JSON.stringify({
+              type: 'error',
+              message: error.message || 'Failed to mark as read'
+            }));
+          }
+        }
+
+        // Handle typing indicator
+        else if (data.type === 'typing') {
+          const { ticketId, isTyping } = data;
+          const userId = ws.data.userId;
+
+          console.log(`[WS] typing: ticket ${ticketId}, user ${userId}, isTyping: ${isTyping}`);
+
+          // Import necessary services
+          const { prisma } = await import('./lib/prisma');
+
+          try {
+            // Get ticket to find who to notify
+            const ticket = await prisma.ticket.findUnique({
+              where: { id: ticketId },
+            });
+
+            if (!ticket) return;
+
+            // Get user
+            const user = await prisma.user.findUnique({
+              where: { id: userId },
+              select: { id: true, name: true, role: true },
+            });
+
+            if (!user) return;
+
+            // Determine who to notify
+            const userIdsToNotify: string[] = [];
+
+            if (user.role === 'ADMIN') {
+              // Notify ticket creator
+              userIdsToNotify.push(ticket.createdById);
+            } else {
+              // Notify assigned admin or all admins
+              if (ticket.assignedToId) {
+                userIdsToNotify.push(ticket.assignedToId);
+              } else {
+                const admins = await prisma.user.findMany({
+                  where: { role: 'ADMIN', isActive: true },
+                  select: { id: true },
+                });
+                userIdsToNotify.push(...admins.map(a => a.id));
+              }
+            }
+
+            // Broadcast typing status
+            websocketService.sendToMultipleUsers(userIdsToNotify, {
+              type: 'typing',
+              data: {
+                ticketId,
+                userId: user.id,
+                userName: user.name,
+                isTyping,
+              },
+            });
+
+          } catch (error: any) {
+            console.error('[WS] Error handling typing:', error);
+          }
+        }
+
+        // Handle recording indicator
+        else if (data.type === 'recording') {
+          const { ticketId, isRecording } = data;
+          const userId = ws.data.userId;
+
+          console.log(`[WS] recording: ticket ${ticketId}, user ${userId}, isRecording: ${isRecording}`);
+
+          // Import necessary services
+          const { prisma } = await import('./lib/prisma');
+
+          try {
+            // Get ticket to find who to notify
+            const ticket = await prisma.ticket.findUnique({
+              where: { id: ticketId },
+            });
+
+            if (!ticket) return;
+
+            // Get user
+            const user = await prisma.user.findUnique({
+              where: { id: userId },
+              select: { id: true, name: true, role: true },
+            });
+
+            if (!user) return;
+
+            // Determine who to notify
+            const userIdsToNotify: string[] = [];
+
+            if (user.role === 'ADMIN') {
+              // Notify ticket creator
+              userIdsToNotify.push(ticket.createdById);
+            } else {
+              // Notify assigned admin or all admins
+              if (ticket.assignedToId) {
+                userIdsToNotify.push(ticket.assignedToId);
+              } else {
+                const admins = await prisma.user.findMany({
+                  where: { role: 'ADMIN', isActive: true },
+                  select: { id: true },
+                });
+                userIdsToNotify.push(...admins.map(a => a.id));
+              }
+            }
+
+            // Broadcast recording status
+            websocketService.sendToMultipleUsers(userIdsToNotify, {
+              type: 'recording',
+              data: {
+                ticketId,
+                userId: user.id,
+                userName: user.name,
+                isRecording,
+              },
+            });
+
+          } catch (error: any) {
+            console.error('[WS] Error handling recording:', error);
+          }
         }
       } catch (error) {
         console.error('[WS] Error handling message:', error);

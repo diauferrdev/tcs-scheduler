@@ -37,7 +37,7 @@ print_header "🌐 Web Production Build"
 
 # Configuration
 API_URL=${API_URL:-"https://api.ppspsched.lat"}
-DEPLOY_DIR="/root/tcs/tcs-sched/tcs_pace_scheduler/build/web"
+DEPLOY_DIR="/root/tcs/tcs-sched/sched-fe/build/web"
 NGINX_CONFIG="/etc/nginx/sites-available/ppspsched"
 
 print_info "Configuration:"

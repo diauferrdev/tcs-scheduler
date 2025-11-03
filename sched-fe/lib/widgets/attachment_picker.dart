@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as path;
 
 // Global storage for web file bytes (path -> bytes)
@@ -19,7 +18,12 @@ Future<Uint8List> readFileBytes(File file) async {
     // Check if we have bytes stored for this file
     final bytes = _webFileBytes[file.path];
     if (bytes != null) {
+      debugPrint('[readFileBytes] ✅ Found ${bytes.length} bytes for ${file.path}');
       return bytes;
+    } else {
+      debugPrint('[readFileBytes] ❌ No bytes found for ${file.path}');
+      debugPrint('[readFileBytes] Available paths: ${_webFileBytes.keys.toList()}');
+      throw Exception('File bytes not found in web storage for ${file.path}');
     }
   }
   // Fall back to normal file reading

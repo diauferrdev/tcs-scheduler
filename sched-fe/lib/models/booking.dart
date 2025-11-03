@@ -1,3 +1,5 @@
+// ignore_for_file: constant_identifier_names
+
 enum VisitDuration {
   ONE_HOUR,
   TWO_HOURS,

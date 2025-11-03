@@ -1,3 +1,4 @@
+// ignore_for_file: avoid_web_libraries_in_flutter, deprecated_member_use
 import 'package:flutter/material.dart';
 import 'dart:html' as html;
 import 'dart:js' as js;
@@ -257,7 +258,7 @@ class _GlobeSectionState extends State<GlobeSection> {
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                                 decoration: BoxDecoration(
-                                  color: Colors.white.withOpacity(0.1),
+                                  color: Colors.white.withValues(alpha: 0.1),
                                   border: Border.all(color: Colors.white24, width: 1),
                                   borderRadius: BorderRadius.circular(100),
                                 ),
@@ -293,7 +294,7 @@ class _GlobeSectionState extends State<GlobeSection> {
                                 style: TextStyle(
                                   fontSize: 18,
                                   height: 1.6,
-                                  color: Colors.white.withOpacity(0.7),
+                                  color: Colors.white.withValues(alpha: 0.7),
                                   fontWeight: FontWeight.w400,
                                   fontFamily: 'NeueHaasGrotesk',
                                 ),
@@ -353,7 +354,7 @@ class _GlobeSectionState extends State<GlobeSection> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.1),
+                        color: Colors.white.withValues(alpha: 0.1),
                         border: Border.all(color: Colors.white24, width: 1),
                         borderRadius: BorderRadius.circular(100),
                       ),
@@ -389,7 +390,7 @@ class _GlobeSectionState extends State<GlobeSection> {
                       style: TextStyle(
                         fontSize: 16,
                         height: 1.6,
-                        color: Colors.white.withOpacity(0.7),
+                        color: Colors.white.withValues(alpha: 0.7),
                         fontWeight: FontWeight.w400,
                         fontFamily: 'NeueHaasGrotesk',
                       ),
@@ -423,9 +424,9 @@ class _GlobeSectionState extends State<GlobeSection> {
         vertical: mobile ? 5 : 6,
       ),
       decoration: BoxDecoration(
-        color: isCurrent ? color.withOpacity(0.15) : Colors.white.withOpacity(0.05),
+        color: isCurrent ? color.withValues(alpha: 0.15) : Colors.white.withValues(alpha: 0.05),
         border: Border.all(
-          color: isCurrent ? color.withOpacity(0.5) : Colors.white.withOpacity(0.1),
+          color: isCurrent ? color.withValues(alpha: 0.5) : Colors.white.withValues(alpha: 0.1),
           width: 1,
         ),
         borderRadius: BorderRadius.circular(100),
@@ -441,7 +442,7 @@ class _GlobeSectionState extends State<GlobeSection> {
               shape: BoxShape.circle,
               boxShadow: isCurrent ? [
                 BoxShadow(
-                  color: color.withOpacity(0.5),
+                  color: color.withValues(alpha: 0.5),
                   blurRadius: 4,
                   spreadRadius: 1,
                 ),
@@ -454,7 +455,7 @@ class _GlobeSectionState extends State<GlobeSection> {
             style: TextStyle(
               fontSize: mobile ? 11 : 13,
               fontWeight: isCurrent ? FontWeight.w600 : FontWeight.w400,
-              color: isCurrent ? Colors.white : Colors.white.withOpacity(0.7),
+              color: isCurrent ? Colors.white : Colors.white.withValues(alpha: 0.7),
               fontFamily: 'NeueHaasGrotesk',
             ),
           ),

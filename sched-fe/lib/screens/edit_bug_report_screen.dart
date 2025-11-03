@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
@@ -75,7 +74,7 @@ class _EditBugReportScreenState extends State<EditBugReportScreen> {
               height: 4,
               margin: const EdgeInsets.only(bottom: 20),
               decoration: BoxDecoration(
-                color: (isDark ? Colors.white : Colors.black).withOpacity(0.3),
+                color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.3),
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -84,7 +83,7 @@ class _EditBugReportScreenState extends State<EditBugReportScreen> {
               title: Text('Choose from Gallery', style: TextStyle(color: textColor)),
               subtitle: Text(
                 'Images and videos',
-                style: TextStyle(color: textColor.withOpacity(0.6)),
+                style: TextStyle(color: textColor.withValues(alpha: 0.6)),
               ),
               onTap: () {
                 Navigator.pop(context);
@@ -96,7 +95,7 @@ class _EditBugReportScreenState extends State<EditBugReportScreen> {
               title: Text('Choose File', style: TextStyle(color: textColor)),
               subtitle: Text(
                 'Images, videos, documents',
-                style: TextStyle(color: textColor.withOpacity(0.6)),
+                style: TextStyle(color: textColor.withValues(alpha: 0.6)),
               ),
               onTap: () {
                 Navigator.pop(context);
@@ -133,6 +132,7 @@ class _EditBugReportScreenState extends State<EditBugReportScreen> {
         });
       }
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error picking image: $e')),
       );
@@ -157,6 +157,7 @@ class _EditBugReportScreenState extends State<EditBugReportScreen> {
         final maxSize = isVideo ? 300 * 1024 * 1024 : 30 * 1024 * 1024;
 
         if (bytes.length > maxSize) {
+          if (!mounted) return;
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('File must be less than ${isVideo ? "300MB" : "30MB"}')),
           );
@@ -173,6 +174,7 @@ class _EditBugReportScreenState extends State<EditBugReportScreen> {
         });
       }
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error picking file: $e')),
       );
@@ -259,6 +261,7 @@ class _EditBugReportScreenState extends State<EditBugReportScreen> {
         _errorMessage = e.toString();
         _isLoading = false;
       });
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error: $e')),
       );
@@ -271,7 +274,6 @@ class _EditBugReportScreenState extends State<EditBugReportScreen> {
     final isDark = themeProvider.isDark;
     final backgroundColor = isDark ? Colors.black : const Color(0xFFF9FAFB);
     final textColor = isDark ? Colors.white : Colors.black;
-    final cardColor = isDark ? const Color(0xFF18181B) : Colors.white;
     final borderColor = isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB);
     final inputFillColor = isDark ? const Color(0xFF18181B) : const Color(0xFFF9FAFB);
 
@@ -302,7 +304,7 @@ class _EditBugReportScreenState extends State<EditBugReportScreen> {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.blue.withOpacity(0.1),
+                color: Colors.blue.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(color: Colors.blue),
               ),
@@ -314,7 +316,7 @@ class _EditBugReportScreenState extends State<EditBugReportScreen> {
                     child: Text(
                       'You can edit title, description, and manage attachments',
                       style: TextStyle(
-                        color: textColor.withOpacity(0.8),
+                        color: textColor.withValues(alpha: 0.8),
                         fontSize: 12,
                       ),
                     ),
@@ -331,9 +333,9 @@ class _EditBugReportScreenState extends State<EditBugReportScreen> {
               style: TextStyle(color: textColor),
               decoration: InputDecoration(
                 labelText: 'Title *',
-                labelStyle: TextStyle(color: textColor.withOpacity(0.7)),
+                labelStyle: TextStyle(color: textColor.withValues(alpha: 0.7)),
                 hintText: 'Brief description of the bug',
-                hintStyle: TextStyle(color: textColor.withOpacity(0.5)),
+                hintStyle: TextStyle(color: textColor.withValues(alpha: 0.5)),
                 filled: true,
                 fillColor: inputFillColor,
                 border: OutlineInputBorder(
@@ -372,9 +374,9 @@ class _EditBugReportScreenState extends State<EditBugReportScreen> {
               maxLines: 12,
               decoration: InputDecoration(
                 labelText: 'Description *',
-                labelStyle: TextStyle(color: textColor.withOpacity(0.7)),
+                labelStyle: TextStyle(color: textColor.withValues(alpha: 0.7)),
                 hintText: 'Detailed description of the bug...\n\nSteps to reproduce:\n1. ...\n2. ...',
-                hintStyle: TextStyle(color: textColor.withOpacity(0.5)),
+                hintStyle: TextStyle(color: textColor.withValues(alpha: 0.5)),
                 filled: true,
                 fillColor: inputFillColor,
                 border: OutlineInputBorder(
@@ -423,7 +425,7 @@ class _EditBugReportScreenState extends State<EditBugReportScreen> {
                       Text(
                         'Attachments',
                         style: TextStyle(
-                          color: textColor.withOpacity(0.7),
+                          color: textColor.withValues(alpha: 0.7),
                           fontSize: 14,
                           fontWeight: FontWeight.bold,
                         ),
@@ -432,7 +434,7 @@ class _EditBugReportScreenState extends State<EditBugReportScreen> {
                       Text(
                         '$_totalAttachments/6 files',
                         style: TextStyle(
-                          color: textColor.withOpacity(0.6),
+                          color: textColor.withValues(alpha: 0.6),
                           fontSize: 13,
                           fontWeight: FontWeight.w500,
                         ),
@@ -443,7 +445,7 @@ class _EditBugReportScreenState extends State<EditBugReportScreen> {
                   Text(
                     'Add or remove attachments\nMax 6 files • Images up to 30MB • Videos up to 300MB',
                     style: TextStyle(
-                      color: textColor.withOpacity(0.5),
+                      color: textColor.withValues(alpha: 0.5),
                       fontSize: 12,
                       height: 1.4,
                     ),
@@ -468,7 +470,7 @@ class _EditBugReportScreenState extends State<EditBugReportScreen> {
                     Text(
                       'Current Attachments',
                       style: TextStyle(
-                        color: textColor.withOpacity(0.6),
+                        color: textColor.withValues(alpha: 0.6),
                         fontSize: 12,
                         fontWeight: FontWeight.bold,
                       ),
@@ -485,7 +487,7 @@ class _EditBugReportScreenState extends State<EditBugReportScreen> {
                     Text(
                       'New Attachments',
                       style: TextStyle(
-                        color: Colors.green.withOpacity(0.8),
+                        color: Colors.green.withValues(alpha: 0.8),
                         fontSize: 12,
                         fontWeight: FontWeight.bold,
                       ),
@@ -535,7 +537,7 @@ class _EditBugReportScreenState extends State<EditBugReportScreen> {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Colors.red.withOpacity(0.1),
+                  color: Colors.red.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(color: Colors.red),
                 ),
@@ -585,7 +587,7 @@ class _EditBugReportScreenState extends State<EditBugReportScreen> {
                 errorBuilder: (context, error, stack) => Container(
                   width: 56,
                   height: 56,
-                  color: textColor.withOpacity(0.1),
+                  color: textColor.withValues(alpha: 0.1),
                   child: Icon(Icons.broken_image, color: textColor, size: 24),
                 ),
               ),
@@ -595,7 +597,7 @@ class _EditBugReportScreenState extends State<EditBugReportScreen> {
               width: 56,
               height: 56,
               decoration: BoxDecoration(
-                color: (isVideo ? Colors.red : Colors.orange).withOpacity(0.2),
+                color: (isVideo ? Colors.red : Colors.orange).withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(6),
               ),
               child: Icon(
@@ -624,7 +626,7 @@ class _EditBugReportScreenState extends State<EditBugReportScreen> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                       decoration: BoxDecoration(
-                        color: (isImage ? Colors.green : isVideo ? Colors.red : Colors.orange).withOpacity(0.2),
+                        color: (isImage ? Colors.green : isVideo ? Colors.red : Colors.orange).withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(3),
                       ),
                       child: Text(
@@ -640,7 +642,7 @@ class _EditBugReportScreenState extends State<EditBugReportScreen> {
                     Text(
                       _formatBytes(attachment.fileSize),
                       style: TextStyle(
-                        color: textColor.withOpacity(0.6),
+                        color: textColor.withValues(alpha: 0.6),
                         fontSize: 11,
                       ),
                     ),
@@ -671,10 +673,10 @@ class _EditBugReportScreenState extends State<EditBugReportScreen> {
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.green.withOpacity(0.1),
+        color: Colors.green.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
-          color: Colors.green.withOpacity(0.3),
+          color: Colors.green.withValues(alpha: 0.3),
         ),
       ),
       child: Row(
@@ -691,7 +693,7 @@ class _EditBugReportScreenState extends State<EditBugReportScreen> {
                 errorBuilder: (context, error, stack) => Container(
                   width: 56,
                   height: 56,
-                  color: Colors.green.withOpacity(0.2),
+                  color: Colors.green.withValues(alpha: 0.2),
                   child: const Icon(Icons.broken_image, color: Colors.green, size: 24),
                 ),
               ),
@@ -701,7 +703,7 @@ class _EditBugReportScreenState extends State<EditBugReportScreen> {
               width: 56,
               height: 56,
               decoration: BoxDecoration(
-                color: (isVideo ? Colors.red : Colors.orange).withOpacity(0.2),
+                color: (isVideo ? Colors.red : Colors.orange).withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(6),
               ),
               child: Icon(
@@ -730,7 +732,7 @@ class _EditBugReportScreenState extends State<EditBugReportScreen> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                       decoration: BoxDecoration(
-                        color: Colors.green.withOpacity(0.2),
+                        color: Colors.green.withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(3),
                       ),
                       child: const Text(
@@ -746,7 +748,7 @@ class _EditBugReportScreenState extends State<EditBugReportScreen> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                       decoration: BoxDecoration(
-                        color: (isImage ? Colors.blue : isVideo ? Colors.red : Colors.orange).withOpacity(0.2),
+                        color: (isImage ? Colors.blue : isVideo ? Colors.red : Colors.orange).withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(3),
                       ),
                       child: Text(
@@ -762,7 +764,7 @@ class _EditBugReportScreenState extends State<EditBugReportScreen> {
                     Text(
                       _formatBytes(attachment.bytes.length),
                       style: TextStyle(
-                        color: textColor.withOpacity(0.6),
+                        color: textColor.withValues(alpha: 0.6),
                         fontSize: 11,
                       ),
                     ),

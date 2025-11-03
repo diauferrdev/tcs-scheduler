@@ -54,7 +54,7 @@ class MediaViewerDialog extends StatelessWidget {
                 color: Colors.black87,
                 border: Border(
                   bottom: BorderSide(
-                    color: AppTheme.primaryWhite.withOpacity(0.1),
+                    color: AppTheme.primaryWhite.withValues(alpha: 0.1),
                   ),
                 ),
               ),
@@ -120,7 +120,7 @@ class MediaViewerDialog extends StatelessWidget {
             Text(
               'Failed to load image',
               style: TextStyle(
-                color: AppTheme.primaryWhite.withOpacity(0.7),
+                color: AppTheme.primaryWhite.withValues(alpha: 0.7),
                 fontSize: 16,
               ),
             ),
@@ -150,7 +150,7 @@ class MediaViewerDialog extends StatelessWidget {
           Text(
             'Preview not available',
             style: TextStyle(
-              color: AppTheme.primaryWhite.withOpacity(0.7),
+              color: AppTheme.primaryWhite.withValues(alpha: 0.7),
               fontSize: 16,
             ),
           ),
@@ -158,7 +158,7 @@ class MediaViewerDialog extends StatelessWidget {
           Text(
             fileType,
             style: TextStyle(
-              color: AppTheme.primaryWhite.withOpacity(0.5),
+              color: AppTheme.primaryWhite.withValues(alpha: 0.5),
               fontSize: 12,
             ),
           ),
@@ -257,7 +257,7 @@ class _VideoPlayerWidgetState extends State<_VideoPlayerWidget> {
                 child: Text(
                   _errorMessage!,
                   style: TextStyle(
-                    color: AppTheme.primaryWhite.withOpacity(0.5),
+                    color: AppTheme.primaryWhite.withValues(alpha: 0.5),
                     fontSize: 12,
                   ),
                   textAlign: TextAlign.center,

@@ -714,6 +714,14 @@ class ApiService {
     if (extension == 'webm') return MediaType('video', 'webm');
     if (extension == 'mov') return MediaType('video', 'quicktime');
 
+    // Audio
+    if (extension == 'm4a') return MediaType('audio', 'mp4');
+    if (extension == 'mp3') return MediaType('audio', 'mpeg');
+    if (extension == 'wav') return MediaType('audio', 'wav');
+    if (extension == 'ogg') return MediaType('audio', 'ogg');
+    if (extension == 'aac') return MediaType('audio', 'aac');
+    if (extension == 'webm') return MediaType('audio', 'webm');
+
     // Documents
     if (extension == 'pdf') return MediaType('application', 'pdf');
     if (extension == 'doc') return MediaType('application', 'msword');

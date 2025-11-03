@@ -281,7 +281,7 @@ class _AgendaScreenState extends State<AgendaScreen> {
                 style: OutlinedButton.styleFrom(
                   foregroundColor: isDark ? Colors.white : Colors.black,
                   side: BorderSide(
-                    color: isDark ? Colors.white.withOpacity(0.3) : Colors.black.withOpacity(0.3),
+                    color: isDark ? Colors.white.withValues(alpha: 0.3) : Colors.black.withValues(alpha: 0.3),
                   ),
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 ),
@@ -514,7 +514,7 @@ class _AgendaScreenState extends State<AgendaScreen> {
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                         decoration: BoxDecoration(
                           color: isToday
-                              ? (isDark ? Colors.blue[700]!.withOpacity(0.3) : Colors.blue[100])
+                              ? (isDark ? Colors.blue[700]!.withValues(alpha: 0.3) : Colors.blue[100])
                               : (isDark ? const Color(0xFF27272A) : const Color(0xFFF1F5F9)),
                           borderRadius: BorderRadius.circular(12),
                         ),
@@ -563,7 +563,7 @@ class _AgendaScreenState extends State<AgendaScreen> {
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(isDark ? 0.3 : 0.05),
+              color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.05),
               blurRadius: 10,
               offset: const Offset(0, 2),
             ),
@@ -620,7 +620,7 @@ class _AgendaScreenState extends State<AgendaScreen> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
-                    color: _getVisitTypeColor(booking.visitType).withOpacity(0.15),
+                    color: _getVisitTypeColor(booking.visitType).withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Text(

@@ -24,7 +24,7 @@ export const TicketUpdateSchema = z.object({
 });
 
 export const TicketMessageCreateSchema = z.object({
-  content: z.string().min(1),
+  content: z.string(),
   isInternal: z.boolean().optional(),
   attachments: z.array(z.object({
     fileName: z.string(),
@@ -32,7 +32,10 @@ export const TicketMessageCreateSchema = z.object({
     fileSize: z.number(),
     mimeType: z.string(),
   })).optional(),
-});
+}).refine(
+  (data) => data.content.trim().length > 0 || (data.attachments && data.attachments.length > 0),
+  { message: 'Message must have either content or attachments' }
+);
 
 export const TicketFilterSchema = z.object({
   status: z.enum(['OPEN', 'IN_PROGRESS', 'WAITING_USER', 'WAITING_ADMIN', 'RESOLVED', 'CLOSED']).optional(),

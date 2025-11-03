@@ -61,6 +61,7 @@ class AccessBadge extends StatelessWidget {
   void _handleShare(BuildContext context) async {
     final badgeUrl = 'https://ppspsched.lat/attendee/${attendeeId ?? bookingId}';
     try {
+      // ignore: deprecated_member_use
       await Share.share(
         'TCS Pace Access Ticket\n$attendeeName - $companyName\n$badgeUrl',
         subject: 'TCS Pace Access Ticket',
@@ -484,45 +485,6 @@ class AccessBadge extends StatelessWidget {
     );
   }
 
-  pw.Widget _buildPDFInstruction(String number, String text) {
-    return pw.Row(
-      crossAxisAlignment: pw.CrossAxisAlignment.start,
-      children: [
-        pw.Container(
-          width: 24,
-          height: 24,
-          decoration: const pw.BoxDecoration(
-            color: PdfColors.black,
-            shape: pw.BoxShape.circle,
-          ),
-          child: pw.Center(
-            child: pw.Text(
-              number,
-              style: pw.TextStyle(
-                fontSize: 12,
-                fontWeight: pw.FontWeight.bold,
-                color: PdfColors.white,
-              ),
-            ),
-          ),
-        ),
-        pw.SizedBox(width: 12),
-        pw.Expanded(
-          child: pw.Padding(
-            padding: const pw.EdgeInsets.only(top: 3),
-            child: pw.Text(
-              text,
-              style: pw.TextStyle(
-                fontSize: 13,
-                color: PdfColors.grey700,
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
   pw.Widget _buildPDFInstructionWithColors(String number, String text, PdfColor textColor) {
     final circleColor = isDark ? PdfColors.white : PdfColors.black;
     final circleTextColor = isDark ? PdfColors.black : PdfColors.white;
@@ -723,7 +685,7 @@ class AccessBadge extends StatelessWidget {
                       // Divider
                       Container(
                         height: 1,
-                        color: dialogDark ? Colors.white.withOpacity(0.1) : Colors.black.withOpacity(0.1),
+                        color: dialogDark ? Colors.white.withValues(alpha: 0.1) : Colors.black.withValues(alpha: 0.1),
                       ),
                       const SizedBox(height: 32),
                       // Back side
@@ -788,7 +750,7 @@ class AccessBadge extends StatelessWidget {
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: isDark ? Colors.white.withOpacity(0.1) : Colors.black.withOpacity(0.1),
+              color: isDark ? Colors.white.withValues(alpha: 0.1) : Colors.black.withValues(alpha: 0.1),
               blurRadius: 20,
               spreadRadius: 2,
             ),
@@ -818,7 +780,7 @@ class AccessBadge extends StatelessWidget {
               child: Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
-                  color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05),
+                  color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.05),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Column(
@@ -914,7 +876,7 @@ class AccessBadge extends StatelessWidget {
               borderRadius: BorderRadius.circular(16),
               boxShadow: [
                 BoxShadow(
-                  color: isDark ? Colors.white.withOpacity(0.1) : Colors.black.withOpacity(0.1),
+                  color: isDark ? Colors.white.withValues(alpha: 0.1) : Colors.black.withValues(alpha: 0.1),
                   blurRadius: 20,
                   spreadRadius: 2,
                 ),
@@ -931,7 +893,7 @@ class AccessBadge extends StatelessWidget {
                     child: Container(
                       width: 60,
                       height: 60,
-                      color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05),
+                      color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.05),
                     ),
                   ),
                 ),
@@ -943,7 +905,7 @@ class AccessBadge extends StatelessWidget {
                     child: Container(
                       width: 60,
                       height: 60,
-                      color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05),
+                      color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.05),
                     ),
                   ),
                 ),
@@ -1003,6 +965,7 @@ class AccessBadge extends StatelessWidget {
                                   version: QrVersions.auto,
                                   size: 80,
                                   backgroundColor: Colors.transparent,
+                                  // ignore: deprecated_member_use
                                   foregroundColor: isDark ? Colors.black : Colors.white,
                                 ),
                               ),
@@ -1014,7 +977,7 @@ class AccessBadge extends StatelessWidget {
                           // Divider
                           Container(
                             height: 2,
-                            color: isDark ? Colors.white.withOpacity(0.2) : Colors.black.withOpacity(0.2),
+                            color: isDark ? Colors.white.withValues(alpha: 0.2) : Colors.black.withValues(alpha: 0.2),
                           ),
 
                           const SizedBox(height: 16),
@@ -1124,7 +1087,7 @@ class AccessBadge extends StatelessWidget {
                           // Divider
                           Container(
                             height: 1,
-                            color: isDark ? Colors.white.withOpacity(0.1) : Colors.black.withOpacity(0.1),
+                            color: isDark ? Colors.white.withValues(alpha: 0.1) : Colors.black.withValues(alpha: 0.1),
                           ),
 
                           const SizedBox(height: 12),

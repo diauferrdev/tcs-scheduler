@@ -2,7 +2,6 @@ import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'api_service.dart';
-import 'local_notification_service.dart';
 import 'navigation_service.dart';
 
 /// Firebase Cloud Messaging Service
@@ -18,7 +17,6 @@ class FCMService {
 
   final FirebaseMessaging _messaging = FirebaseMessaging.instance;
   final ApiService _apiService = ApiService();
-  final LocalNotificationService _localNotificationService = LocalNotificationService();
 
   String? _fcmToken;
   String? get fcmToken => _fcmToken;

@@ -1,7 +1,7 @@
+// ignore_for_file: avoid_web_libraries_in_flutter, deprecated_member_use
 import 'dart:html' as html;
 import 'package:flutter/material.dart';
 import 'dart:js' as js;
-// ignore: avoid_web_libraries_in_flutter
 import 'dart:ui_web' as ui_web;
 
 class Device3DView extends StatefulWidget {

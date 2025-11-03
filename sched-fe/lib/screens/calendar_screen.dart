@@ -1,10 +1,10 @@
+// ignore_for_file: constant_identifier_names
+
 import 'dart:math';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter/gestures.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
-import 'package:share_plus/share_plus.dart';
 import '../widgets/app_layout.dart';
 import '../providers/theme_provider.dart';
 import '../providers/auth_provider.dart';
@@ -13,7 +13,6 @@ import '../services/realtime_service.dart';
 import '../services/navigation_service.dart';
 import '../models/booking.dart';
 import '../models/user.dart';
-import '../widgets/access_badge.dart';
 import '../utils/time_formatter.dart';
 import '../utils/toast_notification.dart';
 import 'booking_form_screen.dart';
@@ -50,14 +49,8 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
   String? _error;
   DateTime _currentMonth = DateTime.now();
   DateTime? _selectedDate;
-  String? _selectedSlot;
   Booking? _selectedBooking;
-  bool _showDayBookings = false;
-  bool _showBookingForm = false;
   bool _showCancelDialog = false;
-  DateTime? _tappedDate;
-  int _currentBadgeIndex = 0;
-  CalendarViewType _viewType = CalendarViewType.month;
   String _selectedTab = 'Month';
 
   // PageView state for seamless month scrolling
@@ -72,9 +65,7 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
   final Map<String, DayAvailability> _availabilityCache = {};
   DayAvailability? _selectedDayAvailability;
 
-  // Selected time and duration for booking
-  String? _selectedStartTime;
-  int? _selectedDuration;
+  // Selected visit type for booking
   String? _selectedVisitType; // PACE_TOUR or INNOVATION_EXCHANGE
 
   // Keep listener references for proper cleanup
@@ -149,7 +140,7 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
       'FIVE_HOURS': 5,
       'SIX_HOURS': 6,
     };
-    final duration = durationMap[draft.duration] ?? 4;
+    final duration = durationMap[draft.duration.name] ?? 4;
 
     Navigator.push(
       context,
@@ -544,138 +535,6 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
     return blocks;
   }
 
-  Color _getDayGradientColor(DateTime day, bool isDark) {
-    final isWeekend = _isWeekend(day);
-    final isBookable = _isDateBookable(day);
-
-    // Weekend - show as CLEARLY disabled with strong gray
-    if (isWeekend) {
-      return isDark ? const Color(0xFF1C1C1C) : const Color(0xFFD1D5DB);
-    }
-
-    // Not bookable (past or within 7 business days) - show as CLEARLY disabled with red tint
-    if (!isBookable) {
-      return isDark ? const Color(0xFF3F1F1F) : const Color(0xFFFEE2E2);
-    }
-
-    // Get ONLY APPROVED bookings for this day
-    final dateStr = DateFormat('yyyy-MM-dd').format(day);
-    final confirmedBookings = _bookings.where((b) {
-      final bookingDate = DateFormat('yyyy-MM-dd').format(b.date);
-      return bookingDate == dateStr && b.status == BookingStatus.APPROVED;
-    }).toList();
-
-    final availability = _availabilityCache[dateStr];
-
-    // If we have availability data from API, use it
-    if (availability != null && availability.isFull) {
-      return isDark ? const Color(0xFF7F1D1D) : const Color(0xFFFECDD3); // Red - Full
-    }
-
-    // If there are APPROVED bookings, show yellow
-    if (confirmedBookings.isNotEmpty) {
-      return isDark ? const Color(0xFF78350F) : const Color(0xFFFEF3C7); // Yellow - Has confirmed bookings
-    }
-
-    // Otherwise, available (green)
-    return isDark ? const Color(0xFF14532D) : const Color(0xFFBBF7D0); // Green - Available
-  }
-
-  List<DateTime> _generateCalendarDays() {
-    final firstDay = DateTime(_currentMonth.year, _currentMonth.month, 1);
-    final lastDay = DateTime(_currentMonth.year, _currentMonth.month + 1, 0);
-
-    // Start from Sunday of the week containing the first day
-    int daysFromSunday = firstDay.weekday % 7;
-    final startDate = firstDay.subtract(Duration(days: daysFromSunday));
-
-    // Generate 35 days (5 weeks)
-    return List.generate(35, (index) => startDate.add(Duration(days: index)));
-  }
-
-  void _previousMonth() {
-    setState(() {
-      _currentMonth = DateTime(_currentMonth.year, _currentMonth.month - 1);
-    });
-  }
-
-  void _nextMonth() {
-    setState(() {
-      _currentMonth = DateTime(_currentMonth.year, _currentMonth.month + 1);
-    });
-  }
-
-  /// Navigate to today's date with solid algorithm
-  Future<void> _goToToday() async {
-    final today = DateTime.now();
-    final normalizedToday = DateTime(today.year, today.month, today.day);
-
-    setState(() {
-      // Set current month to today's month
-      _currentMonth = DateTime(today.year, today.month);
-      // Select today's date
-      _selectedDate = normalizedToday;
-      // Clear any tapped date
-      _tappedDate = null;
-    });
-
-    // Load availability for today
-    await _loadDayAvailability(normalizedToday);
-
-    debugPrint('[Calendar] Navigated to today: ${DateFormat('yyyy-MM-dd').format(normalizedToday)}');
-  }
-
-  Future<void> _handleDayClick(DateTime date) async {
-    // If onDaySelected callback is provided (reschedule mode), use it instead
-    if (widget.onDaySelected != null) {
-      widget.onDaySelected!(date);
-      return;
-    }
-
-    // Check if date is bookable (at least 7 business days from today, not weekend)
-    if (!_isDateBookable(date)) {
-      // Show appropriate message based on why the date is not bookable
-      String message;
-      if (_isWeekend(date)) {
-        message = 'Weekends are not available for booking';
-      } else {
-        final minDate = _getMinimumBookableDate();
-        final formattedMinDate = DateFormat('MMM dd, yyyy').format(minDate);
-        message = 'Bookings must be made at least 7 business days in advance.\nEarliest available date: $formattedMinDate';
-      }
-
-      ToastNotification.show(
-        context,
-        message: message,
-        type: ToastType.warning,
-        duration: const Duration(seconds: 3),
-      );
-      return;
-    }
-
-    setState(() {
-      _selectedDate = date;
-      _tappedDate = date;
-    });
-
-    // Reset tap animation after a short delay
-    Future.delayed(const Duration(milliseconds: 200), () {
-      if (mounted) {
-        setState(() => _tappedDate = null);
-      }
-    });
-
-    final dayBookings = _getBookingsForDay(date);
-    final hasBookings = dayBookings.isNotEmpty;
-
-    if (hasBookings) {
-      _showDayBookingsDrawer(date);
-    } else {
-      // Show visit type selection dialog FIRST
-      await _showVisitTypeSelectionDialog(date);
-    }
-  }
-
   Future<void> _loadDayAvailability(DateTime date, {String? visitType}) async {
     try {
       final dateStr = DateFormat('yyyy-MM-dd').format(date);
@@ -746,51 +605,6 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
     }
   }
 
-  void _closeBookingFormAndClearCache() {
-    if (_selectedDate != null) {
-      final dateStr = DateFormat('yyyy-MM-dd').format(_selectedDate!);
-      setState(() {
-        _showBookingForm = false;
-        _availabilityCache.remove(dateStr);
-        _selectedDayAvailability = null;
-        _selectedVisitType = null;
-        _selectedStartTime = null;
-        _selectedDuration = null;
-      });
-    } else {
-      setState(() => _showBookingForm = false);
-    }
-  }
-
-  Future<void> _showDayBookingsDrawer(DateTime date) async {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final isMobile = MediaQuery.of(context).size.width < 768;
-    final authProvider = context.read<AuthProvider>();
-    final isUserRole = authProvider.user?.role == UserRole.USER;
-
-    await showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      isDismissible: true,
-      enableDrag: true,
-      builder: (context) => _buildDayBookingsOverlay(isDark, isMobile, isUserRole ?? false),
-    );
-  }
-
-  Future<void> _showBookingFormDrawer(DateTime selectedDate, TimeOfDay startTime, int duration) async {
-    // Use the new BookingFlowService to start the multi-drawer flow
-    final flowService = BookingFlowService();
-    flowService.startBookingFlow(
-      context,
-      selectedDate: selectedDate,
-      startTime: startTime,
-    );
-
-    // Reload bookings after flow completes
-    _loadBookings();
-  }
-
   Future<void> _showVisitTypeSelectionDialog(DateTime date) async {
     // Start the new booking flow with engagement type selection
     // This will chain through: Engagement Type → Visit Type (if needed) → Period Selection → Base Info → Questionnaire (if needed)
@@ -810,69 +624,6 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
       showSlotPicker: (DateTime date, Function(TimeOfDay, int) onSlotSelected, VoidCallback? onBack) {
         _showSlotPickerDrawer(date, onSlotSelected: onSlotSelected, onBack: onBack);
       },
-    );
-  }
-
-  Widget _buildVisitTypeOption(
-    BuildContext context,
-    String value,
-    String title,
-    String description,
-    IconData icon,
-    bool isDark,
-  ) {
-    return InkWell(
-      onTap: () => Navigator.pop(context, value),
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF18181B) : Colors.grey[100],
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
-          ),
-        ),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF27272A) : Colors.white,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Icon(icon, size: 24),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    description,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Icon(
-              Icons.chevron_right,
-              color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
-            ),
-          ],
-        ),
-      ),
     );
   }
 
@@ -954,132 +705,6 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
     return availableSlots;
   }
 
-  String _formatTimeSlot(String startTime, VisitDuration duration) {
-    final hours = {
-      VisitDuration.ONE_HOUR: 1,
-      VisitDuration.TWO_HOURS: 2,
-      VisitDuration.THREE_HOURS: 3,
-      VisitDuration.FOUR_HOURS: 4,
-    }[duration] ?? 1;
-
-    // Parse start time
-    final parts = startTime.split(':');
-    final startHour = int.parse(parts[0]);
-    final startMinute = int.parse(parts[1]);
-
-    // Calculate end time
-    final endHour = startHour + hours;
-
-    return '$startTime - ${endHour.toString().padLeft(2, '0')}:${startMinute.toString().padLeft(2, '0')} ($hours ${hours == 1 ? 'hour' : 'hours'})';
-  }
-
-  void _handleTimeAndDurationSelect(String startTime, int durationHours) async {
-    setState(() {
-      _selectedStartTime = startTime;
-      _selectedDuration = durationHours;
-    });
-
-    // Convert String time to TimeOfDay
-    final timeParts = startTime.split(':');
-    final hour = int.parse(timeParts[0]);
-    final minute = int.parse(timeParts[1]);
-    final timeOfDay = TimeOfDay(hour: hour, minute: minute);
-
-    // Show booking form in drawer
-    await _showBookingFormDrawer(_selectedDate!, timeOfDay, durationHours);
-
-    // Clear availability cache to force fresh data
-    _availabilityCache.clear();
-    // Close the day bookings drawer before reloading
-    setState(() {
-      _showDayBookings = false;
-    });
-    await _loadBookings();
-  }
-
-  void _showDurationPicker(String startTime, int maxDuration, bool isDark) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: isDark ? const Color(0xFF18181B) : Colors.white,
-        title: Text(
-          'Select Duration',
-          style: TextStyle(color: isDark ? Colors.white : Colors.black),
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              'Starting at $startTime',
-              style: TextStyle(
-                color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
-              ),
-            ),
-            const SizedBox(height: 16),
-            ...List.generate(maxDuration, (index) {
-              final duration = index + 1;
-              final parts = startTime.split(':');
-              final startHour = int.parse(parts[0]);
-              final endHour = startHour + duration;
-              final endTime = '${endHour.toString().padLeft(2, '0')}:00';
-
-              return Container(
-                margin: const EdgeInsets.only(bottom: 8),
-                child: Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    onTap: () {
-                      Navigator.of(context).pop();
-                      _handleTimeAndDurationSelect(startTime, duration);
-                    },
-                    borderRadius: BorderRadius.circular(8),
-                    child: Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        border: Border.all(
-                          color: isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
-                        ),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            '$duration ${duration == 1 ? 'hour' : 'hours'}',
-                            style: TextStyle(
-                              color: isDark ? Colors.white : Colors.black,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                          Text(
-                            '$startTime - $endTime',
-                            style: TextStyle(
-                              color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
-                              fontSize: 13,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              );
-            }),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: Text(
-              'Cancel',
-              style: TextStyle(color: isDark ? Colors.white : Colors.black),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   void _handleBookingClick(Booking booking) {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final userRole = authProvider.user?.role;
@@ -1127,34 +752,6 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
     }
   }
 
-  Future<void> _handleCreateBooking(Map<String, dynamic> bookingData) async {
-    try {
-      final newBooking = await _apiService.createBooking(bookingData);
-
-      if (mounted) {
-        ToastNotification.show(
-          context,
-          message: 'Booking created successfully!',
-          type: ToastType.success,
-        );
-        setState(() {
-          _showBookingForm = false;
-          _selectedBooking = Booking.fromJson(newBooking);
-        });
-        _showBookingDetailsDrawer();
-        _loadBookings();
-      }
-    } catch (e) {
-      if (mounted) {
-        ToastNotification.show(
-          context,
-          message: 'Failed to create booking: $e',
-          type: ToastType.error,
-        );
-      }
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final themeProvider = context.watch<ThemeProvider>();
@@ -1177,7 +774,7 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.error_outline, size: 64, color: Colors.red.withOpacity(0.5)),
+                      Icon(Icons.error_outline, size: 64, color: Colors.red.withValues(alpha: 0.5)),
                       const SizedBox(height: 16),
                       Text(_error!, style: const TextStyle(color: Colors.red)),
                       const SizedBox(height: 16),
@@ -1233,7 +830,6 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
     final wrapped = widget.skipLayout ? content : AppLayout(child: content);
 
     // Determine if FAB should be shown
-    final today = DateTime.now();
     final canCreateBooking = _selectedDate != null &&
         authProvider.user?.role != UserRole.ADMIN &&
         _isDateBookable(_selectedDate!) &&
@@ -1265,49 +861,6 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
               elevation: 4,
             ),
           ),
-      ],
-    );
-  }
-
-  Widget _buildViewTypeButton(String label, CalendarViewType type, bool isDark) {
-    final isSelected = _viewType == type;
-    return GestureDetector(
-      onTap: () {
-        setState(() {
-          _viewType = type;
-        });
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
-        decoration: BoxDecoration(
-          color: isSelected
-            ? (isDark ? Colors.white : Colors.black)
-            : Colors.transparent,
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-            color: isSelected
-              ? (isDark ? Colors.black : Colors.white)
-              : (isDark ? Colors.white70 : Colors.black54),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildLegend(bool isDark) {
-    return Wrap(
-      spacing: 12,
-      runSpacing: 8,
-      children: [
-        _buildLegendItem('Available', const Color(0xFFD1FAE5), const Color(0xFF052E16), isDark),
-        _buildLegendItem('Partial', const Color(0xFFFEF3C7), const Color(0xFF422006), isDark),
-        _buildLegendItem('Full', const Color(0xFFFECDD3), const Color(0xFF450A0A), isDark),
-        _buildLegendItem('Past', const Color(0xFFE5E7EB), const Color(0xFF09090B), isDark),
       ],
     );
   }
@@ -1357,7 +910,7 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
                     bottomLeft: Radius.circular(4),
                   ),
                   border: Border.all(
-                    color: isDark ? Colors.white.withOpacity(0.2) : Colors.black.withOpacity(0.2),
+                    color: isDark ? Colors.white.withValues(alpha: 0.2) : Colors.black.withValues(alpha: 0.2),
                     width: 1,
                   ),
                 ),
@@ -1369,7 +922,7 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
                     fontWeight: FontWeight.w700,
                     color: _selectedTab == 'Month'
                         ? (isDark ? Colors.white : Colors.black)
-                        : (isDark ? Colors.white.withOpacity(0.5) : Colors.black.withOpacity(0.5)),
+                        : (isDark ? Colors.white.withValues(alpha: 0.5) : Colors.black.withValues(alpha: 0.5)),
                   ),
                 ),
               ),
@@ -1387,7 +940,7 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
                     bottomRight: Radius.circular(4),
                   ),
                   border: Border.all(
-                    color: isDark ? Colors.white.withOpacity(0.2) : Colors.black.withOpacity(0.2),
+                    color: isDark ? Colors.white.withValues(alpha: 0.2) : Colors.black.withValues(alpha: 0.2),
                     width: 1,
                   ),
                 ),
@@ -1399,7 +952,7 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
                     fontWeight: FontWeight.w700,
                     color: _selectedTab == 'Year'
                         ? (isDark ? Colors.white : Colors.black)
-                        : (isDark ? Colors.white.withOpacity(0.5) : Colors.black.withOpacity(0.5)),
+                        : (isDark ? Colors.white.withValues(alpha: 0.5) : Colors.black.withValues(alpha: 0.5)),
                   ),
                 ),
               ),
@@ -1479,366 +1032,7 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
     );
   }
 
-  Widget _buildLegendItem(String label, Color lightColor, Color darkColor, bool isDark) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 16,
-          height: 16,
-          decoration: BoxDecoration(
-            color: isDark ? darkColor : lightColor,
-            borderRadius: BorderRadius.circular(4),
-            border: Border.all(
-              color: isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
-            ),
-          ),
-        ),
-        const SizedBox(width: 6),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 12,
-            color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildCompactCalendar(bool isDark, bool isMobile, AuthProvider authProvider) {
-    final today = DateTime.now();
-    final firstDayOfMonth = DateTime(_currentMonth.year, _currentMonth.month, 1);
-    final lastDayOfMonth = DateTime(_currentMonth.year, _currentMonth.month + 1, 0);
-    final firstWeekday = firstDayOfMonth.weekday % 7; // 0 = Sunday
-    final daysInMonth = lastDayOfMonth.day;
-
-    final weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-
-    return Container(
-      decoration: BoxDecoration(
-        color: isDark ? Colors.black : Colors.white,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      padding: const EdgeInsets.all(12),
-      child: Column(
-        children: [
-          // New month navigation header with calendar icon and expand/collapse
-          Column(
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  // Calendar icon + date label
-                  // Date + Tabs in the same row
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.calendar_today,
-                        size: 18,
-                        color: isDark ? Colors.white : Colors.black,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        DateFormat('yyyy/MM').format(_currentMonth),
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: isDark ? Colors.white : Colors.black,
-                        ),
-                      ),
-                    ],
-                  ),
-                  // Month/Year tabs - subtle gray selection
-                  Row(
-                    children: [
-                      // Month tab
-                      GestureDetector(
-                        onTap: () {
-                          setState(() {
-                            _selectedTab = 'Month';
-                          });
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: _selectedTab == 'Month'
-                                ? (isDark ? const Color(0xFF1F1F1F) : const Color(0xFFF5F5F5))
-                                : Colors.transparent,
-                            borderRadius: const BorderRadius.only(
-                              topLeft: Radius.circular(4),
-                              bottomLeft: Radius.circular(4),
-                            ),
-                            border: Border.all(
-                              color: isDark ? Colors.white.withOpacity(0.2) : Colors.black.withOpacity(0.2),
-                              width: 1,
-                            ),
-                          ),
-                          child: Text(
-                            'Month',
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                              color: _selectedTab == 'Month'
-                                  ? (isDark ? Colors.white : Colors.black)
-                                  : (isDark ? Colors.white.withOpacity(0.5) : Colors.black.withOpacity(0.5)),
-                            ),
-                          ),
-                        ),
-                      ),
-                      // Year tab
-                      GestureDetector(
-                        onTap: () {
-                          setState(() {
-                            _selectedTab = 'Year';
-                          });
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: _selectedTab == 'Year'
-                                ? (isDark ? const Color(0xFF1F1F1F) : const Color(0xFFF5F5F5))
-                                : Colors.transparent,
-                            borderRadius: const BorderRadius.only(
-                              topRight: Radius.circular(4),
-                              bottomRight: Radius.circular(4),
-                            ),
-                            border: Border.all(
-                              color: isDark ? Colors.white.withOpacity(0.2) : Colors.black.withOpacity(0.2),
-                              width: 1,
-                            ),
-                          ),
-                          child: Text(
-                            'Year',
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                              color: _selectedTab == 'Year'
-                                  ? (isDark ? Colors.white : Colors.black)
-                                  : (isDark ? Colors.white.withOpacity(0.5) : Colors.black.withOpacity(0.5)),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ],
-          ),
-          const SizedBox(height: 24),  // More breathing room between tabs and weekdays
-
-          // Week days header
-          Row(
-            children: weekDays.map((day) {
-              return Expanded(
-                child: Center(
-                  child: Text(
-                    day,
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
-                    ),
-                  ),
-                ),
-              );
-            }).toList(),
-          ),
-          const SizedBox(height: 0),  // Very close to calendar grid
-
-          // Calendar days grid - PageView for seamless month scrolling
-          Expanded(
-            child: ScrollConfiguration(
-              behavior: ScrollConfiguration.of(context).copyWith(
-                dragDevices: {
-                  PointerDeviceKind.touch,
-                  PointerDeviceKind.mouse,
-                },
-              ),
-              child: PageView.builder(
-                controller: _pageController,
-                scrollDirection: Axis.vertical,
-                physics: const PageScrollPhysics(),
-                padEnds: false,
-                onPageChanged: (page) {
-                  setState(() {
-                    _currentPage = page;
-                    // Calculate month offset from initial page (12)
-                    final monthOffset = page - 12;
-                    final now = DateTime.now();
-                    _currentMonth = DateTime(now.year, now.month + monthOffset, 1);
-                  });
-                },
-                itemBuilder: (context, index) {
-                  // Calculate month offset from initial page (12)
-                  final monthOffset = index - 12;
-                  final now = DateTime.now();
-                  final month = DateTime(now.year, now.month + monthOffset, 1);
-
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    child: _buildMonthGrid(month, isDark, authProvider),
-                  );
-                },
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   /// Year view showing all 12 months in a grid with vertical scroll between years
-  Widget _buildYearView(bool isDark, bool isMobile, AuthProvider authProvider) {
-    final monthNames = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
-    ];
-
-    return Container(
-      key: const ValueKey('year-view'),
-      decoration: BoxDecoration(
-        color: Colors.black,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      padding: const EdgeInsets.all(12),
-      child: Column(
-        children: [
-          // Year header with calendar icon - Month/Year tabs remain visible
-          Column(
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Row(
-                    children: [
-                      Icon(Icons.calendar_today, size: 18, color: Colors.white),
-                      const SizedBox(width: 8),
-                      Text(
-                        DateFormat('yyyy').format(_currentMonth),
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ],
-                  ),
-                  // Month/Year tabs
-                  Row(
-                    children: [
-                      GestureDetector(
-                        onTap: () {
-                          setState(() {
-                            _selectedTab = 'Month';
-                          });
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: _selectedTab == 'Month'
-                                ? (isDark ? const Color(0xFF1F1F1F) : const Color(0xFFF5F5F5))
-                                : Colors.transparent,
-                            borderRadius: const BorderRadius.only(
-                              topLeft: Radius.circular(4),
-                              bottomLeft: Radius.circular(4),
-                            ),
-                            border: Border.all(
-                              color: isDark ? Colors.white.withOpacity(0.2) : Colors.black.withOpacity(0.2),
-                              width: 1,
-                            ),
-                          ),
-                          child: Text(
-                            'Month',
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                              color: _selectedTab == 'Month'
-                                  ? (isDark ? Colors.white : Colors.black)
-                                  : (isDark ? Colors.white.withOpacity(0.5) : Colors.black.withOpacity(0.5)),
-                            ),
-                          ),
-                        ),
-                      ),
-                      GestureDetector(
-                        onTap: () {
-                          setState(() {
-                            _selectedTab = 'Year';
-                          });
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: _selectedTab == 'Year'
-                                ? (isDark ? const Color(0xFF1F1F1F) : const Color(0xFFF5F5F5))
-                                : Colors.transparent,
-                            borderRadius: const BorderRadius.only(
-                              topRight: Radius.circular(4),
-                              bottomRight: Radius.circular(4),
-                            ),
-                            border: Border.all(
-                              color: isDark ? Colors.white.withOpacity(0.2) : Colors.black.withOpacity(0.2),
-                              width: 1,
-                            ),
-                          ),
-                          child: Text(
-                            'Year',
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                              color: _selectedTab == 'Year'
-                                  ? (isDark ? Colors.white : Colors.black)
-                                  : (isDark ? Colors.white.withOpacity(0.5) : Colors.black.withOpacity(0.5)),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          // PageView for years with snap scrolling
-          Expanded(
-            child: ScrollConfiguration(
-              behavior: ScrollConfiguration.of(context).copyWith(
-                dragDevices: {
-                  PointerDeviceKind.touch,
-                  PointerDeviceKind.mouse,
-                },
-              ),
-              child: PageView.builder(
-                controller: _yearPageController,
-                scrollDirection: Axis.vertical,
-                physics: const PageScrollPhysics(),
-                onPageChanged: (page) {
-                  setState(() {
-                    _currentYearPage = page;
-                    final yearOffset = page - 10;
-                    final now = DateTime.now();
-                    _currentMonth = DateTime(now.year + yearOffset, _currentMonth.month, 1);
-                  });
-                },
-                itemBuilder: (context, index) {
-                  final yearOffset = index - 10;
-                  final now = DateTime.now();
-                  final year = now.year + yearOffset;
-
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 24),
-                    child: _buildYearGrid(year, monthNames, isDark, authProvider),
-                  );
-                },
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 
   /// Build grid of 12 months for a specific year
   Widget _buildYearGrid(int year, List<String> monthNames, bool isDark, AuthProvider authProvider) {
@@ -2033,7 +1227,7 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w600,
-                    color: isDark ? Colors.white.withOpacity(0.5) : Colors.black.withOpacity(0.5),
+                    color: isDark ? Colors.white.withValues(alpha: 0.5) : Colors.black.withValues(alpha: 0.5),
                     fontFamily: 'BasisGrotesquePro',
                   ),
                 ),
@@ -2057,14 +1251,12 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
 
               final day = DateTime(month.year, month.month, dayNumber);
               final isToday = day.year == today.year && day.month == today.month && day.day == today.day;
-              final isPast = day.isBefore(DateTime(today.year, today.month, today.day));
               final isSelected = _selectedDate != null &&
                   _selectedDate!.year == day.year &&
                   _selectedDate!.month == day.month &&
                   _selectedDate!.day == day.day;
 
               final dayBookings = _getBookingsForDay(day);
-              final availableSlots = _getAvailableSlots(day);
 
               // Check for pending vs confirmed bookings
               final hasPendingBookings = dayBookings.any((b) => b.status == BookingStatus.UNDER_REVIEW || b.status == BookingStatus.CREATED || b.status == BookingStatus.NEED_EDIT || b.status == BookingStatus.NEED_RESCHEDULE);
@@ -2140,7 +1332,7 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
 
                 // If not bookable (disabled day), apply darker tone to other indicators
                 if (indicatorColor != null && !isBookable) {
-                  indicatorColor = indicatorColor.withOpacity(0.4);
+                  indicatorColor = indicatorColor.withValues(alpha: 0.4);
                 }
               }
 
@@ -2236,7 +1428,7 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
                                         child: Container(
                                           width: 32 * progress,
                                           height: 6.5,
-                                          color: (isDark ? Colors.white : Colors.black).withOpacity(0.65 * progress),
+                                          color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.65 * progress),
                                         ),
                                       );
                                     },
@@ -2277,10 +1469,6 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
   }
 
   Widget _buildEventsSection(bool isDark, bool isMobile, bool isUserRole) {
-    // Get auth provider to check if user is ADMIN
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final isAdmin = authProvider.user?.role == UserRole.ADMIN;
-
     if (_selectedDate == null) {
       return Container(
         color: isDark ? Colors.black : Colors.white,  // Same as calendar background
@@ -2301,8 +1489,6 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
     final ieBlocks = _getIEBlocksForDay(_selectedDate!);
     final today = DateTime.now();
     final isPast = _selectedDate!.isBefore(DateTime(today.year, today.month, today.day));
-    final availableSlots = _getAvailableSlots(_selectedDate!);
-    final hasAvailableSlots = !isPast && availableSlots.isNotEmpty;
 
     // Create combined and sorted list of events
     final combinedEvents = <Map<String, dynamic>>[];
@@ -2466,7 +1652,7 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
             width: 10,
             height: 10,
             decoration: BoxDecoration(
-              color: const Color(0xFF6B7280).withOpacity(0.6),
+              color: const Color(0xFF6B7280).withValues(alpha: 0.6),
               shape: BoxShape.circle,
             ),
           ),
@@ -2583,7 +1769,7 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
             // Status dot (colored circle) - centered vertically
             Container(
               margin: const EdgeInsets.only(right: 12),
-              child: _StatusDot(color: statusColor, shouldPulse: shouldPulse),
+              child: _statusDot(color: statusColor, shouldPulse: shouldPulse),
             ),
 
             // Content
@@ -2629,7 +1815,7 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(
-                            color: statusColor.withOpacity(0.1),
+                            color: statusColor.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(4),
                             border: Border.all(color: statusColor, width: 1),
                           ),
@@ -2691,7 +1877,7 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
   }
 
   // Status dot widget - replaces left border with circular indicator
-  Widget _StatusDot({required Color color, required bool shouldPulse}) {
+  Widget _statusDot({required Color color, required bool shouldPulse}) {
     if (!shouldPulse) {
       return Container(
         width: 10,
@@ -2713,11 +1899,11 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
           width: 10,
           height: 10,
           decoration: BoxDecoration(
-            color: color.withOpacity(value),
+            color: color.withValues(alpha: value),
             shape: BoxShape.circle,
             boxShadow: [
               BoxShadow(
-                color: color.withOpacity(value * 0.5),
+                color: color.withValues(alpha: value * 0.5),
                 blurRadius: 4 * value,
                 spreadRadius: 1 * value,
               ),
@@ -2737,1530 +1923,8 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
   }
 
   // Legacy status badge widget (kept for compatibility but no longer used)
-  Widget _StatusBadge({required Color color, required bool shouldPulse}) {
-    if (!shouldPulse) {
-      return Container(
-        width: 4,
-        height: 64,
-        decoration: BoxDecoration(
-          color: color,
-          borderRadius: const BorderRadius.only(
-            topLeft: Radius.circular(12),
-            bottomLeft: Radius.circular(12),
-          ),
-        ),
-      );
-    }
 
-    // Pulsing animation for PENDING status
-    return TweenAnimationBuilder<double>(
-      tween: Tween(begin: 0.3, end: 1.0),
-      duration: const Duration(milliseconds: 1000),
-      curve: Curves.easeInOut,
-      builder: (context, value, child) {
-        return Container(
-          width: 4,
-          height: 64,
-          decoration: BoxDecoration(
-            color: color.withOpacity(value),
-            borderRadius: const BorderRadius.only(
-              topLeft: Radius.circular(12),
-              bottomLeft: Radius.circular(12),
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: color.withOpacity(value * 0.5),
-                blurRadius: 8 * value,
-                spreadRadius: 2 * value,
-              ),
-            ],
-          ),
-        );
-      },
-      onEnd: () {
-        // Restart animation by forcing rebuild
-        if (mounted) {
-          Future.delayed(const Duration(milliseconds: 100), () {
-            if (mounted) setState(() {});
-          });
-        }
-      },
-    );
-  }
 
-  Widget _buildCalendarGrid(bool isDark, bool isMobile) {
-    // Switch between different view types
-    switch (_viewType) {
-      case CalendarViewType.month:
-        return _buildMonthView(isDark, isMobile);
-      case CalendarViewType.week:
-        return _buildWeekView(isDark, isMobile);
-      case CalendarViewType.day:
-        return _buildDayView(isDark, isMobile);
-    }
-  }
-
-  Widget _buildMonthView(bool isDark, bool isMobile) {
-    final calendarDays = _generateCalendarDays();
-    final weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    final today = DateTime.now();
-
-    return Container(
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF18181B) : Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
-        ),
-      ),
-      padding: const EdgeInsets.all(12),
-      child: Column(
-        children: [
-          // Week days header
-          Row(
-            children: weekDays.map((day) {
-              return Expanded(
-                child: Center(
-                  child: Text(
-                    day,
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
-                    ),
-                  ),
-                ),
-              );
-            }).toList(),
-          ),
-          const SizedBox(height: 8),
-
-          // Calendar days grid
-          Expanded(
-            child: Column(
-              children: List.generate(5, (weekIndex) {
-                return Expanded(
-                  child: Row(
-                    children: List.generate(7, (dayIndex) {
-                      final day = calendarDays[weekIndex * 7 + dayIndex];
-                      final isCurrentMonth = day.month == _currentMonth.month;
-                      final isToday = day.year == today.year && day.month == today.month && day.day == today.day;
-                      final isBookable = _isDateBookable(day);
-                      final dayBookings = _getBookingsForDay(day);
-
-                      final isTapped = _tappedDate != null &&
-                                       _tappedDate!.year == day.year &&
-                                       _tappedDate!.month == day.month &&
-                                       _tappedDate!.day == day.day;
-
-                      return Expanded(
-                        child: Padding(
-                          padding: const EdgeInsets.all(2),
-                          child: GestureDetector(
-                            onTap: isBookable ? () => _handleDayClick(day) : null,
-                            child: AnimatedScale(
-                              scale: isTapped ? 0.95 : 1.0,
-                              duration: const Duration(milliseconds: 200),
-                              curve: Curves.easeOut,
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  color: _getDayGradientColor(day, isDark),
-                                  borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(
-                                    color: isToday
-                                        ? (isDark ? Colors.white : Colors.black)
-                                        : isDark
-                                            ? const Color(0xFF27272A)
-                                            : const Color(0xFFE5E7EB),
-                                    width: isToday ? 2 : 1,
-                                  ),
-                                ),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                  // Day number
-                                  Padding(
-                                    padding: const EdgeInsets.all(4),
-                                    child: Text(
-                                      '${day.day}',
-                                      style: TextStyle(
-                                        fontSize: isMobile ? 10 : 12,
-                                        fontWeight: FontWeight.bold,
-                                        color: !isCurrentMonth || !isBookable
-                                            ? const Color(0xFF9CA3AF)
-                                            : isDark
-                                                ? Colors.white
-                                                : Colors.black,
-                                      ),
-                                    ),
-                                  ),
-
-                                  // Bookings preview - show up to 3 bookings sorted by start time
-                                  if (isBookable && dayBookings.isNotEmpty) ...[
-                                    ...dayBookings.take(3).map((booking) =>
-                                      _buildBookingChip(booking.companyName, booking.startTime, isDark, isMobile),
-                                    ),
-                                  ],
-                                ],
-                              ),
-                            ),
-                            ),
-                          ),
-                        ),
-                      );
-                    }),
-                  ),
-                );
-              }),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildWeekView(bool isDark, bool isMobile) {
-    final today = DateTime.now();
-    // Get current week (Monday to Sunday)
-    final startOfWeek = _currentMonth.subtract(Duration(days: _currentMonth.weekday - 1));
-    final weekDays = List.generate(7, (index) => startOfWeek.add(Duration(days: index)));
-    final displayHours = [8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]; // Work hours
-
-    return Container(
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF18181B) : Colors.white,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Column(
-        children: [
-          // Compact week days header
-          Container(
-            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-            decoration: BoxDecoration(
-              border: Border(
-                bottom: BorderSide(
-                  color: isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
-                ),
-              ),
-            ),
-            child: Row(
-              children: [
-                const SizedBox(width: 50),
-                ...weekDays.map((day) {
-                  final isToday = day.year == today.year && day.month == today.month && day.day == today.day;
-                  final weekdayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-                  return Expanded(
-                    child: Column(
-                      children: [
-                        Text(
-                          weekdayNames[(day.weekday - 1) % 7],
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                            color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          '${day.day}',
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: isToday ? FontWeight.bold : FontWeight.normal,
-                            color: isToday
-                              ? (isDark ? Colors.white : Colors.black)
-                              : (isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280)),
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                }),
-              ],
-            ),
-          ),
-          // Time slots grid
-          Expanded(
-            child: SingleChildScrollView(
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Time labels column
-                  SizedBox(
-                    width: 50,
-                    child: Column(
-                      children: displayHours.map((hour) {
-                        return Container(
-                          height: 60,
-                          alignment: Alignment.topCenter,
-                          padding: const EdgeInsets.only(top: 4),
-                          child: Text(
-                            '${hour.toString().padLeft(2, '0')}:00',
-                            style: TextStyle(
-                              fontSize: 10,
-                              color: isDark ? const Color(0xFF6B7280) : const Color(0xFF9CA3AF),
-                            ),
-                          ),
-                        );
-                      }).toList(),
-                    ),
-                  ),
-                  // Days columns with events
-                  ...weekDays.map((day) {
-                    return Expanded(
-                      child: Column(
-                        children: displayHours.map((hour) {
-                          final dayBookings = _getBookingsForDay(day);
-                          Booking? eventAtHour;
-
-                          // Check if there's a booking starting at this hour
-                          for (var booking in dayBookings) {
-                            final bookingHour = int.parse(booking.startTime.split(':')[0]);
-                            if (bookingHour == hour) {
-                              eventAtHour = booking;
-                              break;
-                            }
-                          }
-
-                          return Container(
-                            height: 60,
-                            decoration: BoxDecoration(
-                              border: Border(
-                                right: BorderSide(
-                                  color: isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
-                                  width: 0.5,
-                                ),
-                                bottom: BorderSide(
-                                  color: isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
-                                  width: 0.5,
-                                ),
-                              ),
-                            ),
-                            child: eventAtHour != null
-                              ? Container(
-                                  margin: const EdgeInsets.all(2),
-                                  padding: const EdgeInsets.all(6),
-                                  decoration: BoxDecoration(
-                                    color: _getEventColor(eventAtHour, isDark),
-                                    borderRadius: BorderRadius.circular(6),
-                                  ),
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        eventAtHour.companyName,
-                                        style: TextStyle(
-                                          fontSize: 10,
-                                          fontWeight: FontWeight.w600,
-                                          color: isDark ? Colors.white : Colors.black,
-                                        ),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                      const SizedBox(height: 2),
-                                      Text(
-                                        eventAtHour.startTime,
-                                        style: TextStyle(
-                                          fontSize: 9,
-                                          color: isDark ? Colors.white70 : Colors.black54,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                )
-                              : null,
-                          );
-                        }).toList(),
-                      ),
-                    );
-                  }),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Color _getEventColor(Booking booking, bool isDark) {
-    final colorSchemes = {
-      'HEALTH': {'light': const Color(0xFFDCFCE7), 'dark': const Color(0xFF14532D)},
-      'TECHNOLOGY': {'light': const Color(0xFFDDD6FE), 'dark': const Color(0xFF4C1D95)},
-      'BUSINESS': {'light': const Color(0xFFFED7AA), 'dark': const Color(0xFF7C2D12)},
-      'EDUCATION': {'light': const Color(0xFFBAE6FD), 'dark': const Color(0xFF075985)},
-    };
-
-    final colorKey = colorSchemes.keys.firstWhere(
-      (key) => booking.interestArea?.toUpperCase().contains(key) ?? false,
-      orElse: () => 'TECHNOLOGY',
-    );
-    final colorScheme = colorSchemes[colorKey]!;
-    return isDark ? colorScheme['dark'] as Color : colorScheme['light'] as Color;
-  }
-
-  Widget _buildDayView(bool isDark, bool isMobile) {
-    final today = DateTime.now();
-    final selectedDay = _selectedDate ?? _currentMonth;
-    final displayHours = [8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19];
-    final dayBookings = _getBookingsForDay(selectedDay);
-
-    return Container(
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF18181B) : Colors.white,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Column(
-        children: [
-          // Day header
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              border: Border(
-                bottom: BorderSide(
-                  color: isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
-                ),
-              ),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  DateFormat('EEEE, MMMM d').format(selectedDay),
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: isDark ? Colors.white : Colors.black,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          // Time slots with events
-          Expanded(
-            child: SingleChildScrollView(
-              child: Column(
-                children: displayHours.map((hour) {
-                  Booking? eventAtHour;
-
-                  // Check if there's a booking starting at this hour
-                  for (var booking in dayBookings) {
-                    final bookingHour = int.parse(booking.startTime.split(':')[0]);
-                    if (bookingHour == hour) {
-                      eventAtHour = booking;
-                      break;
-                    }
-                  }
-
-                  return Container(
-                    height: 70,
-                    decoration: BoxDecoration(
-                      border: Border(
-                        bottom: BorderSide(
-                          color: isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
-                          width: 0.5,
-                        ),
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        // Time label
-                        Container(
-                          width: 70,
-                          padding: const EdgeInsets.only(right: 12, top: 8),
-                          alignment: Alignment.topRight,
-                          child: Text(
-                            '${hour.toString().padLeft(2, '0')}:00',
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: isDark ? const Color(0xFF6B7280) : const Color(0xFF9CA3AF),
-                            ),
-                          ),
-                        ),
-                        // Event slot
-                        Expanded(
-                          child: eventAtHour != null
-                            ? Container(
-                                margin: const EdgeInsets.all(8),
-                                padding: const EdgeInsets.all(12),
-                                decoration: BoxDecoration(
-                                  color: _getEventColor(eventAtHour, isDark),
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Text(
-                                      eventAtHour.companyName,
-                                      style: TextStyle(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.bold,
-                                        color: isDark ? Colors.white : Colors.black,
-                                      ),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      '${eventAtHour.startTime} - ${eventAtHour.interestArea}',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: isDark ? Colors.white70 : Colors.black54,
-                                      ),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ],
-                                ),
-                              )
-                            : Container(),
-                        ),
-                      ],
-                    ),
-                  );
-                }).toList(),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildEventList(DateTime day, bool isDark) {
-    final bookingsList = _getBookingsForDay(day);
-
-    return Container(
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF18181B) : Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
-        ),
-      ),
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Events',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: isDark ? Colors.white : Colors.black,
-            ),
-          ),
-          const SizedBox(height: 16),
-          Expanded(
-            child: bookingsList.isEmpty
-              ? Center(
-                  child: Text(
-                    'No events',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
-                    ),
-                  ),
-                )
-              : ListView.builder(
-                  itemCount: bookingsList.length,
-                  itemBuilder: (context, index) {
-                    final booking = bookingsList[index];
-                    return _buildEventCard(booking, isDark);
-                  },
-                ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildEventCard(Booking booking, bool isDark) {
-    final colors = [
-      {'light': const Color(0xFFDCFCE7), 'dark': const Color(0xFF14532D)},
-      {'light': const Color(0xFFDDD6FE), 'dark': const Color(0xFF4C1D95)},
-      {'light': const Color(0xFFFED7AA), 'dark': const Color(0xFF7C2D12)},
-      {'light': const Color(0xFFBAE6FD), 'dark': const Color(0xFF075985)},
-    ];
-    final colorSet = colors[booking.id.hashCode % colors.length];
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: isDark ? colorSet['dark'] : colorSet['light'],
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            booking.startTime,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: isDark ? Colors.white70 : Colors.black54,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            booking.companyName,
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
-              color: isDark ? Colors.white : Colors.black,
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            booking.interestArea ?? '',
-            style: TextStyle(
-              fontSize: 12,
-              color: isDark ? Colors.white70 : Colors.black54,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildBookingChip(String companyName, String time, bool isDark, bool isMobile) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 2, vertical: 1),
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF27272A) : Colors.white,
-        borderRadius: BorderRadius.circular(4),
-        border: Border.all(
-          color: isDark ? const Color(0xFF3F3F46) : const Color(0xFFE5E7EB),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            companyName,
-            style: TextStyle(
-              fontSize: isMobile ? 7 : 8,
-              fontWeight: FontWeight.w600,
-              color: isDark ? Colors.white : Colors.black,
-            ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-          Text(
-            time,
-            style: TextStyle(
-              fontSize: isMobile ? 6 : 7,
-              color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPeriodCard(
-    AvailablePeriod period,
-    bool isDark, {
-    bool showBlockDetails = true,
-    Function(TimeOfDay, int)? onSlotSelected,
-  }) {
-    final isAvailable = period.available;
-    final willBlock = period.willBlock;
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: isAvailable ? () async {
-            // Calculate duration based on visit type
-            // PACE_TOUR: 2h, INNOVATION_EXCHANGE: 6h
-            final duration = _selectedVisitType == 'PACE_TOUR' ? 2 : 6;
-
-            // Parse start time to TimeOfDay
-            final timeParts = period.startTime.split(':');
-            final startTime = TimeOfDay(
-              hour: int.parse(timeParts[0]),
-              minute: int.parse(timeParts[1]),
-            );
-
-            // If callback is provided (from booking flow service), use it
-            if (onSlotSelected != null) {
-              // Close the modal bottom sheet drawer only
-              Navigator.of(context, rootNavigator: false).pop();
-
-              // Call the callback
-              onSlotSelected(startTime, duration);
-            } else {
-              // Close drawer for default flow
-              Navigator.of(context).pop();
-
-              // Use the default flow
-              await _showBookingFormDrawer(_selectedDate!, startTime, duration);
-
-              // ALWAYS clear cache after closing form
-              final dateStr = DateFormat('yyyy-MM-dd').format(_selectedDate!);
-              setState(() {
-                _availabilityCache.remove(dateStr);
-                _selectedDayAvailability = null;
-                _selectedVisitType = null;
-                _selectedStartTime = null;
-                _selectedDuration = null;
-              });
-
-              // Reload bookings
-              await _loadBookings();
-            }
-          } : null,
-          borderRadius: BorderRadius.circular(12),
-          child: Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: isAvailable
-                  ? (isDark ? const Color(0xFF18181B) : Colors.white)
-                  : (isDark ? const Color(0xFF09090B) : const Color(0xFFF3F4F6)),
-              border: Border.all(
-                color: isAvailable
-                    ? (isDark ? const Color(0xFF10B981) : const Color(0xFF059669))
-                    : (isDark ? const Color(0xFF3F3F46) : const Color(0xFFD1D5DB)),
-                width: 2,
-              ),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: isAvailable
-                            ? (isDark ? const Color(0xFF10B981).withValues(alpha: 0.2) : const Color(0xFF10B981).withValues(alpha: 0.1))
-                            : (isDark ? const Color(0xFF3F3F46) : const Color(0xFFE5E7EB)),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Icon(
-                        period.period == 'MORNING' ? Icons.wb_sunny : Icons.nights_stay,
-                        size: 24,
-                        color: isAvailable
-                            ? (isDark ? const Color(0xFF10B981) : const Color(0xFF059669))
-                            : (isDark ? const Color(0xFF6B7280) : const Color(0xFF9CA3AF)),
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            period.label,
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: isAvailable
-                                  ? (isDark ? Colors.white : Colors.black)
-                                  : (isDark ? const Color(0xFF6B7280) : const Color(0xFF9CA3AF)),
-                            ),
-                          ),
-                          if (showBlockDetails && !isAvailable && period.blockedBy != null) ...[
-                            const SizedBox(height: 6),
-                            Row(
-                              children: [
-                                Icon(
-                                  Icons.block,
-                                  size: 14,
-                                  color: isDark ? const Color(0xFFEF4444) : const Color(0xFFDC2626),
-                                ),
-                                const SizedBox(width: 6),
-                                Expanded(
-                                  child: Text(
-                                    period.blockedBy!,
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: isDark ? const Color(0xFFEF4444) : const Color(0xFFDC2626),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                    if (isAvailable)
-                      Icon(
-                        Icons.arrow_forward_ios,
-                        size: 16,
-                        color: isDark ? const Color(0xFF10B981) : const Color(0xFF059669),
-                      ),
-                  ],
-                ),
-
-                // Show blocks for Innovation Exchange (only for ADMIN/MANAGER)
-                if (showBlockDetails && isAvailable && willBlock != null && willBlock.isNotEmpty) ...[
-                  const SizedBox(height: 16),
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: isDark ? const Color(0xFFF59E0B).withValues(alpha: 0.1) : const Color(0xFFFEF3C7),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                        color: isDark ? const Color(0xFFF59E0B).withValues(alpha: 0.3) : const Color(0xFFF59E0B),
-                      ),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Icon(
-                              Icons.warning_amber_rounded,
-                              size: 16,
-                              color: isDark ? const Color(0xFFF59E0B) : const Color(0xFFD97706),
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              'Periods that will be blocked:',
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                                color: isDark ? const Color(0xFFF59E0B) : const Color(0xFFD97706),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        ...willBlock.map((block) => Padding(
-                          padding: const EdgeInsets.only(left: 24, top: 4),
-                          child: Text(
-                            '• ${block.date}: ${block.period}',
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: isDark ? const Color(0xFFF05E1B) : const Color(0xFFF05E1B),
-                            ),
-                          ),
-                        )),
-                      ],
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDayBookingsOverlay(bool isDark, bool isMobile, bool isUserRole) {
-    // Drawer shows ONLY APPROVED bookings (de fato agendado)
-    // This drawer appears when trying to book on a day that already has bookings
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final isAdmin = authProvider.user?.role == UserRole.ADMIN;
-
-    final allDayBookings = _getBookingsForDay(_selectedDate!);
-    final dayBookings = allDayBookings.where((b) => b.status == BookingStatus.APPROVED).toList();
-    final hasBookings = dayBookings.isNotEmpty;
-
-    return DraggableScrollableSheet(
-      initialChildSize: 0.75, // Standard 75% height
-      minChildSize: 0.5,
-      maxChildSize: 0.9,
-      builder: (context, scrollController) => Container(
-            decoration: BoxDecoration(
-              color: isDark ? const Color(0xFF18181B) : Colors.white,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-            ),
-            child: Column(
-              children: [
-                // Handle bar
-                Container(
-                  margin: const EdgeInsets.only(top: 8, bottom: 4),
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: isDark ? Colors.grey[700] : Colors.grey[300],
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-                // Header
-                Container(
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-                  decoration: BoxDecoration(
-                    border: Border(
-                      bottom: BorderSide(
-                        color: isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
-                      ),
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      IconButton(
-                        onPressed: () => Navigator.of(context).pop(),
-                        icon: Icon(Icons.close, color: isDark ? Colors.white : Colors.black),
-                        tooltip: 'Close',
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              DateFormat('MMMM d, yyyy').format(_selectedDate!),
-                              style: TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                                color: isDark ? Colors.white : Colors.black,
-                              ),
-                            ),
-                            Text(
-                              hasBookings && !isUserRole ? 'View and manage bookings' : 'Schedule new visit',
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                // Content
-                Expanded(
-                  child: SingleChildScrollView(
-                    controller: scrollController,
-                    padding: const EdgeInsets.all(24),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Only show existing bookings to ADMIN/MANAGER users
-                        if (hasBookings && !isUserRole) ...[
-                          Text(
-                            'Existing Bookings',
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                              color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          ...dayBookings.map((booking) => _buildBookingCard(booking, isDark, isUserRole)),
-                          const SizedBox(height: 24),
-                        ],
-                        // Add New Booking Button (only for USER and MANAGER roles, hide for ADMIN)
-                        if (!isAdmin)
-                          Container(
-                            margin: const EdgeInsets.only(bottom: 12),
-                            child: Material(
-                              color: Colors.transparent,
-                              child: InkWell(
-                                onTap: () async {
-                                  // Close the day bookings drawer first
-                                  Navigator.of(context).pop();
-                                  // Wait a bit for animation
-                                  await Future.delayed(const Duration(milliseconds: 300));
-                                  // Show visit type selection dialog (new flow)
-                                  await _showVisitTypeSelectionDialog(_selectedDate!);
-                                },
-                                borderRadius: BorderRadius.circular(12),
-                                child: Container(
-                                  padding: const EdgeInsets.all(16),
-                                  decoration: BoxDecoration(
-                                    border: Border.all(
-                                      color: isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
-                                      width: 2,
-                                    ),
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      Icon(
-                                        Icons.add_circle,
-                                        color: isDark ? Colors.white : Colors.black,
-                                        size: 28,
-                                      ),
-                                      const SizedBox(width: 16),
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              'Add New Booking',
-                                              style: TextStyle(
-                                                fontSize: 16,
-                                                fontWeight: FontWeight.w600,
-                                                color: isDark ? Colors.white : Colors.black,
-                                              ),
-                                            ),
-                                            const SizedBox(height: 4),
-                                            Text(
-                                              'Schedule a new visit',
-                                              style: TextStyle(
-                                                fontSize: 14,
-                                                color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                      Icon(
-                                        Icons.arrow_forward_ios,
-                                        size: 16,
-                                        color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              )
-            )
-    );
-  }
-
-  Widget _buildBookingCard(Booking booking, bool isDark, bool isUserRole) {
-    // Format time text based on actual start time and duration
-    final timeText = _formatTimeSlot(booking.startTime, booking.duration);
-
-    return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 300),
-      child: Container(
-        key: ValueKey(booking.id),
-        margin: const EdgeInsets.only(bottom: 12),
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: () => _handleBookingClick(booking),
-            borderRadius: BorderRadius.circular(12),
-            child: Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF09090B) : const Color(0xFFF9FAFB),
-                border: Border.all(
-                  color: isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
-                ),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          isUserRole ? 'Occupied' : booking.companyName,
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                            color: isDark ? Colors.white : Colors.black,
-                          ),
-                        ),
-                      ),
-                      // Under Review Badge
-                      if (booking.status == BookingStatus.UNDER_REVIEW || booking.status == BookingStatus.CREATED)
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFF59E0B).withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(4),
-                            border: Border.all(
-                              color: const Color(0xFFF59E0B),
-                              width: 1,
-                            ),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(
-                                Icons.pending_actions,
-                                size: 12,
-                                color: Color(0xFFF59E0B),
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                'Pending',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w600,
-                                  color: isDark ? const Color(0xFFF59E0B) : const Color(0xFFD97706),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    timeText,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  void _showBookingDetailsDrawer() {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final screenWidth = MediaQuery.of(context).size.width;
-    final isMobile = screenWidth < 600;
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final isUserRole = authProvider.user?.role == UserRole.USER;
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => DraggableScrollableSheet(
-        initialChildSize: 0.75,
-        minChildSize: 0.5,
-        maxChildSize: 0.9,
-        builder: (context, scrollController) => Container(
-          decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF18181B) : Colors.white,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-          ),
-          child: Column(
-            children: [
-              // Handle bar
-              Container(
-                margin: const EdgeInsets.only(top: 8, bottom: 4),
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: isDark ? Colors.grey[700] : Colors.grey[300],
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              // Header
-              Container(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-                decoration: BoxDecoration(
-                  border: Border(
-                    bottom: BorderSide(
-                      color: isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
-                    ),
-                  ),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    IconButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      icon: Icon(Icons.close, color: isDark ? Colors.white : Colors.black),
-                      tooltip: 'Close',
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'Booking Details',
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: isDark ? Colors.white : Colors.black,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              // Content
-              Expanded(
-                child: SingleChildScrollView(
-                  controller: scrollController,
-                  padding: const EdgeInsets.all(24),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Date & Time
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Date',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
-                                    color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  DateFormat('MMMM d, yyyy').format(_selectedBooking!.date),
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    color: isDark ? Colors.white : Colors.black,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Time',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
-                                    color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  _formatTimeSlot(_selectedBooking!.startTime, _selectedBooking!.duration),
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    color: isDark ? Colors.white : Colors.black,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 24),
-                      // Company Info (hidden for USER role)
-                      if (!isUserRole) ...[
-                        _buildDetailSection('Company Information', isDark, [
-                          _buildDetailItem('Account Name', _selectedBooking!.accountName, isDark),
-                          _buildDetailItem('Company Name', _selectedBooking!.companyName, isDark),
-                          if (_selectedBooking!.companySector != null)
-                            _buildDetailItem('Sector', _selectedBooking!.companySector!, isDark),
-                          if (_selectedBooking!.companyVertical != null)
-                            _buildDetailItem('Vertical', _selectedBooking!.companyVertical!, isDark),
-                          if (_selectedBooking!.companySize != null)
-                            _buildDetailItem('Size', _selectedBooking!.companySize!, isDark),
-                        ]),
-                        const SizedBox(height: 24),
-                      ],
-                      // Visit Details (simplified for USER role)
-                      _buildDetailSection('Visit Details', isDark, [
-                        if (_selectedBooking!.venue != null)
-                          _buildDetailItem('Venue', _selectedBooking!.venue!, isDark),
-                        // USER role: only show status
-                        if (isUserRole) ...[
-                          _buildDetailItem('Status', _selectedBooking!.status.name, isDark),
-                        ],
-                        // ADMIN/MANAGER: show all details
-                        if (!isUserRole) ...[
-                          _buildDetailItem('Expected Attendees', '${_selectedBooking!.expectedAttendees}', isDark),
-                          if (_selectedBooking!.overallTheme != null)
-                            _buildDetailItem('Overall Theme', _selectedBooking!.overallTheme!, isDark),
-                          if (_selectedBooking!.lastInnovationDay != null)
-                            _buildDetailItem('Last Innovation Day', DateFormat('MMM d, yyyy').format(_selectedBooking!.lastInnovationDay!), isDark),
-                          if (_selectedBooking!.eventType != null)
-                            _buildDetailItem('Event Type', _selectedBooking!.eventType!.name, isDark),
-                          if (_selectedBooking!.partnerName != null)
-                            _buildDetailItem('Partner Name', _selectedBooking!.partnerName!, isDark),
-                          if (_selectedBooking!.dealStatus != null)
-                            _buildDetailItem('Deal Status', _selectedBooking!.dealStatus!.name, isDark),
-                          _buildDetailItem('Attach Head Approval', _selectedBooking!.attachHeadApproval ? 'Yes' : 'No', isDark),
-                          // Legacy fields
-                          if (_selectedBooking!.interestArea != null)
-                            _buildDetailItem('Interest Area', _selectedBooking!.interestArea!, isDark),
-                          if (_selectedBooking!.businessGoal != null)
-                            _buildDetailItem('Business Goal', _selectedBooking!.businessGoal!, isDark),
-                          if (_selectedBooking!.additionalNotes != null)
-                            _buildDetailItem('Additional Notes', _selectedBooking!.additionalNotes!, isDark),
-                        ],
-                      ]),
-                      const SizedBox(height: 24),
-                      // Attendees Carousel (hidden for USER role - personal data)
-                      if (!isUserRole && _selectedBooking!.attendees != null && _selectedBooking!.attendees!.isNotEmpty) ...[
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              'Attendees (${_selectedBooking!.attendees!.length})',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: isDark ? Colors.white : Colors.black,
-                              ),
-                            ),
-                            if (_selectedBooking!.attendees!.length > 1)
-                              Row(
-                                children: [
-                                  Icon(
-                                    Icons.arrow_back_ios,
-                                    size: 14,
-                                    color: isDark ? const Color(0xFF6B7280) : const Color(0xFF9CA3AF),
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    'Swipe',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: isDark ? const Color(0xFF6B7280) : const Color(0xFF9CA3AF),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Icon(
-                                    Icons.arrow_forward_ios,
-                                    size: 14,
-                                    color: isDark ? const Color(0xFF6B7280) : const Color(0xFF9CA3AF),
-                                  ),
-                                ],
-                              ),
-                          ],
-                        ),
-                        const SizedBox(height: 24),
-                        SizedBox(
-                          height: 462,
-                          child: PageView.builder(
-                            controller: PageController(viewportFraction: 0.9),
-                            itemCount: _selectedBooking!.attendees!.length,
-                            onPageChanged: (index) {
-                              setState(() {
-                                _currentBadgeIndex = index;
-                              });
-                            },
-                            itemBuilder: (context, index) {
-                              final attendee = _selectedBooking!.attendees![index];
-                              return Center(
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                                  child: AccessBadge(
-                                    attendeeName: attendee.name,
-                                    attendeePosition: attendee.position,
-                                    attendeeId: attendee.id,
-                                    companyName: _selectedBooking!.companyName,
-                                    date: _selectedBooking!.date,
-                                    startTime: _selectedBooking!.startTime,
-                                    duration: _selectedBooking!.duration.name,
-                                    bookingId: _selectedBooking!.id,
-                                    isDark: isDark,
-                                    showActions: false,
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        // Action Buttons
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: OutlinedButton.icon(
-                                  onPressed: () async {
-                                    final attendee = _selectedBooking!.attendees![_currentBadgeIndex];
-                                    final badgeUrl = 'https://ppspsched.lat/attendee/${attendee.id ?? _selectedBooking!.id}';
-                                    try {
-                                      await Share.share(
-                                        'TCS Pace Access Ticket\n${attendee.name} - ${_selectedBooking!.companyName}\n$badgeUrl',
-                                        subject: 'TCS Pace Access Ticket',
-                                      );
-                                    } catch (e) {
-                                      if (context.mounted) {
-                                        ToastNotification.show(
-                                          context,
-                                          message: 'Error sharing: $e',
-                                          type: ToastType.error,
-                                        );
-                                      }
-                                    }
-                                  },
-                                  icon: const Icon(Icons.share, size: 16),
-                                  label: const Text('Share', style: TextStyle(fontSize: 12)),
-                                  style: OutlinedButton.styleFrom(
-                                    foregroundColor: isDark ? Colors.white : Colors.black,
-                                    side: BorderSide(
-                                      color: isDark ? Colors.white : Colors.black,
-                                    ),
-                                    padding: const EdgeInsets.symmetric(vertical: 10),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: OutlinedButton.icon(
-                                  onPressed: () {
-                                    final attendee = _selectedBooking!.attendees![_currentBadgeIndex];
-                                    final badgeUrl = 'https://ppspsched.lat/attendee/${attendee.id ?? _selectedBooking!.id}';
-                                    Clipboard.setData(ClipboardData(text: badgeUrl));
-                                    ToastNotification.show(
-                                      context,
-                                      message: 'Link copied to clipboard',
-                                      type: ToastType.success,
-                                      duration: const Duration(seconds: 2),
-                                    );
-                                  },
-                                  icon: const Icon(Icons.link, size: 16),
-                                  label: const Text('Copy', style: TextStyle(fontSize: 12)),
-                                  style: OutlinedButton.styleFrom(
-                                    foregroundColor: isDark ? Colors.white : Colors.black,
-                                    side: BorderSide(
-                                      color: isDark ? Colors.white : Colors.black,
-                                    ),
-                                    padding: const EdgeInsets.symmetric(vertical: 10),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: OutlinedButton.icon(
-                                  onPressed: () async {
-                                    final attendee = _selectedBooking!.attendees![_currentBadgeIndex];
-                                    final badge = AccessBadge(
-                                      attendeeName: attendee.name,
-                                      attendeePosition: attendee.position,
-                                      attendeeId: attendee.id,
-                                      companyName: _selectedBooking!.companyName,
-                                      date: _selectedBooking!.date,
-                                      startTime: _selectedBooking!.startTime,
-                                      duration: _selectedBooking!.duration.name,
-                                      bookingId: _selectedBooking!.id,
-                                      isDark: isDark,
-                                    );
-                                    await badge.showPrintPreview(context);
-                                  },
-                                  icon: const Icon(Icons.print, size: 16),
-                                  label: const Text('Print', style: TextStyle(fontSize: 12)),
-                                  style: OutlinedButton.styleFrom(
-                                    foregroundColor: isDark ? Colors.white : Colors.black,
-                                    side: BorderSide(
-                                      color: isDark ? Colors.white : Colors.black,
-                                    ),
-                                    padding: const EdgeInsets.symmetric(vertical: 10),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-              ),
-              // Footer with cancel button
-              if (_selectedBooking!.status != BookingStatus.CANCELLED)
-                Container(
-                  padding: const EdgeInsets.all(24),
-                  decoration: BoxDecoration(
-                    border: Border(
-                      top: BorderSide(
-                        color: isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
-                      ),
-                    ),
-                  ),
-                  child: SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: () {
-                        Navigator.of(context).pop();
-                        setState(() => _showCancelDialog = true);
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: isDark ? const Color(0xFF450A0A) : Colors.red[50],
-                        foregroundColor: isDark ? Colors.red[400] : Colors.red[700],
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          side: BorderSide(
-                            color: isDark ? const Color(0xFF7F1D1D) : Colors.red[200]!,
-                          ),
-                        ),
-                      ),
-                      child: const Text('Cancel Booking'),
-                    ),
-                  ),
-                ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDetailSection(String title, bool isDark, List<Widget> children) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          title,
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-            color: isDark ? Colors.white : Colors.black,
-          ),
-        ),
-        const SizedBox(height: 16),
-        ...children,
-      ],
-    );
-  }
-
-  Widget _buildDetailItem(String label, String value, bool isDark) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 14,
-              color: isDark ? Colors.white : Colors.black,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildBookingFormOverlay(bool isDark, bool isMobile) {
-    // Prepare slot string for backward compatibility with BookingFormScreen
-    final slotString = '$_selectedStartTime (${_selectedDuration}h)';
-
-    return _BookingFormWidget(
-      isDark: isDark,
-      isMobile: isMobile,
-      selectedDate: _selectedDate!,
-      selectedSlot: slotString,
-      selectedStartTime: _selectedStartTime!,
-      selectedDuration: _selectedDuration!,
-      selectedVisitType: _selectedVisitType!,
-      onSubmit: _handleCreateBooking,
-      onCancel: _closeBookingFormAndClearCache,
-      showForm: _showBookingForm,
-    );
-  }
 
   Widget _buildCancelDialog(bool isDark) {
     return Container(
@@ -5287,7 +2951,6 @@ class _SlotPickerContentWithLoadingState extends State<SlotPickerContentWithLoad
 
   Future<void> _pollForAvailability() async {
     // Poll every 100ms for up to 30 seconds
-    int pollCount = 0;
     for (int i = 0; i < 300; i++) {
       if (!mounted) return;
 
@@ -5311,7 +2974,7 @@ class _SlotPickerContentWithLoadingState extends State<SlotPickerContentWithLoad
       }
 
       await Future.delayed(const Duration(milliseconds: 100));
-      pollCount++;
+      // Poll count tracking removed
     }
 
     debugPrint('⚠️ [SlotPicker] Polling timed out after 30 seconds without data');
@@ -5569,7 +3232,7 @@ class _SlotPickerContentState extends State<SlotPickerContent> {
               boxShadow: isSelected
                   ? [
                       BoxShadow(
-                        color: (widget.isDark ? const Color(0xFF10B981) : const Color(0xFF059669)).withOpacity(0.3),
+                        color: (widget.isDark ? const Color(0xFF10B981) : const Color(0xFF059669)).withValues(alpha: 0.3),
                         blurRadius: 8,
                         offset: const Offset(0, 2),
                       ),

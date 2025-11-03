@@ -1,7 +1,89 @@
 import { prisma } from '../lib/prisma';
 import type { TicketCreate, TicketUpdate, TicketFilter, TicketMessageCreate } from '../types/ticket.types';
+import { join } from 'path';
+
+// Audio MIME types
+const AUDIO_MIME_TYPES = [
+  'audio/mp4',
+  'audio/mpeg',
+  'audio/wav',
+  'audio/ogg',
+  'audio/aac',
+  'audio/webm',
+  'audio/x-m4a',
+];
+
+/**
+ * Extract audio duration from file in milliseconds using ffprobe
+ * Returns null if not an audio file or extraction fails
+ */
+async function extractAudioDuration(fileUrl: string, mimeType: string): Promise<number | null> {
+  if (!AUDIO_MIME_TYPES.includes(mimeType)) {
+    return null; // Not an audio file
+  }
+
+  try {
+    // Convert URL to file system path
+    // URLs can be in format: https://api.ppspsched.lat/uploads/attachments/filename.m4a
+    // or /uploads/attachments/filename.m4a
+    const UPLOAD_BASE_DIR = join(process.cwd(), 'uploads');
+
+    // Extract path after /uploads/
+    let relativePath = fileUrl;
+    if (relativePath.includes('://')) {
+      // Full URL - extract path after domain
+      const urlObj = new URL(relativePath);
+      relativePath = urlObj.pathname; // Gets /uploads/attachments/filename.m4a
+    }
+    relativePath = relativePath.replace('/uploads/', '');
+    const filepath = join(UPLOAD_BASE_DIR, relativePath);
+
+    console.log(`[AudioExtract] Extracting duration from: ${filepath}`);
+
+    // Use ffprobe to extract duration (more reliable than music-metadata)
+    const proc = Bun.spawn(['ffprobe', '-v', 'error', '-show_entries', 'format=duration', '-of', 'default=noprint_wrappers=1:nokey=1', filepath], {
+      stdout: 'pipe',
+      stderr: 'pipe',
+    });
+
+    const output = await new Response(proc.stdout).text();
+    await proc.exited;
+
+    const durationSeconds = parseFloat(output.trim());
+
+    if (!isNaN(durationSeconds) && durationSeconds > 0) {
+      const durationMs = Math.round(durationSeconds * 1000);
+      console.log(`[AudioExtract] ✅ Duration extracted: ${durationMs}ms (${durationSeconds}s)`);
+      return durationMs;
+    }
+
+    console.log('[AudioExtract] ⚠️ No duration found in metadata');
+    return null;
+  } catch (error) {
+    console.error('[AudioExtract] ❌ Error extracting duration:', error);
+    return null;
+  }
+}
 
 export async function createTicket(data: TicketCreate, userId: string) {
+  // Extract durations for audio attachments
+  let attachmentsWithDuration = undefined;
+  if (data.attachments) {
+    attachmentsWithDuration = await Promise.all(
+      data.attachments.map(async (att) => {
+        const duration = await extractAudioDuration(att.fileUrl, att.mimeType);
+        return {
+          fileName: att.fileName,
+          fileUrl: att.fileUrl,
+          fileSize: att.fileSize,
+          mimeType: att.mimeType,
+          duration,
+          uploadedById: userId,
+        };
+      })
+    );
+  }
+
   const ticket = await prisma.ticket.create({
     data: {
       title: data.title,
@@ -11,15 +93,9 @@ export async function createTicket(data: TicketCreate, userId: string) {
       platform: data.platform,
       deviceInfo: data.deviceInfo,
       createdById: userId,
-      attachments: data.attachments
+      attachments: attachmentsWithDuration
         ? {
-            create: data.attachments.map((att) => ({
-              fileName: att.fileName,
-              fileUrl: att.fileUrl,
-              fileSize: att.fileSize,
-              mimeType: att.mimeType,
-              uploadedById: userId,
-            })),
+            create: attachmentsWithDuration,
           }
         : undefined,
     },
@@ -119,6 +195,25 @@ export async function getTickets(filters: TicketFilter, userId: string, userRole
           email: true,
           avatarUrl: true,
           createdAt: true,
+        },
+      },
+      messages: {
+        where: userRole === 'ADMIN' ? {} : { isInternal: false }, // Users can't see internal notes
+        include: {
+          author: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              avatarUrl: true,
+              role: true,
+              createdAt: true,
+            },
+          },
+          attachments: true,
+        },
+        orderBy: {
+          createdAt: 'asc',
         },
       },
       _count: {
@@ -309,21 +404,36 @@ export async function createMessage(ticketId: string, data: TicketMessageCreate,
     throw new Error('Users cannot create internal notes');
   }
 
+  // Extract durations for audio attachments
+  let attachmentsWithDuration = undefined;
+  if (data.attachments) {
+    console.log(`[createMessage] Processing ${data.attachments.length} attachments`);
+    attachmentsWithDuration = await Promise.all(
+      data.attachments.map(async (att) => {
+        console.log(`[createMessage] Attachment: ${att.fileName}, type: ${att.mimeType}`);
+        const duration = await extractAudioDuration(att.fileUrl, att.mimeType);
+        console.log(`[createMessage] Duration extracted: ${duration}ms for ${att.fileName}`);
+        return {
+          fileName: att.fileName,
+          fileUrl: att.fileUrl,
+          fileSize: att.fileSize,
+          mimeType: att.mimeType,
+          duration,
+          uploadedById: userId,
+        };
+      })
+    );
+  }
+
   const message = await prisma.ticketMessage.create({
     data: {
       content: data.content,
       isInternal: data.isInternal || false,
       ticketId,
       authorId: userId,
-      attachments: data.attachments
+      attachments: attachmentsWithDuration
         ? {
-            create: data.attachments.map((att) => ({
-              fileName: att.fileName,
-              fileUrl: att.fileUrl,
-              fileSize: att.fileSize,
-              mimeType: att.mimeType,
-              uploadedById: userId,
-            })),
+            create: attachmentsWithDuration,
           }
         : undefined,
     },

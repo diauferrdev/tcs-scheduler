@@ -14,6 +14,7 @@ const app = new Hono<AppContext>();
 // Allowed file types
 const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml'];
 const ALLOWED_VIDEO_TYPES = ['video/mp4', 'video/webm', 'video/ogg', 'video/quicktime', 'video/x-msvideo'];
+const ALLOWED_AUDIO_TYPES = ['audio/mp4', 'audio/mpeg', 'audio/wav', 'audio/ogg', 'audio/aac', 'audio/webm', 'audio/x-m4a'];
 const ALLOWED_DOCUMENT_TYPES = [
   'application/pdf',
   'application/msword',
@@ -25,27 +26,47 @@ const ALLOWED_DOCUMENT_TYPES = [
   'text/plain',
   'text/csv',
 ];
-const ALLOWED_ATTACHMENT_TYPES = [...ALLOWED_IMAGE_TYPES, ...ALLOWED_DOCUMENT_TYPES, ...ALLOWED_VIDEO_TYPES];
+// General files - permite qualquer tipo de arquivo (exe, zip, apk, etc)
+const ALLOWED_FILE_TYPES = [
+  'application/zip',
+  'application/x-zip-compressed',
+  'application/x-rar-compressed',
+  'application/x-7z-compressed',
+  'application/x-tar',
+  'application/gzip',
+  'application/vnd.android.package-archive', // APK
+  'application/x-msdownload', // EXE
+  'application/x-executable',
+  'application/octet-stream', // Binários genéricos
+  'application/json',
+  'application/xml',
+  'text/xml',
+];
+const ALLOWED_ATTACHMENT_TYPES = [...ALLOWED_IMAGE_TYPES, ...ALLOWED_DOCUMENT_TYPES, ...ALLOWED_VIDEO_TYPES, ...ALLOWED_AUDIO_TYPES, ...ALLOWED_FILE_TYPES];
 
 // Max file sizes (in bytes)
 const MAX_AVATAR_SIZE = 10 * 1024 * 1024; // 10MB
 const MAX_IMAGE_SIZE = 30 * 1024 * 1024; // 30MB
 const MAX_VIDEO_SIZE = 300 * 1024 * 1024; // 300MB
+const MAX_AUDIO_SIZE = 50 * 1024 * 1024; // 50MB
 const MAX_DOCUMENT_SIZE = 20 * 1024 * 1024; // 20MB
-const MAX_ATTACHMENT_SIZE = 300 * 1024 * 1024; // 300MB (vídeos podem ser grandes)
+const MAX_FILE_SIZE = 1024 * 1024 * 1024; // 1GB - Arquivos gerais
+const MAX_ATTACHMENT_SIZE = 1024 * 1024 * 1024; // 1GB - Aumentado para suportar arquivos gerais
 
 // Upload directories
 const UPLOAD_BASE_DIR = join(process.cwd(), 'uploads');
 const AVATARS_DIR = join(UPLOAD_BASE_DIR, 'avatars');
 const IMAGES_DIR = join(UPLOAD_BASE_DIR, 'images');
 const VIDEOS_DIR = join(UPLOAD_BASE_DIR, 'videos');
+const AUDIO_DIR = join(UPLOAD_BASE_DIR, 'audio');
 const DOCUMENTS_DIR = join(UPLOAD_BASE_DIR, 'documents');
+const FILES_DIR = join(UPLOAD_BASE_DIR, 'files'); // Arquivos gerais
 const ATTACHMENTS_DIR = join(UPLOAD_BASE_DIR, 'attachments');
 
 // ==================== HELPER FUNCTIONS ====================
 
 async function ensureUploadDirs() {
-  const dirs = [UPLOAD_BASE_DIR, AVATARS_DIR, IMAGES_DIR, VIDEOS_DIR, DOCUMENTS_DIR, ATTACHMENTS_DIR];
+  const dirs = [UPLOAD_BASE_DIR, AVATARS_DIR, IMAGES_DIR, VIDEOS_DIR, AUDIO_DIR, DOCUMENTS_DIR, FILES_DIR, ATTACHMENTS_DIR];
   for (const dir of dirs) {
     if (!existsSync(dir)) {
       await mkdir(dir, { recursive: true });
@@ -100,7 +121,7 @@ app.post('/avatar', authMiddleware, async (c) => {
     const arrayBuffer = await file.arrayBuffer();
     await writeFile(filepath, Buffer.from(arrayBuffer));
 
-    const url = `/uploads/avatars/${filename}`;
+    const url = `https://api.ppspsched.lat/uploads/avatars/${filename}`;
 
     // Update user's avatarUrl in database
     const userId = c.get('user').id;
@@ -158,7 +179,7 @@ app.post('/image', authMiddleware, async (c) => {
     const arrayBuffer = await file.arrayBuffer();
     await writeFile(filepath, Buffer.from(arrayBuffer));
 
-    const url = `/uploads/images/${filename}`;
+    const url = `https://api.ppspsched.lat/uploads/images/${filename}`;
 
     console.log('[Upload] Image uploaded:', {
       userId: c.get('user').id,
@@ -213,7 +234,7 @@ app.post('/video', authMiddleware, async (c) => {
     const arrayBuffer = await file.arrayBuffer();
     await writeFile(filepath, Buffer.from(arrayBuffer));
 
-    const url = `/uploads/videos/${filename}`;
+    const url = `https://api.ppspsched.lat/uploads/videos/${filename}`;
 
     console.log('[Upload] Video uploaded:', {
       userId: c.get('user').id,
@@ -268,7 +289,7 @@ app.post('/document', authMiddleware, async (c) => {
     const arrayBuffer = await file.arrayBuffer();
     await writeFile(filepath, Buffer.from(arrayBuffer));
 
-    const url = `/uploads/documents/${filename}`;
+    const url = `https://api.ppspsched.lat/uploads/documents/${filename}`;
 
     console.log('[Upload] Document uploaded:', {
       userId: c.get('user').id,
@@ -286,6 +307,111 @@ app.post('/document', authMiddleware, async (c) => {
   } catch (error: any) {
     console.error('[Upload] Error uploading document:', error);
     return c.json({ error: error.message || 'Failed to upload document' }, 500);
+  }
+});
+
+/**
+ * Upload general file (exe, zip, apk, etc - up to 1GB)
+ * POST /api/upload/file
+ */
+app.post('/file', authMiddleware, async (c) => {
+  try {
+    await ensureUploadDirs();
+
+    const formData = await c.req.formData();
+    const file = formData.get('file') as File;
+
+    if (!file) {
+      return c.json({ error: 'No file provided' }, 400);
+    }
+
+    // Aceita qualquer tipo de arquivo
+    if (file.size > MAX_FILE_SIZE) {
+      return c.json({
+        error: `File too large. Maximum size is ${MAX_FILE_SIZE / (1024 * 1024 * 1024)}GB`
+      }, 400);
+    }
+
+    const filename = generateFilename(file.name);
+    const filepath = join(FILES_DIR, filename);
+
+    const arrayBuffer = await file.arrayBuffer();
+    await writeFile(filepath, Buffer.from(arrayBuffer));
+
+    const url = `https://api.ppspsched.lat/uploads/files/${filename}`;
+
+    console.log('[Upload] File uploaded:', {
+      userId: c.get('user').id,
+      filename,
+      size: file.size,
+      type: file.type,
+    });
+
+    return c.json({
+      url,
+      filename: file.name,
+      size: file.size,
+      type: file.type,
+    });
+  } catch (error: any) {
+    console.error('[Upload] Error uploading file:', error);
+    return c.json({ error: error.message || 'Failed to upload file' }, 500);
+  }
+});
+
+/**
+ * Upload audio file
+ * POST /api/upload/audio
+ */
+app.post('/audio', authMiddleware, async (c) => {
+  try {
+    await ensureUploadDirs();
+
+    const formData = await c.req.formData();
+    const file = formData.get('file') as File;
+
+    if (!file) {
+      return c.json({ error: 'No file provided' }, 400);
+    }
+
+    if (!ALLOWED_AUDIO_TYPES.includes(file.type)) {
+      return c.json({
+        error: 'Invalid file type. Only audio files are allowed.',
+        allowedTypes: ALLOWED_AUDIO_TYPES
+      }, 400);
+    }
+
+    if (file.size > MAX_AUDIO_SIZE) {
+      return c.json({
+        error: `File too large. Maximum size is ${MAX_AUDIO_SIZE / (1024 * 1024)}MB`
+      }, 400);
+    }
+
+    const filename = generateFilename(file.name);
+    const filepath = join(AUDIO_DIR, filename);
+
+    const arrayBuffer = await file.arrayBuffer();
+    await writeFile(filepath, Buffer.from(arrayBuffer));
+
+    const url = `https://api.ppspsched.lat/uploads/audio/${filename}`;
+
+    console.log('[Upload] Audio uploaded:', {
+      userId: c.get('user').id,
+      filename,
+      size: file.size,
+      type: file.type,
+    });
+
+    // Duration will be extracted later by ticket.service.ts using ffprobe
+    return c.json({
+      url,
+      filename: file.name,
+      size: file.size,
+      type: file.type,
+    });
+  } catch (error: any) {
+    console.error('[Upload] Error uploading audio:', error);
+    return c.json({ error: error.message || 'Failed to upload audio' }, 500);
   }
 });
 
@@ -317,7 +443,7 @@ app.post('/attachment', authMiddleware, async (c) => {
       console.log('[Upload] ERROR: Invalid file type:', file.type);
       console.log('[Upload] Allowed types:', ALLOWED_ATTACHMENT_TYPES);
       return c.json({
-        error: 'Invalid file type. Only images, documents, and videos are allowed.',
+        error: 'Invalid file type. Only images, documents, videos, and audio files are allowed.',
         allowedTypes: ALLOWED_ATTACHMENT_TYPES,
         receivedType: file.type
       }, 400);
@@ -336,15 +462,18 @@ app.post('/attachment', authMiddleware, async (c) => {
     const arrayBuffer = await file.arrayBuffer();
     await writeFile(filepath, Buffer.from(arrayBuffer));
 
-    const url = `/uploads/attachments/${filename}`;
+    // Return absolute URL with API domain
+    const url = `https://api.ppspsched.lat/uploads/attachments/${filename}`;
 
     console.log('[Upload] Attachment uploaded:', {
       userId: c.get('user').id,
       filename,
       size: file.size,
       type: file.type,
+      url,
     });
 
+    // Duration will be extracted later by ticket.service.ts using ffprobe
     return c.json({
       url,
       filename: file.name,
@@ -386,7 +515,7 @@ app.post('/attachments', authMiddleware, async (c) => {
     for (const file of files) {
       if (!ALLOWED_ATTACHMENT_TYPES.includes(file.type)) {
         return c.json({
-          error: `Invalid file type for ${file.name}. Only images, documents, and videos are allowed.`,
+          error: `Invalid file type for ${file.name}. Only images, documents, videos, and audio files are allowed.`,
           allowedTypes: ALLOWED_ATTACHMENT_TYPES
         }, 400);
       }
@@ -404,7 +533,7 @@ app.post('/attachments', authMiddleware, async (c) => {
       await writeFile(filepath, Buffer.from(arrayBuffer));
 
       uploadedFiles.push({
-        url: `/uploads/attachments/${filename}`,
+        url: `https://api.ppspsched.lat/uploads/attachments/${filename}`,
         filename: file.name,
         size: file.size,
         type: file.type,

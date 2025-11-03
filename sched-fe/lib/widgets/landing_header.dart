@@ -19,10 +19,10 @@ class LandingHeader extends StatelessWidget {
       height: isMobile ? 64 : 80,
       padding: EdgeInsets.symmetric(horizontal: isMobile ? 20 : 80),
       decoration: BoxDecoration(
-        color: const Color(0xFF0A0A0A).withOpacity(0.8),
+        color: const Color(0xFF0A0A0A).withValues(alpha: 0.8),
         border: Border(
           bottom: BorderSide(
-            color: Colors.white.withOpacity(0.1),
+            color: Colors.white.withValues(alpha: 0.1),
             width: 1,
           ),
         ),
@@ -54,13 +54,13 @@ class LandingHeader extends StatelessWidget {
                   ),
                   style: IconButton.styleFrom(
                     backgroundColor: isLoggedIn
-                        ? Colors.white.withOpacity(0.1)
-                        : Colors.white.withOpacity(0.15),
+                        ? Colors.white.withValues(alpha: 0.1)
+                        : Colors.white.withValues(alpha: 0.15),
                     padding: const EdgeInsets.all(10),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
                       side: BorderSide(
-                        color: Colors.white.withOpacity(0.2),
+                        color: Colors.white.withValues(alpha: 0.2),
                         width: 1,
                       ),
                     ),
@@ -88,7 +88,7 @@ class LandingHeader extends StatelessWidget {
                   ),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: isLoggedIn
-                        ? Colors.white.withOpacity(0.1)
+                        ? Colors.white.withValues(alpha: 0.1)
                         : Colors.white,
                     foregroundColor: isLoggedIn ? Colors.white : Colors.black,
                     padding: const EdgeInsets.symmetric(
@@ -99,7 +99,7 @@ class LandingHeader extends StatelessWidget {
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(10),
                       side: isLoggedIn
-                          ? BorderSide(color: Colors.white.withOpacity(0.2), width: 1)
+                          ? BorderSide(color: Colors.white.withValues(alpha: 0.2), width: 1)
                           : BorderSide.none,
                     ),
                   ),

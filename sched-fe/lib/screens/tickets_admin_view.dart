@@ -54,9 +54,151 @@ class _TicketsAdminViewState extends State<TicketsAdminView> {
         debugPrint('[AdminView] WS Message: $message');
         final type = message['type'] as String?;
 
-        // Update ticket list when there are changes
-        if (type == 'ticket_message' || type == 'ticket_created' || type == 'ticket_updated') {
+        if (type == 'ticket_message') {
+          // Handle ticket message - update locally for instant badge update
+          final data = message['data'];
+          if (data != null) {
+            try {
+              final newMessage = TicketMessage.fromJson(data);
+              final ticketId = newMessage.ticketId;
+
+              setState(() {
+                final ticketIndex = _tickets.indexWhere((t) => t.id == ticketId);
+                if (ticketIndex != -1) {
+                  final oldTicket = _tickets[ticketIndex];
+                  final messageExists = oldTicket.messages.any((m) => m.id == newMessage.id);
+
+                  if (!messageExists) {
+                    // Create NEW messages list with the new message added
+                    final updatedMessages = List<TicketMessage>.from(oldTicket.messages)..add(newMessage);
+                    updatedMessages.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+
+                    // Create completely NEW ticket object to trigger rebuild
+                    _tickets[ticketIndex] = Ticket(
+                      id: oldTicket.id,
+                      title: oldTicket.title,
+                      description: oldTicket.description,
+                      status: oldTicket.status,
+                      priority: oldTicket.priority,
+                      category: oldTicket.category,
+                      platform: oldTicket.platform,
+                      createdBy: oldTicket.createdBy,
+                      assignedTo: oldTicket.assignedTo,
+                      createdAt: oldTicket.createdAt,
+                      updatedAt: oldTicket.updatedAt,
+                      closedAt: oldTicket.closedAt,
+                      messages: updatedMessages,
+                      attachments: oldTicket.attachments,
+                      messageCount: oldTicket.messageCount,
+                      attachmentCount: oldTicket.attachmentCount,
+                    );
+
+                    // Re-sort all tickets to maintain proper order
+                    _sortTickets();
+
+                    debugPrint('[AdminView] ✅ Badge updated for ticket $ticketId - new message added');
+                  }
+                }
+              });
+            } catch (e) {
+              debugPrint('[AdminView] Error parsing message: $e');
+              // Fallback to reload
+              _loadTickets();
+            }
+          }
+        } else if (type == 'ticket_created' || type == 'ticket_updated') {
           _loadTickets();
+        } else if (type == 'message_read') {
+          // Real-time read receipt update for badge counter
+          final data = message['data'];
+          debugPrint('[AdminView] 📨 message_read received: $data');
+
+          if (data != null) {
+            final ticketId = data['ticketId'] as String?;
+            final messageId = data['messageId'] as String?;
+            final readAt = data['readAt'] as String?;
+
+            if (ticketId != null && messageId != null && readAt != null) {
+              setState(() {
+                final ticketIndex = _tickets.indexWhere((t) => t.id == ticketId);
+                debugPrint('[AdminView] Looking for ticket $ticketId, found at index: $ticketIndex');
+
+                if (ticketIndex != -1) {
+                  final oldTicket = _tickets[ticketIndex];
+                  final msgIndex = oldTicket.messages.indexWhere((m) => m.id == messageId);
+                  debugPrint('[AdminView] Looking for message $messageId in ticket, found at index: $msgIndex');
+
+                  if (msgIndex != -1) {
+                    // Create NEW messages list with updated readAt
+                    final updatedMessages = List<TicketMessage>.from(oldTicket.messages);
+                    updatedMessages[msgIndex] = TicketMessage(
+                      id: updatedMessages[msgIndex].id,
+                      content: updatedMessages[msgIndex].content,
+                      isInternal: updatedMessages[msgIndex].isInternal,
+                      ticketId: updatedMessages[msgIndex].ticketId,
+                      author: updatedMessages[msgIndex].author,
+                      createdAt: updatedMessages[msgIndex].createdAt,
+                      updatedAt: updatedMessages[msgIndex].updatedAt,
+                      readAt: DateTime.parse(readAt),
+                      attachments: updatedMessages[msgIndex].attachments,
+                    );
+
+                    // Create completely NEW ticket object to trigger rebuild and badge update
+                    _tickets[ticketIndex] = Ticket(
+                      id: oldTicket.id,
+                      title: oldTicket.title,
+                      description: oldTicket.description,
+                      status: oldTicket.status,
+                      priority: oldTicket.priority,
+                      category: oldTicket.category,
+                      platform: oldTicket.platform,
+                      createdBy: oldTicket.createdBy,
+                      assignedTo: oldTicket.assignedTo,
+                      createdAt: oldTicket.createdAt,
+                      updatedAt: oldTicket.updatedAt,
+                      closedAt: oldTicket.closedAt,
+                      messages: updatedMessages,
+                      attachments: oldTicket.attachments,
+                      messageCount: oldTicket.messageCount,
+                      attachmentCount: oldTicket.attachmentCount,
+                    );
+
+                    debugPrint('[AdminView] ✅ Badge updated for ticket $ticketId after marking message $messageId as read');
+                  } else {
+                    debugPrint('[AdminView] ⚠️ Message $messageId not found in ticket $ticketId messages');
+                  }
+                } else {
+                  debugPrint('[AdminView] ⚠️ Ticket $ticketId not found in list');
+                }
+              });
+            }
+          }
+        } else if (type == 'ticket_read') {
+          // Update ticket locally to reflect read status changes (badge update)
+          final data = message['data'];
+          if (data != null) {
+            try {
+              final updatedTicket = Ticket.fromJson(data);
+              setState(() {
+                final ticketIndex = _tickets.indexWhere((t) => t.id == updatedTicket.id);
+                if (ticketIndex != -1) {
+                  // Update readAt timestamps in messages
+                  for (final updatedMsg in updatedTicket.messages) {
+                    final existingMsgIndex = _tickets[ticketIndex].messages.indexWhere((m) => m.id == updatedMsg.id);
+                    if (existingMsgIndex != -1) {
+                      _tickets[ticketIndex].messages[existingMsgIndex] = updatedMsg;
+                    }
+                  }
+                  debugPrint('[AdminView] ✅ Updated readAt for ticket ${updatedTicket.id}');
+                }
+              });
+            } catch (e) {
+              debugPrint('[AdminView] Error updating ticket_read: $e');
+            }
+          }
+        } else if (type == 'mark_as_read_success') {
+          // Just log success, no action needed in admin view
+          debugPrint('[AdminView] ✅ Messages marked as read');
         }
       });
     }
@@ -135,11 +277,52 @@ class _TicketsAdminViewState extends State<TicketsAdminView> {
     }
   }
 
-  void _selectTicket(String ticketId) {
-    final ticket = _tickets.firstWhere((t) => t.id == ticketId);
-    setState(() {
-      _selectedTicket = ticket;
-    });
+  int _getSeparatorCount(List<Ticket> tickets) {
+    final activeCount = tickets.where((t) =>
+      t.status != TicketStatus.CLOSED && t.status != TicketStatus.RESOLVED
+    ).length;
+    final finishedCount = tickets.length - activeCount;
+
+    // Show separator only if both active and finished tickets exist
+    return (activeCount > 0 && finishedCount > 0) ? 1 : 0;
+  }
+
+  Widget _buildSeparator(bool isDark, Color textColor) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.white.withValues(alpha: 0.03) : Colors.black.withValues(alpha: 0.02),
+        border: Border(
+          top: BorderSide(
+            color: isDark ? Colors.white.withValues(alpha: 0.1) : Colors.black.withValues(alpha: 0.1),
+            width: 1,
+          ),
+          bottom: BorderSide(
+            color: isDark ? Colors.white.withValues(alpha: 0.1) : Colors.black.withValues(alpha: 0.1),
+            width: 1,
+          ),
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            Icons.archive_outlined,
+            size: 16,
+            color: textColor.withValues(alpha: 0.4),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            'Archived Conversations',
+            style: TextStyle(
+              color: textColor.withValues(alpha: 0.4),
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.5,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   void _onTicketUpdated(Ticket updatedTicket) {
@@ -166,25 +349,31 @@ class _TicketsAdminViewState extends State<TicketsAdminView> {
     final user = authProvider.user;
 
     if (user == null) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return Scaffold(
+        backgroundColor: themeProvider.isDark ? Colors.black : Colors.white,
+        body: Container(),
+      );
     }
 
     final isDark = themeProvider.isDark;
     final backgroundColor = isDark ? Colors.black : Colors.white;
     final textColor = isDark ? Colors.white : Colors.black;
 
+    final isDesktop = MediaQuery.of(context).size.width >= 600;
+
     return Scaffold(
       backgroundColor: backgroundColor,
-      body: Row(
-        children: [
-          // LEFT: Tickets List (30%)
-          Container(
-            width: MediaQuery.of(context).size.width * 0.3,
+      body: isDesktop
+          ? Row(
+              children: [
+                // LEFT: Tickets List (30%)
+                Container(
+                  width: MediaQuery.of(context).size.width * 0.3,
             decoration: BoxDecoration(
               color: backgroundColor,
               border: Border(
                 right: BorderSide(
-                  color: isDark ? Colors.white.withOpacity(0.1) : Colors.black.withOpacity(0.1),
+                  color: isDark ? Colors.white.withValues(alpha: 0.1) : Colors.black.withValues(alpha: 0.1),
                   width: 1,
                 ),
               ),
@@ -198,7 +387,7 @@ class _TicketsAdminViewState extends State<TicketsAdminView> {
                     color: backgroundColor,
                     border: Border(
                       bottom: BorderSide(
-                        color: isDark ? Colors.white.withOpacity(0.1) : Colors.black.withOpacity(0.1),
+                        color: isDark ? Colors.white.withValues(alpha: 0.1) : Colors.black.withValues(alpha: 0.1),
                         width: 1,
                       ),
                     ),
@@ -206,24 +395,15 @@ class _TicketsAdminViewState extends State<TicketsAdminView> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        'Support Tickets',
-                        style: TextStyle(
-                          color: textColor,
-                          fontSize: 20,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
                       TextField(
                         controller: _searchController,
                         style: TextStyle(color: textColor),
                         decoration: InputDecoration(
                           hintText: 'Search...',
-                          hintStyle: TextStyle(color: textColor.withOpacity(0.5)),
-                          prefixIcon: Icon(Icons.search, color: textColor.withOpacity(0.6), size: 20),
+                          hintStyle: TextStyle(color: textColor.withValues(alpha: 0.5)),
+                          prefixIcon: Icon(Icons.search, color: textColor.withValues(alpha: 0.6), size: 20),
                           filled: true,
-                          fillColor: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.03),
+                          fillColor: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.03),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(24),
                             borderSide: BorderSide.none,
@@ -247,17 +427,29 @@ class _TicketsAdminViewState extends State<TicketsAdminView> {
                                   child: Column(
                                     mainAxisAlignment: MainAxisAlignment.center,
                                     children: [
-                                      Icon(Icons.chat_bubble_outline, size: 64, color: textColor.withOpacity(0.2)),
+                                      Icon(Icons.chat_bubble_outline, size: 64, color: textColor.withValues(alpha: 0.2)),
                                       const SizedBox(height: 16),
-                                      Text('No tickets yet', style: TextStyle(color: textColor.withOpacity(0.5))),
+                                      Text('No tickets yet', style: TextStyle(color: textColor.withValues(alpha: 0.5))),
                                     ],
                                   ),
                                 )
                               : ListView.builder(
-                                  itemCount: _tickets.length,
+                                  itemCount: _tickets.length + _getSeparatorCount(_tickets),
                                   padding: EdgeInsets.zero,
                                   itemBuilder: (context, index) {
-                                    final ticket = _tickets[index];
+                                    // Find separator position (between active and finished)
+                                    final activeCount = _tickets.where((t) =>
+                                      t.status != TicketStatus.CLOSED && t.status != TicketStatus.RESOLVED
+                                    ).length;
+
+                                    if (activeCount > 0 && index == activeCount) {
+                                      // Separator between active and finished tickets
+                                      return _buildSeparator(isDark, textColor);
+                                    }
+
+                                    // Adjust index if past separator
+                                    final ticketIndex = index > activeCount ? index - 1 : index;
+                                    final ticket = _tickets[ticketIndex];
                                     final isSelected = _selectedTicket?.id == ticket.id;
                                     return _buildTicketListItem(ticket, isSelected, isDark, user);
                                   },
@@ -274,12 +466,12 @@ class _TicketsAdminViewState extends State<TicketsAdminView> {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.chat_outlined, size: 80, color: textColor.withOpacity(0.2)),
+                        Icon(Icons.chat_outlined, size: 80, color: textColor.withValues(alpha: 0.2)),
                         const SizedBox(height: 16),
                         Text(
                           'Select a ticket to view conversation',
                           style: TextStyle(
-                            color: textColor.withOpacity(0.5),
+                            color: textColor.withValues(alpha: 0.5),
                             fontSize: 16,
                           ),
                         ),
@@ -287,19 +479,132 @@ class _TicketsAdminViewState extends State<TicketsAdminView> {
                     ),
                   )
                 : TicketChatWidget(
+                    key: ValueKey(_selectedTicket!.id),
                     ticketId: _selectedTicket!.id,
                     onTicketUpdated: _onTicketUpdated,
                     isAdminView: true,
+                    onBackPressed: () {
+                      setState(() {
+                        _selectedTicket = null;
+                      });
+                    },
                   ),
           ),
         ],
-      ),
+      )
+          : _selectedTicket == null
+              ? Column(
+                  children: [
+                    // Search header
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: backgroundColor,
+                        border: Border(
+                          bottom: BorderSide(
+                            color: isDark ? Colors.white.withValues(alpha: 0.1) : Colors.black.withValues(alpha: 0.1),
+                            width: 1,
+                          ),
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          TextField(
+                            controller: _searchController,
+                            style: TextStyle(color: textColor),
+                            decoration: InputDecoration(
+                              hintText: 'Search...',
+                              hintStyle: TextStyle(color: textColor.withValues(alpha: 0.5)),
+                              prefixIcon: Icon(Icons.search, color: textColor.withValues(alpha: 0.6), size: 20),
+                              filled: true,
+                              fillColor: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.03),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(24),
+                                borderSide: BorderSide.none,
+                              ),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                            ),
+                            onSubmitted: (_) => _loadTickets(),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    // Tickets List
+                    Expanded(
+                      child: _isLoading
+                          ? const Center(child: CircularProgressIndicator())
+                          : _errorMessage != null
+                              ? Center(child: Text(_errorMessage!, style: const TextStyle(color: Colors.red)))
+                              : _tickets.isEmpty
+                                  ? Center(
+                                      child: Column(
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        children: [
+                                          Icon(Icons.chat_bubble_outline, size: 64, color: textColor.withValues(alpha: 0.2)),
+                                          const SizedBox(height: 16),
+                                          Text('No tickets yet', style: TextStyle(color: textColor.withValues(alpha: 0.5))),
+                                        ],
+                                      ),
+                                    )
+                                  : ListView.builder(
+                                      itemCount: _tickets.length + _getSeparatorCount(_tickets),
+                                      padding: EdgeInsets.zero,
+                                      itemBuilder: (context, index) {
+                                        // Find separator position (between active and finished)
+                                        final activeCount = _tickets.where((t) =>
+                                          t.status != TicketStatus.CLOSED && t.status != TicketStatus.RESOLVED
+                                        ).length;
+
+                                        if (activeCount > 0 && index == activeCount) {
+                                          // Separator between active and finished tickets
+                                          return _buildSeparator(isDark, textColor);
+                                        }
+
+                                        // Adjust index if past separator
+                                        final ticketIndex = index > activeCount ? index - 1 : index;
+                                        final ticket = _tickets[ticketIndex];
+                                        final isSelected = false; // No selection in mobile mode
+                                        return _buildTicketListItem(ticket, isSelected, isDark, user, isMobile: true);
+                                      },
+                                    ),
+                    ),
+                  ],
+                )
+              : TicketChatWidget(
+                  ticketId: _selectedTicket!.id,
+                  onTicketUpdated: _onTicketUpdated,
+                  isAdminView: true,
+                  onBackPressed: () {
+                    setState(() {
+                      _selectedTicket = null;
+                    });
+                  },
+                ),
     );
   }
 
-  Widget _buildTicketListItem(Ticket ticket, bool isSelected, bool isDark, User user) {
+  Widget _buildTicketListItem(Ticket ticket, bool isSelected, bool isDark, User user, {bool isMobile = false}) {
     final lastMessage = ticket.messages.isNotEmpty ? ticket.messages.last : null;
-    final lastMessageText = lastMessage?.content ?? ticket.description;
+
+    // Show label based on attachment type
+    String lastMessageText;
+    if (lastMessage != null && lastMessage.attachments.isNotEmpty) {
+      final attachment = lastMessage.attachments.first;
+
+      // Recorded audio (fileName starts with "audio_") shows as [audio]
+      // Everything else (uploaded via clip) shows as [attachment]
+      if (attachment.mimeType.toLowerCase().startsWith('audio/') &&
+          attachment.fileName.startsWith('audio_')) {
+        lastMessageText = '[audio]';
+      } else {
+        lastMessageText = '[attachment]';
+      }
+    } else {
+      lastMessageText = lastMessage?.content ?? ticket.description;
+    }
+
     final lastMessageTime = lastMessage?.createdAt ?? ticket.createdAt;
 
     // Count ONLY unread messages from other users (not admins for this ticket)
@@ -329,16 +634,21 @@ class _TicketsAdminViewState extends State<TicketsAdminView> {
 
     return Material(
       color: isSelected
-          ? (isDark ? Colors.white.withOpacity(0.1) : Colors.black.withOpacity(0.05))
+          ? (isDark ? Colors.white.withValues(alpha: 0.1) : Colors.black.withValues(alpha: 0.05))
           : Colors.transparent,
       child: InkWell(
-        onTap: () => _selectTicket(ticket.id),
+        onTap: () {
+          debugPrint('[AdminTickets] Ticket tapped: ${ticket.id}, isMobile: $isMobile');
+          setState(() {
+            _selectedTicket = ticket;
+          });
+        },
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           decoration: BoxDecoration(
             border: Border(
               bottom: BorderSide(
-                color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05),
+                color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.05),
                 width: 1,
               ),
             ),
@@ -390,7 +700,7 @@ class _TicketsAdminViewState extends State<TicketsAdminView> {
                             lastMessageText,
                             style: TextStyle(
                               color: hasUnread
-                                  ? (isDark ? Colors.white.withOpacity(0.9) : Colors.black.withOpacity(0.8))
+                                  ? (isDark ? Colors.white.withValues(alpha: 0.9) : Colors.black.withValues(alpha: 0.8))
                                   : Colors.grey,
                               fontSize: 13,
                               fontWeight: hasUnread ? FontWeight.w500 : FontWeight.normal,
@@ -465,7 +775,7 @@ class _TicketsAdminViewState extends State<TicketsAdminView> {
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           border: Border.all(
-            color: isDark ? Colors.white.withOpacity(0.1) : Colors.black.withOpacity(0.1),
+            color: isDark ? Colors.white.withValues(alpha: 0.1) : Colors.black.withValues(alpha: 0.1),
             width: 2,
           ),
           image: DecorationImage(
@@ -514,7 +824,7 @@ class _TicketsAdminViewState extends State<TicketsAdminView> {
         shape: BoxShape.circle,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.2),
+            color: Colors.black.withValues(alpha: 0.2),
             blurRadius: 4,
             offset: const Offset(0, 2),
           ),

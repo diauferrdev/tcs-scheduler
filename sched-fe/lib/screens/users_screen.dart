@@ -506,7 +506,7 @@ class _UsersScreenState extends State<UsersScreen> {
                             Icon(
                               Icons.error_outline,
                               size: 64,
-                              color: Colors.red.withOpacity(0.5),
+                              color: Colors.red.withValues(alpha: 0.5),
                             ),
                             const SizedBox(height: 16),
                             Text(
@@ -531,8 +531,8 @@ class _UsersScreenState extends State<UsersScreen> {
                                   Icons.people_outline,
                                   size: 64,
                                   color: isDark
-                                      ? Colors.white.withOpacity(0.3)
-                                      : Colors.black.withOpacity(0.3),
+                                      ? Colors.white.withValues(alpha: 0.3)
+                                      : Colors.black.withValues(alpha: 0.3),
                                 ),
                                 const SizedBox(height: 16),
                                 Text(
@@ -617,7 +617,7 @@ class _UsersScreenState extends State<UsersScreen> {
               // Avatar
               CircleAvatar(
                 radius: 24,
-                backgroundColor: _getRoleColor(user.role).withOpacity(0.2),
+                backgroundColor: _getRoleColor(user.role).withValues(alpha: 0.2),
                 child: Text(
                   user.name.isNotEmpty ? user.name[0].toUpperCase() : 'U',
                   style: TextStyle(
@@ -649,7 +649,7 @@ class _UsersScreenState extends State<UsersScreen> {
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                             decoration: BoxDecoration(
-                              color: Colors.blue.withOpacity(0.1),
+                              color: Colors.blue.withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(4),
                             ),
                             child: const Text(
@@ -680,7 +680,7 @@ class _UsersScreenState extends State<UsersScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: _getRoleColor(user.role).withOpacity(0.1),
+                  color: _getRoleColor(user.role).withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: Text(

@@ -59,6 +59,7 @@ class UniversalUpdateService {
       // Check if app is below minimum version (BLOCKED)
       if (_isOlderThan(currentVersion, minVersion)) {
         debugPrint('[Update] ⚠️ App is OUTDATED! Current: $currentVersion < Min: $minVersion');
+        if (!context.mounted) return;
         await _showBlockingUpdateDialog(
           context: context,
           currentVersion: currentVersion,
@@ -72,6 +73,7 @@ class UniversalUpdateService {
       // Check if new version is available (OPTIONAL)
       if (_isNewerVersion(latestVersion, currentVersion) || forceUpdate) {
         debugPrint('[Update] ✅ Update available: $currentVersion -> $latestVersion');
+        if (!context.mounted) return;
         await _showOptionalUpdateDialog(
           context: context,
           currentVersion: currentVersion,
@@ -140,8 +142,8 @@ class UniversalUpdateService {
     return showDialog(
       context: context,
       barrierDismissible: false, // Cannot close
-      builder: (context) => WillPopScope(
-        onWillPop: () async => false, // Cannot back button close
+      builder: (context) => PopScope(
+        canPop: false, // Cannot back button close
         child: AlertDialog(
           title: Row(
             children: [
@@ -267,8 +269,8 @@ class UniversalUpdateService {
     return showDialog(
       context: context,
       barrierDismissible: !forceUpdate,
-      builder: (context) => WillPopScope(
-        onWillPop: () async => !forceUpdate,
+      builder: (context) => PopScope(
+        canPop: !forceUpdate,
         child: AlertDialog(
           title: Row(
             children: [
@@ -297,8 +299,8 @@ class UniversalUpdateService {
                 padding: EdgeInsets.all(12),
                 decoration: BoxDecoration(
                   color: isDark
-                      ? theme.colorScheme.primary.withOpacity(0.15)
-                      : theme.colorScheme.primary.withOpacity(0.1),
+                      ? theme.colorScheme.primary.withValues(alpha: 0.15)
+                      : theme.colorScheme.primary.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Column(
