@@ -1020,7 +1020,9 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
       child: PageView.builder(
         controller: _pageController,
         scrollDirection: Axis.vertical,
+        physics: const PageScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
         padEnds: false,
+        pageSnapping: true,
         allowImplicitScrolling: true,
         onPageChanged: (page) {
           setState(() {
@@ -1067,7 +1069,9 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
       child: PageView.builder(
         controller: _yearPageController,
         scrollDirection: Axis.vertical,
+        physics: const PageScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
         padEnds: false,
+        pageSnapping: true,
         allowImplicitScrolling: true,
         onPageChanged: (page) {
           setState(() {
