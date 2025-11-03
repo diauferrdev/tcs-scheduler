@@ -62,10 +62,14 @@ class WebSocketService {
       wsUrl = wsUrl.replaceFirst('http://', 'ws://');
     }
 
-    final uri = Uri.parse('$wsUrl/ws?userId=$userId');
+    // Add token as query parameter for web, headers for mobile
+    final uri = kIsWeb
+        ? Uri.parse('$wsUrl/ws?userId=$userId&token=$token')
+        : Uri.parse('$wsUrl/ws?userId=$userId');
+
     debugPrint('[WS] Connecting to: $uri (platform: ${kIsWeb ? "web" : "mobile"}) with auth token');
 
-    // Prepare headers with auth token
+    // Prepare headers with auth token (mobile only)
     final headers = {
       'Authorization': 'Bearer $token',
       'Cookie': 'auth_session=$token',

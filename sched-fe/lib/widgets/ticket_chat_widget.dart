@@ -1235,15 +1235,19 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
   }
 
   Widget _buildOptimisticMessage(Map<String, dynamic> msg, Color bubbleColor, Color textColor) {
-    final fileName = msg['fileName'].toString();
-    final isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp'].any(
-      (ext) => fileName.toLowerCase().endsWith('.$ext'),
+    // Check if this is a text-only message or has an attachment
+    final fileName = msg['fileName'];
+    final hasFile = fileName != null && fileName.toString().trim().isNotEmpty && fileName.toString() != 'null';
+
+    // Only process file types if there's actually a file
+    final isImage = hasFile && ['jpg', 'jpeg', 'png', 'gif', 'webp'].any(
+      (ext) => fileName.toString().toLowerCase().endsWith('.$ext'),
     );
-    final isVideo = ['mp4', 'webm', 'ogg', 'mov', 'avi'].any(
-      (ext) => fileName.toLowerCase().endsWith('.$ext'),
+    final isVideo = hasFile && ['mp4', 'webm', 'ogg', 'mov', 'avi'].any(
+      (ext) => fileName.toString().toLowerCase().endsWith('.$ext'),
     );
-    final isAudio = ['mp3', 'm4a', 'wav', 'ogg', 'aac'].any(
-      (ext) => fileName.toLowerCase().endsWith('.$ext'),
+    final isAudio = hasFile && ['mp3', 'm4a', 'wav', 'ogg', 'aac'].any(
+      (ext) => fileName.toString().toLowerCase().endsWith('.$ext'),
     );
 
     return Padding(
@@ -1466,8 +1470,8 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
                             ],
                           ),
                         ),
-                      // DOCUMENT/FILE preview
-                      if (!isImage && !isVideo && !isAudio)
+                      // DOCUMENT/FILE preview (only show if there's actually a file)
+                      if (hasFile && !isImage && !isVideo && !isAudio)
                         Container(
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
@@ -1488,7 +1492,7 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
                                   borderRadius: BorderRadius.circular(8),
                                 ),
                                 child: Icon(
-                                  _getFileIconForPreview(fileName),
+                                  _getFileIconForPreview(fileName.toString()),
                                   size: 32,
                                   color: textColor.withValues(alpha: 0.8),
                                 ),
@@ -1499,7 +1503,7 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      fileName,
+                                      fileName.toString(),
                                       style: TextStyle(
                                         color: textColor,
                                         fontSize: 14,
@@ -1536,7 +1540,7 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
                                       )
                                     else
                                       Text(
-                                        _getFileTypeLabel(fileName),
+                                        _getFileTypeLabel(fileName.toString()),
                                         style: TextStyle(
                                           color: textColor.withValues(alpha: 0.6),
                                           fontSize: 11,
