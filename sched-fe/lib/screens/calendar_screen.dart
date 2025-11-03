@@ -777,7 +777,7 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
 
     final content = Container(
       color: isDark ? Colors.black : const Color(0xFFF9FAFB),
-      padding: EdgeInsets.all(isMobile ? 16 : 24),
+      padding: EdgeInsets.all(isMobile ? 8 : 16),
       child: _loading
           ? Center(
               child: CircularProgressIndicator(
@@ -895,7 +895,7 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
   /// Fixed header for both Month and Year views
   Widget _buildCalendarHeader(bool isDark) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 6),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
@@ -1047,7 +1047,7 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
 
           return _KeepAlivePage(
             child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
               child: _monthGridCache[cacheKey]!,
             ),
           );
@@ -1096,7 +1096,7 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
 
           return _KeepAlivePage(
             child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 12),
+              padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 6),
               child: _yearGridCache[cacheKey]!,
             ),
           );
@@ -1114,8 +1114,8 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
         return Expanded(
           child: Padding(
             padding: EdgeInsets.only(
-              top: rowIndex == 0 ? 0 : 10,
-              bottom: rowIndex == 3 ? 0 : 10,
+              top: rowIndex == 0 ? 0 : 20,
+              bottom: rowIndex == 3 ? 0 : 20,
             ),
             child: Row(
               children: List.generate(3, (colIndex) {
@@ -1123,7 +1123,7 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
                 final month = DateTime(year, monthIndex + 1, 1);
                 return Expanded(
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 5),
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
                     child: _buildCompactMonthForYear(month, monthNames[monthIndex], isDark, authProvider),
                   ),
                 );
@@ -1226,7 +1226,7 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
                           });
                         } : null,
                         child: Container(
-                          margin: const EdgeInsets.all(0.5),
+                          margin: const EdgeInsets.all(1.0),
                           child: LayoutBuilder(
                             builder: (context, constraints) {
                               return Stack(
@@ -1240,8 +1240,9 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
                                         '$dayNumber',
                                         style: TextStyle(
                                           fontFamily: 'BasisGrotesquePro',
-                                          fontSize: MediaQuery.of(context).size.width > 800 ? 15 : 13,
+                                          fontSize: MediaQuery.of(context).size.width > 800 ? 13 : 9,
                                           height: 1.0,
+                                          letterSpacing: 0,
                                           fontWeight: isToday ? FontWeight.w700 : FontWeight.w600,
                                           color: isToday
                                               ? const Color(0xFFF05E1B)
