@@ -278,19 +278,19 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
         widget.onTicketUpdated!(ticket);
       }
 
-      // Set data but keep loading state
+      // Set data and show immediately
       setState(() {
         _ticket = ticket;
         _messages = messages;
+        _isLoading = false;
         _hasMoreMessages = ticket.messages.length > _messagesPerPage;
         _currentOffset = messages.length;
       });
 
-      // Wait for layout to complete, THEN show ListView
-      Future.delayed(const Duration(milliseconds: 100), () {
+      // Mark ListView as ready on next frame
+      WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
           setState(() {
-            _isLoading = false;
             _isListViewReady = true;
           });
         }
@@ -876,7 +876,7 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
           // Messages
           Expanded(
             child: !_isListViewReady
-                ? const Center(child: CircularProgressIndicator())
+                ? _buildMessagesSkeleton(isDark)
                 : _messages.isEmpty && _optimisticMessages.isEmpty
                     ? Center(
                         child: Text(
@@ -1456,6 +1456,82 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
     if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
     if (bytes < 1024 * 1024 * 1024) return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
     return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
+  }
+
+  Widget _buildMessagesSkeleton(bool isDark) {
+    return ListView(
+      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+      reverse: true,
+      children: List.generate(5, (index) {
+        final isLeft = index % 2 == 0;
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: Row(
+            mainAxisAlignment: isLeft ? MainAxisAlignment.start : MainAxisAlignment.end,
+            children: [
+              Container(
+                constraints: BoxConstraints(
+                  maxWidth: MediaQuery.of(context).size.width * 0.75,
+                ),
+                child: TweenAnimationBuilder<double>(
+                  duration: const Duration(milliseconds: 1500),
+                  tween: Tween(begin: 0.3, end: 1.0),
+                  curve: Curves.easeInOut,
+                  builder: (context, value, child) {
+                    return Opacity(
+                      opacity: 0.3 + (value * 0.4),
+                      child: Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: isDark
+                              ? const Color(0xFF2A2A2A)
+                              : const Color(0xFFF0F0F0),
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              width: 120 + (index * 20).toDouble(),
+                              height: 12,
+                              decoration: BoxDecoration(
+                                color: isDark
+                                    ? const Color(0xFF404040)
+                                    : const Color(0xFFE0E0E0),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                            ),
+                            if (index % 3 == 0) ...[
+                              const SizedBox(height: 8),
+                              Container(
+                                width: 80 + (index * 15).toDouble(),
+                                height: 12,
+                                decoration: BoxDecoration(
+                                  color: isDark
+                                      ? const Color(0xFF404040)
+                                      : const Color(0xFFE0E0E0),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                  onEnd: () {
+                    // Restart animation
+                    if (mounted && !_isListViewReady) {
+                      setState(() {});
+                    }
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+      }),
+    );
   }
 
   String _getStatusLabel(TicketStatus status) {
