@@ -132,9 +132,9 @@ class _TicketDetailsDrawerState extends State<TicketDetailsDrawer> {
     final isAdmin = user?.role == UserRole.ADMIN;
 
     return DraggableScrollableSheet(
-      initialChildSize: 0.62,
+      initialChildSize: 0.8,
       minChildSize: 0.4,
-      maxChildSize: 0.9,
+      maxChildSize: 0.95,
       controller: _sheetController,
       builder: (context, scrollController) => Container(
         decoration: BoxDecoration(

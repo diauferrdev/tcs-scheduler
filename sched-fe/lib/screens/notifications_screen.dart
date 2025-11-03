@@ -768,11 +768,11 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         break;
       case NotificationType.BOOKING_NEED_EDIT:
         icon = Icons.edit_outlined;
-        color = Colors.orange;
+        color = const Color(0xFFF59E0B); // Amber/Yellow - ONLY THIS ONE
         break;
       case NotificationType.BOOKING_NEED_RESCHEDULE:
         icon = Icons.calendar_month;
-        color = Colors.amber;
+        color = const Color(0xFF8B5CF6); // Purple/Violet
         break;
       case NotificationType.BOOKING_NOT_APPROVED:
         icon = Icons.block;
@@ -1396,11 +1396,11 @@ class _NotificationsDrawerState extends State<NotificationsDrawer> {
         break;
       case NotificationType.BOOKING_NEED_EDIT:
         icon = Icons.edit_outlined;
-        color = Colors.orange;
+        color = const Color(0xFFF59E0B); // Amber/Yellow - ONLY THIS ONE
         break;
       case NotificationType.BOOKING_NEED_RESCHEDULE:
         icon = Icons.calendar_month;
-        color = Colors.amber;
+        color = const Color(0xFF8B5CF6); // Purple/Violet
         break;
       case NotificationType.BOOKING_NOT_APPROVED:
         icon = Icons.block;

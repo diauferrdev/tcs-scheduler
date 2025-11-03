@@ -11,6 +11,7 @@ class AudioMessagePlayer extends StatefulWidget {
   final String fileName;
   final int? durationMs; // Duration from backend in milliseconds (null = extract on client)
   final bool isCurrentUser; // For color inversion
+  final bool isDark; // Theme mode
 
   const AudioMessagePlayer({
     super.key,
@@ -18,6 +19,7 @@ class AudioMessagePlayer extends StatefulWidget {
     required this.fileName,
     this.durationMs,
     required this.isCurrentUser,
+    required this.isDark,
   });
 
   // Generate unique seed from filename for consistent waveform
@@ -161,12 +163,20 @@ class _AudioMessagePlayerState extends State<AudioMessagePlayer> {
         ? _position.inMilliseconds / _duration.inMilliseconds
         : 0.0;
 
+    // Theme-aware colors
     // INVERTED colors compared to text messages:
-    // - When I send audio (isCurrentUser=true): use RECEIVED message color (lighter #2F2F2F)
-    // - When I receive audio (isCurrentUser=false): use SENT message color (darker #222222)
-    final backgroundColor = widget.isCurrentUser
-        ? const Color(0xFF2F2F2F)  // Lighter (like received text)
-        : const Color(0xFF222222); // Darker (like sent text)
+    // - When I send audio (isCurrentUser=true): use RECEIVED message color
+    // - When I receive audio (isCurrentUser=false): use SENT message color
+    final backgroundColor = widget.isDark
+        ? (widget.isCurrentUser
+            ? const Color(0xFF2F2F2F)  // Lighter (like received text in dark mode)
+            : const Color(0xFF222222)) // Darker (like sent text in dark mode)
+        : (widget.isCurrentUser
+            ? Colors.white              // White (like received text in light mode)
+            : const Color(0xFFDCF8C6)); // Green tint (like sent text in light mode)
+
+    final textColor = widget.isDark ? Colors.white70 : Colors.black54;
+    final waveformColor = widget.isDark ? Colors.white : Colors.black;
 
     return Container(
       padding: const EdgeInsets.all(12),
@@ -182,13 +192,13 @@ class _AudioMessagePlayerState extends State<AudioMessagePlayer> {
             child: Container(
               width: 40,
               height: 40,
-              decoration: const BoxDecoration(
-                color: Colors.white,
+              decoration: BoxDecoration(
+                color: widget.isDark ? Colors.white : Colors.black,
                 shape: BoxShape.circle,
               ),
               child: Icon(
                 _isPlaying ? Icons.pause : Icons.play_arrow,
-                color: Colors.black,
+                color: widget.isDark ? Colors.black : Colors.white,
                 size: 24,
               ),
             ),
@@ -208,6 +218,7 @@ class _AudioMessagePlayerState extends State<AudioMessagePlayer> {
                       progress: progress,
                       isPlaying: _isPlaying,
                       seed: widget.waveformSeed,
+                      waveformColor: waveformColor,
                     ),
                     size: Size.infinite,
                   ),
@@ -220,16 +231,18 @@ class _AudioMessagePlayerState extends State<AudioMessagePlayer> {
                   children: [
                     Text(
                       _formatDuration(_position),
-                      style: const TextStyle(
-                        color: Colors.white70,
+                      style: TextStyle(
+                        color: textColor,
                         fontSize: 11,
+                        fontFamily: 'BasisGrotesquePro',
                       ),
                     ),
                     Text(
                       _formatDuration(_duration),
-                      style: const TextStyle(
-                        color: Colors.white70,
+                      style: TextStyle(
+                        color: textColor,
                         fontSize: 11,
+                        fontFamily: 'BasisGrotesquePro',
                       ),
                     ),
                   ],
@@ -248,12 +261,12 @@ class _AudioMessagePlayerState extends State<AudioMessagePlayer> {
                 width: 32,
                 height: 32,
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.1),
+                  color: waveformColor.withValues(alpha: 0.1),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.download,
-                  color: Colors.white,
+                  color: waveformColor,
                   size: 18,
                 ),
               ),
@@ -269,11 +282,13 @@ class WaveformPainter extends CustomPainter {
   final double progress;
   final bool isPlaying;
   final int seed;
+  final Color waveformColor;
 
   WaveformPainter({
     required this.progress,
     required this.isPlaying,
     required this.seed,
+    required this.waveformColor,
   });
 
   @override
@@ -283,12 +298,12 @@ class WaveformPainter extends CustomPainter {
     final spacing = (size.width - (barCount * barWidth)) / (barCount - 1);
 
     final playedPaint = Paint()
-      ..color = Colors.white
+      ..color = waveformColor
       ..strokeWidth = barWidth
       ..strokeCap = StrokeCap.round;
 
     final unplayedPaint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.3)
+      ..color = waveformColor.withValues(alpha: 0.3)
       ..strokeWidth = barWidth
       ..strokeCap = StrokeCap.round;
 

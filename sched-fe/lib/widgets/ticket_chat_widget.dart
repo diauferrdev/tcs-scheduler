@@ -767,7 +767,10 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
   @override
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context);
+    final themeProvider = Provider.of<ThemeProvider>(context);
     final user = authProvider.user;
+    final isDark = themeProvider.themeMode == ThemeMode.dark ||
+        (themeProvider.themeMode == ThemeMode.system && MediaQuery.of(context).platformBrightness == Brightness.dark);
 
     if (_isLoading) {
       return const Center(child: CircularProgressIndicator());
@@ -781,11 +784,11 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
       return const Center(child: Text('Ticket not found'));
     }
 
-    // Chat colors from reference
-    final bgColor = const Color(0xFF181818);
-    final myBubbleColor = const Color(0xFF222222); // My messages (sent)
-    final otherBubbleColor = const Color(0xFF2F2F2F); // Received messages
-    final textColor = Colors.white;
+    // Chat colors - theme-aware
+    final bgColor = isDark ? const Color(0xFF181818) : const Color(0xFFF5F5F5);
+    final myBubbleColor = isDark ? const Color(0xFF222222) : const Color(0xFFDCF8C6); // My messages (sent)
+    final otherBubbleColor = isDark ? const Color(0xFF2F2F2F) : Colors.white; // Received messages
+    final textColor = isDark ? Colors.white : Colors.black;
 
     return Container(
       color: bgColor,
@@ -795,10 +798,10 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
-              color: const Color(0xFF1C1C1C),
+              color: isDark ? const Color(0xFF1C1C1C) : Colors.white,
               border: Border(
                 bottom: BorderSide(
-                  color: Colors.white.withValues(alpha: 0.1),
+                  color: isDark ? Colors.white.withValues(alpha: 0.1) : Colors.black.withValues(alpha: 0.1),
                   width: 1,
                 ),
               ),
@@ -812,7 +815,7 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
                     // Back button (mobile only)
                     if (isMobile)
                       IconButton(
-                        icon: const Icon(Icons.arrow_back, color: Colors.white),
+                        icon: Icon(Icons.arrow_back, color: isDark ? Colors.white : Colors.black),
                         onPressed: () {
                           debugPrint('[TicketChat] Back button pressed');
                           if (widget.onBackPressed != null) {
@@ -828,10 +831,11 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
                     children: [
                       Text(
                         _ticket!.title,
-                        style: const TextStyle(
-                          color: Colors.white,
+                        style: TextStyle(
+                          color: isDark ? Colors.white : Colors.black,
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
+                          fontFamily: 'HouschkaRoundedAlt',
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -843,13 +847,14 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
                           color: _getStatusColor(_ticket!.status),
                           fontSize: 12,
                           fontWeight: FontWeight.w500,
+                          fontFamily: 'BasisGrotesquePro',
                         ),
                       ),
                     ],
                   ),
                     ),
                     IconButton(
-                      icon: const Icon(Icons.info_outline, color: Colors.white, size: 24),
+                      icon: Icon(Icons.info_outline, color: isDark ? Colors.white : Colors.black, size: 24),
                       onPressed: () {
                         showModalBottomSheet(
                           context: context,
@@ -881,7 +886,10 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
                     ? Center(
                         child: Text(
                           'No messages yet',
-                          style: TextStyle(color: Colors.white.withValues(alpha: 0.4)),
+                          style: TextStyle(
+                            color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.4),
+                            fontFamily: 'BasisGrotesquePro',
+                          ),
                         ),
                       )
                     : ListView.builder(
@@ -941,6 +949,7 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
                       color: Colors.grey.shade400,
                       fontSize: 12,
                       fontStyle: FontStyle.italic,
+                      fontFamily: 'BasisGrotesquePro',
                     ),
                   ),
                 ],
@@ -951,9 +960,12 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
             decoration: BoxDecoration(
-              color: const Color(0xFF1C1C1C),
+              color: isDark ? const Color(0xFF1C1C1C) : Colors.white,
               border: Border(
-                top: BorderSide(color: Colors.white.withValues(alpha: 0.1), width: 1),
+                top: BorderSide(
+                  color: isDark ? Colors.white.withValues(alpha: 0.1) : Colors.black.withValues(alpha: 0.1),
+                  width: 1
+                ),
               ),
             ),
             child: Row(
@@ -976,18 +988,26 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
                 Expanded(
                   child: Container(
                     decoration: BoxDecoration(
-                      color: const Color(0xFF222222),
+                      color: isDark ? const Color(0xFF222222) : const Color(0xFFF0F0F0),
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: TextField(
                       controller: _messageController,
                       focusNode: _messageFocusNode,
                       enabled: !_isTicketFinished(),
-                      style: const TextStyle(color: Colors.white, fontSize: 15),
+                      style: TextStyle(
+                        color: isDark ? Colors.white : Colors.black,
+                        fontSize: 15,
+                        fontFamily: 'BasisGrotesquePro',
+                      ),
                       maxLines: null,
                       decoration: InputDecoration(
                         hintText: _isTicketFinished() ? 'Ticket closed' : 'Message',
-                        hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 15),
+                        hintStyle: TextStyle(
+                          color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.4),
+                          fontSize: 15,
+                          fontFamily: 'BasisGrotesquePro',
+                        ),
                         border: InputBorder.none,
                         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                       ),
@@ -1005,15 +1025,18 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
                   Container(
                     width: 48,
                     height: 48,
-                    decoration: const BoxDecoration(
-                      color: Color(0xFF00A884),
+                    decoration: BoxDecoration(
+                      color: isDark ? Colors.white : Colors.black,
                       shape: BoxShape.circle,
                     ),
-                    child: const Center(
+                    child: Center(
                       child: SizedBox(
                         width: 20,
                         height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: isDark ? Colors.black : Colors.white,
+                        ),
                       ),
                     ),
                   )
@@ -1025,10 +1048,18 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
                       width: 48,
                       height: 48,
                       decoration: BoxDecoration(
-                        color: _isTicketFinished() ? Colors.grey : const Color(0xFF00A884),
+                        color: _isTicketFinished()
+                            ? Colors.grey
+                            : (isDark ? Colors.white : Colors.black),
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(Icons.send, color: Colors.white, size: 20),
+                      child: Icon(
+                        Icons.send,
+                        color: _isTicketFinished()
+                            ? Colors.white
+                            : (isDark ? Colors.black : Colors.white),
+                        size: 20,
+                      ),
                     ),
                   )
                 else
@@ -1040,6 +1071,7 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
                     recordingDuration: _recordingDuration,
                     isRecording: _isRecording,
                     isDisabled: _isTicketFinished(),
+                    isDark: isDark,
                   ),
               ],
             ),
@@ -1062,23 +1094,23 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
                 config: Config(
                   height: 256,
                   checkPlatformCompatibility: true,
-                  emojiViewConfig: const EmojiViewConfig(
+                  emojiViewConfig: EmojiViewConfig(
                     emojiSizeMax: 28,
-                    backgroundColor: Color(0xFF1C1C1C),
+                    backgroundColor: isDark ? const Color(0xFF1C1C1C) : Colors.white,
                     columns: 7,
                     buttonMode: ButtonMode.MATERIAL,
                   ),
                   skinToneConfig: const SkinToneConfig(),
-                  categoryViewConfig: const CategoryViewConfig(
+                  categoryViewConfig: CategoryViewConfig(
                     indicatorColor: Colors.blue,
                     iconColor: Colors.grey,
                     iconColorSelected: Colors.blue,
                     backspaceColor: Colors.blue,
-                    backgroundColor: Color(0xFF1C1C1C),
+                    backgroundColor: isDark ? const Color(0xFF1C1C1C) : Colors.white,
                   ),
-                  bottomActionBarConfig: const BottomActionBarConfig(
-                    backgroundColor: Color(0xFF1C1C1C),
-                    buttonColor: Color(0xFF1C1C1C),
+                  bottomActionBarConfig: BottomActionBarConfig(
+                    backgroundColor: isDark ? const Color(0xFF1C1C1C) : Colors.white,
+                    buttonColor: isDark ? const Color(0xFF1C1C1C) : Colors.white,
                     buttonIconColor: Colors.grey,
                   ),
                 ),
@@ -1125,43 +1157,66 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
                           child: SizedBox(
                             width: 200,
                             height: 200,
-                            child: Image.memory(
-                              msg['bytes'],
-                              fit: BoxFit.cover,
-                            ),
+                            child: msg['isUploading'] == true
+                                ? Stack(
+                                    children: [
+                                      // Skeleton background
+                                      Container(
+                                        color: textColor.withValues(alpha: 0.1),
+                                        child: Image.memory(
+                                          msg['bytes'],
+                                          fit: BoxFit.cover,
+                                          opacity: const AlwaysStoppedAnimation(0.3),
+                                        ),
+                                      ),
+                                      // Loading overlay
+                                      Container(
+                                        color: Colors.black.withValues(alpha: 0.3),
+                                        child: Center(
+                                          child: Column(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              SizedBox(
+                                                width: 32,
+                                                height: 32,
+                                                child: CircularProgressIndicator(
+                                                  strokeWidth: 3,
+                                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                                    textColor.withValues(alpha: 0.9),
+                                                  ),
+                                                ),
+                                              ),
+                                              const SizedBox(height: 8),
+                                              Text(
+                                                'Uploading...',
+                                                style: TextStyle(
+                                                  color: textColor.withValues(alpha: 0.9),
+                                                  fontSize: 11,
+                                                  fontWeight: FontWeight.w500,
+                                                  fontFamily: 'BasisGrotesquePro',
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  )
+                                : Image.memory(
+                                    msg['bytes'],
+                                    fit: BoxFit.cover,
+                                  ),
                           ),
                         ),
                       if (msg['content'] != null && msg['content'].toString().isNotEmpty) ...[
                         if (isImage) const SizedBox(height: 4),
                         Text(
                           msg['content'].toString(),
-                          style: TextStyle(color: textColor, fontSize: 14.5),
-                        ),
-                      ],
-                      if (msg['isUploading'] == true) ...[
-                        const SizedBox(height: 4),
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            SizedBox(
-                              width: 10,
-                              height: 10,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 1.5,
-                                valueColor: AlwaysStoppedAnimation<Color>(
-                                  textColor.withValues(alpha: 0.6),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 6),
-                            Text(
-                              'Sending...',
-                              style: TextStyle(
-                                color: textColor.withValues(alpha: 0.6),
-                                fontSize: 11,
-                              ),
-                            ),
-                          ],
+                          style: TextStyle(
+                            color: textColor,
+                            fontSize: 14.5,
+                            fontFamily: 'BasisGrotesquePro',
+                          ),
                         ),
                       ],
                       if (msg['hasFailed'] == true) ...[
@@ -1171,7 +1226,7 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
                           children: [
                             Icon(Icons.error_outline, size: 12, color: Colors.red),
                             SizedBox(width: 4),
-                            Text('Failed', style: TextStyle(color: Colors.red, fontSize: 11)),
+                            Text('Failed', style: TextStyle(color: Colors.red, fontSize: 11, fontFamily: 'BasisGrotesquePro')),
                           ],
                         ),
                       ],
@@ -1183,7 +1238,11 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
                   padding: const EdgeInsets.only(top: 2, right: 4),
                   child: Text(
                     DateFormat('HH:mm').format(msg['timestamp']),
-                    style: const TextStyle(color: Colors.grey, fontSize: 11),
+                    style: const TextStyle(
+                      color: Colors.grey,
+                      fontSize: 11,
+                      fontFamily: 'BasisGrotesquePro',
+                    ),
                   ),
                 ),
               ],
@@ -1250,6 +1309,7 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
                             style: TextStyle(
                               color: textColor,
                               fontSize: 14.5,
+                              fontFamily: 'BasisGrotesquePro',
                             ),
                           ),
                         ),
@@ -1265,7 +1325,11 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
                     children: [
                       Text(
                         DateFormat('HH:mm').format(message.createdAt.toLocal()),
-                        style: const TextStyle(color: Colors.grey, fontSize: 11),
+                        style: const TextStyle(
+                          color: Colors.grey,
+                          fontSize: 11,
+                          fontFamily: 'BasisGrotesquePro',
+                        ),
                       ),
                       if (isCurrentUser) ...[
                         const SizedBox(width: 4),
@@ -1330,31 +1394,34 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
         children: [
           // IMAGE (1:1 aspect ratio)
           if (isImage) ...[
-            ClipRRect(
-              borderRadius: BorderRadius.circular(hasText ? 6 : 12),
-              child: SizedBox(
-                width: 200,
-                height: 200,
-                child: Image.network(
-                  fullUrl,
-                  fit: BoxFit.cover,
-                  loadingBuilder: (context, child, loadingProgress) {
-                    if (loadingProgress == null) return child;
-                    return Container(
-                      color: Colors.black.withValues(alpha: 0.3),
-                      child: const Center(
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                      ),
-                    );
-                  },
-                  errorBuilder: (context, error, stackTrace) {
-                    return Container(
-                      color: Colors.black.withValues(alpha: 0.3),
-                      child: const Center(
-                        child: Icon(Icons.broken_image, size: 32, color: Colors.grey),
-                      ),
-                    );
-                  },
+            Container(
+              padding: const EdgeInsets.all(8),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(hasText ? 6 : 12),
+                child: SizedBox(
+                  width: 200,
+                  height: 200,
+                  child: Image.network(
+                    fullUrl,
+                    fit: BoxFit.cover,
+                    loadingBuilder: (context, child, loadingProgress) {
+                      if (loadingProgress == null) return child;
+                      return Container(
+                        color: Colors.black.withValues(alpha: 0.3),
+                        child: const Center(
+                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        ),
+                      );
+                    },
+                    errorBuilder: (context, error, stackTrace) {
+                      return Container(
+                        color: Colors.black.withValues(alpha: 0.3),
+                        child: const Center(
+                          child: Icon(Icons.broken_image, size: 32, color: Colors.grey),
+                        ),
+                      );
+                    },
+                  ),
                 ),
               ),
             ),
@@ -1362,17 +1429,20 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
 
           // VIDEO (1:1 aspect ratio)
           else if (isVideo) ...[
-            ClipRRect(
-              borderRadius: BorderRadius.circular(hasText ? 6 : 12),
-              child: SizedBox(
-                width: 200,
-                height: 200,
-                child: video_player.VideoMessagePreview(
-                  videoUrl: fullUrl,
-                  fileName: attachment.fileName,
+            Container(
+              padding: const EdgeInsets.all(8),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(hasText ? 6 : 12),
+                child: SizedBox(
                   width: 200,
                   height: 200,
-                  isCurrentUser: isCurrentUser,
+                  child: video_player.VideoMessagePreview(
+                    videoUrl: fullUrl,
+                    fileName: attachment.fileName,
+                    width: 200,
+                    height: 200,
+                    isCurrentUser: isCurrentUser,
+                  ),
                 ),
               ),
             ),
@@ -1382,11 +1452,19 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
           else if (isAudio) ...[
             Container(
               padding: const EdgeInsets.all(8),
-              child: AudioMessagePlayer(
-                audioUrl: fullUrl,
-                fileName: attachment.fileName,
-                durationMs: attachment.duration,
-                isCurrentUser: isCurrentUser,
+              child: Builder(
+                builder: (context) {
+                  final themeProvider = Provider.of<ThemeProvider>(context);
+                  final isDark = themeProvider.themeMode == ThemeMode.dark ||
+                      (themeProvider.themeMode == ThemeMode.system && MediaQuery.of(context).platformBrightness == Brightness.dark);
+                  return AudioMessagePlayer(
+                    audioUrl: fullUrl,
+                    fileName: attachment.fileName,
+                    durationMs: attachment.duration,
+                    isCurrentUser: isCurrentUser,
+                    isDark: isDark,
+                  );
+                },
               ),
             ),
           ]
@@ -1409,6 +1487,7 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
                           color: textColor,
                           fontSize: 14,
                           fontWeight: FontWeight.w500,
+                          fontFamily: 'BasisGrotesquePro',
                         ),
                       ),
                       const SizedBox(height: 2),
@@ -1417,6 +1496,7 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
                         style: TextStyle(
                           color: textColor.withValues(alpha: 0.6),
                           fontSize: 11,
+                          fontFamily: 'BasisGrotesquePro',
                         ),
                       ),
                     ],

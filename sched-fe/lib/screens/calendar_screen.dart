@@ -1798,17 +1798,19 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
         statusLabel = 'CREATED';
         break;
       case BookingStatus.UNDER_REVIEW:
-      case BookingStatus.NEED_EDIT:
-      case BookingStatus.NEED_RESCHEDULE:
-        statusColor = const Color(0xFFF59E0B); // Amber/Yellow
-        statusLabel = booking.status == BookingStatus.NEED_EDIT
-            ? 'NEEDS EDIT'
-            : booking.status == BookingStatus.NEED_RESCHEDULE
-                ? 'NEEDS RESCHEDULE'
-                : booking.status == BookingStatus.UNDER_REVIEW
-                    ? 'UNDER REVIEW'
-                    : 'PENDING';
+        statusColor = const Color(0xFFF05E1B); // Ember (orange)
+        statusLabel = 'UNDER REVIEW';
         shouldPulse = true; // Animate for pending/review
+        break;
+      case BookingStatus.NEED_EDIT:
+        statusColor = const Color(0xFFF59E0B); // Amber/Yellow - ONLY THIS ONE
+        statusLabel = 'NEEDS EDIT';
+        shouldPulse = true;
+        break;
+      case BookingStatus.NEED_RESCHEDULE:
+        statusColor = const Color(0xFF8B5CF6); // Purple/Violet
+        statusLabel = 'NEEDS RESCHEDULE';
+        shouldPulse = true;
         break;
       case BookingStatus.APPROVED:
         statusColor = const Color(0xFF10B981); // Green

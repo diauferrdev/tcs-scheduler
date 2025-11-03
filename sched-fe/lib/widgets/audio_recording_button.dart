@@ -10,6 +10,7 @@ class AudioRecordingButton extends StatefulWidget {
   final Duration recordingDuration;
   final bool isRecording;
   final bool isDisabled;
+  final bool isDark;
 
   const AudioRecordingButton({
     super.key,
@@ -19,6 +20,7 @@ class AudioRecordingButton extends StatefulWidget {
     required this.recordingDuration,
     required this.isRecording,
     this.isDisabled = false,
+    required this.isDark,
   });
 
   @override
@@ -194,7 +196,7 @@ class _AudioRecordingButtonState extends State<AudioRecordingButton>
                   ? Colors.grey
                   : widget.isRecording
                       ? Colors.red
-                      : const Color(0xFF00A884),
+                      : (widget.isDark ? Colors.white : Colors.black),
               shape: BoxShape.circle,
             ),
             child: Center(
@@ -209,7 +211,9 @@ class _AudioRecordingButtonState extends State<AudioRecordingButton>
                 child: Icon(
                   widget.isRecording ? Icons.mic : Icons.mic_outlined,
                   key: ValueKey(widget.isRecording),
-                  color: Colors.white,
+                  color: widget.isRecording
+                      ? Colors.white
+                      : (widget.isDark ? Colors.black : Colors.white),
                   size: 24,
                 ),
               ),
