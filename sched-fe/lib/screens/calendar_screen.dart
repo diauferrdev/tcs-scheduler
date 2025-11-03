@@ -65,6 +65,10 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
   final Map<String, DayAvailability> _availabilityCache = {};
   DayAvailability? _selectedDayAvailability;
 
+  // Month/Year grid cache to prevent expensive rebuilds
+  final Map<String, Widget> _monthGridCache = {};
+  final Map<String, Widget> _yearGridCache = {};
+
   // Selected visit type for booking
   String? _selectedVisitType; // PACE_TOUR or INNOVATION_EXCHANGE
 
@@ -77,8 +81,16 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
   @override
   void initState() {
     super.initState();
-    _pageController = PageController(initialPage: _currentPage);
-    _yearPageController = PageController(initialPage: _currentYearPage);
+    _pageController = PageController(
+      initialPage: _currentPage,
+      viewportFraction: 1.0,
+      keepPage: true,
+    );
+    _yearPageController = PageController(
+      initialPage: _currentYearPage,
+      viewportFraction: 1.0,
+      keepPage: true,
+    );
     _selectedDate = DateTime.now(); // Select current day by default
     _loadBookings();
     _loadDayAvailability(_selectedDate!); // Load availability for current day
@@ -267,6 +279,9 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
 
       setState(() {
         _bookings = bookingsData.map((e) => Booking.fromJson(e)).toList();
+        // Clear calendar caches when bookings change
+        _monthGridCache.clear();
+        _yearGridCache.clear();
         // Sort bookings by date, then by startTime (morning first, then afternoon)
         _bookings.sort((a, b) {
           final dateComparison = a.date.compareTo(b.date);
@@ -1005,10 +1020,8 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
       child: PageView.builder(
         controller: _pageController,
         scrollDirection: Axis.vertical,
-        physics: const PageScrollPhysics(),
         padEnds: false,
         allowImplicitScrolling: true,
-        pageSnapping: true,
         onPageChanged: (page) {
           setState(() {
             _currentPage = page;
@@ -1021,10 +1034,19 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
           final monthOffset = index - 12;
           final now = DateTime.now();
           final month = DateTime(now.year, now.month + monthOffset, 1);
+          final cacheKey = '${month.year}-${month.month}-$isDark';
+
+          // Use cached widget if available
+          if (!_monthGridCache.containsKey(cacheKey)) {
+            _monthGridCache[cacheKey] = RepaintBoundary(
+              child: _buildMonthGrid(month, isDark, authProvider),
+            );
+          }
+
           return _KeepAlivePage(
             child: Padding(
               padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
-              child: _buildMonthGrid(month, isDark, authProvider),
+              child: _monthGridCache[cacheKey]!,
             ),
           );
         },
@@ -1045,10 +1067,8 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
       child: PageView.builder(
         controller: _yearPageController,
         scrollDirection: Axis.vertical,
-        physics: const PageScrollPhysics(),
         padEnds: false,
         allowImplicitScrolling: true,
-        pageSnapping: true,
         onPageChanged: (page) {
           setState(() {
             _currentYearPage = page;
@@ -1061,10 +1081,19 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
           final yearOffset = index - 10;
           final now = DateTime.now();
           final year = now.year + yearOffset;
+          final cacheKey = '$year-$isDark';
+
+          // Use cached widget if available
+          if (!_yearGridCache.containsKey(cacheKey)) {
+            _yearGridCache[cacheKey] = RepaintBoundary(
+              child: _buildYearGrid(year, monthNames, isDark, authProvider),
+            );
+          }
+
           return _KeepAlivePage(
             child: Padding(
               padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 12),
-              child: _buildYearGrid(year, monthNames, isDark, authProvider),
+              child: _yearGridCache[cacheKey]!,
             ),
           );
         },
