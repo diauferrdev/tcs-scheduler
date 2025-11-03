@@ -46,7 +46,7 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
   final ApiService _api = ApiService();
   final WebSocketService _ws = WebSocketService();
   final TextEditingController _messageController = TextEditingController();
-  final ScrollController _scrollController = ScrollController(keepScrollOffset: false);
+  late final ScrollController _scrollController;
   final FocusNode _messageFocusNode = FocusNode();
   final AudioRecorder _audioRecorder = AudioRecorder();
 
@@ -54,7 +54,6 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
   List<TicketMessage> _messages = [];
   bool _isLoading = true;
   bool _isLoadingMore = false;
-  bool _initialLoad = true;
   bool _hasMoreMessages = true;
   bool _isSendingMessage = false;
   bool _uploadingAttachment = false;
@@ -84,6 +83,11 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
   @override
   void initState() {
     super.initState();
+    // Initialize scroll controller with position 0 (which is bottom when reverse: true)
+    _scrollController = ScrollController(
+      initialScrollOffset: 0.0,
+      keepScrollOffset: false,
+    );
     _loadTicketAndMessages();
     _setupWebSocket();
     _setupScrollListener();
@@ -267,7 +271,6 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
         _ticket = ticket;
         _messages = messages;
         _isLoading = false;
-        _initialLoad = false;
         _hasMoreMessages = ticket.messages.length > _messagesPerPage;
         _currentOffset = messages.length;
       });
@@ -857,21 +860,21 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
 
           // Messages
           Expanded(
-            child: _initialLoad
-                ? const SizedBox.shrink() // Don't render anything until first load complete
-                : _messages.isEmpty && _optimisticMessages.isEmpty
-                    ? Center(
-                        child: Text(
-                          'No messages yet',
-                          style: TextStyle(color: Colors.white.withValues(alpha: 0.4)),
-                        ),
-                      )
-                    : ListView.builder(
-                        controller: _scrollController,
-                        reverse: true,
-                        padding: const EdgeInsets.symmetric(vertical: 8),
-                        itemCount: (_isLoadingMore ? 1 : 0) + _messages.length + _optimisticMessages.length,
-                        itemBuilder: (context, index) {
+            child: _messages.isEmpty && _optimisticMessages.isEmpty
+                ? Center(
+                    child: Text(
+                      _isLoading ? 'Loading messages...' : 'No messages yet',
+                      style: TextStyle(color: Colors.white.withValues(alpha: 0.4)),
+                    ),
+                  )
+                : ListView.builder(
+                    controller: _scrollController,
+                    reverse: true,
+                    physics: const ClampingScrollPhysics(),
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    cacheExtent: 1000,
+                    itemCount: (_isLoadingMore ? 1 : 0) + _messages.length + _optimisticMessages.length,
+                    itemBuilder: (context, index) {
                       // With reverse: true, index 0 is at the bottom (newest messages)
                       // Optimistic messages come first (bottom), then regular messages, then loading
                       final totalOptimistic = _optimisticMessages.length;
