@@ -1096,7 +1096,7 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
 
           return _KeepAlivePage(
             child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 6),
+              padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 0),
               child: _yearGridCache[cacheKey]!,
             ),
           );
