@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import '../models/user.dart';
 import '../services/api_service.dart';
+import '../services/token_storage.dart';
 import '../services/unified_notification_service.dart';
 import '../utils/web_helper.dart';
 
@@ -73,6 +74,11 @@ class AuthProvider with ChangeNotifier {
         final cookieValue = sessionCookie['value'] as String;
         final fullCookie = '$cookieName=$cookieValue';
         await _apiService.setSessionCookie(fullCookie);
+
+        // Also save the token (cookie value) to TokenStorage for WebSocket auth
+        final tokenStorage = TokenStorage();
+        await tokenStorage.saveToken(cookieValue);
+        debugPrint('[Auth] ✅ Token saved to TokenStorage for WebSocket auth');
       }
 
       // Request notification permissions after successful login
@@ -96,6 +102,11 @@ class AuthProvider with ChangeNotifier {
     } finally {
       _user = null;
       _apiService.setSessionCookie(null);
+
+      // Clear token from storage
+      final tokenStorage = TokenStorage();
+      await tokenStorage.deleteToken();
+      debugPrint('[Auth] ✅ Token cleared from TokenStorage');
 
       try {
         await UnifiedNotificationService().disconnectWebSocket();
