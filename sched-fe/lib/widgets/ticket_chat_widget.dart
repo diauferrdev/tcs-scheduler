@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
@@ -296,8 +297,9 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
         widget.onTicketUpdated!(ticket);
       }
 
-      // Scroll to bottom on load instantly - no animation
-      WidgetsBinding.instance.addPostFrameCallback((_) {
+      // Scroll to bottom instantly - NO ANIMATION
+      // Execute in the same frame to avoid any visual scroll
+      SchedulerBinding.instance.addPostFrameCallback((_) {
         if (_scrollController.hasClients && mounted) {
           _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
         }
