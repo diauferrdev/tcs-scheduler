@@ -1211,7 +1211,7 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
     );
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.end,
         crossAxisAlignment: CrossAxisAlignment.end,
@@ -1544,15 +1544,6 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text(
-                        DateFormat('HH:mm').format(msg['timestamp']),
-                        style: const TextStyle(
-                          color: Colors.grey,
-                          fontSize: 11,
-                          fontFamily: 'BasisGrotesquePro',
-                        ),
-                      ),
-                      const SizedBox(width: 4),
                       // Status indicator: 1 checkmark while uploading, 2 when sent
                       if (msg['isUploading'] == true)
                         const Icon(
@@ -1566,6 +1557,15 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
                           size: 14,
                           color: Colors.grey,
                         ),
+                      const SizedBox(width: 4),
+                      Text(
+                        DateFormat('HH:mm').format(msg['timestamp']),
+                        style: const TextStyle(
+                          color: Colors.grey,
+                          fontSize: 11,
+                          fontFamily: 'BasisGrotesquePro',
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -1589,7 +1589,7 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
     final hasText = message.content.trim().isNotEmpty;
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
       child: Row(
         mainAxisAlignment: isCurrentUser ? MainAxisAlignment.end : MainAxisAlignment.start,
         crossAxisAlignment: CrossAxisAlignment.end,
@@ -1646,7 +1646,20 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
                   padding: const EdgeInsets.only(top: 2, left: 4, right: 4),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
-                    children: [
+                    children: isCurrentUser ? [
+                      // Right side (sent): ✓✓ 03:17
+                      AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 200),
+                        child: Icon(
+                          Icons.done_all,
+                          key: ValueKey(message.readAt != null),
+                          size: 14,
+                          color: message.readAt != null
+                              ? const Color(0xFF4FC3F7) // Blue checkmark
+                              : Colors.grey, // Gray checkmark
+                        ),
+                      ),
+                      const SizedBox(width: 4),
                       Text(
                         DateFormat('HH:mm').format(message.createdAt.toLocal()),
                         style: const TextStyle(
@@ -1655,20 +1668,28 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
                           fontFamily: 'BasisGrotesquePro',
                         ),
                       ),
-                      if (isCurrentUser) ...[
-                        const SizedBox(width: 4),
-                        AnimatedSwitcher(
-                          duration: const Duration(milliseconds: 200),
-                          child: Icon(
-                            Icons.done_all,
-                            key: ValueKey(message.readAt != null),
-                            size: 14,
-                            color: message.readAt != null
-                                ? const Color(0xFF4FC3F7) // Blue checkmark
-                                : Colors.grey, // Gray checkmark
-                          ),
+                    ] : [
+                      // Left side (received): 03:17 ✓✓
+                      Text(
+                        DateFormat('HH:mm').format(message.createdAt.toLocal()),
+                        style: const TextStyle(
+                          color: Colors.grey,
+                          fontSize: 11,
+                          fontFamily: 'BasisGrotesquePro',
                         ),
-                      ],
+                      ),
+                      const SizedBox(width: 4),
+                      AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 200),
+                        child: Icon(
+                          Icons.done_all,
+                          key: ValueKey(message.readAt != null),
+                          size: 14,
+                          color: message.readAt != null
+                              ? const Color(0xFF4FC3F7) // Blue checkmark
+                              : Colors.grey, // Gray checkmark
+                        ),
+                      ),
                     ],
                   ),
                 ),
