@@ -33,6 +33,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
   // Error
   String? _error;
 
+  // Tab selection
+  int _selectedTabIndex = 0;
+
   @override
   void initState() {
     super.initState();
@@ -109,14 +112,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
             _buildStatCardsGrid(isDark, screenWidth),
             const SizedBox(height: 24),
 
-            // Mini Insights Row (Desktop only)
-            if (screenWidth >= 1024) ...[
+            // Dashboard Tabs
+            _buildDashboardTabs(isDark),
+            const SizedBox(height: 24),
+
+            // Mini Insights Row (Desktop only) - Only show in Advanced mode
+            if (screenWidth >= 1024 && _selectedTabIndex == 1) ...[
               _buildMiniInsightsRow(isDark, screenWidth),
               const SizedBox(height: 24),
             ],
 
-            // Charts Grid
-            _buildChartsGrid(isDark, screenWidth),
+            // Charts Grid - Conditional based on tab selection
+            if (_selectedTabIndex == 0)
+              _buildBasicDashboard(isDark, screenWidth)
+            else
+              _buildChartsGrid(isDark, screenWidth),
             const SizedBox(height: 24),
 
             // FCM Test Button (diego@tcs.com only - discrete)
@@ -127,6 +137,118 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
 
     return widget.skipLayout ? content : AppLayout(child: content);
+  }
+
+  Widget _buildDashboardTabs(bool isDark) {
+    return Row(
+      children: [
+        _buildTabButton('Resumido', 0, Icons.dashboard, isDark),
+        const SizedBox(width: 12),
+        _buildTabButton('Avançado', 1, Icons.analytics, isDark),
+      ],
+    );
+  }
+
+  Widget _buildTabButton(String label, int index, IconData icon, bool isDark) {
+    final isSelected = _selectedTabIndex == index;
+
+    return Expanded(
+      child: InkWell(
+        onTap: () => setState(() => _selectedTabIndex = index),
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+          decoration: BoxDecoration(
+            color: isSelected
+                ? (isDark ? Colors.white : Colors.black)
+                : (isDark ? const Color(0xFF18181B) : Colors.white),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: isSelected
+                  ? (isDark ? Colors.white : Colors.black)
+                  : (isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB)),
+              width: isSelected ? 2 : 1,
+            ),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                icon,
+                size: 18,
+                color: isSelected
+                    ? (isDark ? Colors.black : Colors.white)
+                    : (isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280)),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                  color: isSelected
+                      ? (isDark ? Colors.black : Colors.white)
+                      : (isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280)),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBasicDashboard(bool isDark, double screenWidth) {
+    final isDesktop = screenWidth >= 1024;
+    final isTablet = screenWidth >= 600 && screenWidth < 1024;
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final maxWidth = constraints.maxWidth;
+
+        if (isDesktop || isTablet) {
+          // Desktop and Tablet: 2x2 grid
+          final columnWidth = (maxWidth - 16) / 2;
+          return Column(
+            children: [
+              // Row 1: Visit Type & Status Breakdown
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SizedBox(width: columnWidth, child: _buildVisitTypeChart(isDark)),
+                  const SizedBox(width: 16),
+                  SizedBox(width: columnWidth, child: _buildStatusBreakdownChart(isDark)),
+                ],
+              ),
+              const SizedBox(height: 16),
+
+              // Row 2: Monthly Trend & Time Slot
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SizedBox(width: columnWidth, child: _buildMonthlyTrendChart(isDark)),
+                  const SizedBox(width: 16),
+                  SizedBox(width: columnWidth, child: _buildTimeSlotChart(isDark)),
+                ],
+              ),
+            ],
+          );
+        } else {
+          // Mobile: Stacked
+          return Column(
+            children: [
+              _buildVisitTypeChart(isDark),
+              const SizedBox(height: 16),
+              _buildStatusBreakdownChart(isDark),
+              const SizedBox(height: 16),
+              _buildMonthlyTrendChart(isDark),
+              const SizedBox(height: 16),
+              _buildTimeSlotChart(isDark),
+            ],
+          );
+        }
+      },
+    );
   }
 
   Widget _buildStatCardsGrid(bool isDark, double screenWidth) {
