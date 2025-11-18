@@ -63,9 +63,6 @@ Future<void> _requestPermissions() async {
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // DO NOT initialize SplashMaster - we want Flutter to render immediately
-  // SplashMaster.initialize();
-
   // Initialize Firebase ONLY on supported platforms (Android, iOS, web, macOS)
   // Windows and Linux desktop use local_notifier instead
   if (_isFirebaseSupported) {
@@ -76,7 +73,6 @@ void main() async {
     // Setup Firebase Cloud Messaging background handler
     // This allows push notifications to arrive even when app is completely closed/terminated
     FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
-  } else {
   }
 
   // Initialize unified notification service with background handler support
@@ -103,11 +99,8 @@ void main() async {
     ),
   );
 
-  // Start the app with animated splash screen
+  // Start the app with splash screen
   runApp(const MyApp());
-
-  // DO NOT call SplashMaster.resume() here!
-  // The AnimatedSplashScreen will call it after showing animations
 }
 
 class MyApp extends StatelessWidget {
@@ -134,7 +127,7 @@ class _AppRouter extends StatefulWidget {
 
 class _AppRouterState extends State<_AppRouter> {
   late final GoRouter _router;
-  bool _showSplash = !kIsWeb; // Only show splash on mobile, web has its own
+  bool _showSplash = !kIsWeb; // Only show splash on mobile (web has its own HTML splash)
 
   @override
   void initState() {
