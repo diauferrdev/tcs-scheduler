@@ -210,6 +210,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return LayoutBuilder(
       builder: (context, constraints) {
         final maxWidth = constraints.maxWidth;
+        final screenHeight = MediaQuery.of(context).size.height;
 
         if (isDesktop || isTablet) {
           // Desktop and Tablet: 2x2 grid
@@ -239,16 +240,50 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ],
           );
         } else {
-          // Mobile: Stacked
+          // Mobile: 2x2 grid with calculated height to fit screen
+          final columnWidth = (maxWidth - 12) / 2;
+          // Calculate height: screen height minus padding, tabs, bottom menu, and spacing
+          final bottomPadding = MediaQuery.of(context).padding.bottom;
+          final chartHeight = (screenHeight - 280 - bottomPadding) / 2;
+
           return Column(
             children: [
-              _buildVisitTypeChart(isDark),
-              const SizedBox(height: 16),
-              _buildVerticalChart(isDark),
-              const SizedBox(height: 16),
-              _buildMonthlyTrendChart(isDark),
-              const SizedBox(height: 16),
-              _buildTimeSlotChart(isDark),
+              // Row 1: Visit Type & TCS Vertical Distribution
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SizedBox(
+                    width: columnWidth,
+                    height: chartHeight,
+                    child: _buildVisitTypeChart(isDark),
+                  ),
+                  const SizedBox(width: 12),
+                  SizedBox(
+                    width: columnWidth,
+                    height: chartHeight,
+                    child: _buildVerticalChart(isDark),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+
+              // Row 2: Monthly Trend & Time Slot
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SizedBox(
+                    width: columnWidth,
+                    height: chartHeight,
+                    child: _buildMonthlyTrendChart(isDark),
+                  ),
+                  const SizedBox(width: 12),
+                  SizedBox(
+                    width: columnWidth,
+                    height: chartHeight,
+                    child: _buildTimeSlotChart(isDark),
+                  ),
+                ],
+              ),
             ],
           );
         }
