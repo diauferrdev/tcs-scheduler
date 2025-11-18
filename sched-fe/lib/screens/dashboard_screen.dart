@@ -108,12 +108,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
               ),
 
-            // Stat Cards Grid
-            _buildStatCardsGrid(isDark, screenWidth),
-            const SizedBox(height: 24),
-
             // Dashboard Tabs
             _buildDashboardTabs(isDark),
+            const SizedBox(height: 24),
+
+            // Stat Cards Grid
+            _buildStatCardsGrid(isDark, screenWidth),
             const SizedBox(height: 24),
 
             // Mini Insights Row (Desktop only) - Only show in Advanced mode
@@ -211,13 +211,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
           final columnWidth = (maxWidth - 16) / 2;
           return Column(
             children: [
-              // Row 1: Visit Type & Status Breakdown
+              // Row 1: Visit Type & TCS Vertical Distribution
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   SizedBox(width: columnWidth, child: _buildVisitTypeChart(isDark)),
                   const SizedBox(width: 16),
-                  SizedBox(width: columnWidth, child: _buildStatusBreakdownChart(isDark)),
+                  SizedBox(width: columnWidth, child: _buildVerticalChart(isDark)),
                 ],
               ),
               const SizedBox(height: 16),
@@ -239,7 +239,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             children: [
               _buildVisitTypeChart(isDark),
               const SizedBox(height: 16),
-              _buildStatusBreakdownChart(isDark),
+              _buildVerticalChart(isDark),
               const SizedBox(height: 16),
               _buildMonthlyTrendChart(isDark),
               const SizedBox(height: 16),
