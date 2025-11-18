@@ -76,6 +76,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final content = Container(
       color: isDark ? Colors.black : const Color(0xFFF9FAFB),
       child: SingleChildScrollView(
+        physics: _selectedTabIndex == 0
+            ? const NeverScrollableScrollPhysics()
+            : const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.all(24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -112,9 +115,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
             _buildDashboardTabs(isDark),
             const SizedBox(height: 24),
 
-            // Stat Cards Grid
-            _buildStatCardsGrid(isDark, screenWidth),
-            const SizedBox(height: 24),
+            // Stat Cards Grid - Only show in Advanced mode
+            if (_selectedTabIndex == 1) ...[
+              _buildStatCardsGrid(isDark, screenWidth),
+              const SizedBox(height: 24),
+            ],
 
             // Mini Insights Row (Desktop only) - Only show in Advanced mode
             if (screenWidth >= 1024 && _selectedTabIndex == 1) ...[
@@ -142,9 +147,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget _buildDashboardTabs(bool isDark) {
     return Row(
       children: [
-        _buildTabButton('Resumido', 0, Icons.dashboard, isDark),
+        _buildTabButton('Simple', 0, Icons.dashboard, isDark),
         const SizedBox(width: 12),
-        _buildTabButton('Avançado', 1, Icons.analytics, isDark),
+        _buildTabButton('Advanced', 1, Icons.analytics, isDark),
       ],
     );
   }
