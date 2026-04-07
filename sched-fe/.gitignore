@@ -111,6 +111,8 @@ CLAUDE*.md
 tcs_certificate.pfx
 *.p12
 *.keystore
+*.jks
+android/key.properties
 
 # Firebase (keep google-services.json for builds, ignore iOS config)
 .firebaserc

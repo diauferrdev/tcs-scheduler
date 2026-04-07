@@ -12,6 +12,7 @@ import 'package:sched_fe/widgets/globe_section.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:sched_fe/utils/responsive_helper.dart';
 import 'package:sched_fe/providers/auth_provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class LandingScreen extends StatefulWidget {
   const LandingScreen({super.key});
@@ -196,11 +197,11 @@ class _LandingScreenState extends State<LandingScreen> {
                   _buildPlatformCard(
                     'Android',
                     Icons.android,
-                    'Download from Google Play',
-                    '32 MB',
+                    'Download APK directly',
+                    '97 MB',
                     'Android 8.0+',
                     true,
-                    () {},
+                    () => launchUrl(Uri.parse('https://api.ppspsched.lat/uploads/pace-scheduler-latest.apk'), mode: LaunchMode.externalApplication),
                     isMobile,
                   ),
                   _buildPlatformCard(

@@ -115,6 +115,7 @@ dependencies:
   local_auth: ^2.3.0
 
   http_parser: any
+  webview_flutter: ^4.13.1
 dev_dependencies:
   flutter_test:
     sdk: flutter
