@@ -424,7 +424,7 @@ class _EditBookingDrawerState extends State<EditBookingDrawer> {
           initialValue: _vertical,
           isExpanded: true,
           decoration: InputDecoration(
-            labelText: 'TCS Vertical',
+            labelText: 'Vertical',
             border: const OutlineInputBorder(),
             prefixIcon: const Icon(Icons.business_center),
             filled: true,

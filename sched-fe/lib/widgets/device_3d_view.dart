@@ -107,7 +107,7 @@ class _Device3DViewState extends State<Device3DView> {
         'entranceAnimation': widget.entranceAnimation,
         'loopAnimation': widget.loopAnimation,
         'brightness': widget.brightness,
-        'logoUrl': 'assets/Tata_logo.svg',
+        'logoUrl': 'assets/logos/pace-scheduler-logo-w.svg',
         'antialias': true,
         'enableGlow': widget.enableGlow,
         if (widget.deviceType == 'phone') ...{

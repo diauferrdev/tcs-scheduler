@@ -1280,7 +1280,7 @@ Enterprise Office Visit Management
             if (_booking!.employeeId != null && _booking!.employeeId!.isNotEmpty)
               _buildInfoRow(Icons.badge, 'Employee ID', _booking!.employeeId!, isDark),
             if (_booking!.vertical != null)
-              _buildInfoRow(Icons.apartment, 'TCS Vertical', _formatEnum(_booking!.vertical!.name), isDark),
+              _buildInfoRow(Icons.apartment, 'Vertical', _formatEnum(_booking!.vertical!.name), isDark),
           ],
           isDark,
         ),
@@ -2099,7 +2099,7 @@ Enterprise Office Visit Management
           if (attendee.tcsSupporter != null) ...[
             _buildAttendeeDetailRow(
               Icons.thumb_up,
-              'TCS Supporter',
+              'Supporter Level',
               _formatEnum(attendee.tcsSupporter!.name),
               isDark,
             ),

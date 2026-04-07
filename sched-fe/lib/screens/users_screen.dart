@@ -117,7 +117,7 @@ class _UsersScreenState extends State<UsersScreen> {
                     controller: emailController,
                     keyboardType: TextInputType.emailAddress,
                     style: TextStyle(color: isDark ? Colors.white : Colors.black),
-                    decoration: _inputDecoration('user@tcs.com', isDark),
+                    decoration: _inputDecoration('username', isDark),
                     validator: (value) {
                       if (value == null || value.trim().isEmpty) {
                         return 'Email is required';

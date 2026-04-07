@@ -751,7 +751,7 @@ class AttendeeCard extends StatelessWidget {
                           }
                         : null,
                     decoration: const InputDecoration(
-                      labelText: 'TCS Supporter',
+                      labelText: 'Supporter Level',
                       border: OutlineInputBorder(),
                       prefixIcon: Icon(Icons.thumb_up),
                     ),

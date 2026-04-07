@@ -294,9 +294,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                       onTap: () => _sendPushNotification(
                         type: 'BOOKING_CONFIRMED',
                         title: 'New Booking Confirmed',
-                        message: 'TCS Consulting scheduled a visit for Oct 15, 2025 at 14:00',
+                        message: 'Acme Corp scheduled a visit for Oct 15, 2025 at 14:00',
                         metadata: {
-                          'companyName': 'TCS Consulting',
+                          'companyName': 'Acme Corp',
                           'date': '15/10/2025',
                           'time': '14:00',
                           'sector': 'Technology & Innovation',

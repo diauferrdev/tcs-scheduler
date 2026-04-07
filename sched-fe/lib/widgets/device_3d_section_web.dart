@@ -106,7 +106,7 @@ class _Device3DSectionState extends State<Device3DSection> {
         'entranceAnimation': widget.animation,
         'loopAnimation': 'float',
         'brightness': 1.4,
-        'logoUrl': 'assets/Tata_logo.svg',
+        'logoUrl': 'assets/logos/pace-scheduler-logo-w.svg',
         'enableGlow': widget.deviceType == 'phone',
         'antialias': true,
         'enableInteraction': !isMobile, // Disable interaction on mobile

@@ -40,7 +40,7 @@ class CalendarService {
       final Event event = Event(
         title: '🏢 $companyName Visit',
         description: description,
-        location: 'TCS Pace São Paulo',
+        location: 'PacePort São Paulo',
         startDate: startDate,
         endDate: endDate,
         allDay: false,
@@ -129,12 +129,12 @@ class CalendarService {
     String? eventType,
   }) {
     final lines = <String>[
-      '📍 Location: TCS Pace São Paulo',
+      '📍 Location: PacePort São Paulo',
       if (sector != null) '🏢 Sector: $sector',
       if (expectedAttendees != null) '👥 Expected Attendees: $expectedAttendees',
       if (eventType != null) '🎯 Type: $eventType',
       '',
-      'This event was added from TCS Pace Scheduler.',
+      'This event was added from Pace Scheduler.',
     ];
 
     return lines.join('\n');
