@@ -297,6 +297,7 @@ class BookingFlowService {
         minChildSize: 0.5,
         maxChildSize: 0.9,
         builder: (context, scrollController) => QuestionnaireDrawer(
+          eventType: _engagementType,
           onSubmit: (answers) {
             _questionnaireAnswers = answers;
             Navigator.pop(context);

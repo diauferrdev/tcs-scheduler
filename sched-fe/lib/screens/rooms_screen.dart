@@ -156,6 +156,8 @@ class _RoomsScreenState extends State<RoomsScreen> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      isDismissible: true,
+      enableDrag: true,
       backgroundColor: Colors.transparent,
       builder: (context) => _RoomDetailSheet(
         room: room,
@@ -176,6 +178,8 @@ class _RoomsScreenState extends State<RoomsScreen> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      isDismissible: true,
+      enableDrag: true,
       backgroundColor: Colors.transparent,
       builder: (context) => _BookingFormSheet(
         room: room,
@@ -685,6 +689,15 @@ class _RoomDetailSheet extends StatelessWidget {
                             horizontal: 16, vertical: 10),
                       ),
                     ),
+                    const SizedBox(width: 8),
+                    IconButton(
+                      onPressed: () => Navigator.pop(context),
+                      icon: Icon(
+                        Icons.close,
+                        color: isDark ? Colors.white : Colors.black,
+                      ),
+                      tooltip: 'Close',
+                    ),
                   ],
                 ),
               ),
@@ -868,6 +881,8 @@ class _RoomDetailSheet extends StatelessWidget {
 
     showModalBottomSheet(
       context: context,
+      isDismissible: true,
+      enableDrag: true,
       backgroundColor: Colors.transparent,
       builder: (ctx) => Container(
         padding: const EdgeInsets.all(20),
@@ -1069,6 +1084,8 @@ class _BookingFormSheetState extends State<_BookingFormSheet> {
 
     showModalBottomSheet(
       context: context,
+      isDismissible: true,
+      enableDrag: true,
       backgroundColor: Colors.transparent,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setSheetState) => Container(
@@ -1256,20 +1273,39 @@ class _BookingFormSheetState extends State<_BookingFormSheet> {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  Text(
-                    'Book ${RoomBooking.roomLabel(widget.room)}',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: isDark ? Colors.white : Colors.black,
-                    ),
-                  ),
-                  Text(
-                    DateFormat('EEEE, MMMM d, yyyy').format(widget.selectedDate),
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: isDark ? Colors.white60 : Colors.black45,
-                    ),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Book ${RoomBooking.roomLabel(widget.room)}',
+                              style: TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                                color: isDark ? Colors.white : Colors.black,
+                              ),
+                            ),
+                            Text(
+                              DateFormat('EEEE, MMMM d, yyyy').format(widget.selectedDate),
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: isDark ? Colors.white60 : Colors.black45,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () => Navigator.pop(context),
+                        icon: Icon(
+                          Icons.close,
+                          color: isDark ? Colors.white : Colors.black,
+                        ),
+                        tooltip: 'Close',
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 24),
 

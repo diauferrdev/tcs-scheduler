@@ -465,9 +465,10 @@ class ApiService {
     return await post('/api/bookings/$id/mark-under-review', {});
   }
 
-  /// Get questionnaire questions
-  Future<dynamic> getQuestionnaire() async {
-    return await get('/api/bookings/questionnaire');
+  /// Get questionnaire questions by event type
+  Future<dynamic> getQuestionnaire({String? eventType}) async {
+    final query = eventType != null ? '?eventType=$eventType' : '';
+    return await get('/api/bookings/questionnaire$query');
   }
 
   // Notifications Methods
