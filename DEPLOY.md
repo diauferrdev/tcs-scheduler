@@ -100,18 +100,80 @@ firebase appdistribution:distribute build/app/outputs/flutter-apk/app-release.ap
 
 ## Multi-Platform Build
 
-Use the unified script:
+### Prerequisites per Platform
+
+**Windows:**
+- Flutter SDK (e.g. `C:\src\flutter`)
+- Visual Studio 2022 with "Desktop development with C++" workload
+- Git
+
+**Linux (Ubuntu/WSL):**
+```bash
+sudo apt-get install -y libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev \
+  libgtk-3-dev ninja-build cmake clang
+```
+> Note: `rive_common` plugin has `-Werror` issues. The project CMakeLists already disables it.
+> If build still fails, patch pub cache: `sed -i 's/apply_standard_settings/# apply_standard_settings/' ~/.pub-cache/hosted/pub.dev/rive_common-*/linux/CMakeLists.txt`
+
+**macOS:** Xcode 14+ with command line tools
+**Android:** Android SDK, JDK 11+, keystore (see Android section above)
+
+---
+
+### Windows Build (run in PowerShell)
+
+```powershell
+git clone git@github.com:diauferrdev/tcs-scheduler.git C:\tcs\scheduler
+cd C:\tcs\scheduler\sched-fe
+flutter pub get
+flutter build windows --release
+```
+Output: `build\windows\x64\runner\Release\`
+
+To zip for distribution:
+```powershell
+Compress-Archive -Path build\windows\x64\runner\Release\* -DestinationPath pace-scheduler-windows-v1.2.12.zip
+```
+
+Upload to VPS:
+```bash
+scp pace-scheduler-windows-v1.2.12.zip root@aimaturity.lat:/root/tcs/tcs-sched/sched-be/uploads/
+ssh root@aimaturity.lat "ln -sf pace-scheduler-windows-v1.2.12.zip /root/tcs/tcs-sched/sched-be/uploads/pace-scheduler-windows-latest.zip"
+```
+
+### Linux Build (run in Ubuntu/WSL)
+
+```bash
+cd sched-fe
+flutter build linux --release
+# Package:
+cd build/linux/x64/release
+tar czf pace-scheduler-linux-v1.2.12.tar.gz -C bundle .
+```
+
+Upload to VPS:
+```bash
+scp pace-scheduler-linux-v1.2.12.tar.gz root@aimaturity.lat:/root/tcs/tcs-sched/sched-be/uploads/
+ssh root@aimaturity.lat "ln -sf pace-scheduler-linux-v1.2.12.tar.gz /root/tcs/tcs-sched/sched-be/uploads/pace-scheduler-linux-latest.tar.gz"
+```
+
+### Unified Script (Linux/macOS only)
+
 ```bash
 cd sched-fe
 bash build_all.sh          # Interactive menu
 bash build_all.sh android  # Direct build
 bash build_all.sh web
-bash build_all.sh windows
 bash build_all.sh linux
-bash build_all.sh macos    # Requires macOS
-bash build_all.sh ios      # Requires macOS
-bash build_all.sh all      # Build everything
 ```
+
+### Download Links
+
+| Platform | URL |
+|----------|-----|
+| Android APK | https://api.pacesched.com/uploads/pace-scheduler-latest.apk |
+| Linux tar.gz | https://api.pacesched.com/uploads/pace-scheduler-linux-latest.tar.gz |
+| Windows zip | https://api.pacesched.com/uploads/pace-scheduler-windows-latest.zip |
 
 ### Platform Status
 
@@ -119,8 +181,8 @@ bash build_all.sh all      # Build everything
 |----------|--------------|--------|-------------|
 | Android | `flutter build apk --release` | `build/app/outputs/flutter-apk/app-release.apk` | Firebase / Direct download |
 | Web | `flutter build web --release` | `build/web/` | Caddy on VPS |
-| Windows | `flutter build windows --release` | `build/windows/x64/runner/Release/` | MSIX package |
-| Linux | `flutter build linux --release` | `build/linux/x64/release/bundle/` | AppImage |
+| Windows | `flutter build windows --release` | `build\windows\x64\runner\Release\` | Zip download |
+| Linux | `flutter build linux --release` | `build/linux/x64/release/bundle/` | tar.gz download |
 | macOS | `flutter build macos --release` | `build/macos/Build/Products/Release/` | DMG |
 | iOS | `flutter build ipa --release` | `build/ios/` | TestFlight |
 
