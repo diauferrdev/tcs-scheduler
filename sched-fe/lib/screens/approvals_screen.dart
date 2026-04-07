@@ -176,7 +176,7 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
                 color: isDark ? Colors.white : Colors.black,
               ),
             )
-          : SingleChildScrollView(
+          : Padding(
               padding: const EdgeInsets.all(24),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -211,7 +211,7 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
                 ),
 
                 // Content
-                _buildBody(isDark),
+                Expanded(child: _buildBody(isDark)),
             ],
           ),
         ),
@@ -278,9 +278,9 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildNewRequestsSection(isDark),
-          const SizedBox(height: 32),
-          _buildRecentHistorySection(isDark),
+          Expanded(child: _buildNewRequestsSection(isDark)),
+          const SizedBox(height: 16),
+          Expanded(child: _buildRecentHistorySection(isDark)),
         ],
       );
     }
@@ -343,12 +343,16 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
           ],
         ),
         const SizedBox(height: 16),
-        // Room bookings first (using same card style)
-        ..._pendingRoomBookings.map((room) => _buildRoomBookingCard(room, isDark)),
-        // Event bookings
-        ..._newRequests.map((booking) {
-          return PendingApprovalCard(booking: booking, onApproved: _loadAllBookings);
-        }),
+        Expanded(
+          child: ListView(
+            children: [
+              ..._pendingRoomBookings.map((room) => _buildRoomBookingCard(room, isDark)),
+              ..._newRequests.map((booking) {
+                return PendingApprovalCard(booking: booking, onApproved: _loadAllBookings);
+              }),
+            ],
+          ),
+        ),
       ],
     );
   }
@@ -449,12 +453,18 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
           ],
         ),
         const SizedBox(height: 16),
-        ..._recentHistory.take(10).map((booking) {
-          return PendingApprovalCard(
-            booking: booking,
-            onApproved: _loadAllBookings,
-          );
-        }),
+        Expanded(
+          child: ListView(
+            children: [
+              ..._recentHistory.take(10).map((booking) {
+                return PendingApprovalCard(
+                  booking: booking,
+                  onApproved: _loadAllBookings,
+                );
+              }),
+            ],
+          ),
+        ),
       ],
     );
   }
