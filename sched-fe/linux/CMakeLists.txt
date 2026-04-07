@@ -13,6 +13,10 @@ set(APPLICATION_ID "com.tcs.pace_scheduler")
 # versions of CMake.
 cmake_policy(SET CMP0063 NEW)
 
+# Disable -Werror for third-party plugins (rive_common has warnings treated as errors)
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-error")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-error")
+
 # Load bundled libraries from the lib/ directory relative to the binary.
 set(CMAKE_INSTALL_RPATH "$ORIGIN/lib")
 
