@@ -112,6 +112,17 @@ app.post('/guest', zValidator('json', BookingGuestCreateSchema), async (c) => {
   }
 });
 
+// Get questionnaire (public - needed for Pace Visit Fullday, Innovation Exchange & Hackathon)
+app.get('/questionnaire', async (c) => {
+  try {
+    const eventType = c.req.query('eventType');
+    const questionnaire = getQuestionnaire(eventType);
+    return c.json({ questionnaire });
+  } catch (error: any) {
+    return c.json({ error: error.message }, 400);
+  }
+});
+
 // Get latest booking (for notifications)
 app.get('/latest', authMiddleware, async (c) => {
   try {
@@ -438,16 +449,5 @@ app.post('/:id/mark-under-review', authMiddleware, async (c) => {
 });
 
 // ==================== QUESTIONNAIRE ROUTE ====================
-
-// Get questionnaire (public - needed for Pace Visit Fullday, Innovation Exchange & Hackathon)
-app.get('/questionnaire', async (c) => {
-  try {
-    const eventType = c.req.query('eventType');
-    const questionnaire = getQuestionnaire(eventType);
-    return c.json({ questionnaire });
-  } catch (error: any) {
-    return c.json({ error: error.message }, 400);
-  }
-});
 
 export default app;

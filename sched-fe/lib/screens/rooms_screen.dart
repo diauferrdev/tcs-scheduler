@@ -400,7 +400,7 @@ class _RoomsScreenState extends State<RoomsScreen> {
           crossAxisCount: MediaQuery.of(context).size.width > 900 ? 4 : 2,
           crossAxisSpacing: 12,
           mainAxisSpacing: 12,
-          childAspectRatio: 0.95,
+          childAspectRatio: MediaQuery.of(context).size.width > 900 ? 1.3 : 0.95,
         ),
         itemCount: RoomBooking.displayOrder.length,
         itemBuilder: (context, index) {
