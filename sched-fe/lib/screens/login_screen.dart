@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import '../providers/auth_provider.dart';
+import '../services/biometric_service.dart';
 import '../utils/toast_notification.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -17,6 +19,8 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _loading = false;
+  bool _biometricAvailable = false;
+  bool _biometricEnabled = false;
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
@@ -49,6 +53,64 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
 
     // Start animation
     _animationController.forward();
+
+    // Check biometric availability
+    _checkBiometric();
+  }
+
+  Future<void> _checkBiometric() async {
+    if (kIsWeb) return;
+    final bio = BiometricService();
+    final available = await bio.isAvailable();
+    final enabled = await bio.isEnabled();
+    if (mounted) {
+      setState(() {
+        _biometricAvailable = available;
+        _biometricEnabled = enabled;
+      });
+    }
+  }
+
+  Future<void> _handleBiometricLogin() async {
+    setState(() => _loading = true);
+    try {
+      final bio = BiometricService();
+      final cookie = await bio.biometricLogin();
+      if (cookie == null) {
+        if (mounted) {
+          ToastNotification.show(context, message: 'Biometric authentication failed', type: ToastType.error);
+        }
+        return;
+      }
+
+      // Restore session using the cookie
+      final authProvider = context.read<AuthProvider>();
+      await authProvider.restoreSessionFromCookie(cookie);
+
+      if (mounted) {
+        if (authProvider.mustChangePassword) {
+          context.go('/change-password');
+          return;
+        }
+        final user = authProvider.user;
+        String destination = '/app/schedule';
+        if (user != null) {
+          switch (user.role.name) {
+            case 'ADMIN':
+            case 'MANAGER':
+              destination = '/app/dashboard';
+              break;
+          }
+        }
+        context.go(destination);
+      }
+    } catch (e) {
+      if (mounted) {
+        ToastNotification.show(context, message: 'Biometric login failed: ${e.toString()}', type: ToastType.error);
+      }
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
   }
 
   @override
@@ -72,8 +134,24 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
       );
 
       if (mounted) {
-        // Get user role to determine redirect destination
         final authProvider = context.read<AuthProvider>();
+
+        // Enable biometrics after successful login (mobile only)
+        if (!kIsWeb && authProvider.user != null) {
+          final bio = BiometricService();
+          final available = await bio.isAvailable();
+          if (available) {
+            await bio.enable(authProvider.user!.email);
+          }
+        }
+
+        // If user must change password, redirect to change password screen
+        if (authProvider.mustChangePassword) {
+          context.go('/change-password');
+          return;
+        }
+
+        // Get user role to determine redirect destination
         final user = authProvider.user;
 
         String destination = '/app/schedule'; // Default for USER
@@ -89,7 +167,6 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
           }
         }
 
-        // Use router to navigate (no subdomain redirects)
         context.go(destination);
       }
     } catch (e) {
@@ -135,8 +212,8 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        // Logo - New TCS Pace logo (already includes "Scheduler" text)
-        SvgPicture.asset('assets/logos/tcs-pace-logo-w.svg', height: 48),
+        // Logo - Pace logo (already includes "Scheduler" text)
+        SvgPicture.asset('assets/logos/pace-scheduler-logo-w.svg', height: 24),
 
         const SizedBox(height: 32),
 
@@ -155,19 +232,19 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          // Email Field
+                          // Username Field
                           const Text(
-                            'Email',
+                            'Username',
                             style: TextStyle(fontSize: 14, color: Colors.white),
                           ),
                           const SizedBox(height: 6),
                           TextFormField(
                             controller: _emailController,
-                            keyboardType: TextInputType.emailAddress,
+                            keyboardType: TextInputType.text,
                             enabled: !_loading,
                             style: const TextStyle(color: Colors.white),
                             decoration: InputDecoration(
-                              hintText: 'admin@tcs.com',
+                              hintText: 'diego.ferreira',
                               hintStyle: const TextStyle(
                                 color: Color(0xFF6B7280),
                               ),
@@ -198,13 +275,18 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                             ),
                             validator: (value) {
                               if (value == null || value.isEmpty) {
-                                return 'Email is required';
-                              }
-                              if (!value.contains('@')) {
-                                return 'Invalid email format';
+                                return 'Username is required';
                               }
                               return null;
                             },
+                          ),
+                          const SizedBox(height: 4),
+                          const Text(
+                            'Enter your username (e.g. first.last)',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Color(0xFF6B7280),
+                            ),
                           ),
 
                           const SizedBox(height: 16),
@@ -299,6 +381,34 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                       ),
                     ),
                   ),
+
+        // Biometric login button (mobile only, after first login)
+        if (_biometricAvailable && _biometricEnabled) ...[
+          const SizedBox(height: 24),
+          GestureDetector(
+            onTap: _loading ? null : _handleBiometricLogin,
+            child: Column(
+              children: [
+                Container(
+                  width: 64,
+                  height: 64,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(color: const Color(0xFF27272A), width: 2),
+                  ),
+                  child: const Center(
+                    child: Icon(Icons.fingerprint, color: Colors.white, size: 36),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Use biometrics',
+                  style: TextStyle(color: Color(0xFF6B7280), fontSize: 13),
+                ),
+              ],
+            ),
+          ),
+        ],
       ],
     );
   }

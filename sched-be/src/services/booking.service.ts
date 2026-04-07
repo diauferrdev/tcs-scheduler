@@ -18,8 +18,159 @@ function durationToHours(duration: string): number {
     'FOUR_HOURS': 4,
     'FIVE_HOURS': 5,
     'SIX_HOURS': 6,
+    'SEVEN_HOURS': 7,
+    'EIGHT_HOURS': 8,
   };
   return map[duration] || 0;
+}
+
+// Event type configuration — drives validation and buffer logic
+const EVENT_CONFIG: Record<string, {
+  minDuration: number; maxDuration: number;
+  maxPerDay: number;
+  isMultiDay: boolean;
+  bufferBefore: number; bufferAfter: number;
+  needsPrepPeriod: boolean; needsTeardownPeriod: boolean;
+  requiresQuestionnaire: boolean;
+}> = {
+  PACE_TOUR: {
+    minDuration: 2, maxDuration: 2,
+    maxPerDay: 2,
+    isMultiDay: false,
+    bufferBefore: 0, bufferAfter: 0,
+    needsPrepPeriod: false, needsTeardownPeriod: false,
+    requiresQuestionnaire: false,
+  },
+  PACE_VISIT_FULLDAY: {
+    minDuration: 4, maxDuration: 8,
+    maxPerDay: 1,
+    isMultiDay: false,
+    bufferBefore: 0, bufferAfter: 0,
+    needsPrepPeriod: true, needsTeardownPeriod: true,
+    requiresQuestionnaire: true,
+  },
+  INNOVATION_EXCHANGE: {
+    minDuration: 6, maxDuration: 8,
+    maxPerDay: 1,
+    isMultiDay: true,
+    bufferBefore: 2, bufferAfter: 1,
+    needsPrepPeriod: true, needsTeardownPeriod: true,
+    requiresQuestionnaire: true,
+  },
+  HACKATHON: {
+    minDuration: 8, maxDuration: 8,
+    maxPerDay: 1,
+    isMultiDay: true,
+    bufferBefore: 2, bufferAfter: 1,
+    needsPrepPeriod: true, needsTeardownPeriod: true,
+    requiresQuestionnaire: true,
+  },
+};
+
+// Helper: Get effective event type key from engagement + visit type
+function getEventTypeKey(engagementType: string, visitType: string): string {
+  if (engagementType === 'HACKATHON') return 'HACKATHON';
+  if (engagementType === 'INNOVATION_EXCHANGE') return 'INNOVATION_EXCHANGE';
+  // PACE_VISIT (or legacy VISIT)
+  if (visitType === 'PACE_VISIT_FULLDAY' || visitType === 'PACE_EXPERIENCE') return 'PACE_VISIT_FULLDAY';
+  return 'PACE_TOUR';
+}
+
+// Helper: Get N business days before a date
+function getBusinessDaysBefore(date: Date, count: number): Date {
+  let result = new Date(date);
+  for (let i = 0; i < count; i++) {
+    result = getPreviousBusinessDay(result);
+  }
+  return result;
+}
+
+// Helper: Get N business days after a date
+function getBusinessDaysAfter(date: Date, count: number): Date {
+  let result = new Date(date);
+  for (let i = 0; i < count; i++) {
+    result = getNextBusinessDay(result);
+  }
+  return result;
+}
+
+// Helper: Get all business days in a range (inclusive)
+function getBusinessDaysInRange(start: Date, end: Date): Date[] {
+  const days: Date[] = [];
+  const current = new Date(start);
+  while (current <= end) {
+    if (!isWeekend(current)) {
+      days.push(new Date(current));
+    }
+    current.setUTCDate(current.getUTCDate() + 1);
+  }
+  return days;
+}
+
+// Validate multi-day event availability (IE, Hackathon)
+async function validateMultiDayEvent(
+  startDate: string,
+  endDate: string,
+  eventTypeKey: string,
+  excludeBookingId?: string
+): Promise<{ valid: boolean; error?: string }> {
+  const config = EVENT_CONFIG[eventTypeKey];
+  if (!config) return { valid: false, error: `Unknown event type: ${eventTypeKey}` };
+
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+
+  // Check all event days are weekdays
+  const eventDays = getBusinessDaysInRange(start, end);
+  if (eventDays.length === 0) {
+    return { valid: false, error: 'Event must include at least one business day' };
+  }
+
+  // Check buffer days before
+  const bufferStart = getBusinessDaysBefore(start, config.bufferBefore);
+  const bufferEnd = getBusinessDaysAfter(end, config.bufferAfter);
+
+  // Get all days to check (buffer before + event days + buffer after)
+  const allDaysToCheck = getBusinessDaysInRange(bufferStart, bufferEnd);
+
+  // Check each day for conflicts with APPROVED bookings
+  for (const day of allDaysToCheck) {
+    const dayStr = day.toISOString().split('T')[0];
+    const morningFree = await isPeriodFree(day, true, excludeBookingId);
+    const afternoonFree = await isPeriodFree(day, false, excludeBookingId);
+
+    if (!morningFree || !afternoonFree) {
+      const isBufferDay = day < start || day > end;
+      const label = isBufferDay ? 'buffer' : 'event';
+      return {
+        valid: false,
+        error: `Cannot book ${eventTypeKey}: ${dayStr} (${label} day) has conflicting bookings`,
+      };
+    }
+
+    // Also check for multi-day event conflicts (other IE/Hackathon blocking this day)
+    const existingMultiDay = await prisma.booking.findMany({
+      where: {
+        status: 'APPROVED',
+        endDate: { not: null },
+        ...(excludeBookingId ? { id: { not: excludeBookingId } } : {}),
+      },
+    });
+
+    for (const existing of existingMultiDay) {
+      if (!existing.endDate) continue;
+      const exStart = getBusinessDaysBefore(existing.date, existing.bufferBefore);
+      const exEnd = getBusinessDaysAfter(existing.endDate, existing.bufferAfter);
+      if (day >= exStart && day <= exEnd) {
+        return {
+          valid: false,
+          error: `Cannot book ${eventTypeKey}: ${dayStr} conflicts with existing ${existing.engagementType} event`,
+        };
+      }
+    }
+  }
+
+  return { valid: true };
 }
 
 // Helper: Check if date is weekend (Saturday or Sunday)
@@ -142,17 +293,36 @@ async function isPeriodFreeConsideringIEBlocks(
     return false;
   }
 
-  // 2. Check if this period is blocked by prep/teardown of existing APPROVED IEs/PEs
-  // Get all APPROVED Innovation Exchange and Pace Experience bookings
-  const confirmedFullDayEvents = await prisma.booking.findMany({
+  // 2. Check if this period is blocked by multi-day events (IE, Hackathon) with buffers
+  const confirmedMultiDay = await prisma.booking.findMany({
     where: {
-      visitType: { in: ['INNOVATION_EXCHANGE', 'PACE_EXPERIENCE'] },
       status: 'APPROVED',
+      endDate: { not: null },
       ...(excludeBookingId ? { id: { not: excludeBookingId } } : {}),
     },
   });
 
-  console.log(`[IE/PE Block Check] Found ${confirmedFullDayEvents.length} confirmed IE/PE events to check against`);
+  for (const event of confirmedMultiDay) {
+    if (!event.endDate) continue;
+    const bufStart = getBusinessDaysBefore(event.date, event.bufferBefore);
+    const bufEnd = getBusinessDaysAfter(event.endDate, event.bufferAfter);
+    if (date >= bufStart && date <= bufEnd) {
+      console.log(`[Block Check] ❌ ${dateStr} ${periodLabel} is blocked by multi-day ${event.engagementType}`);
+      return false;
+    }
+  }
+
+  // 3. Check if this period is blocked by prep/teardown of existing APPROVED single-day full events
+  const confirmedFullDayEvents = await prisma.booking.findMany({
+    where: {
+      visitType: { in: ['INNOVATION_EXCHANGE', 'PACE_EXPERIENCE', 'PACE_VISIT_FULLDAY'] },
+      status: 'APPROVED',
+      endDate: null, // single-day only
+      ...(excludeBookingId ? { id: { not: excludeBookingId } } : {}),
+    },
+  });
+
+  console.log(`[Block Check] Found ${confirmedFullDayEvents.length} confirmed full-day events to check against`);
 
   for (const event of confirmedFullDayEvents) {
     const eventDate = event.date;
@@ -215,11 +385,11 @@ async function validateInnovationExchange(
   const bookingDate = new Date(date);
   const durationHours = durationToHours(duration);
 
-  // Must be 4-6 hours (Pace Experience = 4h, Innovation Exchange = 6h)
-  if (durationHours < 4 || durationHours > 6) {
+  // Must be 4-8 hours for full-day events
+  if (durationHours < 4 || durationHours > 8) {
     return {
       valid: false,
-      error: 'Pace Experience and Innovation Exchange must be between 4-6 hours',
+      error: 'Full-day events must be between 4-8 hours',
     };
   }
 
@@ -311,7 +481,28 @@ async function validatePaceTour(
   return { valid: true };
 }
 
-export async function checkAvailability(date: string, visitType?: 'PACE_TOUR' | 'INNOVATION_EXCHANGE' | 'PACE_EXPERIENCE') {
+// Validate Pace Visit Fullday — day must be completely empty
+async function validateFullDay(
+  date: string,
+  excludeBookingId?: string
+): Promise<{ valid: boolean; error?: string }> {
+  const bookingDate = new Date(date);
+
+  // Check both periods are free (no approved bookings at all)
+  const morningFree = await isPeriodFreeConsideringIEBlocks(bookingDate, true, excludeBookingId);
+  const afternoonFree = await isPeriodFreeConsideringIEBlocks(bookingDate, false, excludeBookingId);
+
+  if (!morningFree || !afternoonFree) {
+    return {
+      valid: false,
+      error: `Cannot book full-day event on ${date}: day is not completely available`,
+    };
+  }
+
+  return { valid: true };
+}
+
+export async function checkAvailability(date: string, visitType?: string) {
   const bookingDate = new Date(date);
 
   // Get ONLY APPROVED bookings for availability
@@ -387,15 +578,15 @@ export async function checkAvailability(date: string, visitType?: 'PACE_TOUR' | 
     const afternoonFree = await isPeriodFreeConsideringIEBlocks(bookingDate, false);
     if (!afternoonFree && periods[1].available) {
       periods[1].available = false;
-      periods[1].blockedBy = 'Period blocked by Innovation Exchange or Pace Experience prep/teardown';
+      periods[1].blockedBy = 'Period blocked by full-day event prep/teardown';
     }
-  } else if (visitType === 'INNOVATION_EXCHANGE' || visitType === 'PACE_EXPERIENCE') {
-    // Innovation Exchange and Pace Experience: only 1 per day, need prep/teardown
+  } else if (visitType === 'INNOVATION_EXCHANGE' || visitType === 'PACE_EXPERIENCE' || visitType === 'PACE_VISIT_FULLDAY') {
+    // Full-day events: only 1 per day, need prep/teardown
     const existingFullDay = await prisma.booking.findMany({
       where: {
         date: bookingDate,
-        visitType: { in: ['INNOVATION_EXCHANGE', 'PACE_EXPERIENCE'] },
-        status: 'APPROVED', // Only count APPROVED bookings
+        visitType: { in: ['INNOVATION_EXCHANGE', 'PACE_EXPERIENCE', 'PACE_VISIT_FULLDAY'] },
+        status: 'APPROVED',
       },
     });
 
@@ -483,47 +674,49 @@ export async function createBooking(data: BookingCreateInput, createdById?: stri
     throw new Error('Bookings are not allowed on weekends (Saturday/Sunday)');
   }
 
-  // 2. Validate visit type and duration match
-  if (data.visitType === 'PACE_TOUR') {
-    // Pace Tour must be exactly 2 hours
-    if (data.duration !== 'TWO_HOURS') {
-      throw new Error('Pace Tour must be exactly 2 hours');
-    }
+  // 2. Config-driven validation based on event type
+  const eventTypeKey = getEventTypeKey(data.engagementType, data.visitType);
+  const config = EVENT_CONFIG[eventTypeKey];
 
-    // Validate Pace Tour specific rules (max 2 per day, no prep/teardown)
+  if (!config) {
+    throw new Error(`Unknown event type combination: ${data.engagementType} / ${data.visitType}`);
+  }
+
+  const durationHours = durationToHours(data.duration);
+  if (durationHours < config.minDuration || durationHours > config.maxDuration) {
+    throw new Error(`${eventTypeKey} must be between ${config.minDuration}-${config.maxDuration} hours`);
+  }
+
+  // Multi-day event validation
+  if (config.isMultiDay && (data as any).endDate) {
+    const multiDayValidation = await validateMultiDayEvent(
+      data.date,
+      (data as any).endDate,
+      eventTypeKey
+    );
+    if (!multiDayValidation.valid) {
+      throw new Error(multiDayValidation.error);
+    }
+  } else if (eventTypeKey === 'PACE_TOUR') {
+    // Pace Tour specific: max per day
     const paceTourValidation = await validatePaceTour(data.date, data.duration);
     if (!paceTourValidation.valid) {
       throw new Error(paceTourValidation.error);
     }
-  } else if (data.visitType === 'PACE_EXPERIENCE') {
-    // Pace Experience must be exactly 4 hours
-    if (data.duration !== 'FOUR_HOURS') {
-      throw new Error('Pace Experience must be exactly 4 hours');
+  } else if (eventTypeKey === 'PACE_VISIT_FULLDAY') {
+    // Pace Visit Fullday: day must be completely empty + prep/teardown
+    const fullDayValidation = await validateFullDay(data.date);
+    if (!fullDayValidation.valid) {
+      throw new Error(fullDayValidation.error);
     }
-
-    // Validate Pace Experience prep/teardown periods
-    const peValidation = await validateInnovationExchange(
+    // Also validate prep/teardown periods
+    const prepValidation = await validateInnovationExchange(
       data.date,
       data.startTime,
       data.duration
     );
-    if (!peValidation.valid) {
-      throw new Error(peValidation.error);
-    }
-  } else if (data.visitType === 'INNOVATION_EXCHANGE') {
-    // Innovation Exchange must be exactly 6 hours
-    if (data.duration !== 'SIX_HOURS') {
-      throw new Error('Innovation Exchange must be exactly 6 hours');
-    }
-
-    // Validate Innovation Exchange specific rules (prep/teardown)
-    const innovationValidation = await validateInnovationExchange(
-      data.date,
-      data.startTime,
-      data.duration
-    );
-    if (!innovationValidation.valid) {
-      throw new Error(innovationValidation.error);
+    if (!prepValidation.valid) {
+      throw new Error(prepValidation.error);
     }
   }
 
@@ -554,15 +747,34 @@ export async function createBooking(data: BookingCreateInput, createdById?: stri
     throw new Error('Maximum 3 attendees allowed per booking');
   }
 
-  const { attendees, lastInnovationDay, ...bookingData } = data;
+  const { attendees, lastInnovationDay, endDate, totalDays, ...bookingData } = data as any;
+
+  // Calculate buffer and prep dates based on config
+  const calculatedBufferBefore = config.bufferBefore;
+  const calculatedBufferAfter = config.bufferAfter;
+  const calculatedEndDate = endDate ? new Date(endDate) : null;
+  const calculatedTotalDays = totalDays || 1;
+
+  // IE prep start date: 5 weeks (35 days) before event
+  let calculatedPrepStartDate: Date | null = null;
+  if (eventTypeKey === 'INNOVATION_EXCHANGE') {
+    const prepStart = new Date(data.date);
+    prepStart.setUTCDate(prepStart.getUTCDate() - 35);
+    calculatedPrepStartDate = prepStart;
+  }
 
   let booking = await prisma.booking.create({
     data: {
       ...bookingData,
       date: new Date(data.date),
+      endDate: calculatedEndDate,
+      totalDays: calculatedTotalDays,
+      bufferBefore: calculatedBufferBefore,
+      bufferAfter: calculatedBufferAfter,
+      prepStartDate: calculatedPrepStartDate,
       lastInnovationDay: lastInnovationDay ? new Date(lastInnovationDay) : null,
       expectedAttendees: data.expectedAttendees || 1,
-      status: 'CREATED', // Start with CREATED
+      status: 'CREATED',
       createdById,
       attendees: attendees
         ? {
@@ -1015,7 +1227,7 @@ export async function approveBooking(bookingId: string, managerId: string) {
           date: booking.date,
         },
         // For Innovation Exchange and Pace Experience, also check prep/teardown periods
-        ...(booking.visitType === 'INNOVATION_EXCHANGE' || booking.visitType === 'PACE_EXPERIENCE' ? [
+        ...(booking.visitType === 'INNOVATION_EXCHANGE' || booking.visitType === 'PACE_EXPERIENCE' || booking.visitType === 'PACE_VISIT_FULLDAY' ? [
           // If approved IE is in morning, it blocks:
           // - Previous day afternoon (prep)
           // - Same day morning + afternoon (event + teardown)
@@ -1063,7 +1275,7 @@ export async function approveBooking(bookingId: string, managerId: string) {
     }
 
     // For Innovation Exchange and Pace Experience approved booking, check if pending conflicts with prep/teardown
-    if (booking.visitType === 'INNOVATION_EXCHANGE' || booking.visitType === 'PACE_EXPERIENCE') {
+    if (booking.visitType === 'INNOVATION_EXCHANGE' || booking.visitType === 'PACE_EXPERIENCE' || booking.visitType === 'PACE_VISIT_FULLDAY') {
       const isApprovedInMorning = isMorningPeriod(booking.startTime);
 
       if (isApprovedInMorning) {
@@ -1088,7 +1300,7 @@ export async function approveBooking(bookingId: string, managerId: string) {
     }
 
     // Check if pending IE or PE prep/teardown conflicts with approved booking
-    if (pending.visitType === 'INNOVATION_EXCHANGE' || pending.visitType === 'PACE_EXPERIENCE') {
+    if (pending.visitType === 'INNOVATION_EXCHANGE' || pending.visitType === 'PACE_EXPERIENCE' || pending.visitType === 'PACE_VISIT_FULLDAY') {
       const isPendingInMorning = isMorningPeriod(pending.startTime);
       const pendingDate = pending.date;
 
@@ -1547,7 +1759,7 @@ export async function userRescheduleBooking(
     if (!paceTourValidation.valid) {
       throw new Error(paceTourValidation.error);
     }
-  } else if (booking.visitType === 'INNOVATION_EXCHANGE' || booking.visitType === 'PACE_EXPERIENCE') {
+  } else if (booking.visitType === 'INNOVATION_EXCHANGE' || booking.visitType === 'PACE_EXPERIENCE' || booking.visitType === 'PACE_VISIT_FULLDAY') {
     const innovationValidation = await validateInnovationExchange(
       newDate,
       newStartTime,

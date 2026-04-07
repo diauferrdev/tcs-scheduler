@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../screens/booking_details_screen.dart';
+import '../screens/room_booking_details_screen.dart';
 import '../models/ticket.dart';
 import '../models/user.dart';
 import '../providers/auth_provider.dart';
@@ -113,6 +114,9 @@ class DrawerService {
       case DrawerType.ticketDetails:
         final ticketId = params?['ticketId'];
         return ticketId != null ? '/app/support/$ticketId' : null;
+
+      case DrawerType.roomBookingDetails:
+        return null;
     }
   }
 
@@ -201,6 +205,49 @@ class DrawerService {
               Expanded(
                 child: _TicketDetailDrawerContent(
                   ticketId: ticketId,
+                  scrollController: scrollController,
+                  onClose: () {
+                    closeDrawer(context);
+                    _navigateToBaseRoute(context, type);
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (type == DrawerType.roomBookingDetails) {
+      final roomBookingId = params?['roomBookingId'] as String?;
+      if (roomBookingId == null) {
+        return _buildErrorDrawer(isDark, 'Room Booking ID is required');
+      }
+
+      return DraggableScrollableSheet(
+        initialChildSize: 0.75,
+        minChildSize: 0.5,
+        maxChildSize: 0.9,
+        builder: (context, scrollController) => Container(
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF18181B) : Colors.white,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: Column(
+            children: [
+              Container(
+                margin: const EdgeInsets.only(top: 8, bottom: 4),
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: isDark ? Colors.grey[700] : Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              Expanded(
+                child: RoomBookingDetailsScreen(
+                  roomBookingId: roomBookingId,
+                  showScaffold: false,
                   scrollController: scrollController,
                   onClose: () {
                     closeDrawer(context);
@@ -317,6 +364,8 @@ class DrawerService {
         return 'New Booking';
       case DrawerType.ticketDetails:
         return 'Support Ticket';
+      case DrawerType.roomBookingDetails:
+        return 'Room Booking';
     }
   }
 
@@ -391,6 +440,8 @@ class DrawerService {
         break;
       case DrawerType.ticketDetails:
         context.go('/app/support');
+        break;
+      case DrawerType.roomBookingDetails:
         break;
     }
   }
@@ -684,4 +735,5 @@ enum DrawerType {
   notifications,
   bookingForm,
   ticketDetails,
+  roomBookingDetails,
 }

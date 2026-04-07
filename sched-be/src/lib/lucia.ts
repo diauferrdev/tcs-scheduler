@@ -12,8 +12,6 @@ export const lucia = new Lucia(adapter, {
     attributes: {
       // Always secure in production
       secure: isProduction,
-      // SameSite 'none' allows cross-origin cookies (localhost:3005 -> api.ppspsched.lat)
-      // This enables development via localhost while API is on production domain
       sameSite: 'none',
     },
   },

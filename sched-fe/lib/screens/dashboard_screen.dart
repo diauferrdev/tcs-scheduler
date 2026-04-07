@@ -73,17 +73,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final isDark = themeProvider.isDark;
     final screenWidth = MediaQuery.of(context).size.width;
 
-    final content = Container(
-      color: isDark ? Colors.black : const Color(0xFFF9FAFB),
-      child: SingleChildScrollView(
-        physics: _selectedTabIndex == 0
-            ? const NeverScrollableScrollPhysics()
-            : const AlwaysScrollableScrollPhysics(),
+    final Widget content;
+
+    if (_selectedTabIndex == 0) {
+      // Simple mode: use Column + Expanded so charts fill available space without overflow
+      content = Container(
+        color: isDark ? Colors.black : const Color(0xFFF9FAFB),
         padding: const EdgeInsets.all(24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Error message
             if (_error != null)
               Container(
                 padding: const EdgeInsets.all(16),
@@ -110,36 +109,64 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   ],
                 ),
               ),
-
-            // Dashboard Tabs
             _buildDashboardTabs(isDark),
             const SizedBox(height: 24),
-
-            // Stat Cards Grid - Only show in Advanced mode
-            if (_selectedTabIndex == 1) ...[
-              _buildStatCardsGrid(isDark, screenWidth),
-              const SizedBox(height: 24),
-            ],
-
-            // Mini Insights Row (Desktop only) - Only show in Advanced mode
-            if (screenWidth >= 1024 && _selectedTabIndex == 1) ...[
-              _buildMiniInsightsRow(isDark, screenWidth),
-              const SizedBox(height: 24),
-            ],
-
-            // Charts Grid - Conditional based on tab selection
-            if (_selectedTabIndex == 0)
-              _buildBasicDashboard(isDark, screenWidth)
-            else
-              _buildChartsGrid(isDark, screenWidth),
-            const SizedBox(height: 24),
-
-            // FCM Test Button (diego@tcs.com only - discrete)
+            Expanded(child: _buildBasicDashboard(isDark, screenWidth)),
             _buildDiscreteFCMTestButton(isDark),
           ],
         ),
-      ),
-    );
+      );
+    } else {
+      // Advanced mode: scrollable
+      content = Container(
+        color: isDark ? Colors.black : const Color(0xFFF9FAFB),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (_error != null)
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  margin: const EdgeInsets.only(bottom: 24),
+                  decoration: BoxDecoration(
+                    color: Colors.red.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.red),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.error, color: Colors.red),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          _error!,
+                          style: const TextStyle(color: Colors.red),
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () => setState(() => _error = null),
+                        icon: const Icon(Icons.close, color: Colors.red),
+                      ),
+                    ],
+                  ),
+                ),
+              _buildDashboardTabs(isDark),
+              const SizedBox(height: 24),
+              _buildStatCardsGrid(isDark, screenWidth),
+              const SizedBox(height: 24),
+              if (screenWidth >= 1024) ...[
+                _buildMiniInsightsRow(isDark, screenWidth),
+                const SizedBox(height: 24),
+              ],
+              _buildChartsGrid(isDark, screenWidth),
+              const SizedBox(height: 24),
+              _buildDiscreteFCMTestButton(isDark),
+            ],
+          ),
+        ),
+      );
+    }
 
     return widget.skipLayout ? content : AppLayout(child: content);
   }
@@ -210,79 +237,58 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return LayoutBuilder(
       builder: (context, constraints) {
         final maxWidth = constraints.maxWidth;
-        final screenHeight = MediaQuery.of(context).size.height;
 
         if (isDesktop || isTablet) {
-          // Desktop and Tablet: 2x2 grid
           final columnWidth = (maxWidth - 16) / 2;
           return Column(
             children: [
-              // Row 1: Visit Type & TCS Vertical Distribution
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  SizedBox(width: columnWidth, child: _buildVisitTypeChart(isDark)),
-                  const SizedBox(width: 16),
-                  SizedBox(width: columnWidth, child: _buildVerticalChart(isDark)),
-                ],
+              Expanded(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    SizedBox(width: columnWidth, child: _buildVisitTypeChart(isDark)),
+                    const SizedBox(width: 16),
+                    SizedBox(width: columnWidth, child: _buildVerticalChart(isDark)),
+                  ],
+                ),
               ),
               const SizedBox(height: 16),
-
-              // Row 2: Monthly Trend & Time Slot
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  SizedBox(width: columnWidth, child: _buildMonthlyTrendChart(isDark)),
-                  const SizedBox(width: 16),
-                  SizedBox(width: columnWidth, child: _buildTimeSlotChart(isDark)),
-                ],
+              Expanded(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    SizedBox(width: columnWidth, child: _buildMonthlyTrendChart(isDark)),
+                    const SizedBox(width: 16),
+                    SizedBox(width: columnWidth, child: _buildTimeSlotChart(isDark)),
+                  ],
+                ),
               ),
             ],
           );
         } else {
-          // Mobile: 2x2 grid with calculated height to fit screen
           final columnWidth = (maxWidth - 12) / 2;
-          // Calculate height: screen height minus padding, tabs, bottom menu, and spacing
-          final bottomPadding = MediaQuery.of(context).padding.bottom;
-          final chartHeight = (screenHeight - 280 - bottomPadding) / 2;
-
           return Column(
             children: [
-              // Row 1: Visit Type & TCS Vertical Distribution
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  SizedBox(
-                    width: columnWidth,
-                    height: chartHeight,
-                    child: _buildVisitTypeChart(isDark),
-                  ),
-                  const SizedBox(width: 12),
-                  SizedBox(
-                    width: columnWidth,
-                    height: chartHeight,
-                    child: _buildVerticalChart(isDark),
-                  ),
-                ],
+              Expanded(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    SizedBox(width: columnWidth, child: _buildVisitTypeChart(isDark)),
+                    const SizedBox(width: 12),
+                    SizedBox(width: columnWidth, child: _buildVerticalChart(isDark)),
+                  ],
+                ),
               ),
               const SizedBox(height: 12),
-
-              // Row 2: Monthly Trend & Time Slot
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  SizedBox(
-                    width: columnWidth,
-                    height: chartHeight,
-                    child: _buildMonthlyTrendChart(isDark),
-                  ),
-                  const SizedBox(width: 12),
-                  SizedBox(
-                    width: columnWidth,
-                    height: chartHeight,
-                    child: _buildTimeSlotChart(isDark),
-                  ),
-                ],
+              Expanded(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    SizedBox(width: columnWidth, child: _buildMonthlyTrendChart(isDark)),
+                    const SizedBox(width: 12),
+                    SizedBox(width: columnWidth, child: _buildTimeSlotChart(isDark)),
+                  ],
+                ),
               ),
             ],
           );
@@ -772,7 +778,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           final columnWidth = (maxWidth - 16) / 2;
           return Column(
             children: [
-              // Row 1: Visit Type (pie) & TCS Vertical Distribution (bar)
+              // Row 1: Visit Type (pie) & Vertical Distribution (bar)
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -1279,7 +1285,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Widget _buildVerticalChart(bool isDark) {
     return _buildChartContainer(
-      title: 'TCS Vertical Distribution',
+      title: 'Vertical Distribution',
       isDark: isDark,
       child: _loading || _stats == null
           ? _buildLoadingIndicator(isDark)
@@ -1670,7 +1676,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  // Event Type Distribution - Waterfall Chart showing TCS vs Partner events
+  // Event Type Distribution - Waterfall Chart showing Internal vs Partner events
   Widget _buildEventTypeWaterfall(bool isDark) {
     return _buildChartContainer(
       title: 'Event Type Analysis',
@@ -1680,13 +1686,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
           : () {
               // Simulated data based on total bookings
               final total = _stats!.totalBookings;
-              final tcsEvents = (total * 0.65).toInt();
-              final partnerEvents = total - tcsEvents;
+              final internalEvents = (total * 0.65).toInt();
+              final partnerEvents = total - internalEvents;
 
               if (total == 0) return _buildNoData(isDark);
 
               final waterfallData = [
-                {'category': 'TCS', 'value': tcsEvents, 'color': const Color(0xFF0EA5E9)},
+                {'category': 'Internal', 'value': internalEvents, 'color': const Color(0xFF0EA5E9)},
                 {'category': 'Partner', 'value': partnerEvents, 'color': const Color(0xFFA855F7)},
               ];
 
@@ -1757,7 +1763,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     runSpacing: 8,
                     alignment: WrapAlignment.center,
                     children: [
-                      _buildLegendItem('TCS Events ($tcsEvents)', const Color(0xFF0EA5E9), isDark),
+                      _buildLegendItem('Internal Events ($internalEvents)', const Color(0xFF0EA5E9), isDark),
                       _buildLegendItem('Partner Events ($partnerEvents)', const Color(0xFFA855F7), isDark),
                     ],
                   ),

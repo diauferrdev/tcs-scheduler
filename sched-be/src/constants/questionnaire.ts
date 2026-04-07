@@ -1,11 +1,12 @@
 /**
- * PACEPORT EVENT QUESTIONNAIRE
+ * PACEPORT EVENT QUESTIONNAIRES
  *
- * This questionnaire is required for:
- * - Pace Experience (Full Day Visit)
+ * Questionnaires are required for:
+ * - Pace Visit Fullday
  * - Innovation Exchange
+ * - Hackathon
  *
- * These questions help us prepare the best experience for your visit.
+ * Each event type has its own questionnaire to prepare the best experience.
  */
 
 export interface QuestionnaireQuestion {
@@ -18,6 +19,7 @@ export interface QuestionnaireQuestion {
   helpText?: string;
 }
 
+// Shared questionnaire for Pace Visit Fullday and Innovation Exchange
 export const QUESTIONNAIRE: QuestionnaireQuestion[] = [
   {
     id: 'budget_availability',
@@ -31,9 +33,9 @@ export const QUESTIONNAIRE: QuestionnaireQuestion[] = [
     question: 'What are your main expectations for this PacePort visit?',
     type: 'multiple_choice',
     options: [
-      'Explore TCS innovative solutions and demos',
-      'Understand TCS capabilities in my industry vertical',
-      'Networking with TCS leadership and specialists',
+      'Explore innovative solutions and demos',
+      'Understand our capabilities in my industry vertical',
+      'Networking with leadership and specialists',
       'Learn about digital transformation case studies',
       'Discuss specific project opportunities',
       'Experience emerging technologies (AI, Cloud, IoT, etc.)',
@@ -43,7 +45,7 @@ export const QUESTIONNAIRE: QuestionnaireQuestion[] = [
   },
   {
     id: 'technical_focus',
-    question: 'Which TCS solution areas or technologies are you most interested in exploring?',
+    question: 'Which solution areas or technologies are you most interested in exploring?',
     type: 'multiple_choice',
     options: [
       'Artificial Intelligence & Machine Learning',
@@ -84,13 +86,97 @@ export const QUESTIONNAIRE: QuestionnaireQuestion[] = [
   },
 ];
 
+// Hackathon-specific questionnaire
+export const HACKATHON_QUESTIONNAIRE: QuestionnaireQuestion[] = [
+  {
+    id: 'hackathon_theme',
+    question: 'What is the main theme or challenge for this hackathon?',
+    type: 'text',
+    required: true,
+    placeholder: 'Example: Build an AI-powered customer service solution, Create a sustainability dashboard, etc.',
+    helpText: 'Define the central problem or theme that participants will work on.'
+  },
+  {
+    id: 'hackathon_format',
+    question: 'What format best describes this hackathon?',
+    type: 'single_choice',
+    options: [
+      'Open Innovation - Participants define their own solutions',
+      'Challenge-Based - Specific problems to solve with defined success criteria',
+      'Prototype Sprint - Build a working prototype from a given concept',
+      'Integration Hack - Connect and integrate existing systems in new ways',
+    ],
+    required: true,
+    helpText: 'This helps us prepare the right infrastructure and mentorship support.'
+  },
+  {
+    id: 'hackathon_technologies',
+    question: 'Which technologies or platforms should be available for participants?',
+    type: 'multiple_choice',
+    options: [
+      'Cloud Infrastructure (AWS, Azure, GCP)',
+      'AI/ML Frameworks (TensorFlow, PyTorch, OpenAI)',
+      'Low-Code/No-Code Platforms',
+      'IoT & Edge Computing',
+      'Mobile Development (Flutter, React Native)',
+      'Data & Analytics Tools',
+      'Blockchain & Web3',
+      'DevOps & CI/CD Pipelines',
+    ],
+    required: true,
+    helpText: 'Select all that apply. We will ensure the necessary tools and environments are ready.'
+  },
+  {
+    id: 'hackathon_team_size',
+    question: 'What is the expected team size and total number of participants?',
+    type: 'single_choice',
+    options: [
+      'Small (3-5 teams, 15-25 participants)',
+      'Medium (6-10 teams, 30-50 participants)',
+      'Large (11-20 teams, 55-100 participants)',
+      'Enterprise (20+ teams, 100+ participants)',
+    ],
+    required: true,
+    helpText: 'This determines venue setup, mentorship allocation, and infrastructure scaling.'
+  },
+  {
+    id: 'hackathon_deliverables',
+    question: 'What are the expected deliverables at the end of the hackathon?',
+    type: 'multiple_choice',
+    options: [
+      'Working prototype / demo',
+      'Business pitch presentation',
+      'Technical architecture documentation',
+      'Video demo / walkthrough',
+      'Source code repository',
+      'Post-event implementation roadmap',
+    ],
+    required: true,
+    helpText: 'Select all that apply. This helps us structure the judging criteria and timeline.'
+  },
+];
+
 /**
- * Validate questionnaire answers
+ * Get questionnaire by event type
  */
-export function validateQuestionnaireAnswers(answers: Record<string, any>): { valid: boolean; errors: string[] } {
+export function getQuestionnaireForType(eventType?: string): QuestionnaireQuestion[] {
+  if (eventType === 'HACKATHON') {
+    return HACKATHON_QUESTIONNAIRE;
+  }
+  return QUESTIONNAIRE;
+}
+
+/**
+ * Validate questionnaire answers against a specific questionnaire
+ */
+export function validateQuestionnaireAnswers(
+  answers: Record<string, any>,
+  questionnaire?: QuestionnaireQuestion[]
+): { valid: boolean; errors: string[] } {
+  const questions = questionnaire || QUESTIONNAIRE;
   const errors: string[] = [];
 
-  for (const question of QUESTIONNAIRE) {
+  for (const question of questions) {
     if (question.required && !answers[question.id]) {
       errors.push(`Question "${question.question}" is required`);
       continue;
@@ -98,7 +184,6 @@ export function validateQuestionnaireAnswers(answers: Record<string, any>): { va
 
     const answer = answers[question.id];
 
-    // Validate answer type
     if (answer) {
       switch (question.type) {
         case 'yes_no':
@@ -134,8 +219,9 @@ export function validateQuestionnaireAnswers(answers: Record<string, any>): { va
 /**
  * Get questionnaire for API response
  */
-export function getQuestionnaire() {
-  return QUESTIONNAIRE.map(q => ({
+export function getQuestionnaire(eventType?: string) {
+  const questions = getQuestionnaireForType(eventType);
+  return questions.map(q => ({
     id: q.id,
     question: q.question,
     type: q.type,

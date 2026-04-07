@@ -28,7 +28,7 @@ class _GlobeSectionState extends State<GlobeSection> {
   bool _viewerCreated = false;
   bool _isVisible = false;
 
-  // TCS Pace Port locations with exact colors from globe-viewer
+  // Pace Port locations with exact colors from globe-viewer
   final List<Map<String, dynamic>> offices = [
     {
       'name': 'São Paulo',
@@ -278,7 +278,7 @@ class _GlobeSectionState extends State<GlobeSection> {
 
                               // Description
                               Text(
-                                'Built for TCS Pace São Paulo, ready for the world. Our multi-tenant architecture automatically detects your location and connects you to your local Pace Port office.',
+                                'Built for São Paulo, ready for the world. Our multi-tenant architecture automatically detects your location and connects you to your local office.',
                                 style: TextStyle(
                                   fontSize: 18,
                                   height: 1.6,
@@ -374,7 +374,7 @@ class _GlobeSectionState extends State<GlobeSection> {
 
                     // Description
                     Text(
-                      'Built for TCS Pace São Paulo, ready for the world. Our multi-tenant architecture automatically detects your location and connects you to your local Pace Port office.',
+                      'Built for São Paulo, ready for the world. Our multi-tenant architecture automatically detects your location and connects you to your local office.',
                       style: TextStyle(
                         fontSize: 16,
                         height: 1.6,

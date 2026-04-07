@@ -29,10 +29,10 @@ class LandingHeader extends StatelessWidget {
       ),
       child: Row(
         children: [
-          // Logo - TCS Pace com brand correto
+          // Logo - Pace brand
           SvgPicture.asset(
-            'assets/logos/tcs-pace-logo-w.svg',
-            height: isMobile ? 24 : 32,
+            'assets/logos/pace-scheduler-logo-w.svg',
+            height: isMobile ? 12 : 16,
           ),
 
           const Spacer(),

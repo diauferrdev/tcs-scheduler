@@ -6,7 +6,7 @@ import { z } from 'zod';
 export const UserRoleSchema = z.enum(['ADMIN', 'MANAGER', 'USER']);
 
 // Visit duration (in hours)
-export const VisitDurationSchema = z.enum(['ONE_HOUR', 'TWO_HOURS', 'THREE_HOURS', 'FOUR_HOURS', 'FIVE_HOURS', 'SIX_HOURS']);
+export const VisitDurationSchema = z.enum(['ONE_HOUR', 'TWO_HOURS', 'THREE_HOURS', 'FOUR_HOURS', 'FIVE_HOURS', 'SIX_HOURS', 'SEVEN_HOURS', 'EIGHT_HOURS']);
 
 // Booking Status Flow
 export const BookingStatusSchema = z.enum([
@@ -20,13 +20,13 @@ export const BookingStatusSchema = z.enum([
 ]);
 
 // Engagement Type
-export const EngagementTypeSchema = z.enum(['VISIT', 'INNOVATION_EXCHANGE']);
+export const EngagementTypeSchema = z.enum(['PACE_VISIT', 'INNOVATION_EXCHANGE', 'HACKATHON']);
 
-// Visit Types
+// Visit Types (sub-type for PACE_VISIT)
 export const VisitTypeSchema = z.enum([
-  'PACE_TOUR',           // 10h-12h (manhã) OU 14h-16h (tarde) - 2h evento, bloqueia só o período
-  'PACE_EXPERIENCE',     // 10h-16h - 4h evento real, bloqueia dia todo + prep + teardown
-  'INNOVATION_EXCHANGE', // 10h-16h - 6h evento real, bloqueia dia todo + prep + teardown
+  'PACE_TOUR',            // 2h quick visit, max 2/day
+  'PACE_VISIT_FULLDAY',   // Up to 8h full day, blocks prep + teardown
+  'INNOVATION_EXCHANGE',  // Multi-day, 1 day buffer before + after
 ]);
 
 // Organization Type
@@ -38,7 +38,7 @@ export const OrganizationTypeSchema = z.enum([
   'OTHER',
 ]);
 
-// TCS Verticals (official TCS nomenclature)
+// Verticals (official nomenclature)
 export const TCSVerticalSchema = z.enum([
   'BFSI',                      // Banking, Financial Services & Insurance
   'RETAIL_CPG',                // Retail & Consumer Packaged Goods
@@ -77,7 +77,7 @@ export const BugStatusSchema = z.enum(['OPEN', 'IN_PROGRESS', 'RESOLVED', 'CLOSE
 // ==================== AUTH ====================
 
 export const LoginSchema = z.object({
-  email: z.string().email('Invalid email format'),
+  email: z.string().min(1, 'Username or email is required'),
   password: z.string().min(8, 'Password must be at least 8 characters'),
 });
 
@@ -115,8 +115,12 @@ const BookingBaseSchema = z.object({
   duration: VisitDurationSchema,
 
   // Engagement Flow
-  engagementType: EngagementTypeSchema.default('VISIT'),
+  engagementType: EngagementTypeSchema.default('PACE_VISIT'),
   visitType: VisitTypeSchema.default('PACE_TOUR'),
+
+  // Multi-day event support
+  endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'End date must be in YYYY-MM-DD format').optional(),
+  totalDays: z.number().int().min(1).max(14).default(1),
 
   // Base Information (Drawer 2)
   requesterName: z.string().min(2, 'Requester name must be at least 2 characters'),
@@ -129,7 +133,7 @@ const BookingBaseSchema = z.object({
   objectiveInterest: z.string().max(1000).optional(),
   targetAudience: z.array(TargetAudienceSchema).optional(),
 
-  // Questionnaire (Drawer 3 - for Pace Experience & Innovation Exchange)
+  // Questionnaire (Drawer 3 - for Pace Visit Fullday, Innovation Exchange & Hackathon)
   questionnaireAnswers: z.record(z.any()).optional(), // Flexible JSON for questionnaire answers
   requiresAlignmentCall: z.boolean().default(false),
 

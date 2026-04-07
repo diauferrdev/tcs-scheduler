@@ -82,17 +82,23 @@ class BookingFlowService {
         minChildSize: 0.5,
         maxChildSize: 0.9,
         builder: (context, scrollController) => EngagementTypeDrawer(
+          selectedDate: _selectedDate,
           onNext: (engagementType) {
             _engagementType = engagementType;
             Navigator.pop(context);
 
-            // If VISIT, show visit type drawer; otherwise go to period selection
-            if (engagementType == 'VISIT') {
+            if (engagementType == 'PACE_VISIT') {
               _showVisitTypeDrawerForPeriodFlow(context, onPeriodSelected);
             } else {
-              // Innovation Exchange - go directly to period selection
-              _visitType = 'INNOVATION_EXCHANGE';
-              _showPeriodSelection(context, onPeriodSelected);
+              // IE and Hackathon: full-day events, skip period selection
+              _visitType = engagementType == 'INNOVATION_EXCHANGE'
+                  ? 'INNOVATION_EXCHANGE'
+                  : 'HACKATHON';
+              _startTime = const TimeOfDay(hour: 9, minute: 0);
+              onPeriodSelected(const TimeOfDay(hour: 9, minute: 0));
+              if (_rootContext != null && _rootContext!.mounted) {
+                _showBaseInfoDrawer(_rootContext!);
+              }
             }
           },
         ),
@@ -113,12 +119,12 @@ class BookingFlowService {
         minChildSize: 0.5,
         maxChildSize: 0.9,
         builder: (context, scrollController) => EngagementTypeDrawer(
+          selectedDate: _selectedDate,
           onNext: (engagementType) {
             _engagementType = engagementType;
             Navigator.pop(context);
 
-            // If VISIT, show visit type drawer; otherwise go to base info
-            if (engagementType == 'VISIT') {
+            if (engagementType == 'PACE_VISIT') {
               _showVisitTypeDrawer(context);
             } else {
               _showBaseInfoDrawer(context);
@@ -148,7 +154,18 @@ class BookingFlowService {
           onNext: (visitType) {
             _visitType = visitType;
             Navigator.pop(context);
-            _showPeriodSelection(context, onPeriodSelected);
+
+            if (visitType == 'PACE_TOUR') {
+              // Pace Tour needs period selection (morning/afternoon)
+              _showPeriodSelection(context, onPeriodSelected);
+            } else {
+              // Pace Visit Fullday: full day, skip period selection
+              _startTime = const TimeOfDay(hour: 9, minute: 0);
+              onPeriodSelected(const TimeOfDay(hour: 9, minute: 0));
+              if (_rootContext != null && _rootContext!.mounted) {
+                _showBaseInfoDrawer(_rootContext!);
+              }
+            }
           },
           onBack: () {
             Navigator.pop(context);
@@ -201,14 +218,7 @@ class BookingFlowService {
     }
 
     // Map visit type to API visitType for availability check
-    String apiVisitType;
-    if (_visitType == 'PACE_TOUR') {
-      apiVisitType = 'PACE_TOUR';
-    } else if (_visitType == 'PACE_EXPERIENCE') {
-      apiVisitType = 'PACE_EXPERIENCE';
-    } else {
-      apiVisitType = 'INNOVATION_EXCHANGE';
-    }
+    String apiVisitType = _visitType ?? 'PACE_TOUR';
 
     // Show the slot picker drawer IMMEDIATELY (it will show loading state)
     // Pass back callback to return to visit type selection
@@ -223,8 +233,8 @@ class BookingFlowService {
         _showBaseInfoDrawer(_rootContext!);
       }
     }, () {
-      // Back button callback - return to visit type selection
-      if (_engagementType == 'VISIT') {
+      // Back button callback - return to previous drawer
+      if (_engagementType == 'PACE_VISIT') {
         _showVisitTypeDrawerForPeriodFlow(context, onPeriodSelected);
       } else {
         _showEngagementTypeDrawerForPeriodFlow(context, onPeriodSelected);
@@ -263,7 +273,7 @@ class BookingFlowService {
           onBack: () {
             Navigator.pop(context);
             // Go back to previous drawer
-            if (_engagementType == 'VISIT') {
+            if (_engagementType == 'PACE_VISIT') {
               _showVisitTypeDrawer(context);
             } else {
               _showEngagementTypeDrawer(context);
@@ -305,7 +315,8 @@ class BookingFlowService {
   /// Check if questionnaire is required
   bool _requiresQuestionnaire() {
     if (_engagementType == 'INNOVATION_EXCHANGE') return true;
-    if (_engagementType == 'VISIT' && _visitType == 'PACE_EXPERIENCE') return true;
+    if (_engagementType == 'HACKATHON') return true;
+    if (_engagementType == 'PACE_VISIT' && _visitType == 'PACE_VISIT_FULLDAY') return true;
     return false;
   }
 
@@ -449,14 +460,19 @@ class BookingFlowService {
     String finalVisitType;
     int finalDuration;
 
-    if (_engagementType == 'VISIT') {
-      finalEngagementType = 'VISIT';
+    if (_engagementType == 'PACE_VISIT') {
+      finalEngagementType = 'PACE_VISIT';
       finalVisitType = _visitType!;
-      finalDuration = _visitType == 'PACE_TOUR' ? 2 : 6;
-    } else {
+      finalDuration = _visitType == 'PACE_TOUR' ? 2 : 8;
+    } else if (_engagementType == 'INNOVATION_EXCHANGE') {
       finalEngagementType = 'INNOVATION_EXCHANGE';
       finalVisitType = 'INNOVATION_EXCHANGE';
-      finalDuration = 6; // Innovation Exchange uses 6 hours (no SEVEN_HOURS in backend)
+      finalDuration = 8;
+    } else {
+      // HACKATHON
+      finalEngagementType = 'HACKATHON';
+      finalVisitType = 'PACE_TOUR'; // placeholder, not used for hackathon
+      finalDuration = 8;
     }
 
     return {
@@ -500,6 +516,10 @@ class BookingFlowService {
         return 'FIVE_HOURS';
       case 6:
         return 'SIX_HOURS';
+      case 7:
+        return 'SEVEN_HOURS';
+      case 8:
+        return 'EIGHT_HOURS';
       default:
         return 'TWO_HOURS';
     }

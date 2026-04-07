@@ -60,7 +60,7 @@ export async function getDashboardStatistics() {
     }
   });
 
-  // TCS Vertical distribution
+  // Vertical distribution
   const verticalDistribution: Record<string, number> = {};
   allBookings.forEach((b) => {
     if (b.vertical) {

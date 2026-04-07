@@ -29,8 +29,8 @@ class _AnimatedSplashScreenState extends State<AnimatedSplashScreen> {
   void initState() {
     super.initState();
 
-    // Play sound effect
-    _playSound();
+    // Sound disabled
+    // _playSound();
 
     // Navigate after 11.2 seconds
     Timer(const Duration(milliseconds: 11200), () {

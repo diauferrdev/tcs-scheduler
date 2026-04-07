@@ -213,6 +213,15 @@ export function broadcastBookingApproved(booking: any) {
   });
 }
 
+// Room booking broadcasts
+export function broadcastRoomBookingCreated(roomBooking: any) {
+  return broadcast({ type: 'room_booking_created', data: { roomBooking } });
+}
+
+export function broadcastRoomBookingUpdated(roomBooking: any) {
+  return broadcast({ type: 'room_booking_updated', data: { roomBooking } });
+}
+
 export function sendParticipantResponse(userIds: string[], response: any) {
   return sendToMultipleUsers(userIds, {
     type: 'participant_response',

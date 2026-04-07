@@ -33,6 +33,19 @@ class RealtimeService {
   final List<Function(String)> _onBookingDeletedListeners = [];
   final List<Function(Map<String, dynamic>)> _onBookingApprovedListeners = [];
 
+  // Room booking listeners
+  final List<Function(Map<String, dynamic>)> _onRoomBookingChangedListeners = [];
+
+  void addRoomBookingChangedListener(Function(Map<String, dynamic>) listener) {
+    if (!_onRoomBookingChangedListeners.contains(listener)) {
+      _onRoomBookingChangedListeners.add(listener);
+    }
+  }
+
+  void removeRoomBookingChangedListener(Function(Map<String, dynamic>) listener) {
+    _onRoomBookingChangedListeners.remove(listener);
+  }
+
   // Legacy single callbacks for backward compatibility
   Function(Map<String, dynamic>)? onBookingCreated;
   Function(Map<String, dynamic>)? onBookingUpdated;
@@ -238,6 +251,16 @@ class RealtimeService {
               listener(booking);
             }
             onBookingApproved?.call(booking);
+          }
+          break;
+
+        case 'room_booking_created':
+        case 'room_booking_updated':
+          if (data is Map<String, dynamic> && data['roomBooking'] != null) {
+            final roomBooking = data['roomBooking'] as Map<String, dynamic>;
+            for (final listener in _onRoomBookingChangedListeners) {
+              listener(roomBooking);
+            }
           }
           break;
       }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import '../config/api_config.dart';
 import 'package:provider/provider.dart';
 import 'package:sched_fe/widgets/device_3d_section.dart';
 import 'package:sched_fe/widgets/animated_background.dart';
@@ -29,7 +30,7 @@ class _LandingScreenState extends State<LandingScreen> {
       'animation': 'zoomIn',
       'deviceOnLeft': false,
       'title': 'Simplify Your\nOffice Scheduling',
-      'description': 'Enterprise-grade scheduling system for TCS Pace São Paulo.\nManage office visits, invitations, and capacity with real-time\nnotifications across all platforms.',
+      'description': 'Enterprise-grade scheduling system for modern offices.\nManage visits, room bookings, and capacity with real-time\nnotifications across all platforms.',
       'badge': 'Enterprise Solution',
     },
     {
@@ -39,30 +40,6 @@ class _LandingScreenState extends State<LandingScreen> {
       'title': 'Smart Features\nfor Modern Teams',
       'description': 'Real-time availability, instant notifications, and\nintelligent scheduling powered by cutting-edge technology.',
       'badge': 'Feature Rich',
-    },
-    {
-      'deviceType': 'phone',
-      'animation': 'zoomIn',
-      'deviceOnLeft': false,
-      'title': 'Cross-Platform\nExperience',
-      'description': 'Access from anywhere - Web, Windows, macOS, Linux,\niOS, and Android. Your schedule syncs seamlessly.',
-      'badge': 'All Platforms',
-    },
-    {
-      'deviceType': 'notebook',
-      'animation': 'dramatic',
-      'deviceOnLeft': true,
-      'title': 'Built for\nCollaboration',
-      'description': 'Invite guests, manage attendees, and coordinate\noffice visits with powerful team features.',
-      'badge': 'Team Work',
-    },
-    {
-      'deviceType': 'phone',
-      'animation': 'zoomIn',
-      'deviceOnLeft': false,
-      'title': 'Insights &\nAnalytics',
-      'description': 'Track office utilization, booking trends, and\noptimize capacity with powerful analytics.',
-      'badge': 'Data Driven',
     },
   ];
 
@@ -74,8 +51,7 @@ class _LandingScreenState extends State<LandingScreen> {
 
   Future<void> _loadVersionInfo() async {
     try {
-      const apiUrl = String.fromEnvironment('API_URL', defaultValue: 'https://api.ppspsched.lat');
-      final response = await http.get(Uri.parse('$apiUrl/version'));
+      final response = await http.get(Uri.parse('${ApiConfig.baseUrl}/version'));
 
       if (response.statusCode == 200) {
         setState(() {
@@ -546,8 +522,8 @@ class _LandingScreenState extends State<LandingScreen> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     SvgPicture.asset(
-                      'assets/logos/tcs-pace-logo-w.svg',
-                      height: 24,
+                      'assets/logos/pace-scheduler-logo-w.svg',
+                      height: 12,
                     ),
                     if (!_loading && _versionInfo != null) ...[
                       const SizedBox(width: 12),
@@ -581,7 +557,7 @@ class _LandingScreenState extends State<LandingScreen> {
 
                 // Copyright
                 Text(
-                  '© 2025 Tata Consultancy Services',
+                  '© 2025 Pace Scheduler',
                   style: TextStyle(
                     fontSize: 11,
                     color: Colors.white.withValues(alpha: 0.4),
@@ -608,8 +584,8 @@ class _LandingScreenState extends State<LandingScreen> {
                 Row(
                   children: [
                     SvgPicture.asset(
-                      'assets/logos/tcs-pace-logo-w.svg',
-                      height: 32,
+                      'assets/logos/pace-scheduler-logo-w.svg',
+                      height: 16,
                     ),
                     if (!_loading && _versionInfo != null) ...[
                       const SizedBox(width: 20),
@@ -642,7 +618,7 @@ class _LandingScreenState extends State<LandingScreen> {
 
                 // Copyright
                 Text(
-                  '© 2025 Tata Consultancy Services - Internal Project',
+                  '© 2025 Pace Scheduler',
                   style: TextStyle(
                     fontSize: 13,
                     color: Colors.white.withValues(alpha: 0.4),

@@ -147,7 +147,7 @@ class _AppRouterState extends State<_AppRouter> {
     return Consumer<ThemeProvider>(
       builder: (context, themeProvider, child) {
         final app = MaterialApp.router(
-          title: 'TCS Pace Scheduler | Enterprise Office Visit Scheduling System',
+          title: 'Pace Scheduler | Enterprise Office Visit Scheduling System',
           debugShowCheckedModeBanner: false,
           theme: ThemeProvider.lightTheme,
           darkTheme: ThemeProvider.darkTheme,

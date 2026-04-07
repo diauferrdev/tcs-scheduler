@@ -144,6 +144,10 @@ class _RescheduleDialogState extends State<RescheduleDialog> {
         return '5 hours';
       case VisitDuration.SIX_HOURS:
         return '6 hours';
+      case VisitDuration.SEVEN_HOURS:
+        return '7 hours';
+      case VisitDuration.EIGHT_HOURS:
+        return '8 hours';
     }
   }
 

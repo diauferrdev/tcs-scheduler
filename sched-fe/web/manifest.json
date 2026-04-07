@@ -1,7 +1,7 @@
 {
-  "name": "TCS Pace Scheduler",
-  "short_name": "TCS Scheduler",
-  "description": "Enterprise-grade scheduling system for TCS Pace São Paulo office visits. Manage bookings, invitations, and office capacity with real-time notifications across all platforms.",
+  "name": "Pace Scheduler",
+  "short_name": "Pace Scheduler",
+  "description": "Enterprise-grade scheduling system for Pace São Paulo office visits. Manage bookings, invitations, and office capacity with real-time notifications across all platforms.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

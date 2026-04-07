@@ -44,7 +44,7 @@ app.get('/tokens', authMiddleware, async (c) => {
   });
 });
 
-// Admin: Get all registered FCM tokens (diego@tcs.com only)
+// Admin: Get all registered FCM tokens (admin only)
 app.get('/tokens/all', authMiddleware, async (c) => {
   const userEmail = c.get('user').email;
 
@@ -92,7 +92,7 @@ app.get('/tokens/all', authMiddleware, async (c) => {
   }
 });
 
-// Send test notification to all devices (diego@tcs.com only)
+// Send test notification to all devices (admin only)
 app.post('/test-notification', authMiddleware, async (c) => {
   const userEmail = c.get('user').email;
 

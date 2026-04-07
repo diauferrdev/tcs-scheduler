@@ -4,6 +4,7 @@ import '../models/booking.dart';
 import '../services/realtime_service.dart';
 import '../services/drawer_service.dart';
 import '../widgets/booking_card.dart';
+import '../widgets/room_booking_card.dart';
 
 class MyBookingsScreen extends StatefulWidget {
   final bool skipLayout;
@@ -25,12 +26,12 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
   List<Booking> _allBookings = [];
   List<Booking> _newRequests = [];
   List<Booking> _recentHistory = [];
+  List<Map<String, dynamic>> _myRoomBookings = [];
   bool _isLoading = true;
   String? _error;
   bool _isLoadingInProgress = false; // Prevent concurrent loads
   int _retryCount = 0;
   static const int _maxRetries = 3;
-
   // Keep listener references for proper cleanup
   late final Function(Map<String, dynamic>) _onBookingCreatedListener;
   late final Function(Map<String, dynamic>) _onBookingUpdatedListener;
@@ -42,6 +43,7 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
     super.initState();
     _loadBookings();
     _setupRealtimeUpdates();
+    _setupRoomRealtimeUpdates();
 
     if (widget.initialBookingId != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -86,13 +88,22 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
     _realtimeService.addBookingDeletedListener(_onBookingDeletedListener);
   }
 
+  late final Function(Map<String, dynamic>) _onRoomBookingChangedListener;
+
+  void _setupRoomRealtimeUpdates() {
+    _onRoomBookingChangedListener = (_) {
+      if (mounted) _loadBookings(seamless: true);
+    };
+    _realtimeService.addRoomBookingChangedListener(_onRoomBookingChangedListener);
+  }
+
   @override
   void dispose() {
-    // Remove listeners
     _realtimeService.removeBookingCreatedListener(_onBookingCreatedListener);
     _realtimeService.removeBookingUpdatedListener(_onBookingUpdatedListener);
     _realtimeService.removeBookingApprovedListener(_onBookingApprovedListener);
     _realtimeService.removeBookingDeletedListener(_onBookingDeletedListener);
+    _realtimeService.removeRoomBookingChangedListener(_onRoomBookingChangedListener);
     super.dispose();
   }
 
@@ -117,11 +128,21 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
     try {
       final response = await _apiService.getBookings();
 
+      // Also load user's room bookings
+      List<Map<String, dynamic>> roomBookings = [];
+      try {
+        final roomResponse = await _apiService.get('/api/rooms');
+        roomBookings = ((roomResponse['bookings'] as List?) ?? [])
+            .map((b) => b as Map<String, dynamic>)
+            .toList();
+      } catch (_) {}
+
       if (mounted) {
         setState(() {
           _allBookings = (response['bookings'] as List)
               .map((json) => Booking.fromJson(json))
               .toList();
+          _myRoomBookings = roomBookings;
           _categorizeBookings();
           _isLoading = false;
           _error = null;
@@ -195,7 +216,7 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
                 color: isDark ? Colors.white : Colors.black,
               ),
             )
-          : SingleChildScrollView(
+          : Padding(
               padding: const EdgeInsets.all(24),
               child: _buildBody(isDark),
             ),
@@ -245,7 +266,7 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
       );
     }
 
-    if (_newRequests.isEmpty && _recentHistory.isEmpty) {
+    if (_newRequests.isEmpty && _recentHistory.isEmpty && _myRoomBookings.isEmpty) {
       return SizedBox(
         height: MediaQuery.of(context).size.height - 200,
         child: Center(
@@ -283,29 +304,23 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
     final isDesktop = MediaQuery.of(context).size.width >= 1024;
 
     if (isDesktop) {
-      // Desktop: 2-column layout
+      // Desktop: 2-column layout, fills height
       return Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Left Column: New Requests
-          Expanded(
-            child: _buildNewRequestsSection(isDark),
-          ),
+          Expanded(child: _buildNewRequestsSection(isDark)),
           const SizedBox(width: 24),
-          // Right Column: Recent History
-          Expanded(
-            child: _buildRecentHistorySection(isDark),
-          ),
+          Expanded(child: _buildRecentHistorySection(isDark)),
         ],
       );
     } else {
-      // Mobile: Vertical stack
+      // Mobile: Vertical stack, history fills remaining space
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildNewRequestsSection(isDark),
           const SizedBox(height: 32),
-          _buildRecentHistorySection(isDark),
+          Expanded(child: _buildRecentHistorySection(isDark)),
         ],
       );
     }
@@ -379,7 +394,7 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Text(
-                '${_newRequests.length}',
+                '${_newRequests.length + _myRoomBookings.where((r) => r['status'] == 'PENDING').length}',
                 style: const TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.bold,
@@ -390,6 +405,11 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
           ],
         ),
         const SizedBox(height: 16),
+        // Room bookings (pending)
+        ..._myRoomBookings
+            .where((r) => r['status'] == 'PENDING')
+            .map((room) => _buildRoomCard(room, isDark)),
+        // Event bookings
         ..._newRequests.map((booking) {
           return BookingCard(
             booking: booking,
@@ -398,6 +418,25 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
         }),
       ],
     );
+  }
+
+  Widget _buildRoomCard(Map<String, dynamic> room, bool isDark) {
+    return RoomBookingCard(
+      roomBooking: room,
+      onTap: () => _showRoomDetailDrawer(room),
+    );
+  }
+
+  Future<void> _showRoomDetailDrawer(Map<String, dynamic> room) async {
+    final id = room['id'] as String;
+    await DrawerService.instance.openDrawer(
+      context,
+      DrawerType.roomBookingDetails,
+      params: {'roomBookingId': id},
+      updateUrl: false,
+    );
+    // Reload when drawer closes
+    if (mounted) _loadBookings(seamless: true);
   }
 
   Widget _buildRecentHistorySection(bool isDark) {
@@ -479,12 +518,24 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
           ],
         ),
         const SizedBox(height: 16),
-        ..._recentHistory.map((booking) {
-          return BookingCard(
-            booking: booking,
-            onTap: () => _showBookingDetailsDrawer(booking),
-          );
-        }),
+        // Scrollable history list — fills remaining space
+        Expanded(
+          child: ListView(
+            children: [
+              // Approved/rejected room bookings
+              ..._myRoomBookings
+                  .where((r) => r['status'] == 'APPROVED' || r['status'] == 'REJECTED' || r['status'] == 'CANCELLED')
+                  .map((room) => _buildRoomCard(room, isDark)),
+              // Event bookings history
+              ..._recentHistory.map((booking) {
+                return BookingCard(
+                  booking: booking,
+                  onTap: () => _showBookingDetailsDrawer(booking),
+                );
+              }),
+            ],
+          ),
+        ),
       ],
     );
   }

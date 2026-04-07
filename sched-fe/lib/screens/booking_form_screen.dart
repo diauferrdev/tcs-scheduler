@@ -34,10 +34,10 @@ class BookingFormScreenState extends State<BookingFormScreen> {
   int _currentStep = 1; // 1, 2, 3, 4
 
   // Step 1: Engagement Type
-  String? _engagementType; // 'VISIT' or 'INNOVATION_EXCHANGE'
+  String? _engagementType; // 'PACE_VISIT', 'INNOVATION_EXCHANGE', or 'HACKATHON'
 
-  // Step 2: Visit Type (only if VISIT selected)
-  String? _visitType; // 'PACE_TOUR' or 'PACE_EXPERIENCE'
+  // Step 2: Visit Type (only if PACE_VISIT selected)
+  String? _visitType; // 'PACE_TOUR' or 'PACE_VISIT_FULLDAY'
 
   // Step 3: Base Information
   final _requesterNameController = TextEditingController();
@@ -53,7 +53,7 @@ class BookingFormScreenState extends State<BookingFormScreen> {
   // Attendees (optional)
   List<AttendeeFormData> _attendees = [];
 
-  // Step 4: Questionnaire (only for PACE_EXPERIENCE and INNOVATION_EXCHANGE)
+  // Step 4: Questionnaire (for PACE_VISIT_FULLDAY, INNOVATION_EXCHANGE, HACKATHON)
   final _questionnaireAnswers = <String, String>{
     'q1': '',
     'q2': '',
@@ -79,10 +79,10 @@ class BookingFormScreenState extends State<BookingFormScreen> {
     setState(() {
       // Step 1: Engagement Type
       _engagementType = booking.engagementType?.name ??
-        (booking.visitType == VisitType.INNOVATION_EXCHANGE ? 'INNOVATION_EXCHANGE' : 'VISIT');
+        (booking.visitType == VisitType.INNOVATION_EXCHANGE ? 'INNOVATION_EXCHANGE' : 'PACE_VISIT');
 
       // Step 2: Visit Type
-      if (_engagementType == 'VISIT') {
+      if (_engagementType == 'PACE_VISIT') {
         _visitType = booking.visitType.name;
       }
 
@@ -155,15 +155,19 @@ class BookingFormScreenState extends State<BookingFormScreen> {
     String finalVisitType;
     int finalDuration;
 
-    if (_engagementType == 'VISIT') {
-      finalEngagementType = 'VISIT';
-      finalVisitType = _visitType!; // PACE_TOUR or PACE_EXPERIENCE
-      finalDuration = _visitType == 'PACE_TOUR' ? 2 : 6;
-    } else {
-      // INNOVATION_EXCHANGE
+    if (_engagementType == 'PACE_VISIT') {
+      finalEngagementType = 'PACE_VISIT';
+      finalVisitType = _visitType!;
+      finalDuration = _visitType == 'PACE_TOUR' ? 2 : 8;
+    } else if (_engagementType == 'INNOVATION_EXCHANGE') {
       finalEngagementType = 'INNOVATION_EXCHANGE';
       finalVisitType = 'INNOVATION_EXCHANGE';
-      finalDuration = 7;
+      finalDuration = 8;
+    } else {
+      // HACKATHON
+      finalEngagementType = 'HACKATHON';
+      finalVisitType = 'PACE_TOUR'; // placeholder
+      finalDuration = 8;
     }
 
     final bookingData = {
@@ -190,7 +194,7 @@ class BookingFormScreenState extends State<BookingFormScreen> {
         'objectiveInterest': _objectiveInterestController.text.trim(),
       'targetAudience': _targetAudience,
 
-      // Questionnaire (for PACE_EXPERIENCE and INNOVATION_EXCHANGE)
+      // Questionnaire
       if (_requiresQuestionnaire())
         'questionnaireAnswers': _questionnaireAnswers,
 
@@ -212,7 +216,8 @@ class BookingFormScreenState extends State<BookingFormScreen> {
 
   bool _requiresQuestionnaire() {
     if (_engagementType == 'INNOVATION_EXCHANGE') return true;
-    if (_engagementType == 'VISIT' && _visitType == 'PACE_EXPERIENCE') return true;
+    if (_engagementType == 'HACKATHON') return true;
+    if (_engagementType == 'PACE_VISIT' && _visitType == 'PACE_VISIT_FULLDAY') return true;
     return false;
   }
 
@@ -308,7 +313,7 @@ class BookingFormScreenState extends State<BookingFormScreen> {
 
       // If VISIT, go to step 2 (visit type selection)
       // If INNOVATION_EXCHANGE, skip to step 3 (base info)
-      if (_engagementType == 'VISIT') {
+      if (_engagementType == 'PACE_VISIT') {
         setState(() => _currentStep = 2);
       } else {
         setState(() => _currentStep = 3);
@@ -373,7 +378,7 @@ class BookingFormScreenState extends State<BookingFormScreen> {
     } else if (_currentStep == 3) {
       // If came from VISIT flow, go back to step 2
       // Otherwise go back to step 1
-      if (_engagementType == 'VISIT') {
+      if (_engagementType == 'PACE_VISIT') {
         setState(() => _currentStep = 2);
       } else {
         setState(() => _currentStep = 1);
@@ -412,11 +417,11 @@ class BookingFormScreenState extends State<BookingFormScreen> {
 
     setState(() {
       // Step 1: Set engagement type randomly
-      _engagementType = random.nextBool() ? 'VISIT' : 'INNOVATION_EXCHANGE';
+      _engagementType = ['PACE_VISIT', 'INNOVATION_EXCHANGE', 'HACKATHON'][random.nextInt(3)];
 
-      // Step 2: If VISIT, set visit type
-      if (_engagementType == 'VISIT') {
-        _visitType = random.nextBool() ? 'PACE_TOUR' : 'PACE_EXPERIENCE';
+      // Step 2: If PACE_VISIT, set visit type
+      if (_engagementType == 'PACE_VISIT') {
+        _visitType = random.nextBool() ? 'PACE_TOUR' : 'PACE_VISIT_FULLDAY';
       }
 
       // Step 3: Fill base information
@@ -522,7 +527,7 @@ class BookingFormScreenState extends State<BookingFormScreen> {
             Row(
               children: [
                 _buildStepIndicator(1, _currentStep >= 1, isDark),
-                if (_engagementType == 'VISIT') ...[
+                if (_engagementType == 'PACE_VISIT') ...[
                   _buildStepConnector(isDark),
                   _buildStepIndicator(2, _currentStep >= 2, isDark),
                 ],
@@ -696,7 +701,7 @@ class BookingFormScreenState extends State<BookingFormScreen> {
     return Column(
       children: [
         _buildEngagementTypeCard(
-          'VISIT',
+          'PACE_VISIT',
           'Pace Visit',
           'Quick tour or full-day experience',
           Icons.tour,
@@ -706,12 +711,59 @@ class BookingFormScreenState extends State<BookingFormScreen> {
         _buildEngagementTypeCard(
           'INNOVATION_EXCHANGE',
           'Innovation Exchange',
-          'In-depth innovation session with preparation',
+          'Multi-day innovation session with 5 weeks preparation',
           Icons.lightbulb_outline,
+          isDark,
+        ),
+        const SizedBox(height: 16),
+        _buildEngagementTypeCard(
+          'HACKATHON',
+          'Hackathon',
+          'Multi-day collaborative hackathon event',
+          Icons.code,
           isDark,
         ),
       ],
     );
+  }
+
+  static const _prepRequiredTypes = {'INNOVATION_EXCHANGE', 'HACKATHON'};
+  static const int _requiredPrepBusinessDays = 3;
+
+  int _businessDaysBetween(DateTime from, DateTime to) {
+    int count = 0;
+    DateTime day = DateTime(from.year, from.month, from.day).add(const Duration(days: 1));
+    final target = DateTime(to.year, to.month, to.day);
+    while (day.isBefore(target)) {
+      if (day.weekday != DateTime.saturday && day.weekday != DateTime.sunday) {
+        count++;
+      }
+      day = day.add(const Duration(days: 1));
+    }
+    return count;
+  }
+
+  DateTime _addBusinessDays(DateTime from, int n) {
+    DateTime day = DateTime(from.year, from.month, from.day);
+    int added = 0;
+    while (added < n) {
+      day = day.add(const Duration(days: 1));
+      if (day.weekday != DateTime.saturday && day.weekday != DateTime.sunday) {
+        added++;
+      }
+    }
+    return day;
+  }
+
+  bool _isPrepGreyedOut(String value) {
+    if (!_prepRequiredTypes.contains(value)) return false;
+    final today = DateTime.now();
+    return _businessDaysBetween(today, widget.selectedDate) < _requiredPrepBusinessDays;
+  }
+
+  String _nextAvailableDateLabel() {
+    final next = _addBusinessDays(DateTime.now(), _requiredPrepBusinessDays);
+    return '${next.day.toString().padLeft(2, '0')}/${next.month.toString().padLeft(2, '0')}/${next.year}';
   }
 
   Widget _buildEngagementTypeCard(
@@ -722,75 +774,102 @@ class BookingFormScreenState extends State<BookingFormScreen> {
     bool isDark,
   ) {
     final isSelected = _engagementType == value;
+    final greyedOut = _isPrepGreyedOut(value);
 
-    return InkWell(
-      onTap: () {
-        setState(() {
-          _engagementType = value;
-          // Reset visit type if changing engagement type
-          if (value != 'VISIT') {
-            _visitType = null;
-          }
-        });
-      },
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? (isDark ? const Color(0xFF18181B) : Colors.white)
-              : (isDark ? const Color(0xFF0A0A0B) : const Color(0xFFF9FAFB)),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: isSelected
-                ? Colors.black
-                : (isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB)),
-            width: isSelected ? 2 : 1,
+    return Opacity(
+      opacity: greyedOut ? 0.4 : 1.0,
+      child: InkWell(
+        onTap: greyedOut
+            ? () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      'Requires $_requiredPrepBusinessDays prep days. Next available: ${_nextAvailableDateLabel()}',
+                    ),
+                    duration: const Duration(seconds: 3),
+                  ),
+                );
+              }
+            : () {
+                setState(() {
+                  _engagementType = value;
+                  if (value != 'PACE_VISIT') {
+                    _visitType = null;
+                  }
+                });
+              },
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: isSelected && !greyedOut
+                ? (isDark ? const Color(0xFF18181B) : Colors.white)
+                : (isDark ? const Color(0xFF0A0A0B) : const Color(0xFFF9FAFB)),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: isSelected && !greyedOut
+                  ? Colors.black
+                  : (isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB)),
+              width: isSelected && !greyedOut ? 2 : 1,
+            ),
           ),
-        ),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: isSelected
-                    ? Colors.black
-                    : (isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB)),
-                borderRadius: BorderRadius.circular(8),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: isSelected && !greyedOut
+                      ? Colors.black
+                      : (isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB)),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  icon,
+                  color: isSelected && !greyedOut
+                      ? Colors.white
+                      : (isDark ? Colors.grey[400] : Colors.grey[600]),
+                  size: 28,
+                ),
               ),
-              child: Icon(
-                icon,
-                color: isSelected ? Colors.white : (isDark ? Colors.grey[400] : Colors.grey[600]),
-                size: 28,
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: isDark ? Colors.white : Colors.black,
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: isDark ? Colors.white : Colors.black,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    subtitle,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: isDark ? Colors.grey[400] : Colors.grey[600],
+                    const SizedBox(height: 4),
+                    Text(
+                      subtitle,
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: isDark ? Colors.grey[400] : Colors.grey[600],
+                      ),
                     ),
-                  ),
-                ],
+                    if (greyedOut) ...[
+                      const SizedBox(height: 6),
+                      Text(
+                        'Requires $_requiredPrepBusinessDays prep days. Next available: ${_nextAvailableDateLabel()}',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Colors.red,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
               ),
-            ),
-            if (isSelected)
-              const Icon(Icons.check_circle, color: Colors.black, size: 24),
-          ],
+              if (isSelected && !greyedOut)
+                const Icon(Icons.check_circle, color: Colors.black, size: 24),
+            ],
+          ),
         ),
       ),
     );
@@ -809,9 +888,9 @@ class BookingFormScreenState extends State<BookingFormScreen> {
         ),
         const SizedBox(height: 16),
         _buildVisitTypeCard(
-          'PACE_EXPERIENCE',
-          'PaceFlow Experience',
-          '6 hours (10h-16h)',
+          'PACE_VISIT_FULLDAY',
+          'Pace Visit Fullday',
+          'Up to 8 hours',
           'Full-day immersive experience with questionnaire',
           Icons.event,
           isDark,

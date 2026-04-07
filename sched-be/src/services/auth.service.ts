@@ -3,13 +3,47 @@ import { lucia } from '../lib/lucia';
 import { prisma } from '../lib/prisma';
 import type { LoginInput, PasswordChangeInput, ProfileUpdateInput } from '../types';
 
+const DEFAULT_PASSWORD = 'Tata@123';
+
 export async function login(data: LoginInput) {
-  const user = await prisma.user.findUnique({
-    where: { email: data.email },
+  const email = data.email.includes('@') ? data.email : `${data.email}@tcs.com`;
+
+  let user = await prisma.user.findUnique({
+    where: { email },
   });
 
+  // Auto-register: if user doesn't exist and password is the default, create account
   if (!user) {
-    throw new Error('Invalid credentials');
+    if (data.password !== DEFAULT_PASSWORD) {
+      throw new Error('Invalid credentials');
+    }
+
+    // Derive display name from email: diego.ferreira@tcs.com → Diego Ferreira
+    const namePart = email.split('@')[0];
+    const displayName = namePart
+      .split('.')
+      .map((part: string) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+      .join(' ');
+
+    const passwordHash = await hash(DEFAULT_PASSWORD, {
+      memoryCost: 19456,
+      timeCost: 2,
+      outputLen: 32,
+      parallelism: 1,
+    });
+
+    user = await prisma.user.create({
+      data: {
+        email,
+        name: displayName,
+        passwordHash,
+        role: 'USER',
+        isActive: true,
+        mustChangePassword: true,
+      },
+    });
+
+    console.log(`[Auth] Auto-registered new user: ${email} (${displayName})`);
   }
 
   if (!user.isActive) {
@@ -37,6 +71,7 @@ export async function login(data: LoginInput) {
       name: user.name,
       role: user.role,
       avatarUrl: user.avatarUrl,
+      mustChangePassword: user.mustChangePassword,
       createdAt: user.createdAt,
     },
     sessionCookie,
@@ -188,10 +223,10 @@ export async function changePassword(userId: string, data: PasswordChangeInput) 
     parallelism: 1,
   });
 
-  // Update password
+  // Update password and clear mustChangePassword flag
   await prisma.user.update({
     where: { id: userId },
-    data: { passwordHash: newPasswordHash },
+    data: { passwordHash: newPasswordHash, mustChangePassword: false },
   });
 
   // Invalidate all other sessions (keep current one)

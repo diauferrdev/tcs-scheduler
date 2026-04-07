@@ -7,6 +7,7 @@ import 'widgets/app_layout.dart';
 import 'widgets/permissions_wrapper.dart';
 import 'screens/landing_screen.dart';
 import 'screens/login_screen.dart';
+import 'screens/change_password_screen.dart';
 import 'screens/dashboard_screen.dart';
 import 'screens/calendar_screen.dart';
 import 'screens/agenda_screen.dart';
@@ -19,6 +20,7 @@ import 'screens/tickets_screen.dart';
 import 'screens/create_ticket_screen.dart';
 import 'screens/ticket_detail_screen.dart';
 import 'screens/drawer_route_screen.dart';
+import 'screens/rooms_screen.dart';
 import 'services/navigation_service.dart';
 import 'services/drawer_service.dart';
 import 'utils/seo_helper.dart';
@@ -80,6 +82,7 @@ GoRouter createRouter(AuthProvider authProvider) {
       final currentPath = state.uri.path;
       final isLandingRoute = currentPath == '/';
       final isLoginRoute = currentPath == '/login';
+      final isChangePasswordRoute = currentPath == '/change-password';
 
       // Update SEO for current route (web only)
       _updateSeoForRoute(currentPath);
@@ -87,6 +90,14 @@ GoRouter createRouter(AuthProvider authProvider) {
       // Wait for auth check to complete
       if (isLoading) {
         return null;
+      }
+
+      // Must-change-password redirect (all platforms)
+      if (isAuthenticated && authProvider.mustChangePassword && !isChangePasswordRoute) {
+        return '/change-password';
+      }
+      if (isAuthenticated && !authProvider.mustChangePassword && isChangePasswordRoute) {
+        return _getMainScreenForRole(user?.role ?? UserRole.USER);
       }
 
       // NATIVE APPS (Android, iOS, Desktop)
@@ -157,6 +168,12 @@ GoRouter createRouter(AuthProvider authProvider) {
       GoRoute(
         path: '/login',
         builder: (context, state) => const LoginScreen(),
+      ),
+
+      // Change password route (no AppLayout)
+      GoRoute(
+        path: '/change-password',
+        builder: (context, state) => const ChangePasswordScreen(),
       ),
 
       // Redirect /app to the appropriate screen based on user role
@@ -268,6 +285,14 @@ GoRouter createRouter(AuthProvider authProvider) {
                 ),
               );
             },
+          ),
+          GoRoute(
+            path: '/app/rooms',
+            pageBuilder: (context, state) => _buildPageWithTransition(
+              context,
+              state,
+              const RoomsScreen(),
+            ),
           ),
           GoRoute(
             path: '/app/support',

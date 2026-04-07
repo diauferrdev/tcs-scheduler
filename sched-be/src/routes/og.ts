@@ -52,9 +52,9 @@ app.get('/attendee/:attendeeId', async (c) => {
         <line x1="0" y1="100" x2="1200" y2="100" stroke="#333333" stroke-width="2" opacity="0.5"/>
         <line x1="0" y1="530" x2="1200" y2="530" stroke="#333333" stroke-width="2" opacity="0.5"/>
 
-        <!-- TCS Logo text -->
+        <!-- Logo text -->
         <text x="80" y="80" font-family="Arial, sans-serif" font-size="42" font-weight="bold" fill="#FFFFFF">
-          TCS PACEPORT
+          PACEPORT
         </text>
         <text x="80" y="110" font-family="Arial, sans-serif" font-size="18" fill="#999999" letter-spacing="3">
           ACCESS BADGE
@@ -92,7 +92,7 @@ app.get('/attendee/:attendeeId', async (c) => {
 
         <!-- Footer -->
         <text x="600" y="580" font-family="Arial, sans-serif" font-size="16" fill="#666666" text-anchor="middle">
-          Authorized Access • TCS PacePort São Paulo
+          Authorized Access • PacePort São Paulo
         </text>
       </svg>
     `;
@@ -140,7 +140,7 @@ app.get('/booking/:bookingId', async (c) => {
         <rect width="1200" height="630" fill="url(#grad2)"/>
 
         <text x="80" y="80" font-family="Arial, sans-serif" font-size="42" font-weight="bold" fill="#FFFFFF">
-          TCS PACEPORT
+          PACEPORT
         </text>
         <text x="80" y="110" font-family="Arial, sans-serif" font-size="18" fill="#999999" letter-spacing="3">
           VISIT BOOKING
@@ -165,7 +165,7 @@ app.get('/booking/:bookingId', async (c) => {
         </text>
 
         <text x="600" y="580" font-family="Arial, sans-serif" font-size="16" fill="#666666" text-anchor="middle">
-          TCS PacePort Scheduler • São Paulo
+          Pace Scheduler • São Paulo
         </text>
       </svg>
     `;

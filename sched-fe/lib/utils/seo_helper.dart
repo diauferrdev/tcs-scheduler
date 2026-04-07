@@ -13,7 +13,7 @@ class SeoHelper {
   /// Usage:
   /// ```dart
   /// SeoHelper.updatePageMeta(
-  ///   title: 'Dashboard | TCS Pace Scheduler',
+  ///   title: 'Dashboard | Pace Scheduler',
   ///   description: 'View analytics and insights for office visits',
   /// );
   /// ```
@@ -46,65 +46,65 @@ class SeoHelper {
   /// Preset meta configurations for common pages
   static const Map<String, Map<String, String>> pageMeta = {
     'landing': {
-      'title': 'TCS Pace Scheduler | Enterprise Office Visit Scheduling System',
+      'title': 'Pace Scheduler | Enterprise Office Visit Scheduling System',
       'description':
-          'Enterprise-grade scheduling system for TCS Pace São Paulo office visits. Manage bookings, invitations, and office capacity with real-time notifications across all platforms.',
+          'Enterprise-grade scheduling system for PacePort São Paulo office visits. Manage bookings, invitations, and office capacity with real-time notifications across all platforms.',
       'keywords':
-          'TCS, Pace, Scheduler, Office Booking, Visit Management, Enterprise Scheduling, Calendar, Booking System, TCS São Paulo, Office Management, Capacity Planning',
+          'Pace, Scheduler, Office Booking, Visit Management, Enterprise Scheduling, Calendar, Booking System, PacePort São Paulo, Office Management, Capacity Planning',
     },
     'dashboard': {
-      'title': 'Dashboard | TCS Pace Scheduler',
+      'title': 'Dashboard | Pace Scheduler',
       'description':
           'View analytics and insights for office visits. Monitor capacity utilization, booking trends, and real-time statistics.',
       'keywords':
-          'Dashboard, Analytics, Office Analytics, Capacity Management, Booking Statistics, TCS Pace',
+          'Dashboard, Analytics, Office Analytics, Capacity Management, Booking Statistics, Pace Scheduler',
     },
     'calendar': {
-      'title': 'New Booking | TCS Pace Scheduler',
+      'title': 'New Booking | Pace Scheduler',
       'description':
           'Create a new office visit booking. View availability, select dates, and schedule your visit.',
-      'keywords': 'New Booking, Create Booking, Office Calendar, Schedule Management, TCS Pace',
+      'keywords': 'New Booking, Create Booking, Office Calendar, Schedule Management, Pace Scheduler',
     },
     'my-visits': {
-      'title': 'My Visits | TCS Pace Scheduler',
+      'title': 'My Visits | Pace Scheduler',
       'description':
           'View and manage your office visit bookings. Check booking status, invitations, and visit history.',
-      'keywords': 'My Visits, Booking History, Office Visits, TCS Pace',
+      'keywords': 'My Visits, Booking History, Office Visits, Pace Scheduler',
     },
     'invitations': {
-      'title': 'Invitations | TCS Pace Scheduler',
+      'title': 'Invitations | Pace Scheduler',
       'description':
           'Manage guest invitations for office visits. Send invitations, track responses, and generate QR badges.',
-      'keywords': 'Invitations, Guest Management, QR Badges, Office Invitations, TCS Pace',
+      'keywords': 'Invitations, Guest Management, QR Badges, Office Invitations, Pace Scheduler',
     },
     'users': {
-      'title': 'User Management | TCS Pace Scheduler',
+      'title': 'User Management | Pace Scheduler',
       'description':
           'Manage system users, roles, and permissions. Add users, assign roles, and control access.',
-      'keywords': 'User Management, Admin Panel, Role Management, Permissions, TCS Pace',
+      'keywords': 'User Management, Admin Panel, Role Management, Permissions, Pace Scheduler',
     },
     'approvals': {
-      'title': 'Approvals | TCS Pace Scheduler',
+      'title': 'Approvals | Pace Scheduler',
       'description':
           'Review and approve pending booking requests. Manage approval workflows and booking confirmations.',
-      'keywords': 'Approvals, Booking Approval, Manager Approval, TCS Pace',
+      'keywords': 'Approvals, Booking Approval, Manager Approval, Pace Scheduler',
     },
     'activity-logs': {
-      'title': 'Activity Logs | TCS Pace Scheduler',
+      'title': 'Activity Logs | Pace Scheduler',
       'description':
           'View system activity logs and audit trail. Monitor user actions, bookings, and system events.',
-      'keywords': 'Activity Logs, Audit Trail, System Logs, TCS Pace',
+      'keywords': 'Activity Logs, Audit Trail, System Logs, Pace Scheduler',
     },
     'bug-reports': {
-      'title': 'Bug Reports | TCS Pace Scheduler',
-      'description': 'Report issues and track bug reports. Help improve the TCS Pace Scheduler system.',
-      'keywords': 'Bug Reports, Issue Tracking, Support, TCS Pace',
+      'title': 'Bug Reports | Pace Scheduler',
+      'description': 'Report issues and track bug reports. Help improve the Pace Scheduler system.',
+      'keywords': 'Bug Reports, Issue Tracking, Support, Pace Scheduler',
     },
     'login': {
-      'title': 'Login | TCS Pace Scheduler',
+      'title': 'Login | Pace Scheduler',
       'description':
-          'Sign in to TCS Pace Scheduler. Access your office visit bookings and scheduling dashboard.',
-      'keywords': 'Login, Sign In, Authentication, TCS Pace',
+          'Sign in to Pace Scheduler. Access your office visit bookings and scheduling dashboard.',
+      'keywords': 'Login, Sign In, Authentication, Pace Scheduler',
     },
   };
 

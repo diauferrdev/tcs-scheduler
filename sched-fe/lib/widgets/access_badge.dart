@@ -63,8 +63,8 @@ class AccessBadge extends StatelessWidget {
     try {
       // ignore: deprecated_member_use
       await Share.share(
-        'TCS Pace Access Ticket\n$attendeeName - $companyName\n$badgeUrl',
-        subject: 'TCS Pace Access Ticket',
+        'Pace Access Ticket\n$attendeeName - $companyName\n$badgeUrl',
+        subject: 'Pace Access Ticket',
       );
     } catch (e) {
       if (context.mounted) {
@@ -103,8 +103,8 @@ class AccessBadge extends StatelessWidget {
   Future<void> generateAndPrintPDF() async {
     final pdf = pw.Document();
 
-    // Load logo SVG - using TCS Pace logo without "Scheduler" text for badges
-    final logoSvg = await rootBundle.loadString('assets/logos/tcs-pace-logo-only-b.svg');
+    // Load logo SVG - using Pace logo without "Scheduler" text for badges
+    final logoSvg = await rootBundle.loadString('assets/logos/pace-scheduler-logo-b.svg');
 
     // Generate QR code data
     final qrCode = pw.BarcodeWidget(
@@ -759,9 +759,9 @@ class AccessBadge extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // Logo - TCS Pace logo without "Scheduler" text for badge display
+            // Logo - Pace logo without "Scheduler" text for badge display
             SvgPicture.asset(
-              isDark ? 'assets/logos/tcs-pace-logo-only-w.svg' : 'assets/logos/tcs-pace-logo-only-b.svg',
+              isDark ? 'assets/logos/pace-scheduler-logo-w.svg' : 'assets/logos/pace-scheduler-logo-b.svg',
               height: 40,
             ),
             const SizedBox(height: 8),
@@ -928,7 +928,7 @@ class AccessBadge extends StatelessWidget {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     SvgPicture.asset(
-                                      isDark ? 'assets/logos/tcs-pace-logo-only-w.svg' : 'assets/logos/tcs-pace-logo-only-b.svg',
+                                      isDark ? 'assets/logos/pace-scheduler-logo-w.svg' : 'assets/logos/pace-scheduler-logo-b.svg',
                                       height: 32,
                                     ),
                                     const SizedBox(height: 4),

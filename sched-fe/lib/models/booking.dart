@@ -7,12 +7,15 @@ enum VisitDuration {
   FOUR_HOURS,
   FIVE_HOURS,
   SIX_HOURS,
+  SEVEN_HOURS,
+  EIGHT_HOURS,
 }
 
 enum VisitType {
   PACE_TOUR,            // 14h-16h (2 hours) - simple visit, no questionnaire
-  PACE_EXPERIENCE,      // 10h-16h (6 hours) - full day, requires questionnaire
+  PACE_VISIT_FULLDAY,   // 10h-16h (6 hours) - full day, requires questionnaire
   INNOVATION_EXCHANGE,  // 10h-17h (7 hours) - requires questionnaire and alignment call
+  PACE_EXPERIENCE,      // @deprecated - legacy, maps to PACE_VISIT_FULLDAY
 }
 
 enum BookingStatus {
@@ -26,8 +29,10 @@ enum BookingStatus {
 }
 
 enum EngagementType {
-  VISIT,
+  PACE_VISIT,
   INNOVATION_EXCHANGE,
+  HACKATHON,
+  VISIT, // @deprecated - legacy, maps to PACE_VISIT
 }
 
 enum OrganizationType {
@@ -156,10 +161,17 @@ class Attendee {
 class Booking {
   final String id;
   final DateTime date;
+  final DateTime? endDate;
   final String startTime;
   final VisitDuration duration;
   final VisitType visitType;
   final BookingStatus status;
+
+  // Multi-day & buffer
+  final int totalDays;
+  final int bufferBefore;
+  final int bufferAfter;
+  final DateTime? prepStartDate;
 
   // New Engagement Flow
   final EngagementType? engagementType;
@@ -241,10 +253,15 @@ class Booking {
   Booking({
     required this.id,
     required this.date,
+    this.endDate,
     required this.startTime,
     required this.duration,
     required this.visitType,
     required this.status,
+    this.totalDays = 1,
+    this.bufferBefore = 0,
+    this.bufferAfter = 0,
+    this.prepStartDate,
     this.engagementType,
     this.requesterName,
     this.employeeId,
@@ -300,18 +317,35 @@ class Booking {
     return Booking(
       id: json['id'] as String,
       date: DateTime.parse(json['date'] as String),
+      endDate: json['endDate'] != null
+          ? DateTime.parse(json['endDate'] as String)
+          : null,
       startTime: json['startTime'] as String,
       duration: VisitDuration.values.firstWhere(
         (e) => e.name == json['duration'],
       ),
       visitType: json['visitType'] != null
-          ? VisitType.values.firstWhere((e) => e.name == json['visitType'])
+          ? (() {
+              final raw = json['visitType'] as String;
+              if (raw == 'PACE_EXPERIENCE') return VisitType.PACE_VISIT_FULLDAY;
+              return VisitType.values.firstWhere((e) => e.name == raw);
+            })()
           : VisitType.PACE_TOUR,
       status: BookingStatus.values.firstWhere(
         (e) => e.name == json['status'],
       ),
+      totalDays: json['totalDays'] as int? ?? 1,
+      bufferBefore: json['bufferBefore'] as int? ?? 0,
+      bufferAfter: json['bufferAfter'] as int? ?? 0,
+      prepStartDate: json['prepStartDate'] != null
+          ? DateTime.parse(json['prepStartDate'] as String)
+          : null,
       engagementType: json['engagementType'] != null
-          ? EngagementType.values.firstWhere((e) => e.name == json['engagementType'])
+          ? (() {
+              final raw = json['engagementType'] as String;
+              if (raw == 'VISIT') return EngagementType.PACE_VISIT;
+              return EngagementType.values.firstWhere((e) => e.name == raw);
+            })()
           : null,
       requesterName: json['requesterName'] as String?,
       employeeId: json['employeeId'] as String?,
@@ -391,9 +425,14 @@ class Booking {
   Map<String, dynamic> toJson() {
     return {
       'date': date.toIso8601String().split('T')[0],
+      if (endDate != null) 'endDate': endDate!.toIso8601String().split('T')[0],
       'startTime': startTime,
       'duration': duration.name,
       'visitType': visitType.name,
+      'totalDays': totalDays,
+      'bufferBefore': bufferBefore,
+      'bufferAfter': bufferAfter,
+      if (prepStartDate != null) 'prepStartDate': prepStartDate!.toIso8601String().split('T')[0],
       if (engagementType != null) 'engagementType': engagementType!.name,
       if (requesterName != null) 'requesterName': requesterName,
       if (employeeId != null) 'employeeId': employeeId,

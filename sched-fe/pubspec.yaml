@@ -1,5 +1,5 @@
 name: sched_fe
-description: "TCS Pace Scheduler - Enterprise scheduling application for office visits"
+description: "Pace Scheduler - Enterprise scheduling application for office visits"
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
@@ -112,6 +112,7 @@ dependencies:
   splash_master: ^0.0.3
   lottie: ^3.1.3
   audioplayers: ^6.1.0
+  local_auth: ^2.3.0
 
   http_parser: any
 dev_dependencies:
@@ -175,7 +176,7 @@ flutter:
   # For details regarding adding assets from package dependencies, see
   # https://flutter.dev/to/asset-from-package
 
-  # Custom TCS Brand Fonts
+  # Custom Brand Fonts
   fonts:
     - family: HouschkaRoundedAlt
       fonts:
@@ -196,15 +197,15 @@ flutter:
 
 # Microsoft Store (MSIX) Configuration
 msix_config:
-  display_name: TCS Pace Scheduler
-  publisher_display_name: TCS
-  identity_name: TCS.PaceScheduler
+  display_name: Pace Scheduler
+  publisher_display_name: Pace Scheduler
+  identity_name: PaceScheduler
   msix_version: 1.0.4.0
   logo_path: windows\runner\resources\app_icon.ico
   capabilities: internetClient
-  publisher: CN=TCS
+  publisher: CN=Pace Scheduler
   languages: en-us, pt-br
-  description: Enterprise scheduling application for TCS Pace office visits
+  description: Enterprise scheduling application for Pace office visits
   architecture: x64
   certificate_path: tcs_certificate.pfx
   certificate_password: Tata@123

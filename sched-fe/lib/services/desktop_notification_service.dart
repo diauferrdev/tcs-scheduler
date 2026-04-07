@@ -17,7 +17,7 @@ class DesktopNotificationService {
 
     try {
       await localNotifier.setup(
-        appName: 'TCS Pace Scheduler',
+        appName: 'Pace Scheduler',
         shortcutPolicy: ShortcutPolicy.requireCreate,
       );
 

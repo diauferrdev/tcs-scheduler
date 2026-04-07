@@ -664,6 +664,10 @@ class _AgendaScreenState extends State<AgendaScreen> {
         return '5h';
       case VisitDuration.SIX_HOURS:
         return '6h';
+      case VisitDuration.SEVEN_HOURS:
+        return '7h';
+      case VisitDuration.EIGHT_HOURS:
+        return '8h';
     }
   }
 
@@ -671,8 +675,10 @@ class _AgendaScreenState extends State<AgendaScreen> {
     switch (type) {
       case VisitType.PACE_TOUR:
         return 'Pace Tour';
+      case VisitType.PACE_VISIT_FULLDAY:
+        return 'Pace Visit Fullday';
       case VisitType.PACE_EXPERIENCE:
-        return 'Pace Experience';
+        return 'Pace Visit Fullday';
       case VisitType.INNOVATION_EXCHANGE:
         return 'Innovation Exchange';
     }
@@ -682,6 +688,8 @@ class _AgendaScreenState extends State<AgendaScreen> {
     switch (type) {
       case VisitType.PACE_TOUR:
         return const Color(0xFF3B82F6); // Blue
+      case VisitType.PACE_VISIT_FULLDAY:
+        return const Color(0xFF8B5CF6); // Purple
       case VisitType.PACE_EXPERIENCE:
         return const Color(0xFF8B5CF6); // Purple
       case VisitType.INNOVATION_EXCHANGE:

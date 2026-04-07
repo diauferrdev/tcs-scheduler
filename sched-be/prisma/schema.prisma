@@ -20,17 +20,22 @@ enum VisitDuration {
   FOUR_HOURS
   FIVE_HOURS
   SIX_HOURS
+  SEVEN_HOURS
+  EIGHT_HOURS
 }
 
 enum EngagementType {
-  VISIT
+  VISIT              // @deprecated — use PACE_VISIT
+  PACE_VISIT         // Pace Tour or Pace Visit Fullday
   INNOVATION_EXCHANGE
+  HACKATHON
 }
 
 enum VisitType {
-  PACE_TOUR        // 10h-12h (manhã) OU 14h-16h (tarde) - 2h evento, bloqueia só o período
-  PACE_EXPERIENCE  // 10h-16h - 4h evento real, bloqueia dia todo + prep (tarde anterior) + teardown (manhã seguinte)
-  INNOVATION_EXCHANGE  // 10h-16h - 6h evento real, bloqueia dia todo + prep (tarde anterior) + teardown (manhã seguinte)
+  PACE_TOUR            // 2h quick visit, max 2/day (1 morning + 1 afternoon)
+  PACE_EXPERIENCE      // @deprecated — use PACE_VISIT_FULLDAY
+  PACE_VISIT_FULLDAY   // Up to 8h full day, max 1/day, blocks prep + teardown
+  INNOVATION_EXCHANGE  // Multi-day, 1 day buffer before + 1 day after
 }
 
 enum BookingStatus {
@@ -96,6 +101,7 @@ model User {
   name          String
   role          UserRole  @default(MANAGER)
   isActive      Boolean   @default(true)
+  mustChangePassword Boolean @default(true)  // Force password change on first login
   avatarUrl     String?   // Profile picture URL
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
@@ -115,6 +121,10 @@ model User {
   ticketsAssigned  Ticket[]         @relation("TicketAssignee")
   ticketMessages   TicketMessage[]  @relation("TicketMessageAuthor")
   ticketAttachments TicketAttachment[] @relation("TicketAttachmentUploader")
+
+  // Room Bookings
+  roomBookings         RoomBooking[] @relation("RoomBookedBy")
+  roomBookingsApproved RoomBooking[] @relation("RoomApprovedBy")
 
   @@index([email])
   @@index([role])
@@ -137,10 +147,17 @@ model Booking {
   startTime       String
   duration        VisitDuration
 
-  // New engagement flow
-  engagementType  EngagementType @default(VISIT)
+  // Engagement flow
+  engagementType  EngagementType @default(PACE_VISIT)
   visitType       VisitType      @default(PACE_TOUR)
   status          BookingStatus  @default(CREATED)
+
+  // Multi-day event support
+  endDate         DateTime?      @db.Date       // End date for multi-day events (null = single-day)
+  totalDays       Int            @default(1)    // Number of event days
+  bufferBefore    Int            @default(0)    // Business days blocked before event (prep)
+  bufferAfter     Int            @default(0)    // Business days blocked after event (teardown)
+  prepStartDate   DateTime?      @db.Date       // IE: 5 weeks prep start (metadata only, does NOT block calendar)
 
   // Base Information (Drawer 2)
   requesterName   String         @default("")  // Name of requester
@@ -569,4 +586,56 @@ model TicketAttachment {
   @@index([ticketId])
   @@index([messageId])
   @@index([uploadedById])
+}
+
+// ==================== ROOM BOOKING ====================
+
+enum RoomType {
+  PHONE_BOOTH_1
+  PHONE_BOOTH_2
+  AGILE_SPACE
+  THINKING_SPACE
+  IMMERSIVE_ROOM
+  CONFERENCE_ROOM
+  PODCAST_ROOM
+  GREEN_ROOM
+}
+
+enum RoomBookingStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+model RoomBooking {
+  id            String            @id @default(cuid())
+  room          RoomType
+  date          DateTime          @db.Date
+  startTime     String            // HH:MM format
+  endTime       String            // HH:MM format
+  status        RoomBookingStatus @default(PENDING)
+
+  // Who booked
+  bookedById    String
+  bookedBy      User              @relation("RoomBookedBy", fields: [bookedById], references: [id])
+
+  // Booking info
+  purpose       String            // Reason for booking
+  attendees     Int               @default(1)
+  vertical      TCSVertical?
+
+  // Approval
+  approvedById  String?
+  approvedBy    User?             @relation("RoomApprovedBy", fields: [approvedById], references: [id])
+  approvedAt    DateTime?
+  rejectionReason String?
+
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  @@index([date])
+  @@index([room])
+  @@index([status])
+  @@index([bookedById])
 }

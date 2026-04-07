@@ -14,6 +14,7 @@ class AuthProvider with ChangeNotifier {
   User? get user => _user;
   bool get loading => _loading;
   bool get isAuthenticated => _user != null;
+  bool get mustChangePassword => _user?.mustChangePassword ?? false;
 
   AuthProvider() {
     checkAuth();
@@ -90,6 +91,19 @@ class AuthProvider with ChangeNotifier {
     }
   }
 
+  /// Restore session from a stored cookie (used by biometric login)
+  Future<void> restoreSessionFromCookie(String cookie) async {
+    await _apiService.setSessionCookie(cookie);
+    try {
+      final response = await _apiService.get('/api/auth/me');
+      _user = User.fromJson(response);
+      notifyListeners();
+    } catch (e) {
+      _apiService.setSessionCookie(null);
+      rethrow;
+    }
+  }
+
   Future<void> logout() async {
     try {
       await _apiService.post('/api/auth/logout', {});
@@ -108,6 +122,22 @@ class AuthProvider with ChangeNotifier {
       } catch (e) {
       }
 
+      notifyListeners();
+    }
+  }
+
+  /// Clear mustChangePassword flag after successful password change
+  void clearMustChangePassword() {
+    if (_user != null) {
+      _user = User(
+        id: _user!.id,
+        email: _user!.email,
+        name: _user!.name,
+        role: _user!.role,
+        createdAt: _user!.createdAt,
+        avatarUrl: _user!.avatarUrl,
+        mustChangePassword: false,
+      );
       notifyListeners();
     }
   }

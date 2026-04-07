@@ -34,7 +34,7 @@ class ThemeProvider with ChangeNotifier {
     await prefs.setBool(_themeKey, _themeMode == ThemeMode.dark);
   }
 
-  // TCS Black & White Theme
+  // Black & White Theme
   static ThemeData get darkTheme => ThemeData(
         brightness: Brightness.dark,
         scaffoldBackgroundColor: Colors.black,

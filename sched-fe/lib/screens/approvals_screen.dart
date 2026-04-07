@@ -4,6 +4,7 @@ import '../services/api_service.dart';
 import '../services/realtime_service.dart';
 import '../services/drawer_service.dart';
 import '../widgets/pending_approval_card.dart';
+import '../widgets/room_booking_card.dart';
 
 class ApprovalsScreen extends StatefulWidget {
   final String? initialBookingId;
@@ -23,6 +24,7 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
   List<Booking> _allBookings = [];
   List<Booking> _newRequests = [];
   List<Booking> _recentHistory = [];
+  List<Map<String, dynamic>> _pendingRoomBookings = [];
   bool _loading = true;
   String? _error;
 
@@ -37,6 +39,7 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
     super.initState();
     _loadAllBookings();
     _setupRealtimeUpdates();
+    _setupRoomRealtimeUpdates();
 
     // Open drawer if initialBookingId is provided
     if (widget.initialBookingId != null) {
@@ -81,6 +84,15 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
     _realtimeService.addBookingDeletedListener(_onBookingDeletedListener);
   }
 
+  late final Function(Map<String, dynamic>) _onRoomBookingChangedListener;
+
+  void _setupRoomRealtimeUpdates() {
+    _onRoomBookingChangedListener = (_) {
+      if (mounted) _loadAllBookings();
+    };
+    _realtimeService.addRoomBookingChangedListener(_onRoomBookingChangedListener);
+  }
+
   void _categorizeBookings() {
     // New Requests: All bookings that need review/action
     // Sorted by latest status update (updatedAt) - most recently updated first
@@ -105,11 +117,11 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
 
   @override
   void dispose() {
-    // Remove listeners
     _realtimeService.removeBookingCreatedListener(_onBookingCreatedListener);
     _realtimeService.removeBookingUpdatedListener(_onBookingUpdatedListener);
     _realtimeService.removeBookingApprovedListener(_onBookingApprovedListener);
     _realtimeService.removeBookingDeletedListener(_onBookingDeletedListener);
+    _realtimeService.removeRoomBookingChangedListener(_onRoomBookingChangedListener);
     super.dispose();
   }
 
@@ -125,9 +137,19 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
       final response = await _apiService.getBookings();
       final bookingsData = (response['bookings'] as List?) ?? [];
 
+      // Also load pending room bookings
+      List<Map<String, dynamic>> pendingRooms = [];
+      try {
+        final roomResponse = await _apiService.get('/api/rooms?status=PENDING');
+        pendingRooms = ((roomResponse['bookings'] as List?) ?? [])
+            .map((b) => b as Map<String, dynamic>)
+            .toList();
+      } catch (_) {}
+
       if (mounted) {
         setState(() {
           _allBookings = bookingsData.map((e) => Booking.fromJson(e)).toList();
+          _pendingRoomBookings = pendingRooms;
           _categorizeBookings();
           _loading = false;
         });
@@ -197,7 +219,7 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
   }
 
   Widget _buildBody(bool isDark) {
-    if (_newRequests.isEmpty && _recentHistory.isEmpty) {
+    if (_newRequests.isEmpty && _recentHistory.isEmpty && _pendingRoomBookings.isEmpty) {
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(48),
@@ -246,15 +268,9 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
       return Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Left Column: New Requests
-          Expanded(
-            child: _buildNewRequestsSection(isDark),
-          ),
+          Expanded(child: _buildNewRequestsSection(isDark)),
           const SizedBox(width: 24),
-          // Right Column: Recent History
-          Expanded(
-            child: _buildRecentHistorySection(isDark),
-          ),
+          Expanded(child: _buildRecentHistorySection(isDark)),
         ],
       );
     } else {
@@ -271,7 +287,9 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
   }
 
   Widget _buildNewRequestsSection(bool isDark) {
-    if (_newRequests.isEmpty) {
+    final totalPending = _newRequests.length + _pendingRoomBookings.length;
+
+    if (totalPending == 0) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -296,19 +314,9 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
             child: Center(
               child: Column(
                 children: [
-                  Icon(
-                    Icons.check_circle_outline,
-                    size: 48,
-                    color: isDark ? Colors.grey[600] : Colors.grey[400],
-                  ),
+                  Icon(Icons.check_circle_outline, size: 48, color: isDark ? Colors.grey[600] : Colors.grey[400]),
                   const SizedBox(height: 12),
-                  Text(
-                    'All caught up!',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: isDark ? Colors.grey[400] : Colors.grey[600],
-                    ),
-                  ),
+                  Text('All caught up!', style: TextStyle(fontSize: 14, color: isDark ? Colors.grey[400] : Colors.grey[600])),
                 ],
               ),
             ),
@@ -324,38 +332,41 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
           children: [
             Text(
               'New Requests',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: isDark ? Colors.white : Colors.black,
-              ),
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black),
             ),
             const SizedBox(width: 8),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF05E1B),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Text(
-                '${_newRequests.length}',
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
-              ),
+              decoration: BoxDecoration(color: const Color(0xFFF05E1B), borderRadius: BorderRadius.circular(10)),
+              child: Text('$totalPending', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white)),
             ),
           ],
         ),
         const SizedBox(height: 16),
+        // Room bookings first (using same card style)
+        ..._pendingRoomBookings.map((room) => _buildRoomBookingCard(room, isDark)),
+        // Event bookings
         ..._newRequests.map((booking) {
-          return PendingApprovalCard(
-            booking: booking,
-            onApproved: _loadAllBookings,
-          );
+          return PendingApprovalCard(booking: booking, onApproved: _loadAllBookings);
         }),
       ],
+    );
+  }
+
+  Widget _buildRoomBookingCard(Map<String, dynamic> room, bool isDark) {
+    return RoomBookingCard(
+      roomBooking: room,
+      onTap: () async {
+        final id = room['id'] as String;
+        await DrawerService.instance.openDrawer(
+          context,
+          DrawerType.roomBookingDetails,
+          params: {'roomBookingId': id},
+          updateUrl: false,
+        );
+        // Reload when drawer closes (after approve/reject)
+        if (mounted) _loadAllBookings();
+      },
     );
   }
 
@@ -447,4 +458,5 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
       ],
     );
   }
+
 }

@@ -55,8 +55,8 @@ app.get('/availability-admin', authMiddleware, async (c) => {
 app.get('/availability/:date', async (c) => {
   try {
     const date = c.req.param('date');
-    const visitType = c.req.query('visitType'); // Optional: PACE_TOUR or INNOVATION_EXCHANGE
-    const availability = await bookingService.checkAvailability(date, visitType as 'PACE_TOUR' | 'INNOVATION_EXCHANGE' | undefined);
+    const visitType = c.req.query('visitType');
+    const availability = await bookingService.checkAvailability(date, visitType || undefined);
     return c.json(availability);
   } catch (error: any) {
     return c.json({ error: error.message }, 400);
@@ -439,10 +439,11 @@ app.post('/:id/mark-under-review', authMiddleware, async (c) => {
 
 // ==================== QUESTIONNAIRE ROUTE ====================
 
-// Get questionnaire (public - needed for Pace Experience & Innovation Exchange bookings)
+// Get questionnaire (public - needed for Pace Visit Fullday, Innovation Exchange & Hackathon)
 app.get('/questionnaire', async (c) => {
   try {
-    const questionnaire = getQuestionnaire();
+    const eventType = c.req.query('eventType');
+    const questionnaire = getQuestionnaire(eventType);
     return c.json({ questionnaire });
   } catch (error: any) {
     return c.json({ error: error.message }, 400);

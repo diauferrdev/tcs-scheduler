@@ -498,7 +498,7 @@ export async function sendTestPush(token: string): Promise<void> {
     token,
     {
       title: 'Test Notification',
-      body: 'This is a test push notification from TCS PacePort Scheduler',
+      body: 'This is a test push notification from Pace Scheduler',
       data: {
         test: 'true',
         timestamp: Date.now().toString(),
@@ -1091,7 +1091,7 @@ export async function sendTestNotificationToAll(): Promise<{ deviceCount: number
     // Send notification to all devices
     const notification: PushNotification = {
       title: 'Test Notification',
-      body: 'FCM is working correctly! This is a test notification from TCS Pace Scheduler.',
+      body: 'FCM is working correctly! This is a test notification from Pace Scheduler.',
       data: {
         type: 'TEST',
         screen: 'none',

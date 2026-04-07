@@ -404,7 +404,7 @@ class _EditBookingDrawerState extends State<EditBookingDrawer> {
           controller: _employeeIdController,
           decoration: InputDecoration(
             labelText: 'Employee ID',
-            hintText: 'Enter your TCS employee ID',
+            hintText: 'Enter your employee ID',
             border: const OutlineInputBorder(),
             prefixIcon: const Icon(Icons.badge),
             filled: true,

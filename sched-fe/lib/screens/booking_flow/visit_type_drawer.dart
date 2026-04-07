@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-/// Drawer 2 (Conditional): Select Visit Type - only shown if engagement type is VISIT
+/// Drawer 2 (Conditional): Select Visit Type - only shown if engagement type is PACE_VISIT
 class VisitTypeDrawer extends StatefulWidget {
   final Function(String visitType) onNext;
   final VoidCallback onBack;
@@ -100,9 +100,9 @@ class _VisitTypeDrawerState extends State<VisitTypeDrawer> {
                   const SizedBox(height: 16),
 
                   _buildVisitTypeCard(
-                    'PACE_EXPERIENCE',
-                    'Pace Experience',
-                    '6 hours (10h-16h)',
+                    'PACE_VISIT_FULLDAY',
+                    'Pace Visit Fullday',
+                    'Up to 8 hours',
                     'Full-day immersive experience with questionnaire',
                     Icons.event,
                     isDark,

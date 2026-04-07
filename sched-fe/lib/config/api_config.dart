@@ -1,14 +1,18 @@
 class ApiConfig {
-  // Backend REST API URL
-  // PRODUCTION: ppspsched.lat domain
-  static const String baseUrl =
-      String.fromEnvironment('API_URL',
-        defaultValue: 'https://api.ppspsched.lat');
+  // ============================================================
+  // CHANGE THIS TO SWITCH BETWEEN DEV AND PROD
+  // ============================================================
+  static const bool isDev = false;
+  // ============================================================
 
-  // Colyseus WebSocket Server URL (Not used currently - using native WebSocket)
+  static const String _devUrl = 'http://172.26.187.250:7777';
+  static const String _prodUrl = 'https://api.ppspsched.lat';
+
+  static const String baseUrl =
+      String.fromEnvironment('API_URL', defaultValue: isDev ? _devUrl : _prodUrl);
+
   static const String colyseusUrl =
-      String.fromEnvironment('COLYSEUS_URL',
-        defaultValue: 'https://api.ppspsched.lat');
+      String.fromEnvironment('COLYSEUS_URL', defaultValue: isDev ? _devUrl : _prodUrl);
 
   static const Duration timeout = Duration(seconds: 30);
 

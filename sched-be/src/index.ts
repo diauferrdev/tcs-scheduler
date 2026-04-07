@@ -20,6 +20,7 @@ import versionRoutes from './routes/version';
 import uploadRoutes from './routes/upload';
 import dashboardRoutes from './routes/dashboard';
 import ticketRoutes from './routes/tickets';
+import roomRoutes from './routes/rooms';
 import { errorHandler } from './middleware/errorHandler';
 import type { AppContext } from './lib/context';
 import { lucia } from './lib/lucia';
@@ -43,6 +44,7 @@ const allowedOrigins = [
   'http://127.0.0.1:3000',
   'http://127.0.0.1:3005',
   'http://127.0.0.1:5173',
+  'http://172.26.187.250:3000',
 ];
 
 app.use('*', cors({
@@ -109,6 +111,7 @@ app.route('/api/version', versionRoutes);
 app.route('/api/upload', uploadRoutes);
 app.route('/api/dashboard', dashboardRoutes);
 app.route('/api/tickets', ticketRoutes);
+app.route('/api/rooms', roomRoutes);
 
 app.get('/health', (c) => c.json({
   status: 'ok',
@@ -471,7 +474,7 @@ const server = Bun.serve<WebSocketData>({
 
 console.log(`
 ╔════════════════════════════════════════╗
-║   TCS PacePort Scheduler - Backend    ║
+║     Pace Scheduler - Backend          ║
 ╚════════════════════════════════════════╝
 
 🚀 Server: http://localhost:${port}

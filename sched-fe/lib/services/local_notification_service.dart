@@ -297,7 +297,7 @@ class LocalNotificationService {
         break;
 
       case 'directions':
-        // Open Google Maps with TCS Pace location
+        // Open Google Maps with PacePort location
         // This would require url_launcher package
         break;
 
@@ -392,7 +392,7 @@ class LocalNotificationService {
       if (sector != null) '🏢 Sector: $sector',
       if (expectedAttendees != null) '👥 Attendees: $expectedAttendees people',
       if (eventType != null) '🎯 Type: $eventType',
-      '📍 Location: TCS Pace São Paulo',
+      '📍 Location: PacePort São Paulo',
     ];
 
     final androidDetails = AndroidNotificationDetails(
@@ -683,7 +683,7 @@ class LocalNotificationService {
       '✅ Booking confirmed and approved',
       '📅 Date: $date${time != null ? ' at $time' : ''}',
       if (approvedBy != null) '👤 Approved by: $approvedBy',
-      '📍 Location: TCS Pace São Paulo',
+      '📍 Location: PacePort São Paulo',
       '📧 Invitations will be sent soon',
     ];
 
@@ -779,7 +779,7 @@ class LocalNotificationService {
       '⏰ Time: $time',
       if (minutesUntil != null) '⏱️ Starts in: $minutesUntil minutes',
       '🏢 Company: $companyName',
-      '📍 Location: ${location ?? 'TCS Pace São Paulo'}',
+      '📍 Location: ${location ?? 'PacePort São Paulo'}',
       '💼 Prepare necessary materials',
     ];
 
@@ -1087,7 +1087,7 @@ class LocalNotificationService {
       await _notifications.show(
         notificationId,
         '🔔 Test Notification',
-        'This is a test notification from TCS Pace Scheduler system!',
+        'This is a test notification from Pace Scheduler system!',
         details,
         payload: 'test',
       );

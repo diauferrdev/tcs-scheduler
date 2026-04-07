@@ -238,7 +238,7 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
 
       // Format booking details
       final shareText = '''
-📅 TCS Pace Scheduler - Booking Details
+📅 Pace Scheduler - Booking Details
 
 $engagementTypeName
 ${booking.companyName}
@@ -253,7 +253,7 @@ Status: $statusName
 View full details: $bookingUrl
 
 ---
-TCS Pace Scheduler
+Pace Scheduler
 Enterprise Office Visit Management
 ''';
 
@@ -1459,12 +1459,12 @@ Enterprise Office Visit Management
           _buildInfoSection(
             'Access Information',
             [
-              _buildInfoRow(Icons.wifi, 'WiFi Network', 'TCS-Pace-Guest', isDark),
+              _buildInfoRow(Icons.wifi, 'WiFi Network', 'Pace-Guest', isDark),
               _buildInfoRow(Icons.lock, 'WiFi Password', 'Innovation2024', isDark),
               _buildInfoRow(
                 Icons.location_on,
                 'Location',
-                'TCS Pace - Av. Paulista, 1374 - São Paulo',
+                'PacePort - Av. Paulista, 1374 - São Paulo',
                 isDark,
               ),
               _buildInfoRow(
@@ -2095,7 +2095,7 @@ Enterprise Office Visit Management
             const SizedBox(height: 12),
           ],
 
-          // TCS Relationship
+          // Relationship
           if (attendee.tcsSupporter != null) ...[
             _buildAttendeeDetailRow(
               Icons.thumb_up,

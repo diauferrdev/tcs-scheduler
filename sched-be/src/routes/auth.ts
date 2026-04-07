@@ -13,7 +13,8 @@ const app = new Hono<AppContext>();
 app.post('/login', zValidator('json', LoginSchema), async (c) => {
   try {
     const data = c.req.valid('json');
-    const { user, sessionCookie } = await authService.login(data);
+    const result = await authService.login(data);
+    const { user, sessionCookie } = result;
     const userAgent = c.req.header('user-agent') || '';
     const isIOS = /iPad|iPhone|iPod/.test(userAgent);
     const origin = c.req.header('origin') || '';
@@ -43,7 +44,7 @@ app.post('/login', zValidator('json', LoginSchema), async (c) => {
     // IMPORTANT: Return cookie in body as fallback for Flutter Web
     // Some proxies (like ngrok) may strip Set-Cookie headers
     return c.json({
-      user,
+      user: { ...user, mustChangePassword: user.mustChangePassword },
       sessionCookie: {
         name: sessionCookie.name,
         value: sessionCookie.value
@@ -91,6 +92,7 @@ app.get('/me', authMiddleware, async (c) => {
       role: true,
       isActive: true,
       avatarUrl: true,
+      mustChangePassword: true,
       createdAt: true,
       updatedAt: true,
     }

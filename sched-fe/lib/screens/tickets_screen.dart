@@ -665,9 +665,9 @@ class _TicketsUserViewState extends State<TicketsUserView> {
           });
         },
         child: Container(
-          color: isSelected ? (isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.03)) : null,
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           decoration: BoxDecoration(
+            color: isSelected ? (isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.03)) : null,
             border: Border(
               bottom: BorderSide(
                 color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.05),
