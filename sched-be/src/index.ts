@@ -32,11 +32,11 @@ app.use('*', logger());
 
 // CORS Configuration - Allow production domains and localhost for testing
 const allowedOrigins = [
-  process.env.FRONTEND_URL || 'https://ppspsched.lat',
-  'https://ppspsched.lat',
-  'https://www.ppspsched.lat',
-  'https://app.ppspsched.lat',
-  'https://api.ppspsched.lat',
+  process.env.FRONTEND_URL || 'https://pacesched.com',
+  'https://pacesched.com',
+  'https://www.pacesched.com',
+  'https://app.pacesched.com',
+  'https://api.pacesched.com',
   // Always allow localhost for development and testing
   'http://localhost:3000',
   'http://localhost:3005',

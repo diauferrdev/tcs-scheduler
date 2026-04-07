@@ -296,7 +296,7 @@ class _TicketDetailsDrawerState extends State<TicketDetailsDrawer> {
                           final attachment = widget.ticket.attachments[index];
                           final String fullUrl = attachment.fileUrl.startsWith('http')
                               ? attachment.fileUrl
-                              : 'https://api.ppspsched.lat${attachment.fileUrl}';
+                              : 'https://api.pacesched.com${attachment.fileUrl}';
 
                           final isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp'].any(
                             (ext) => attachment.fileName.toLowerCase().endsWith(ext),

@@ -24,7 +24,7 @@ async function extractAudioDuration(fileUrl: string, mimeType: string): Promise<
 
   try {
     // Convert URL to file system path
-    // URLs can be in format: https://api.ppspsched.lat/uploads/attachments/filename.m4a
+    // URLs can be in format: https://api.pacesched.com/uploads/attachments/filename.m4a
     // or /uploads/attachments/filename.m4a
     const UPLOAD_BASE_DIR = join(process.cwd(), 'uploads');
 

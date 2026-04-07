@@ -4,11 +4,11 @@
 
 | Service | URL | Tech | Process |
 |---------|-----|------|---------|
-| Frontend | https://ppspsched.lat | Flutter Web | Caddy (static files) |
-| Backend | https://api.ppspsched.lat | Hono + Bun | PM2 `tcs-backend` |
-| WebSocket | wss://api.ppspsched.lat/ws | Native Bun WS | Same PM2 process |
+| Frontend | https://pacesched.com | Flutter Web | Caddy (static files) |
+| Backend | https://api.pacesched.com | Hono + Bun | PM2 `tcs-backend` |
+| WebSocket | wss://api.pacesched.com/ws | Native Bun WS | Same PM2 process |
 | Database | localhost:5432 | PostgreSQL 15+ | systemd |
-| APK Download | https://api.ppspsched.lat/uploads/pace-scheduler-latest.apk | — | Caddy static |
+| APK Download | https://api.pacesched.com/uploads/pace-scheduler-latest.apk | — | Caddy static |
 
 ### VPS Access
 ```bash

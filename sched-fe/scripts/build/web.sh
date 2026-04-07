@@ -36,7 +36,7 @@ cd "$(dirname "$0")/../.."
 print_header "🌐 Web Production Build"
 
 # Configuration
-API_URL=${API_URL:-"https://api.ppspsched.lat"}
+API_URL=${API_URL:-"https://api.pacesched.com"}
 DEPLOY_DIR="/root/tcs/tcs-sched/sched-fe/build/web"
 NGINX_CONFIG="/etc/nginx/sites-available/ppspsched"
 
@@ -150,7 +150,7 @@ if [ -f "$BACKEND_VERSION_FILE" ]; then
     print_info "Updating backend version endpoint..."
 
     # Update web download URL
-    sed -i "s|web: '.*'|web: 'https://ppspsched.lat'|" "$BACKEND_VERSION_FILE"
+    sed -i "s|web: '.*'|web: 'https://pacesched.com'|" "$BACKEND_VERSION_FILE"
 
     print_success "Backend version endpoint updated"
 fi
@@ -165,14 +165,14 @@ echo "Full Version:   $NEW_VERSION"
 echo "API URL:        $API_URL"
 echo "Output Size:    $BUILD_SIZE"
 echo ""
-echo "🌐 Frontend:    https://ppspsched.lat"
+echo "🌐 Frontend:    https://pacesched.com"
 echo "🔌 API:         $API_URL"
 echo ""
 
 print_header "✅ Web Build & Deploy Complete!"
 echo ""
 print_info "Next steps:"
-echo "  1. Test the app: https://ppspsched.lat"
+echo "  1. Test the app: https://pacesched.com"
 echo "  2. Check nginx logs: sudo tail -f /var/log/nginx/error.log"
 echo "  3. Monitor performance in browser DevTools"
 echo ""

@@ -14,7 +14,7 @@ import '../widgets/ticket_chat_widget.dart';
 String _getAvatarUrl(String? avatarUrl) {
   if (avatarUrl == null || avatarUrl.isEmpty) return '';
   if (avatarUrl.startsWith('http')) return avatarUrl;
-  return 'https://api.ppspsched.lat$avatarUrl';
+  return 'https://api.pacesched.com$avatarUrl';
 }
 
 class TicketsAdminView extends StatefulWidget {

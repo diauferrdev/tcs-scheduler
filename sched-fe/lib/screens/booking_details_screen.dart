@@ -225,7 +225,7 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
       final timeFormat = DateFormat('HH:mm');
 
       // Create shareable deep link
-      final bookingUrl = 'https://ppspsched.lat/#/app/booking/${booking.id}';
+      final bookingUrl = 'https://pacesched.com/#/app/booking/${booking.id}';
 
       // Get engagement type name
       final engagementTypeName = booking.engagementType?.name ?? 'Visit';

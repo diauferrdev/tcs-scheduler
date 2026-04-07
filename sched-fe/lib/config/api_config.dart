@@ -6,7 +6,7 @@ class ApiConfig {
   // ============================================================
 
   static const String _devUrl = 'http://172.26.187.250:7777';
-  static const String _prodUrl = 'https://api.ppspsched.lat';
+  static const String _prodUrl = 'https://api.pacesched.com';
 
   static const String baseUrl =
       String.fromEnvironment('API_URL', defaultValue: isDev ? _devUrl : _prodUrl);

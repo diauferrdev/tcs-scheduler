@@ -1710,7 +1710,7 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
   ) {
     final String fullUrl = attachment.fileUrl.startsWith('http')
         ? attachment.fileUrl
-        : 'https://api.ppspsched.lat${attachment.fileUrl}';
+        : 'https://api.pacesched.com${attachment.fileUrl}';
 
     final isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp'].any(
       (ext) => attachment.fileName.toLowerCase().endsWith('.$ext'),

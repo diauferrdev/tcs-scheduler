@@ -201,7 +201,7 @@ class _LandingScreenState extends State<LandingScreen> {
                     '97 MB',
                     'Android 8.0+',
                     true,
-                    () => launchUrl(Uri.parse('https://api.ppspsched.lat/uploads/pace-scheduler-latest.apk'), mode: LaunchMode.externalApplication),
+                    () => launchUrl(Uri.parse('https://api.pacesched.com/uploads/pace-scheduler-latest.apk'), mode: LaunchMode.externalApplication),
                     isMobile,
                   ),
                   _buildPlatformCard(

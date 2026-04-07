@@ -46,7 +46,7 @@ class CalendarService {
         allDay: false,
         iosParams: const IOSParams(
           reminder: Duration(hours: 1), // Remind 1 hour before
-          url: 'https://ppspsched.lat',
+          url: 'https://pacesched.com',
         ),
         androidParams: const AndroidParams(
           emailInvites: [], // Could add attendee emails here

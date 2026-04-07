@@ -16,7 +16,7 @@ import 'tickets_admin_view.dart';
 String _getAvatarUrl(String? avatarUrl) {
   if (avatarUrl == null || avatarUrl.isEmpty) return '';
   if (avatarUrl.startsWith('http')) return avatarUrl;
-  return 'https://api.ppspsched.lat$avatarUrl';
+  return 'https://api.pacesched.com$avatarUrl';
 }
 
 // AppTheme is defined in theme_provider.dart

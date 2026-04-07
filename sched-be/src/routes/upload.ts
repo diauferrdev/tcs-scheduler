@@ -121,7 +121,7 @@ app.post('/avatar', authMiddleware, async (c) => {
     const arrayBuffer = await file.arrayBuffer();
     await writeFile(filepath, Buffer.from(arrayBuffer));
 
-    const url = `https://api.ppspsched.lat/uploads/avatars/${filename}`;
+    const url = `https://api.pacesched.com/uploads/avatars/${filename}`;
 
     // Update user's avatarUrl in database
     const userId = c.get('user').id;
@@ -179,7 +179,7 @@ app.post('/image', authMiddleware, async (c) => {
     const arrayBuffer = await file.arrayBuffer();
     await writeFile(filepath, Buffer.from(arrayBuffer));
 
-    const url = `https://api.ppspsched.lat/uploads/images/${filename}`;
+    const url = `https://api.pacesched.com/uploads/images/${filename}`;
 
     console.log('[Upload] Image uploaded:', {
       userId: c.get('user').id,
@@ -234,7 +234,7 @@ app.post('/video', authMiddleware, async (c) => {
     const arrayBuffer = await file.arrayBuffer();
     await writeFile(filepath, Buffer.from(arrayBuffer));
 
-    const url = `https://api.ppspsched.lat/uploads/videos/${filename}`;
+    const url = `https://api.pacesched.com/uploads/videos/${filename}`;
 
     console.log('[Upload] Video uploaded:', {
       userId: c.get('user').id,
@@ -289,7 +289,7 @@ app.post('/document', authMiddleware, async (c) => {
     const arrayBuffer = await file.arrayBuffer();
     await writeFile(filepath, Buffer.from(arrayBuffer));
 
-    const url = `https://api.ppspsched.lat/uploads/documents/${filename}`;
+    const url = `https://api.pacesched.com/uploads/documents/${filename}`;
 
     console.log('[Upload] Document uploaded:', {
       userId: c.get('user').id,
@@ -338,7 +338,7 @@ app.post('/file', authMiddleware, async (c) => {
     const arrayBuffer = await file.arrayBuffer();
     await writeFile(filepath, Buffer.from(arrayBuffer));
 
-    const url = `https://api.ppspsched.lat/uploads/files/${filename}`;
+    const url = `https://api.pacesched.com/uploads/files/${filename}`;
 
     console.log('[Upload] File uploaded:', {
       userId: c.get('user').id,
@@ -393,7 +393,7 @@ app.post('/audio', authMiddleware, async (c) => {
     const arrayBuffer = await file.arrayBuffer();
     await writeFile(filepath, Buffer.from(arrayBuffer));
 
-    const url = `https://api.ppspsched.lat/uploads/audio/${filename}`;
+    const url = `https://api.pacesched.com/uploads/audio/${filename}`;
 
     console.log('[Upload] Audio uploaded:', {
       userId: c.get('user').id,
@@ -463,7 +463,7 @@ app.post('/attachment', authMiddleware, async (c) => {
     await writeFile(filepath, Buffer.from(arrayBuffer));
 
     // Return absolute URL with API domain
-    const url = `https://api.ppspsched.lat/uploads/attachments/${filename}`;
+    const url = `https://api.pacesched.com/uploads/attachments/${filename}`;
 
     console.log('[Upload] Attachment uploaded:', {
       userId: c.get('user').id,
@@ -533,7 +533,7 @@ app.post('/attachments', authMiddleware, async (c) => {
       await writeFile(filepath, Buffer.from(arrayBuffer));
 
       uploadedFiles.push({
-        url: `https://api.ppspsched.lat/uploads/attachments/${filename}`,
+        url: `https://api.pacesched.com/uploads/attachments/${filename}`,
         filename: file.name,
         size: file.size,
         type: file.type,

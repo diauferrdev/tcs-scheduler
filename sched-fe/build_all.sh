@@ -35,7 +35,7 @@ show_menu() {
   echo -e "${BLUE}Select platform to build:${NC}"
   echo ""
   echo "  1) android   - APK (Firebase App Distribution)"
-  echo "  2) web       - Web app (deploy to ppspsched.lat)"
+  echo "  2) web       - Web app (deploy to pacesched.com)"
   echo "  3) windows   - MSIX desktop app"
   echo "  4) linux     - Linux desktop app"
   echo "  5) macos     - macOS desktop app"

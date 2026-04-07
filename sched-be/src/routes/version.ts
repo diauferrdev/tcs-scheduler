@@ -10,7 +10,7 @@ const versionData = {
   downloadUrl: {
     android: 'https://appdistribution.firebase.google.com/testerapps/1:874457674237:android:81596c5009b03f9a9fa994/releases/3r29h36k36cgg',
     ios: '',
-    web: 'https://ppspsched.lat',
+    web: 'https://pacesched.com',
     macos: '',
     windows: '',
     linux: '',

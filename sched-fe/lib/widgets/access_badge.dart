@@ -59,7 +59,7 @@ class AccessBadge extends StatelessWidget {
   }
 
   void _handleShare(BuildContext context) async {
-    final badgeUrl = 'https://ppspsched.lat/attendee/${attendeeId ?? bookingId}';
+    final badgeUrl = 'https://pacesched.com/attendee/${attendeeId ?? bookingId}';
     try {
       // ignore: deprecated_member_use
       await Share.share(
@@ -78,7 +78,7 @@ class AccessBadge extends StatelessWidget {
   }
 
   void _handleCopyLink(BuildContext context) async {
-    final badgeUrl = 'https://ppspsched.lat/attendee/${attendeeId ?? bookingId}';
+    final badgeUrl = 'https://pacesched.com/attendee/${attendeeId ?? bookingId}';
     try {
       await Clipboard.setData(ClipboardData(text: badgeUrl));
       if (context.mounted) {

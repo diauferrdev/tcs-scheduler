@@ -53,7 +53,7 @@ async function extractAudioDuration(fileUrl: string, mimeType: string): Promise<
 }
 
 // Test with actual uploaded file
-const testUrl = 'https://api.ppspsched.lat/uploads/attachments/eb308367-5676-44d9-aa2c-9888023742dd.m4a';
+const testUrl = 'https://api.pacesched.com/uploads/attachments/eb308367-5676-44d9-aa2c-9888023742dd.m4a';
 const testMimeType = 'audio/mp4';
 
 console.log(`\nTesting audio duration extraction:`);

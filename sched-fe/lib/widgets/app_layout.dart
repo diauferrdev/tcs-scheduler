@@ -167,7 +167,7 @@ class _AppLayoutState extends State<AppLayout> {
                             child: Image.network(
                               user.avatarUrl!.startsWith('http')
                                   ? user.avatarUrl!
-                                  : 'https://api.ppspsched.lat${user.avatarUrl}',
+                                  : 'https://api.pacesched.com${user.avatarUrl}',
                               width: 36,
                               height: 36,
                               fit: BoxFit.cover,

@@ -61,7 +61,7 @@ void _updateSeoForRoute(String path) {
 
   // Update canonical URL
   try {
-    final fullUrl = 'https://ppspsched.lat$path';
+    final fullUrl = 'https://pacesched.com$path';
     SeoHelper.updateCanonicalUrl(fullUrl);
   } catch (e) {
     // Silently fail
@@ -122,7 +122,7 @@ GoRouter createRouter(AuthProvider authProvider) {
         return null;
       }
 
-      // WEB ROUTING (localhost or ppspsched.lat)
+      // WEB ROUTING (localhost or pacesched.com)
       final isLocalhost = _isLocalhost();
 
       // LOCALHOST: Allow all routes for development
@@ -139,7 +139,7 @@ GoRouter createRouter(AuthProvider authProvider) {
         return null;
       }
 
-      // PRODUCTION WEB (ppspsched.lat)
+      // PRODUCTION WEB (pacesched.com)
       // If authenticated and trying to access login, redirect to app
       if (isAuthenticated && isLoginRoute) {
         return '/app';
