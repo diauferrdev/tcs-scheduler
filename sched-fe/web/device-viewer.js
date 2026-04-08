@@ -165,7 +165,7 @@ class DeviceViewer {
 
         // Handle window resize
         window.addEventListener('resize', () => {
-            this.engine.resize();
+            if (this.engine) this.engine.resize();
         });
     }
 
