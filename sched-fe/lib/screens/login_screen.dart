@@ -75,17 +75,27 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
     setState(() => _loading = true);
     try {
       final bio = BiometricService();
-      final cookie = await bio.biometricLogin();
-      if (cookie == null) {
+
+      // Step 1: Biometric prompt
+      final authenticated = await bio.authenticate();
+      if (!authenticated) {
         if (mounted) {
           ToastNotification.show(context, message: 'Biometric authentication failed', type: ToastType.error);
         }
         return;
       }
 
-      // Restore session using the cookie
+      // Step 2: Get stored credentials and do real login
+      final credentials = await bio.getStoredCredentials();
+      if (credentials == null) {
+        if (mounted) {
+          ToastNotification.show(context, message: 'No saved credentials. Please login with password first.', type: ToastType.error);
+        }
+        return;
+      }
+
       final authProvider = context.read<AuthProvider>();
-      await authProvider.restoreSessionFromCookie(cookie);
+      await authProvider.login(credentials['nickname']!, credentials['password']!);
 
       if (mounted) {
         if (authProvider.mustChangePassword) {
@@ -141,7 +151,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
           final bio = BiometricService();
           final available = await bio.isAvailable();
           if (available) {
-            await bio.enable(authProvider.user!.email);
+            await bio.enable(_emailController.text.trim(), _passwordController.text);
           }
         }
 

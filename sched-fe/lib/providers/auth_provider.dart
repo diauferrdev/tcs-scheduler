@@ -74,9 +74,10 @@ class AuthProvider with ChangeNotifier {
         final fullCookie = '$cookieName=$cookieValue';
         await _apiService.setSessionCookie(fullCookie);
 
-        // Also save the token (cookie value) to TokenStorage for WebSocket auth
+        // Save to TokenStorage for WebSocket auth + biometric login
         final tokenStorage = TokenStorage();
         await tokenStorage.saveToken(cookieValue);
+        await tokenStorage.saveSessionCookie(fullCookie);
       }
 
       // Request notification permissions after successful login
@@ -113,7 +114,7 @@ class AuthProvider with ChangeNotifier {
       _user = null;
       _apiService.setSessionCookie(null);
 
-      // Clear token from storage
+      // Clear token from storage (keep session cookie for biometric re-login)
       final tokenStorage = TokenStorage();
       await tokenStorage.deleteToken();
 
