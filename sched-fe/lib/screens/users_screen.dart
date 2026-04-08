@@ -53,8 +53,7 @@ class _UsersScreenState extends State<UsersScreen> {
 
   void _showCreateUserDialog() {
     final nameController = TextEditingController();
-    final emailController = TextEditingController();
-    final passwordController = TextEditingController();
+    final nicknameController = TextEditingController();
     final currentUserRole = context.read<AuthProvider>().user?.role;
 
     // Default role based on current user
@@ -104,9 +103,9 @@ class _UsersScreenState extends State<UsersScreen> {
                   ),
                   const SizedBox(height: 16),
 
-                  // Email
+                  // Nickname
                   Text(
-                    'Email',
+                    'Nickname (login)',
                     style: TextStyle(
                       fontSize: 14,
                       color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
@@ -114,45 +113,26 @@ class _UsersScreenState extends State<UsersScreen> {
                   ),
                   const SizedBox(height: 8),
                   TextFormField(
-                    controller: emailController,
-                    keyboardType: TextInputType.emailAddress,
+                    controller: nicknameController,
                     style: TextStyle(color: isDark ? Colors.white : Colors.black),
-                    decoration: _inputDecoration('username', isDark),
+                    decoration: _inputDecoration('e.g. john.doe', isDark),
                     validator: (value) {
                       if (value == null || value.trim().isEmpty) {
-                        return 'Email is required';
+                        return 'Nickname is required';
                       }
-                      if (!value.contains('@')) {
-                        return 'Invalid email format';
+                      if (value.trim().length < 2) {
+                        return 'Nickname must be at least 2 characters';
+                      }
+                      if (!RegExp(r'^[a-zA-Z0-9._]+$').hasMatch(value.trim())) {
+                        return 'Only letters, numbers, dots and underscores';
                       }
                       return null;
                     },
                   ),
-                  const SizedBox(height: 16),
-
-                  // Password
+                  const SizedBox(height: 4),
                   Text(
-                    'Password',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  TextFormField(
-                    controller: passwordController,
-                    obscureText: true,
-                    style: TextStyle(color: isDark ? Colors.white : Colors.black),
-                    decoration: _inputDecoration('Min. 8 characters', isDark),
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Password is required';
-                      }
-                      if (value.length < 8) {
-                        return 'Password must be at least 8 characters';
-                      }
-                      return null;
-                    },
+                    'Default password: Tata@123 (user must change on first login)',
+                    style: TextStyle(fontSize: 11, color: isDark ? Colors.white38 : Colors.black38),
                   ),
                   const SizedBox(height: 16),
 
@@ -225,8 +205,7 @@ class _UsersScreenState extends State<UsersScreen> {
                   Navigator.pop(context);
                   await _createUser(
                     name: nameController.text.trim(),
-                    email: emailController.text.trim(),
-                    password: passwordController.text,
+                    nickname: nicknameController.text.trim(),
                     role: selectedRole,
                   );
                 }
@@ -245,17 +224,15 @@ class _UsersScreenState extends State<UsersScreen> {
 
   Future<void> _createUser({
     required String name,
-    required String email,
-    required String password,
+    required String nickname,
     required String role,
   }) async {
     try {
-      await _apiService.createUser(
-        name: name,
-        email: email,
-        password: password,
-        role: role,
-      );
+      await _apiService.post('/api/auth/users', {
+        'name': name,
+        'nickname': nickname,
+        'role': role,
+      });
 
       if (mounted) {
         ToastNotification.show(
@@ -666,7 +643,7 @@ class _UsersScreenState extends State<UsersScreen> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      user.email,
+                      '@${user.email.split('@').first}',
                       style: TextStyle(
                         fontSize: 14,
                         color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),

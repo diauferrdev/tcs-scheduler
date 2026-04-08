@@ -235,8 +235,7 @@ export const InvitationSendEmailSchema = z.object({
 // ==================== USER ====================
 
 export const UserCreateSchema = z.object({
-  email: z.string().email('Invalid email format'),
-  password: z.string().min(8, 'Password must be at least 8 characters'),
+  nickname: z.string().min(2, 'Nickname must be at least 2 characters').regex(/^[a-zA-Z0-9._]+$/, 'Nickname can only contain letters, numbers, dots and underscores'),
   name: z.string().min(2, 'Name must be at least 2 characters'),
   role: UserRoleSchema.default('USER'),
 });

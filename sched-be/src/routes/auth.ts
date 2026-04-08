@@ -122,7 +122,8 @@ app.post('/users', authMiddleware, zValidator('json', UserCreateSchema), async (
     }
 
     // ADMIN can create any role (ADMIN, MANAGER, USER)
-    const user = await authService.createUser(data.email, data.password, data.name, role);
+    const email = `${data.nickname}@tcs.com`;
+    const user = await authService.createUser(email, 'Tata@123', data.name, role);
 
     // Log user creation
     await activityLogService.logActivity({
