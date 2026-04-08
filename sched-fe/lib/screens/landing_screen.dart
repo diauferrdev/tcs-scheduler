@@ -197,11 +197,11 @@ class _LandingScreenState extends State<LandingScreen> {
                   _buildPlatformCard(
                     'Windows',
                     Icons.window,
-                    'Download MSIX installer',
-                    '22.5 MB',
+                    'Download installer (.exe)',
+                    '17 MB',
                     'Windows 10+',
                     true,
-                    () => launchUrl(Uri.parse('https://api.pacesched.com/uploads/pace-scheduler-windows-latest.msix'), mode: LaunchMode.externalApplication),
+                    () => launchUrl(Uri.parse('https://api.pacesched.com/uploads/pace-scheduler-windows-latest.exe'), mode: LaunchMode.externalApplication),
                     isMobile,
                   ),
                   _buildPlatformCard(
