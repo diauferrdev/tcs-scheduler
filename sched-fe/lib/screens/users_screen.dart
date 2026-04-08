@@ -56,9 +56,7 @@ class _UsersScreenState extends State<UsersScreen> {
     final nicknameController = TextEditingController();
     final currentUserRole = context.read<AuthProvider>().user?.role;
 
-    // Default role based on current user
-    // ADMIN can create any role, MANAGER can only create USER
-    String selectedRole = currentUserRole == UserRole.ADMIN ? 'MANAGER' : 'USER';
+    final selectedRoles = <UserRole>{UserRole.USER};
     final formKey = GlobalKey<FormState>();
     final isDark = context.read<ThemeProvider>().isDark;
 
@@ -136,57 +134,40 @@ class _UsersScreenState extends State<UsersScreen> {
                   ),
                   const SizedBox(height: 16),
 
-                  // Role
+                  // Roles
                   Text(
-                    'Role',
+                    'Roles',
                     style: TextStyle(
                       fontSize: 14,
                       color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
                     ),
                   ),
                   const SizedBox(height: 8),
-                  DropdownButtonFormField<String>(
-                    initialValue: selectedRole,
-                    dropdownColor: isDark ? const Color(0xFF18181B) : Colors.white,
-                    style: TextStyle(color: isDark ? Colors.white : Colors.black),
-                    decoration: InputDecoration(
-                      filled: true,
-                      fillColor: isDark ? const Color(0xFF09090B) : const Color(0xFFF9FAFB),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: BorderSide(
-                          color: isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
-                        ),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: BorderSide(
-                          color: isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
-                        ),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: BorderSide(
-                          color: isDark ? Colors.white : Colors.black,
-                        ),
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                    ),
-                    items: [
-                      // ADMIN can create all roles
-                      if (currentUserRole == UserRole.ADMIN) ...[
-                        const DropdownMenuItem(value: 'ADMIN', child: Text('Admin')),
-                        const DropdownMenuItem(value: 'MANAGER', child: Text('Manager')),
-                      ],
-                      // MANAGER and ADMIN can create USER
-                      const DropdownMenuItem(value: 'USER', child: Text('User')),
-                    ],
-                    onChanged: (value) {
-                      if (value != null) {
-                        setDialogState(() => selectedRole = value);
-                      }
-                    },
-                  ),
+                  ...[
+                    if (currentUserRole == UserRole.ADMIN) ...[UserRole.ADMIN, UserRole.MANAGER],
+                    UserRole.USER,
+                  ].map((role) {
+                    final r = role is UserRole ? role : role as UserRole;
+                    final isSelected = selectedRoles.contains(r);
+                    return CheckboxListTile(
+                      value: isSelected,
+                      onChanged: (checked) {
+                        setDialogState(() {
+                          if (checked == true) {
+                            selectedRoles.add(r);
+                          } else if (selectedRoles.length > 1) {
+                            selectedRoles.remove(r);
+                          }
+                        });
+                      },
+                      title: Text(r.name, style: TextStyle(color: isDark ? Colors.white : Colors.black, fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400)),
+                      activeColor: isDark ? Colors.white : Colors.black,
+                      checkColor: isDark ? Colors.black : Colors.white,
+                      controlAffinity: ListTileControlAffinity.leading,
+                      contentPadding: EdgeInsets.zero,
+                      dense: true,
+                    );
+                  }),
                 ],
               ),
             ),
@@ -206,7 +187,7 @@ class _UsersScreenState extends State<UsersScreen> {
                   await _createUser(
                     name: nameController.text.trim(),
                     nickname: nicknameController.text.trim(),
-                    role: selectedRole,
+                    roles: selectedRoles.toList(),
                   );
                 }
               },
@@ -225,14 +206,26 @@ class _UsersScreenState extends State<UsersScreen> {
   Future<void> _createUser({
     required String name,
     required String nickname,
-    required String role,
+    required List<UserRole> roles,
   }) async {
     try {
-      await _apiService.post('/api/auth/users', {
+      // Create with first role, then update roles if multiple
+      final firstRole = roles.contains(UserRole.ADMIN) ? 'ADMIN' : roles.contains(UserRole.MANAGER) ? 'MANAGER' : 'USER';
+      final response = await _apiService.post('/api/auth/users', {
         'name': name,
         'nickname': nickname,
-        'role': role,
+        'role': firstRole,
       });
+
+      // If multiple roles, update roles after creation
+      if (roles.length > 1 && response != null) {
+        final userId = (response['user'] as Map<String, dynamic>?)?['id'] as String?;
+        if (userId != null) {
+          await _apiService.post('/api/auth/users/$userId/roles', {
+            'roles': roles.map((r) => r.name).toList(),
+          });
+        }
+      }
 
       if (mounted) {
         ToastNotification.show(
