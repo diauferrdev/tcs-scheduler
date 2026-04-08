@@ -5,7 +5,9 @@ import 'package:go_router/go_router.dart';
 import '../providers/auth_provider.dart';
 import '../providers/theme_provider.dart';
 import '../models/user.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import '../services/unified_notification_service.dart';
+import '../utils/web_helper.dart';
 import 'notification_bell.dart';
 import 'profile_drawer.dart';
 
@@ -123,6 +125,14 @@ class _AppLayoutState extends State<AppLayout> {
           ),
 
           const Spacer(),
+
+          // PWA Install Button (web only)
+          if (kIsWeb && WebHelper.pwaCanInstall())
+            IconButton(
+              onPressed: () => WebHelper.pwaInstall(),
+              icon: Icon(Icons.install_mobile, color: isDark ? Colors.white : Colors.black),
+              tooltip: 'Install App',
+            ),
 
           // Notification Bell
           const NotificationBell(),

@@ -12,4 +12,16 @@ class WebHelper {
     if (!kIsWeb) return;
     platform.signalAppReady();
   }
+
+  /// Check if PWA install prompt is available
+  static bool pwaCanInstall() {
+    if (!kIsWeb) return false;
+    return platform.pwaCanInstall();
+  }
+
+  /// Trigger PWA install prompt
+  static Future<bool> pwaInstall() async {
+    if (!kIsWeb) return false;
+    return platform.pwaInstall();
+  }
 }

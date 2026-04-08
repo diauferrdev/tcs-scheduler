@@ -156,6 +156,28 @@
     });
   </script>
 
+  <!-- PWA Install Prompt Handler -->
+  <script>
+    let deferredPrompt = null;
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredPrompt = e;
+      window.dispatchEvent(new CustomEvent('pwa-install-available'));
+    });
+    window.addEventListener('appinstalled', () => {
+      deferredPrompt = null;
+      window.dispatchEvent(new CustomEvent('pwa-installed'));
+    });
+    window.pwaInstall = async function() {
+      if (!deferredPrompt) return false;
+      deferredPrompt.prompt();
+      const result = await deferredPrompt.userChoice;
+      deferredPrompt = null;
+      return result.outcome === 'accepted';
+    };
+    window.pwaCanInstall = function() { return deferredPrompt != null; };
+  </script>
+
   <!-- Service Worker is automatically registered by Flutter -->
   <!-- No manual registration needed - flutter_service_worker.js handles it -->
 
