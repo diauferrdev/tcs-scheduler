@@ -19,6 +19,7 @@ export const lucia = new Lucia(adapter, {
     email: attributes.email,
     name: attributes.name,
     role: attributes.role,
+    roles: attributes.roles,
     isActive: attributes.isActive,
   }),
 });
@@ -33,6 +34,7 @@ declare module 'lucia' {
 interface DatabaseUserAttributes {
   email: string;
   name: string;
-  role: 'ADMIN' | 'MANAGER' | 'GUEST';
+  role: 'ADMIN' | 'MANAGER' | 'USER';
+  roles: Array<'ADMIN' | 'MANAGER' | 'USER'>;
   isActive: boolean;
 }

@@ -426,6 +426,120 @@ class _UsersScreenState extends State<UsersScreen> {
     }
   }
 
+  void _showManageRolesDialog(User user) {
+    final isDark = context.read<ThemeProvider>().isDark;
+    final selectedRoles = Set<UserRole>.from(user.roles);
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          backgroundColor: isDark ? const Color(0xFF18181B) : Colors.white,
+          title: Text(
+            'Manage Roles',
+            style: TextStyle(color: isDark ? Colors.white : Colors.black),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Roles for ${user.name}',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
+                ),
+              ),
+              const SizedBox(height: 16),
+              ...UserRole.values.map((role) {
+                final isSelected = selectedRoles.contains(role);
+                return CheckboxListTile(
+                  value: isSelected,
+                  onChanged: (checked) {
+                    setDialogState(() {
+                      if (checked == true) {
+                        selectedRoles.add(role);
+                      } else {
+                        if (selectedRoles.length > 1) {
+                          selectedRoles.remove(role);
+                        }
+                      }
+                    });
+                  },
+                  title: Text(
+                    role.name,
+                    style: TextStyle(
+                      color: isDark ? Colors.white : Colors.black,
+                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                    ),
+                  ),
+                  activeColor: isDark ? Colors.white : Colors.black,
+                  checkColor: isDark ? Colors.black : Colors.white,
+                  controlAffinity: ListTileControlAffinity.leading,
+                  contentPadding: EdgeInsets.zero,
+                  dense: true,
+                );
+              }),
+              const SizedBox(height: 8),
+              Text(
+                'At least one role must be selected.',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: isDark ? Colors.white38 : Colors.black38,
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text(
+                'Cancel',
+                style: TextStyle(color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280)),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(context);
+                _updateUserRoles(user.id, selectedRoles.toList());
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: isDark ? Colors.white : Colors.black,
+                foregroundColor: isDark ? Colors.black : Colors.white,
+              ),
+              child: const Text('Save'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _updateUserRoles(String userId, List<UserRole> roles) async {
+    try {
+      await _apiService.post('/api/auth/users/$userId/roles', {
+        'roles': roles.map((r) => r.name).toList(),
+      });
+
+      if (mounted) {
+        ToastNotification.show(
+          context,
+          message: 'Roles updated successfully!',
+          type: ToastType.success,
+        );
+        _loadUsers();
+      }
+    } catch (e) {
+      if (mounted) {
+        ToastNotification.show(
+          context,
+          message: e.toString(),
+          type: ToastType.error,
+        );
+      }
+    }
+  }
+
   InputDecoration _inputDecoration(String hint, bool isDark) {
     return InputDecoration(
       hintText: hint,
@@ -653,21 +767,49 @@ class _UsersScreenState extends State<UsersScreen> {
                 ),
               ),
 
-              // Role Badge
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: _getRoleColor(user.role).withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Text(
-                  user.role.toString().split('.').last,
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: _getRoleColor(user.role),
-                  ),
-                ),
+              // Role Badges
+              Wrap(
+                spacing: 4,
+                runSpacing: 4,
+                children: user.roles.length > 1
+                    ? user.roles.map((role) {
+                        final isActive = role == user.role;
+                        return Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: _getRoleColor(role).withValues(alpha: isActive ? 0.15 : 0.05),
+                            borderRadius: BorderRadius.circular(4),
+                            border: isActive
+                                ? Border.all(color: _getRoleColor(role).withValues(alpha: 0.4), width: 1)
+                                : null,
+                          ),
+                          child: Text(
+                            role.name,
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+                              color: _getRoleColor(role).withValues(alpha: isActive ? 1.0 : 0.6),
+                            ),
+                          ),
+                        );
+                      }).toList()
+                    : [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: _getRoleColor(user.role).withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            user.role.name,
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: _getRoleColor(user.role),
+                            ),
+                          ),
+                        ),
+                      ],
               ),
             ],
           ),
@@ -699,6 +841,16 @@ class _UsersScreenState extends State<UsersScreen> {
 
               // Actions
               if (!isCurrentUser) ...[
+                if (currentUser?.isAdmin == true)
+                  IconButton(
+                    onPressed: () => _showManageRolesDialog(user),
+                    icon: Icon(
+                      Icons.admin_panel_settings,
+                      size: 18,
+                      color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
+                    ),
+                    tooltip: 'Manage Roles',
+                  ),
                 IconButton(
                   onPressed: () => _showResetPasswordDialog(user),
                   icon: Icon(

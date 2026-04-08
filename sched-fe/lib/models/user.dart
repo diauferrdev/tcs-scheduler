@@ -7,6 +7,7 @@ class User {
   final String email;
   final String name;
   final UserRole role;
+  final List<UserRole> roles;
   final DateTime createdAt;
   final String? avatarUrl;
   final bool mustChangePassword;
@@ -16,20 +17,30 @@ class User {
     required this.email,
     required this.name,
     required this.role,
+    this.roles = const [],
     required this.createdAt,
     this.avatarUrl,
     this.mustChangePassword = false,
   });
 
   factory User.fromJson(Map<String, dynamic> json) {
+    final activeRole = UserRole.values.firstWhere(
+      (e) => e.name == json['role'],
+      orElse: () => UserRole.USER,
+    );
+
     return User(
       id: json['id'] as String,
       email: json['email'] as String,
       name: json['name'] as String,
-      role: UserRole.values.firstWhere(
-        (e) => e.name == json['role'],
-        orElse: () => UserRole.USER,
-      ),
+      role: activeRole,
+      roles: (json['roles'] as List?)
+              ?.map((r) => UserRole.values.firstWhere(
+                    (e) => e.name == r,
+                    orElse: () => UserRole.USER,
+                  ))
+              .toList() ??
+          [activeRole],
       createdAt: DateTime.parse(json['createdAt'] as String),
       avatarUrl: json['avatarUrl'] as String?,
       mustChangePassword: json['mustChangePassword'] as bool? ?? false,
@@ -42,6 +53,7 @@ class User {
       'email': email,
       'name': name,
       'role': role.name,
+      'roles': roles.map((r) => r.name).toList(),
       if (avatarUrl != null) 'avatarUrl': avatarUrl,
       'mustChangePassword': mustChangePassword,
     };
@@ -50,4 +62,5 @@ class User {
   bool get isAdmin => role == UserRole.ADMIN;
   bool get isManager => role == UserRole.MANAGER;
   bool get isUser => role == UserRole.USER;
+  bool get hasMultipleRoles => roles.length > 1;
 }

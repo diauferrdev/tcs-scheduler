@@ -99,7 +99,8 @@ model User {
   email         String    @unique
   passwordHash  String
   name          String
-  role          UserRole  @default(MANAGER)
+  role          UserRole  @default(USER)      // Active role (for current session)
+  roles         UserRole[] @default([USER])   // All assigned roles
   isActive      Boolean   @default(true)
   mustChangePassword Boolean @default(true)  // Force password change on first login
   avatarUrl     String?   // Profile picture URL

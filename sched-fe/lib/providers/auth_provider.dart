@@ -127,6 +127,19 @@ class AuthProvider with ChangeNotifier {
     }
   }
 
+  /// Switch the user's active role
+  Future<void> switchRole(UserRole newRole) async {
+    try {
+      final response = await _apiService.post('/api/auth/switch-role', {
+        'role': newRole.name,
+      });
+      _user = User.fromJson(response['user'] as Map<String, dynamic>);
+      notifyListeners();
+    } catch (e) {
+      rethrow;
+    }
+  }
+
   /// Clear mustChangePassword flag after successful password change
   void clearMustChangePassword() {
     if (_user != null) {
@@ -135,6 +148,7 @@ class AuthProvider with ChangeNotifier {
         email: _user!.email,
         name: _user!.name,
         role: _user!.role,
+        roles: _user!.roles,
         createdAt: _user!.createdAt,
         avatarUrl: _user!.avatarUrl,
         mustChangePassword: false,

@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:go_router/go_router.dart';
 import '../providers/auth_provider.dart';
 import '../services/api_service.dart';
+import '../models/user.dart';
 import '../utils/toast_notification.dart';
 import '../config/api_config.dart';
 
@@ -46,6 +48,9 @@ class _ProfileDrawerState extends State<ProfileDrawer> {
   // Avatar upload
   final ImagePicker _imagePicker = ImagePicker();
   bool _uploadingAvatar = false;
+
+  // Role switching
+  bool _switchingRole = false;
 
   @override
   void initState() {
@@ -251,6 +256,36 @@ class _ProfileDrawerState extends State<ProfileDrawer> {
       message: message,
       type: ToastType.error,
     );
+  }
+
+  Future<void> _handleSwitchRole(UserRole newRole) async {
+    setState(() => _switchingRole = true);
+    try {
+      final authProvider = context.read<AuthProvider>();
+      await authProvider.switchRole(newRole);
+
+      if (mounted) {
+        Navigator.pop(context);
+        // Navigate to the correct home screen for the new role
+        final home = switch (newRole) {
+          UserRole.ADMIN => '/app/dashboard',
+          UserRole.MANAGER => '/app/dashboard',
+          UserRole.USER => '/app/schedule',
+        };
+        context.go(home);
+
+        ToastNotification.show(
+          context,
+          message: 'Switched to ${newRole.name} role',
+          type: ToastType.success,
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        _showError(e.toString());
+        setState(() => _switchingRole = false);
+      }
+    }
   }
 
   Future<void> _handleLogout() async {
@@ -534,6 +569,101 @@ class _ProfileDrawerState extends State<ProfileDrawer> {
                         ],
                       ),
                     ),
+
+                    // Role Switcher (only if user has multiple roles)
+                    if (user.hasMultipleRoles) ...[
+                      const SizedBox(height: 16),
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: isDark ? const Color(0xFF27272A) : const Color(0xFFF9FAFB),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: isDark ? const Color(0xFF3F3F46) : const Color(0xFFE5E7EB),
+                          ),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.swap_horiz_rounded,
+                                  size: 18,
+                                  color: isDark ? Colors.grey[400] : Colors.grey[600],
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Switch Role',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                    color: isDark ? Colors.white : Colors.black,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              children: user.roles.map((role) {
+                                final isActive = role == user.role;
+                                return Material(
+                                  color: Colors.transparent,
+                                  child: InkWell(
+                                    onTap: (_switchingRole || isActive)
+                                        ? null
+                                        : () => _handleSwitchRole(role),
+                                    borderRadius: BorderRadius.circular(8),
+                                    child: AnimatedContainer(
+                                      duration: const Duration(milliseconds: 200),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 14,
+                                        vertical: 8,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: isActive
+                                            ? (isDark ? Colors.white : Colors.black)
+                                            : (isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.04)),
+                                        borderRadius: BorderRadius.circular(8),
+                                        border: Border.all(
+                                          color: isActive
+                                              ? Colors.transparent
+                                              : (isDark ? const Color(0xFF3F3F46) : const Color(0xFFE5E7EB)),
+                                        ),
+                                      ),
+                                      child: _switchingRole && !isActive
+                                          ? SizedBox(
+                                              width: 16,
+                                              height: 16,
+                                              child: CircularProgressIndicator(
+                                                strokeWidth: 2,
+                                                valueColor: AlwaysStoppedAnimation<Color>(
+                                                  isDark ? Colors.white : Colors.black,
+                                                ),
+                                              ),
+                                            )
+                                          : Text(
+                                              role.name,
+                                              style: TextStyle(
+                                                fontSize: 13,
+                                                fontWeight: FontWeight.w600,
+                                                color: isActive
+                                                    ? (isDark ? Colors.black : Colors.white)
+                                                    : (isDark ? Colors.grey[400] : Colors.grey[600]),
+                                                letterSpacing: 0.3,
+                                              ),
+                                            ),
+                                    ),
+                                  ),
+                                );
+                              }).toList(),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
 
                     const SizedBox(height: 20),
 

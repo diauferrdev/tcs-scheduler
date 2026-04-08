@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
 import { setCookie, deleteCookie } from 'hono/cookie';
-import { LoginSchema, UserCreateSchema, PasswordChangeSchema, ProfileUpdateSchema } from '../types';
+import { LoginSchema, UserCreateSchema, PasswordChangeSchema, ProfileUpdateSchema, SwitchRoleSchema, UpdateUserRolesSchema } from '../types';
 import * as authService from '../services/auth.service';
 import * as activityLogService from '../services/activity-log.service';
 import { authMiddleware, requireRole } from '../middleware/auth';
@@ -90,6 +90,7 @@ app.get('/me', authMiddleware, async (c) => {
       email: true,
       name: true,
       role: true,
+      roles: true,
       isActive: true,
       avatarUrl: true,
       mustChangePassword: true,
@@ -261,6 +262,79 @@ app.patch('/me/profile', authMiddleware, zValidator('json', ProfileUpdateSchema)
     return c.json({ user: updatedUser });
   } catch (error: any) {
     return c.json({ error: error.message }, 400);
+  }
+});
+
+// Switch active role
+app.post('/switch-role', authMiddleware, zValidator('json', SwitchRoleSchema), async (c) => {
+  try {
+    const user = c.get('user');
+    const { role } = c.req.valid('json');
+
+    const updatedUser = await authService.switchRole(user.id, role);
+
+    await activityLogService.logActivity({
+      action: 'UPDATE',
+      resource: 'USER',
+      resourceId: user.id,
+      description: `${user.name} switched active role to ${role}`,
+      userId: user.id,
+      metadata: { newRole: role },
+      ipAddress: c.req.header('x-forwarded-for') || c.req.header('x-real-ip'),
+      userAgent: c.req.header('user-agent'),
+    });
+
+    return c.json({ user: updatedUser });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    return c.json({ error: message }, 400);
+  }
+});
+
+// Admin: Update user roles
+app.post('/users/:id/roles', authMiddleware, requireRole('ADMIN'), zValidator('json', UpdateUserRolesSchema), async (c) => {
+  try {
+    const currentUser = c.get('user');
+    const id = c.req.param('id');
+    const { roles } = c.req.valid('json');
+
+    const targetUser = await prisma.user.findUnique({ where: { id } });
+    if (!targetUser) {
+      return c.json({ error: 'User not found' }, 404);
+    }
+
+    const activeRole = roles.includes(targetUser.role) ? targetUser.role : roles[0];
+
+    const updatedUser = await prisma.user.update({
+      where: { id },
+      data: { roles, role: activeRole },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        roles: true,
+        isActive: true,
+        avatarUrl: true,
+        createdAt: true,
+      },
+    });
+
+    await activityLogService.logActivity({
+      action: 'UPDATE',
+      resource: 'USER',
+      resourceId: id,
+      description: `${currentUser.name} updated roles for ${updatedUser.name} to [${roles.join(', ')}]`,
+      userId: currentUser.id,
+      metadata: { targetUserId: id, newRoles: roles },
+      ipAddress: c.req.header('x-forwarded-for') || c.req.header('x-real-ip'),
+      userAgent: c.req.header('user-agent'),
+    });
+
+    return c.json({ user: updatedUser });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    return c.json({ error: message }, 400);
   }
 });
 

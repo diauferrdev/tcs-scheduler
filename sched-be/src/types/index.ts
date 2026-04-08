@@ -276,6 +276,16 @@ const BugAttachmentSchema = z.union([
 // Export ticket types
 export * from './ticket.types';
 
+// ==================== ROLE MANAGEMENT ====================
+
+export const SwitchRoleSchema = z.object({
+  role: UserRoleSchema,
+});
+
+export const UpdateUserRolesSchema = z.object({
+  roles: z.array(UserRoleSchema).min(1),
+});
+
 // ==================== TYPE INFERENCE ====================
 
 export type LoginInput = z.infer<typeof LoginSchema>;
@@ -294,3 +304,5 @@ export type UserCreateInput = z.infer<typeof UserCreateSchema>;
 export type UserUpdateInput = z.infer<typeof UserUpdateSchema>;
 export type PasswordChangeInput = z.infer<typeof PasswordChangeSchema>;
 export type ProfileUpdateInput = z.infer<typeof ProfileUpdateSchema>;
+export type SwitchRoleInput = z.infer<typeof SwitchRoleSchema>;
+export type UpdateUserRolesInput = z.infer<typeof UpdateUserRolesSchema>;

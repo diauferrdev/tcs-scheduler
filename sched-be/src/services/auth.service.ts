@@ -38,6 +38,7 @@ export async function login(data: LoginInput) {
         name: displayName,
         passwordHash,
         role: 'USER',
+        roles: ['USER'],
         isActive: true,
         mustChangePassword: true,
       },
@@ -70,6 +71,7 @@ export async function login(data: LoginInput) {
       email: user.email,
       name: user.name,
       role: user.role,
+      roles: user.roles,
       avatarUrl: user.avatarUrl,
       mustChangePassword: user.mustChangePassword,
       createdAt: user.createdAt,
@@ -107,6 +109,7 @@ export async function createUser(email: string, password: string, name: string, 
       passwordHash,
       name,
       role,
+      roles: [role],
     },
   });
 
@@ -115,6 +118,7 @@ export async function createUser(email: string, password: string, name: string, 
     email: user.email,
     name: user.name,
     role: user.role,
+    roles: user.roles,
     avatarUrl: user.avatarUrl,
     createdAt: user.createdAt,
   };
@@ -129,6 +133,7 @@ export async function getAllUsers() {
       email: true,
       name: true,
       role: true,
+      roles: true,
       isActive: true,
       avatarUrl: true,
       createdAt: true,
@@ -190,6 +195,102 @@ export async function resetUserPassword(userId: string, newPassword: string) {
   await prisma.session.deleteMany({
     where: { userId },
   });
+}
+
+export async function switchRole(userId: string, newRole: 'ADMIN' | 'MANAGER' | 'USER') {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+  });
+
+  if (!user) {
+    throw new Error('User not found');
+  }
+
+  if (!user.roles.includes(newRole)) {
+    throw new Error('User does not have access to this role');
+  }
+
+  const updatedUser = await prisma.user.update({
+    where: { id: userId },
+    data: { role: newRole },
+    select: {
+      id: true,
+      email: true,
+      name: true,
+      role: true,
+      roles: true,
+      isActive: true,
+      avatarUrl: true,
+      createdAt: true,
+    },
+  });
+
+  return updatedUser;
+}
+
+export async function addRole(userId: string, role: 'ADMIN' | 'MANAGER' | 'USER') {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+  });
+
+  if (!user) {
+    throw new Error('User not found');
+  }
+
+  if (user.roles.includes(role)) {
+    return user;
+  }
+
+  const updatedUser = await prisma.user.update({
+    where: { id: userId },
+    data: { roles: { push: role } },
+    select: {
+      id: true,
+      email: true,
+      name: true,
+      role: true,
+      roles: true,
+      isActive: true,
+      avatarUrl: true,
+      createdAt: true,
+    },
+  });
+
+  return updatedUser;
+}
+
+export async function removeRole(userId: string, role: 'ADMIN' | 'MANAGER' | 'USER') {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+  });
+
+  if (!user) {
+    throw new Error('User not found');
+  }
+
+  const newRoles = user.roles.filter((r) => r !== role);
+  if (newRoles.length === 0) {
+    throw new Error('Cannot remove the last role');
+  }
+
+  const activeRole = user.role === role ? newRoles[0] : user.role;
+
+  const updatedUser = await prisma.user.update({
+    where: { id: userId },
+    data: { roles: newRoles, role: activeRole },
+    select: {
+      id: true,
+      email: true,
+      name: true,
+      role: true,
+      roles: true,
+      isActive: true,
+      avatarUrl: true,
+      createdAt: true,
+    },
+  });
+
+  return updatedUser;
 }
 
 // User self-service: Change own password
@@ -255,6 +356,7 @@ export async function updateProfile(userId: string, data: ProfileUpdateInput) {
       email: true,
       name: true,
       role: true,
+      roles: true,
       isActive: true,
       avatarUrl: true,
       createdAt: true,
