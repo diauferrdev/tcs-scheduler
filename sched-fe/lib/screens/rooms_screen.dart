@@ -1069,17 +1069,29 @@ class _BookingFormSheetState extends State<_BookingFormSheet> {
       final nextSlot = ((nowMins / 30).ceil()) * 30;
       if (nextSlot > minMinutes) minMinutes = nextSlot;
     }
-    final maxMinutes = isStart ? 19 * 60 + 30 : 20 * 60;
+    final maxMinutes = isStart ? 20 * 60 : 21 * 60;
 
     // Scroll wheel with hours and minutes
     int selectedHour = currentValue.hour;
     int selectedMinute = currentValue.minute;
+
+    // If no valid slots available (e.g. too late today), show message
+    if (minMinutes >= maxMinutes) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No available time slots for this date')),
+      );
+      return;
+    }
 
     // Clamp to valid range
     final currentMins = selectedHour * 60 + selectedMinute;
     if (currentMins < minMinutes) {
       selectedHour = minMinutes ~/ 60;
       selectedMinute = minMinutes % 60;
+    }
+    if (currentMins > maxMinutes) {
+      selectedHour = maxMinutes ~/ 60;
+      selectedMinute = maxMinutes % 60;
     }
 
     showModalBottomSheet(
