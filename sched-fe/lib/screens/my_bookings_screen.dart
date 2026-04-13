@@ -30,6 +30,7 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
   bool _isLoading = true;
   String? _error;
   bool _isLoadingInProgress = false; // Prevent concurrent loads
+  bool _pendingReload = false; // Re-load after current finishes
   int _retryCount = 0;
   static const int _maxRetries = 3;
   // Keep listener references for proper cleanup
@@ -108,7 +109,11 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
   }
 
   Future<void> _loadBookings({bool seamless = false}) async {
-    if (_isLoadingInProgress || !mounted) return;
+    if (!mounted) return;
+    if (_isLoadingInProgress) {
+      _pendingReload = true;
+      return;
+    }
 
     _isLoadingInProgress = true;
 
@@ -178,6 +183,10 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
     } finally {
       if (_retryCount == 0 || _retryCount >= _maxRetries) {
         _isLoadingInProgress = false;
+        if (_pendingReload && mounted) {
+          _pendingReload = false;
+          _loadBookings(seamless: true);
+        }
       }
     }
   }

@@ -390,6 +390,27 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen>
             ),
           ),
         ),
+
+        const SizedBox(height: 24),
+
+        TextButton(
+          onPressed: _loading
+              ? null
+              : () async {
+                  final authProvider = context.read<AuthProvider>();
+                  await authProvider.logout();
+                  if (mounted) {
+                    context.go('/login');
+                  }
+                },
+          child: const Text(
+            'Log out',
+            style: TextStyle(
+              color: Color(0xFF9CA3AF),
+              fontSize: 14,
+            ),
+          ),
+        ),
       ],
     );
   }

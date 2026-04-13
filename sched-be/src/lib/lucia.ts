@@ -12,7 +12,7 @@ export const lucia = new Lucia(adapter, {
     attributes: {
       // Always secure in production
       secure: isProduction,
-      sameSite: 'none',
+      sameSite: isProduction ? 'none' : 'lax',
     },
   },
   getUserAttributes: (attributes) => ({

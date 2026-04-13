@@ -5,7 +5,7 @@ class ApiConfig {
   static const bool isDev = false;
   // ============================================================
 
-  static const String _devUrl = 'http://172.26.187.250:7777';
+  static const String _devUrl = 'http://localhost:7777';
   static const String _prodUrl = 'https://api.pacesched.com';
 
   static const String baseUrl =

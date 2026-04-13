@@ -417,35 +417,63 @@ class BookingFormScreenState extends State<BookingFormScreen> {
 
     setState(() {
       // Step 1: Set engagement type randomly
-      _engagementType = ['PACE_VISIT', 'INNOVATION_EXCHANGE', 'HACKATHON'][random.nextInt(3)];
+      if (_engagementType == null) {
+        _engagementType = ['PACE_VISIT', 'INNOVATION_EXCHANGE', 'HACKATHON'][random.nextInt(3)];
+      }
 
       // Step 2: If PACE_VISIT, set visit type
-      if (_engagementType == 'PACE_VISIT') {
+      if (_engagementType == 'PACE_VISIT' && _visitType == null) {
         _visitType = random.nextBool() ? 'PACE_TOUR' : 'PACE_VISIT_FULLDAY';
       }
 
       // Step 3: Fill base information
-      _requesterNameController.text = mockNames[random.nextInt(mockNames.length)];
-      _employeeIdController.text = '${random.nextInt(900000) + 100000}';
-      _vertical = [
-        'BFSI', 'RETAIL_CPG', 'LIFE_SCIENCES_HEALTHCARE', 'MANUFACTURING',
-        'HI_TECH', 'CMT', 'ERU'
-      ][random.nextInt(7)];
-      _organizationNameController.text = mockCompanies[random.nextInt(mockCompanies.length)];
-      _organizationType = [
-        'EXISTING_CUSTOMER', 'PROSPECT', 'PARTNER'
-      ][random.nextInt(3)];
-      _organizationDescriptionController.text = 'Leading company in their sector';
-      _objectiveInterestController.text = 'Explore digital transformation solutions and innovation capabilities';
-      _targetAudience = ['C-Level', 'Technology Leaders'];
+      if (_requesterNameController.text.isEmpty) {
+        _requesterNameController.text = mockNames[random.nextInt(mockNames.length)];
+      }
+      if (_employeeIdController.text.isEmpty) {
+        _employeeIdController.text = '${random.nextInt(900000) + 100000}';
+      }
+      if (_vertical == null) {
+        _vertical = [
+          'BFSI', 'RETAIL_CPG', 'LIFE_SCIENCES_HEALTHCARE', 'MANUFACTURING',
+          'HI_TECH', 'CMT', 'ERU'
+        ][random.nextInt(7)];
+      }
+      if (_organizationNameController.text.isEmpty) {
+        _organizationNameController.text = mockCompanies[random.nextInt(mockCompanies.length)];
+      }
+      if (_organizationType == null) {
+        _organizationType = [
+          'EXISTING_CUSTOMER', 'PROSPECT', 'PARTNER'
+        ][random.nextInt(3)];
+      }
+      if (_organizationDescriptionController.text.isEmpty) {
+        _organizationDescriptionController.text = 'Leading company in their sector';
+      }
+      if (_objectiveInterestController.text.isEmpty) {
+        _objectiveInterestController.text = 'Explore digital transformation solutions and innovation capabilities';
+      }
+      if (_targetAudience.isEmpty) {
+        _targetAudience = ['EXECUTIVES', 'TECHNICAL_TEAM'];
+      }
 
       // Step 4: Fill questionnaire if needed
       if (_requiresQuestionnaire()) {
-        _questionnaireAnswers['q1'] = 'Cloud migration and AI/ML integration';
-        _questionnaireAnswers['q2'] = 'Digital transformation, customer experience, data analytics';
-        _questionnaireAnswers['q3'] = 'CTO, VP of Engineering, Innovation Director';
-        _questionnaireAnswers['q4'] = 'Technology modernization and scalability challenges';
-        _questionnaireAnswers['q5'] = 'Understanding best practices and real-world use cases';
+        if (_questionnaireAnswers['q1'] == null || _questionnaireAnswers['q1']!.isEmpty) {
+          _questionnaireAnswers['q1'] = 'Cloud migration and AI/ML integration';
+        }
+        if (_questionnaireAnswers['q2'] == null || _questionnaireAnswers['q2']!.isEmpty) {
+          _questionnaireAnswers['q2'] = 'Digital transformation, customer experience, data analytics';
+        }
+        if (_questionnaireAnswers['q3'] == null || _questionnaireAnswers['q3']!.isEmpty) {
+          _questionnaireAnswers['q3'] = 'CTO, VP of Engineering, Innovation Director';
+        }
+        if (_questionnaireAnswers['q4'] == null || _questionnaireAnswers['q4']!.isEmpty) {
+          _questionnaireAnswers['q4'] = 'Technology modernization and scalability challenges';
+        }
+        if (_questionnaireAnswers['q5'] == null || _questionnaireAnswers['q5']!.isEmpty) {
+          _questionnaireAnswers['q5'] = 'Understanding best practices and real-world use cases';
+        }
       }
     });
 
@@ -1328,11 +1356,14 @@ class BookingFormScreenState extends State<BookingFormScreen> {
 
   Widget _buildTargetAudienceMultiSelect(bool isDark) {
     const availableOptions = [
-      'C-Level',
-      'Technology Leaders',
-      'Business Leaders',
-      'Innovation Team',
-      'Technical Team',
+      'EXECUTIVES',
+      'MIDDLE_MANAGEMENT',
+      'TECHNICAL_TEAM',
+      'TRAINEES',
+      'STUDENTS',
+      'CELEBRITIES',
+      'PARTNERS',
+      'OTHER',
     ];
 
     return InkWell(
@@ -1359,7 +1390,7 @@ class BookingFormScreenState extends State<BookingFormScreen> {
                         final isSelected = selectedItems.contains(option);
                         return CheckboxListTile(
                           title: Text(
-                            option,
+                            option.replaceAll('_', ' ').split(' ').map((w) => w[0] + w.substring(1).toLowerCase()).join(' '),
                             style: TextStyle(
                               color: isDark ? Colors.white : Colors.black,
                             ),
@@ -1431,7 +1462,7 @@ class BookingFormScreenState extends State<BookingFormScreen> {
                 children: _targetAudience.map((audience) {
                   return Chip(
                     label: Text(
-                      audience,
+                      audience.replaceAll('_', ' ').split(' ').map((w) => w[0] + w.substring(1).toLowerCase()).join(' '),
                       style: TextStyle(
                         fontSize: 12,
                         color: isDark ? Colors.white : Colors.black,

@@ -1244,7 +1244,7 @@ class _BookingFormSheetState extends State<_BookingFormSheet> {
       'endTime': _formatTime(_endTime),
       'purpose': _purposeController.text.trim(),
       'attendees': attendees,
-      'vertical': _selectedVertical,
+      if (_selectedVertical != null && _selectedVertical!.isNotEmpty) 'vertical': _selectedVertical,
     });
 
     if (mounted) setState(() => _submitting = false);

@@ -1055,29 +1055,40 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
 
   /// Build grid of 12 months for a specific year
   Widget _buildYearGrid(int year, List<String> monthNames, bool isDark, AuthProvider authProvider) {
-    return Column(
-      children: List.generate(4, (rowIndex) {
-        return Expanded(
-          child: Padding(
-            padding: EdgeInsets.only(
-              top: rowIndex == 0 ? 0 : 20,
-              bottom: rowIndex == 3 ? 0 : 20,
-            ),
-            child: Row(
-              children: List.generate(3, (colIndex) {
-                final monthIndex = rowIndex * 3 + colIndex;
-                final month = DateTime(year, monthIndex + 1, 1);
-                return Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    child: _buildCompactMonthForYear(month, monthNames[monthIndex], isDark, authProvider),
-                  ),
-                );
-              }),
-            ),
-          ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isNarrow = constraints.maxWidth < 500;
+        final columns = isNarrow ? 2 : 3;
+        final rows = isNarrow ? 6 : 4;
+        final vGap = isNarrow ? 12.0 : 20.0;
+        final hGap = isNarrow ? 4.0 : 8.0;
+
+        return Column(
+          children: List.generate(rows, (rowIndex) {
+            return Expanded(
+              child: Padding(
+                padding: EdgeInsets.only(
+                  top: rowIndex == 0 ? 0 : vGap,
+                  bottom: rowIndex == rows - 1 ? 0 : vGap,
+                ),
+                child: Row(
+                  children: List.generate(columns, (colIndex) {
+                    final monthIndex = rowIndex * columns + colIndex;
+                    if (monthIndex >= 12) return const Expanded(child: SizedBox());
+                    final month = DateTime(year, monthIndex + 1, 1);
+                    return Expanded(
+                      child: Padding(
+                        padding: EdgeInsets.symmetric(horizontal: hGap),
+                        child: _buildCompactMonthForYear(month, monthNames[monthIndex], isDark, authProvider),
+                      ),
+                    );
+                  }),
+                ),
+              ),
+            );
+          }),
         );
-      }),
+      },
     );
   }
 
@@ -1094,14 +1105,14 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        // Month name - VERY BIG and highlighted if current month - ALIGNED LEFT
+        // Month name - highlighted if current month - ALIGNED LEFT
         Padding(
           padding: const EdgeInsets.only(left: 4, bottom: 4),
           child: Text(
             monthName,
             style: TextStyle(
               fontFamily: 'HouschkaRoundedAlt',
-              fontSize: 28,
+              fontSize: MediaQuery.of(context).size.width < 500 ? 18 : 28,
               fontWeight: FontWeight.w500,
               color: isCurrentMonth
                   ? const Color(0xFFF05E1B)
