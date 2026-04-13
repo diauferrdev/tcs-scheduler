@@ -1060,30 +1060,26 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
         final isNarrow = constraints.maxWidth < 500;
         final columns = isNarrow ? 2 : 3;
         final rows = isNarrow ? 6 : 4;
-        final vGap = isNarrow ? 12.0 : 20.0;
-        final hGap = isNarrow ? 4.0 : 8.0;
+        final hGap = isNarrow ? 2.0 : 6.0;
 
         return Column(
           children: List.generate(rows, (rowIndex) {
             return Expanded(
               child: Padding(
-                padding: EdgeInsets.only(
-                  top: rowIndex == 0 ? 0 : vGap,
-                  bottom: rowIndex == rows - 1 ? 0 : vGap,
-                ),
+                padding: EdgeInsets.symmetric(vertical: isNarrow ? 4.0 : 6.0),
                 child: Row(
-                  children: List.generate(columns, (colIndex) {
-                    final monthIndex = rowIndex * columns + colIndex;
-                    if (monthIndex >= 12) return const Expanded(child: SizedBox());
-                    final month = DateTime(year, monthIndex + 1, 1);
-                    return Expanded(
-                      child: Padding(
-                        padding: EdgeInsets.symmetric(horizontal: hGap),
-                        child: _buildCompactMonthForYear(month, monthNames[monthIndex], isDark, authProvider),
-                      ),
-                    );
-                  }),
-                ),
+                children: List.generate(columns, (colIndex) {
+                  final monthIndex = rowIndex * columns + colIndex;
+                  if (monthIndex >= 12) return const Expanded(child: SizedBox());
+                  final month = DateTime(year, monthIndex + 1, 1);
+                  return Expanded(
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(horizontal: hGap),
+                      child: _buildCompactMonthForYear(month, monthNames[monthIndex], isDark, authProvider),
+                    ),
+                  );
+                }),
+              ),
               ),
             );
           }),
@@ -1101,18 +1097,19 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
     final daysInMonth = lastDayOfMonth.day;
     final isCurrentMonth = month.year == today.year && month.month == today.month;
 
+    final isNarrow = MediaQuery.of(context).size.width < 500;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
       children: [
-        // Month name - highlighted if current month - ALIGNED LEFT
+        // Month name
         Padding(
-          padding: const EdgeInsets.only(left: 4, bottom: 4),
+          padding: EdgeInsets.only(left: 2, bottom: isNarrow ? 1 : 2),
           child: Text(
             monthName,
             style: TextStyle(
               fontFamily: 'HouschkaRoundedAlt',
-              fontSize: MediaQuery.of(context).size.width < 500 ? 18 : 28,
+              fontSize: isNarrow ? 13 : 28,
               fontWeight: FontWeight.w500,
               color: isCurrentMonth
                   ? const Color(0xFFF05E1B)
@@ -1122,7 +1119,7 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
             ),
           ),
         ),
-        // Days grid (up to 6 weeks) - MORE COMPACT
+        // Days grid (up to 6 weeks)
         Expanded(
           child: Column(
             children: List.generate(6, (weekIndex) {
@@ -1183,7 +1180,7 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
                           });
                         } : null,
                         child: Container(
-                          margin: const EdgeInsets.all(1.0),
+                          margin: EdgeInsets.all(isNarrow ? 2.5 : 1.5),
                           child: LayoutBuilder(
                             builder: (context, constraints) {
                               return Stack(
@@ -1197,7 +1194,7 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
                                         '$dayNumber',
                                         style: TextStyle(
                                           fontFamily: 'BasisGrotesquePro',
-                                          fontSize: MediaQuery.of(context).size.width > 800 ? 13 : 9,
+                                          fontSize: isNarrow ? 12 : 14,
                                           height: 1.0,
                                           letterSpacing: 0,
                                           fontWeight: isToday ? FontWeight.w700 : FontWeight.w600,
@@ -1215,11 +1212,11 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
                                     Positioned(
                                       left: 0,
                                       right: 0,
-                                      top: constraints.maxHeight / 2 + 6,
+                                      top: constraints.maxHeight / 2 + (isNarrow ? 4 : 6),
                                       child: Center(
                                         child: Container(
-                                          width: 10,
-                                          height: 1.5,
+                                          width: isNarrow ? 7 : 10,
+                                          height: isNarrow ? 1.0 : 1.5,
                                           decoration: BoxDecoration(
                                             color: indicatorColor,
                                             borderRadius: BorderRadius.circular(0.75),
