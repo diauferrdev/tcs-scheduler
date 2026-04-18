@@ -1068,8 +1068,8 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
         final rows = isNarrow ? 6 : 4;
         final hGap = isNarrow ? 2.0 : 6.0;
 
-        if (constraints.maxHeight < 500) {
-          // Short screen: scrollable with fixed height rows
+        // Always scroll on narrow (mobile) screens, or when height is insufficient
+        if (isNarrow || constraints.maxHeight < 800) {
           final rowHeight = isNarrow ? 130.0 : 150.0;
           return SingleChildScrollView(
             child: Column(
