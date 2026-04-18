@@ -78,9 +78,9 @@ class BookingFlowService {
       isDismissible: true,
       enableDrag: true,
       builder: (context) => DraggableScrollableSheet(
-        initialChildSize: 0.75,
+        initialChildSize: 0.85,
         minChildSize: 0.5,
-        maxChildSize: 0.9,
+        maxChildSize: 0.95,
         builder: (context, scrollController) => EngagementTypeDrawer(
           selectedDate: _selectedDate,
           onNext: (engagementType) {
@@ -115,9 +115,9 @@ class BookingFlowService {
       isDismissible: true,
       enableDrag: true,
       builder: (context) => DraggableScrollableSheet(
-        initialChildSize: 0.75,
+        initialChildSize: 0.85,
         minChildSize: 0.5,
-        maxChildSize: 0.9,
+        maxChildSize: 0.95,
         builder: (context, scrollController) => EngagementTypeDrawer(
           selectedDate: _selectedDate,
           onNext: (engagementType) {

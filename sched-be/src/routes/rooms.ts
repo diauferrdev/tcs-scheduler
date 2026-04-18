@@ -41,11 +41,12 @@ app.get('/', authMiddleware, async (c) => {
     const room = c.req.query('room');
     const status = c.req.query('status');
 
+    const mine = c.req.query('mine');
     const bookings = await roomService.getRoomBookings({
       date: date || undefined,
       room: room || undefined,
       status: status || undefined,
-      bookedById: user.role === 'USER' ? user.id : undefined,
+      bookedById: (user.role === 'USER' || mine === 'true') ? user.id : undefined,
     });
 
     return c.json({ bookings });

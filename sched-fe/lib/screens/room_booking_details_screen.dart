@@ -88,6 +88,31 @@ class _RoomBookingDetailsScreenState extends State<RoomBookingDetailsScreen>
     }
   }
 
+  Future<void> _cancelRoomBooking() async {
+    setState(() => _processing = true);
+    try {
+      await _apiService.post(
+        '/api/rooms/${widget.roomBookingId}/cancel',
+        {},
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Room booking cancelled'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      widget.onClose?.call();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+      );
+    } finally {
+      if (mounted) setState(() => _processing = false);
+    }
+  }
+
   Future<void> _approveBooking() async {
     setState(() => _processing = true);
     try {
@@ -244,6 +269,10 @@ class _RoomBookingDetailsScreenState extends State<RoomBookingDetailsScreen>
     final isPending = status == 'PENDING';
     final canManage =
         isPending && (userRole == UserRole.ADMIN || userRole == UserRole.MANAGER);
+    final userId = authProvider.user?.id;
+    final bookedById = (_roomBooking!['bookedBy'] as Map?)?['id'] ?? _roomBooking!['bookedById'];
+    final isOwner = userId == bookedById;
+    final canCancel = isOwner && (status == 'PENDING' || status == 'APPROVED');
 
     final roomName =
         (_roomBooking!['room'] as String? ?? '').replaceAll('_', ' ');
@@ -381,6 +410,24 @@ class _RoomBookingDetailsScreenState extends State<RoomBookingDetailsScreen>
                   ),
                 ),
               ],
+            ),
+            const SizedBox(height: 16),
+          ],
+
+          // Owner cancel button
+          if (canCancel && !canManage) ...[
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: _processing ? null : _cancelRoomBooking,
+                icon: const Icon(Icons.cancel_outlined, size: 18),
+                label: const Text('Cancel Booking'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.red,
+                  side: const BorderSide(color: Colors.red),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                ),
+              ),
             ),
             const SizedBox(height: 16),
           ],
