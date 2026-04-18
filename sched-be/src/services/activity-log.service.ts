@@ -7,6 +7,7 @@ interface LogActivityInput {
   resourceId?: string;
   description: string;
   userId?: string;
+  activeRole?: string;
   metadata?: any;
   ipAddress?: string;
   userAgent?: string;
@@ -14,6 +15,12 @@ interface LogActivityInput {
 
 export async function logActivity(data: LogActivityInput) {
   try {
+    // Always include activeRole in metadata
+    const metadata = {
+      ...(data.metadata || {}),
+      ...(data.activeRole ? { activeRole: data.activeRole } : {}),
+    };
+
     await prisma.activityLog.create({
       data: {
         action: data.action,
@@ -21,7 +28,7 @@ export async function logActivity(data: LogActivityInput) {
         resourceId: data.resourceId,
         description: data.description,
         userId: data.userId,
-        metadata: data.metadata,
+        metadata: Object.keys(metadata).length > 0 ? metadata : undefined,
         ipAddress: data.ipAddress,
         userAgent: data.userAgent,
       },

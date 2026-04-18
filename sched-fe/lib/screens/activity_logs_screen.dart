@@ -497,13 +497,39 @@ class _ActivityLogsScreenState extends State<ActivityLogsScreen> {
                   ),
                 ),
                 const SizedBox(width: 4),
-                Text(
-                  '(${log.user!.email})',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: isDark ? const Color(0xFF6B7280) : const Color(0xFF9CA3AF),
+                if (log.metadata?['activeRole'] != null) ...[
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                    decoration: BoxDecoration(
+                      color: log.metadata!['activeRole'] == 'ADMIN'
+                          ? (isDark ? const Color(0xFF450A0A) : const Color(0xFFFEE2E2))
+                          : log.metadata!['activeRole'] == 'MANAGER'
+                              ? (isDark ? const Color(0xFF422006) : const Color(0xFFFEF3C7))
+                              : (isDark ? const Color(0xFF052E16) : const Color(0xFFDCFCE7)),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      log.metadata!['activeRole'],
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                        color: log.metadata!['activeRole'] == 'ADMIN'
+                            ? Colors.red
+                            : log.metadata!['activeRole'] == 'MANAGER'
+                                ? Colors.orange
+                                : Colors.green,
+                      ),
+                    ),
                   ),
-                ),
+                ] else ...[
+                  Text(
+                    '@${log.user!.email.split('@').first}',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: isDark ? const Color(0xFF6B7280) : const Color(0xFF9CA3AF),
+                    ),
+                  ),
+                ],
               ],
             ),
           ],
