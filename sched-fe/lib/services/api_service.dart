@@ -171,6 +171,18 @@ class ApiService {
       }
       return decoded as Map<String, dynamic>;
     } else if (response.statusCode == 401) {
+      // Parse error message from 401 response (e.g. pending approval)
+      if (response.body.isNotEmpty) {
+        try {
+          final error = jsonDecode(response.body);
+          final msg = error['error']?.toString() ?? '';
+          if (msg.contains('pending approval') || msg.contains('Account created')) {
+            throw ApiException(msg, 401);
+          }
+        } catch (e) {
+          if (e is ApiException) rethrow;
+        }
+      }
       throw UnauthorizedException();
     } else {
       final error = response.body.isNotEmpty
