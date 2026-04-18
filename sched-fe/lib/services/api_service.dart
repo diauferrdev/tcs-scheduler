@@ -294,6 +294,16 @@ class ApiService {
     return await delete('/api/auth/users/$userId');
   }
 
+  Future<dynamic> getPendingUsers() async {
+    return await get('/api/auth/users/pending');
+  }
+
+  Future<Map<String, dynamic>> approveUser(String userId, List<String> roles) async {
+    return await post('/api/auth/users/$userId/approve', {
+      'roles': roles,
+    });
+  }
+
   Future<Map<String, dynamic>> resetUserPassword(String userId, String newPassword) async {
     return await _client
         .patch(

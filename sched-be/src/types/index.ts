@@ -286,6 +286,10 @@ export const UpdateUserRolesSchema = z.object({
   roles: z.array(UserRoleSchema).min(1),
 });
 
+export const ApproveUserSchema = z.object({
+  roles: z.array(UserRoleSchema).min(1, 'At least one role is required'),
+});
+
 // ==================== TYPE INFERENCE ====================
 
 export type LoginInput = z.infer<typeof LoginSchema>;
@@ -306,3 +310,4 @@ export type PasswordChangeInput = z.infer<typeof PasswordChangeSchema>;
 export type ProfileUpdateInput = z.infer<typeof ProfileUpdateSchema>;
 export type SwitchRoleInput = z.infer<typeof SwitchRoleSchema>;
 export type UpdateUserRolesInput = z.infer<typeof UpdateUserRolesSchema>;
+export type ApproveUserInput = z.infer<typeof ApproveUserSchema>;

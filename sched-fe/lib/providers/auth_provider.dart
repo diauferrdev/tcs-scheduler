@@ -152,6 +152,7 @@ class AuthProvider with ChangeNotifier {
         createdAt: _user!.createdAt,
         avatarUrl: _user!.avatarUrl,
         mustChangePassword: false,
+        isActive: _user!.isActive,
       );
       notifyListeners();
     }

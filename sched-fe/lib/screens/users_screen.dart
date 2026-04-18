@@ -20,6 +20,7 @@ class UsersScreen extends StatefulWidget {
 class _UsersScreenState extends State<UsersScreen> {
   final ApiService _apiService = ApiService();
   List<User> _users = [];
+  List<User> _pendingUsers = [];
   bool _loading = true;
   String? _error;
 
@@ -36,11 +37,25 @@ class _UsersScreenState extends State<UsersScreen> {
         _error = null;
       });
 
-      final response = await _apiService.getUsers();
-      final data = response is List ? response : (response['users'] as List? ?? response['data'] as List? ?? []);
+      final responses = await Future.wait([
+        _apiService.getUsers(),
+        _apiService.getPendingUsers(),
+      ]);
+
+      final usersResponse = responses[0];
+      final pendingResponse = responses[1];
+
+      final usersData = usersResponse is List
+          ? usersResponse
+          : (usersResponse['users'] as List? ?? usersResponse['data'] as List? ?? []);
+
+      final pendingData = pendingResponse is List
+          ? pendingResponse
+          : (pendingResponse['users'] as List? ?? pendingResponse['data'] as List? ?? []);
 
       setState(() {
-        _users = data.map((e) => User.fromJson(e)).toList();
+        _users = usersData.map((e) => User.fromJson(e as Map<String, dynamic>)).toList();
+        _pendingUsers = pendingData.map((e) => User.fromJson(e as Map<String, dynamic>)).toList();
         _loading = false;
       });
     } catch (e) {
@@ -49,6 +64,160 @@ class _UsersScreenState extends State<UsersScreen> {
         _loading = false;
       });
     }
+  }
+
+  void _showApproveDialog(User user) {
+    final currentUserRole = context.read<AuthProvider>().user?.role;
+    final selectedRoles = <UserRole>{UserRole.USER};
+    final isDark = context.read<ThemeProvider>().isDark;
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          backgroundColor: isDark ? const Color(0xFF18181B) : Colors.white,
+          title: Text(
+            'Approve User',
+            style: TextStyle(color: isDark ? Colors.white : Colors.black),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Approve ${user.name} (${user.email})',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Assign Roles',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
+                ),
+              ),
+              const SizedBox(height: 8),
+              ...[
+                if (currentUserRole == UserRole.ADMIN) ...[UserRole.ADMIN, UserRole.MANAGER],
+                UserRole.USER,
+              ].map((role) {
+                final r = role is UserRole ? role : role as UserRole;
+                final isSelected = selectedRoles.contains(r);
+                return CheckboxListTile(
+                  value: isSelected,
+                  onChanged: (checked) {
+                    setDialogState(() {
+                      if (checked == true) {
+                        selectedRoles.add(r);
+                      } else if (selectedRoles.length > 1) {
+                        selectedRoles.remove(r);
+                      }
+                    });
+                  },
+                  title: Text(
+                    r.name,
+                    style: TextStyle(
+                      color: isDark ? Colors.white : Colors.black,
+                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                    ),
+                  ),
+                  activeColor: isDark ? Colors.white : Colors.black,
+                  checkColor: isDark ? Colors.black : Colors.white,
+                  controlAffinity: ListTileControlAffinity.leading,
+                  contentPadding: EdgeInsets.zero,
+                  dense: true,
+                );
+              }),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text(
+                'Cancel',
+                style: TextStyle(color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280)),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(context);
+                _approveUser(user.id, selectedRoles.toList());
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Approve'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _approveUser(String userId, List<UserRole> roles) async {
+    try {
+      await _apiService.approveUser(userId, roles.map((r) => r.name).toList());
+
+      if (mounted) {
+        ToastNotification.show(
+          context,
+          message: 'User approved successfully!',
+          type: ToastType.success,
+        );
+        _loadUsers();
+      }
+    } catch (e) {
+      if (mounted) {
+        ToastNotification.show(
+          context,
+          message: e.toString(),
+          type: ToastType.error,
+        );
+      }
+    }
+  }
+
+  void _showRejectConfirmation(User user) {
+    final isDark = context.read<ThemeProvider>().isDark;
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: isDark ? const Color(0xFF18181B) : Colors.white,
+        title: Text(
+          'Reject User',
+          style: TextStyle(color: isDark ? Colors.white : Colors.black),
+        ),
+        content: Text(
+          'Are you sure you want to reject ${user.name}? This will delete their account.',
+          style: TextStyle(color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280)),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(
+              'Cancel',
+              style: TextStyle(color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280)),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _deleteUser(user.id);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Reject'),
+          ),
+        ],
+      ),
+    );
   }
 
   void _showCreateUserDialog() {
@@ -633,20 +802,23 @@ class _UsersScreenState extends State<UsersScreen> {
                           )
                         : RefreshIndicator(
                             onRefresh: _loadUsers,
-                            child: ListView.builder(
+                            child: ListView(
                               padding: EdgeInsets.symmetric(
                                 horizontal: isMobile ? 16 : 24,
                                 vertical: 8,
                               ),
-                              itemCount: _users.length,
-                              itemBuilder: (context, index) {
-                                return _buildUserCard(
-                                  _users[index],
+                              children: [
+                                if (_pendingUsers.isNotEmpty) ...[
+                                  _buildPendingSection(isDark, isMobile),
+                                  const SizedBox(height: 16),
+                                ],
+                                ..._users.map((user) => _buildUserCard(
+                                  user,
                                   isDark,
                                   isMobile,
                                   currentUser,
-                                );
-                              },
+                                )),
+                              ],
                             ),
                           ),
           ),
@@ -677,6 +849,110 @@ class _UsersScreenState extends State<UsersScreen> {
     );
 
     return widget.skipLayout ? contentWithFab : AppLayout(child: contentWithFab);
+  }
+
+  Widget _buildPendingSection(bool isDark, bool isMobile) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isDark
+            ? Colors.amber.withValues(alpha: 0.05)
+            : Colors.amber.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: Colors.amber.withValues(alpha: 0.3),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.hourglass_top_rounded,
+                size: 20,
+                color: Colors.amber.shade600,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Pending Approval (${_pendingUsers.length})',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: isDark ? Colors.white : Colors.black,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          ..._pendingUsers.map((user) => _buildPendingUserCard(user, isDark)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPendingUserCard(User user, bool isDark) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF18181B) : Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
+        ),
+      ),
+      child: Row(
+        children: [
+          CircleAvatar(
+            radius: 20,
+            backgroundColor: Colors.amber.withValues(alpha: 0.2),
+            child: Text(
+              user.name.isNotEmpty ? user.name[0].toUpperCase() : 'U',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: Colors.amber.shade700,
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  user.name,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: isDark ? Colors.white : Colors.black,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  user.email,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            onPressed: () => _showApproveDialog(user),
+            icon: const Icon(Icons.check_circle_outline, color: Colors.green, size: 22),
+            tooltip: 'Approve',
+          ),
+          IconButton(
+            onPressed: () => _showRejectConfirmation(user),
+            icon: const Icon(Icons.cancel_outlined, color: Colors.red, size: 22),
+            tooltip: 'Reject',
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildUserCard(User user, bool isDark, bool isMobile, User? currentUser) {

@@ -127,7 +127,7 @@ class _AppRouter extends StatefulWidget {
 
 class _AppRouterState extends State<_AppRouter> {
   late final GoRouter _router;
-  bool _showSplash = !kIsWeb; // Only show splash on mobile (web has its own HTML splash)
+  bool _showSplash = false; // Splash animation disabled for now
 
   @override
   void initState() {

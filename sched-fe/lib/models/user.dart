@@ -11,6 +11,7 @@ class User {
   final DateTime createdAt;
   final String? avatarUrl;
   final bool mustChangePassword;
+  final bool isActive;
 
   User({
     required this.id,
@@ -21,6 +22,7 @@ class User {
     required this.createdAt,
     this.avatarUrl,
     this.mustChangePassword = false,
+    this.isActive = true,
   });
 
   factory User.fromJson(Map<String, dynamic> json) {
@@ -44,6 +46,7 @@ class User {
       createdAt: DateTime.parse(json['createdAt'] as String),
       avatarUrl: json['avatarUrl'] as String?,
       mustChangePassword: json['mustChangePassword'] as bool? ?? false,
+      isActive: json['isActive'] as bool? ?? true,
     );
   }
 
@@ -56,6 +59,7 @@ class User {
       'roles': roles.map((r) => r.name).toList(),
       if (avatarUrl != null) 'avatarUrl': avatarUrl,
       'mustChangePassword': mustChangePassword,
+      'isActive': isActive,
     };
   }
 

@@ -39,7 +39,7 @@ export async function login(data: LoginInput) {
         passwordHash,
         role: 'USER',
         roles: ['USER'],
-        isActive: true,
+        isActive: false,
         mustChangePassword: true,
       },
     });
@@ -48,7 +48,7 @@ export async function login(data: LoginInput) {
   }
 
   if (!user.isActive) {
-    throw new Error('User is inactive');
+    throw new Error('Your account is pending approval by an administrator.');
   }
 
   const validPassword = await verify(user.passwordHash, data.password, {
@@ -278,6 +278,63 @@ export async function removeRole(userId: string, role: 'ADMIN' | 'MANAGER' | 'US
   const updatedUser = await prisma.user.update({
     where: { id: userId },
     data: { roles: newRoles, role: activeRole },
+    select: {
+      id: true,
+      email: true,
+      name: true,
+      role: true,
+      roles: true,
+      isActive: true,
+      avatarUrl: true,
+      createdAt: true,
+    },
+  });
+
+  return updatedUser;
+}
+
+export async function getPendingUsers() {
+  const users = await prisma.user.findMany({
+    where: { isActive: false },
+    select: {
+      id: true,
+      email: true,
+      name: true,
+      role: true,
+      roles: true,
+      isActive: true,
+      avatarUrl: true,
+      createdAt: true,
+    },
+    orderBy: { createdAt: 'desc' },
+  });
+
+  return users;
+}
+
+export async function approveUser(userId: string, roles: Array<'ADMIN' | 'MANAGER' | 'USER'>) {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+  });
+
+  if (!user) {
+    throw new Error('User not found');
+  }
+
+  if (user.isActive) {
+    throw new Error('User is already active');
+  }
+
+  const roleHierarchy: Record<string, number> = { ADMIN: 3, MANAGER: 2, USER: 1 };
+  const highestRole = roles.sort((a, b) => roleHierarchy[b] - roleHierarchy[a])[0];
+
+  const updatedUser = await prisma.user.update({
+    where: { id: userId },
+    data: {
+      isActive: true,
+      roles,
+      role: highestRole,
+    },
     select: {
       id: true,
       email: true,

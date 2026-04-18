@@ -25,7 +25,7 @@ app.post('/', authMiddleware, zValidator('json', RoomBookingCreateSchema), async
   try {
     const user = c.get('user');
     const data = c.req.valid('json');
-    const booking = await roomService.createRoomBooking(data, user.id);
+    const booking = await roomService.createRoomBooking(data, user.id, user.role);
     return c.json(booking, 201);
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Unknown error';

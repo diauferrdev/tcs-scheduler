@@ -299,6 +299,11 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
 
   /// Check if a date is valid for booking (at least 7 business days from today)
   bool _isDateBookable(DateTime date) {
+    final userRole = context.read<AuthProvider>().user?.role;
+    // MANAGER and ADMIN can book past dates (to register historical events)
+    if (userRole == UserRole.MANAGER || userRole == UserRole.ADMIN) {
+      return !_isWeekend(date);
+    }
     final minDate = _getMinimumBookableDate();
     return !date.isBefore(minDate) && !_isWeekend(date);
   }
@@ -803,11 +808,12 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
     final wrapped = widget.skipLayout ? content : AppLayout(child: content);
 
     // Determine if FAB should be shown
+    final userRole = authProvider.user?.role;
+    final isManagerOrAdmin = userRole == UserRole.MANAGER || userRole == UserRole.ADMIN;
     final canCreateBooking = _selectedDate != null &&
-        authProvider.user?.role != UserRole.ADMIN &&
         _isDateBookable(_selectedDate!) &&
-        _getAvailableSlots(_selectedDate!).isNotEmpty &&
-        _selectedTab != 'Year'; // Hide button in Year view
+        (isManagerOrAdmin || _getAvailableSlots(_selectedDate!).isNotEmpty) &&
+        _selectedTab != 'Year';
 
     return Stack(
       children: [

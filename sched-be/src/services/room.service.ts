@@ -8,7 +8,7 @@ const ALL_ROOMS = RoomTypeSchema.options;
 
 // ==================== CREATE ====================
 
-export async function createRoomBooking(data: RoomBookingCreateInput, bookedById: string) {
+export async function createRoomBooking(data: RoomBookingCreateInput, bookedById: string, bookerRole?: string) {
   // Check for time overlap with APPROVED or PENDING bookings on the same room and date
   const conflicting = await prisma.roomBooking.findFirst({
     where: {
@@ -26,6 +26,7 @@ export async function createRoomBooking(data: RoomBookingCreateInput, bookedById
     throw new Error(`Room is already booked from ${conflicting.startTime} to ${conflicting.endTime} (${conflicting.status.toLowerCase()})`);
   }
 
+  const isPrivileged = bookerRole === 'MANAGER' || bookerRole === 'ADMIN';
   const booking = await prisma.roomBooking.create({
     data: {
       room: data.room,
@@ -36,6 +37,8 @@ export async function createRoomBooking(data: RoomBookingCreateInput, bookedById
       attendees: data.attendees,
       vertical: data.vertical,
       bookedById,
+      status: isPrivileged ? 'APPROVED' : 'PENDING',
+      ...(isPrivileged ? { approvedById: bookedById, approvedAt: new Date() } : {}),
     },
     include: {
       bookedBy: { select: { id: true, name: true, email: true } },

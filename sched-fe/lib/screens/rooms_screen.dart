@@ -2,7 +2,10 @@ import 'dart:async';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 import '../models/room_booking.dart';
+import '../models/user.dart';
+import '../providers/auth_provider.dart';
 import '../services/api_service.dart';
 
 class RoomsScreen extends StatefulWidget {
@@ -282,20 +285,23 @@ class _RoomsScreenState extends State<RoomsScreen> {
               final isSelected = _isSameDay(date, _selectedDate);
               final isToday = _isSameDay(date, today);
               final isPast = date.isBefore(DateTime(today.year, today.month, today.day));
+              final userRole = context.read<AuthProvider>().user?.role;
+              final canAccessPast = userRole == UserRole.MANAGER || userRole == UserRole.ADMIN;
+              final isDisabled = isPast && !canAccessPast;
 
               return GestureDetector(
-                onTap: isPast ? null : () {
+                onTap: isDisabled ? null : () {
                   setState(() => _selectedDate = date);
                   _loadAvailability();
                 },
                 child: Opacity(
-                  opacity: isPast ? 0.3 : 1.0,
+                  opacity: isDisabled ? 0.3 : 1.0,
                   child: AnimatedContainer(
                   duration: const Duration(milliseconds: 200),
                   padding:
                       const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   decoration: BoxDecoration(
-                    color: isSelected && !isPast
+                    color: isSelected && !isDisabled
                         ? (isDark ? Colors.white : Colors.black)
                         : Colors.transparent,
                     borderRadius: BorderRadius.circular(12),

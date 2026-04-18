@@ -21,6 +21,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
   bool _loading = false;
   bool _biometricAvailable = false;
   bool _biometricEnabled = false;
+  bool _showPendingApproval = false;
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
@@ -116,7 +117,12 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
       }
     } catch (e) {
       if (mounted) {
-        ToastNotification.show(context, message: 'Biometric login failed: ${e.toString()}', type: ToastType.error);
+        final errorMsg = e.toString();
+        if (errorMsg.contains('pending approval')) {
+          setState(() => _showPendingApproval = true);
+        } else {
+          ToastNotification.show(context, message: 'Biometric login failed: $errorMsg', type: ToastType.error);
+        }
       }
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -181,11 +187,16 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
       }
     } catch (e) {
       if (mounted) {
-        ToastNotification.show(
-          context,
-          message: e.toString(),
-          type: ToastType.error,
-        );
+        final errorMsg = e.toString();
+        if (errorMsg.contains('pending approval')) {
+          setState(() => _showPendingApproval = true);
+        } else {
+          ToastNotification.show(
+            context,
+            message: errorMsg,
+            type: ToastType.error,
+          );
+        }
       }
     } finally {
       if (mounted) {
@@ -208,13 +219,91 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                 position: _slideAnimation,
                 child: Container(
                   constraints: const BoxConstraints(maxWidth: 448),
-                  child: _buildLoginForm(),
+                  child: _showPendingApproval
+                      ? _buildPendingApproval()
+                      : _buildLoginForm(),
                 ),
               ),
             ),
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildPendingApproval() {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        SvgPicture.asset('assets/logos/pace-scheduler-logo-w.svg', height: 24),
+        const SizedBox(height: 32),
+        Container(
+          padding: const EdgeInsets.all(32),
+          decoration: BoxDecoration(
+            color: const Color(0xFF18181B),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: const Color(0xFF27272A)),
+          ),
+          child: Column(
+            children: [
+              Container(
+                width: 64,
+                height: 64,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.amber.withValues(alpha: 0.1),
+                  border: Border.all(color: Colors.amber.withValues(alpha: 0.3)),
+                ),
+                child: const Icon(
+                  Icons.hourglass_top_rounded,
+                  color: Colors.amber,
+                  size: 32,
+                ),
+              ),
+              const SizedBox(height: 24),
+              const Text(
+                'Account Pending Approval',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
+                ),
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'Your account has been created successfully. An administrator will review and approve your access shortly.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Color(0xFF9CA3AF),
+                  height: 1.5,
+                ),
+              ),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                height: 44,
+                child: OutlinedButton(
+                  onPressed: () {
+                    setState(() => _showPendingApproval = false);
+                  },
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.white,
+                    side: const BorderSide(color: Color(0xFF27272A)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  child: const Text(
+                    'Back to Login',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
@@ -254,7 +343,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                             enabled: !_loading,
                             style: const TextStyle(color: Colors.white),
                             decoration: InputDecoration(
-                              hintText: 'diego.ferreira',
+                              hintText: 'first.last',
                               hintStyle: const TextStyle(
                                 color: Color(0xFF6B7280),
                               ),
@@ -292,7 +381,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                           ),
                           const SizedBox(height: 4),
                           const Text(
-                            'Enter your username (e.g. first.last)',
+                            'Use the first part of your business email',
                             style: TextStyle(
                               fontSize: 12,
                               color: Color(0xFF6B7280),

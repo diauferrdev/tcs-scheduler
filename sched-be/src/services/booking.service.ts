@@ -666,7 +666,7 @@ export async function checkAvailability(date: string, visitType?: string) {
   };
 }
 
-export async function createBooking(data: BookingCreateInput, createdById?: string) {
+export async function createBooking(data: BookingCreateInput, createdById?: string, creatorRole?: string) {
   const bookingDate = new Date(data.date);
 
   // 1. Block weekends
@@ -807,10 +807,15 @@ export async function createBooking(data: BookingCreateInput, createdById?: stri
     },
   });
 
-  // Automatically transition from CREATED to UNDER_REVIEW
+  // Auto-approve for MANAGER/ADMIN, otherwise transition to UNDER_REVIEW
+  const isPrivileged = creatorRole === 'MANAGER' || creatorRole === 'ADMIN';
+  const newStatus = isPrivileged ? 'APPROVED' : 'UNDER_REVIEW';
   const updatedBooking = await prisma.booking.update({
       where: { id: booking.id },
-      data: { status: 'UNDER_REVIEW' },
+      data: {
+        status: newStatus,
+        ...(isPrivileged ? { approvedById: createdById, approvedAt: new Date() } : {}),
+      },
       include: {
         createdBy: {
           select: {

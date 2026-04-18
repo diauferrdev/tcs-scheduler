@@ -68,7 +68,7 @@ app.post('/', authMiddleware, zValidator('json', BookingCreateSchema), async (c)
   try {
     const user = c.get('user');
     const data = c.req.valid('json');
-    const booking = await bookingService.createBooking(data, user.id);
+    const booking = await bookingService.createBooking(data, user.id, user.role);
 
     // NOTE: Notification sent via notifyAllManagers() in booking.service.ts
     // This avoids duplicate notifications

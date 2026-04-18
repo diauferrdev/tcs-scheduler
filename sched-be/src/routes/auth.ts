@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
 import { setCookie, deleteCookie } from 'hono/cookie';
-import { LoginSchema, UserCreateSchema, PasswordChangeSchema, ProfileUpdateSchema, SwitchRoleSchema, UpdateUserRolesSchema } from '../types';
+import { LoginSchema, UserCreateSchema, PasswordChangeSchema, ProfileUpdateSchema, SwitchRoleSchema, UpdateUserRolesSchema, ApproveUserSchema } from '../types';
 import * as authService from '../services/auth.service';
 import * as activityLogService from '../services/activity-log.service';
 import { authMiddleware, requireRole } from '../middleware/auth';
@@ -327,6 +327,59 @@ app.post('/users/:id/roles', authMiddleware, requireRole('ADMIN'), zValidator('j
       description: `${currentUser.name} updated roles for ${updatedUser.name} to [${roles.join(', ')}]`,
       userId: currentUser.id,
       metadata: { targetUserId: id, newRoles: roles },
+      ipAddress: c.req.header('x-forwarded-for') || c.req.header('x-real-ip'),
+      userAgent: c.req.header('user-agent'),
+    });
+
+    return c.json({ user: updatedUser });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    return c.json({ error: message }, 400);
+  }
+});
+
+// Get pending users (waiting for approval)
+app.get('/users/pending', authMiddleware, async (c) => {
+  try {
+    const currentUser = c.get('user');
+
+    if (currentUser.role !== 'ADMIN' && currentUser.role !== 'MANAGER') {
+      return c.json({ error: 'Unauthorized' }, 403);
+    }
+
+    const pendingUsers = await authService.getPendingUsers();
+    return c.json(pendingUsers);
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    return c.json({ error: message }, 500);
+  }
+});
+
+// Approve a pending user
+app.post('/users/:id/approve', authMiddleware, zValidator('json', ApproveUserSchema), async (c) => {
+  try {
+    const currentUser = c.get('user');
+    const id = c.req.param('id');
+    const { roles } = c.req.valid('json');
+
+    if (currentUser.role !== 'ADMIN' && currentUser.role !== 'MANAGER') {
+      return c.json({ error: 'Unauthorized' }, 403);
+    }
+
+    // MANAGER cannot assign ADMIN role
+    if (currentUser.role === 'MANAGER' && roles.includes('ADMIN')) {
+      return c.json({ error: 'Managers cannot assign ADMIN role' }, 403);
+    }
+
+    const updatedUser = await authService.approveUser(id, roles);
+
+    await activityLogService.logActivity({
+      action: 'UPDATE',
+      resource: 'USER',
+      resourceId: id,
+      description: `${currentUser.name} approved user ${updatedUser.name} with roles [${roles.join(', ')}]`,
+      userId: currentUser.id,
+      metadata: { approvedUserId: id, assignedRoles: roles },
       ipAddress: c.req.header('x-forwarded-for') || c.req.header('x-real-ip'),
       userAgent: c.req.header('user-agent'),
     });
