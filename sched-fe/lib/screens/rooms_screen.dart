@@ -84,10 +84,16 @@ class _RoomsScreenState extends State<RoomsScreen> {
     }
   }
 
-  List<DateTime> _getWeekDates() {
+  int _weekOffset = 0;
+
+  List<DateTime> _getWeekDates([int offset = 0]) {
     final now = DateTime.now();
-    final startOfWeek = now.subtract(Duration(days: now.weekday - 1));
+    final startOfWeek = now.subtract(Duration(days: now.weekday - 1)).add(Duration(days: offset * 7));
     return List.generate(7, (i) => startOfWeek.add(Duration(days: i)));
+  }
+
+  bool _isWeekend(DateTime date) {
+    return date.weekday == DateTime.saturday || date.weekday == DateTime.sunday;
   }
 
   bool _isSameDay(DateTime a, DateTime b) {
@@ -229,7 +235,7 @@ class _RoomsScreenState extends State<RoomsScreen> {
   }
 
   Widget _buildDateSelector(bool isDark) {
-    final weekDates = _getWeekDates();
+    final weekDates = _getWeekDates(_weekOffset);
     final today = DateTime.now();
 
     return Container(
@@ -279,9 +285,39 @@ class _RoomsScreenState extends State<RoomsScreen> {
             ],
           ),
           const SizedBox(height: 12),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: weekDates.map((date) {
+          // Week navigation with swipe
+          GestureDetector(
+            onHorizontalDragEnd: (details) {
+              if (details.primaryVelocity != null) {
+                setState(() {
+                  if (details.primaryVelocity! < 0) {
+                    _weekOffset++;
+                  } else if (details.primaryVelocity! > 0 && _weekOffset > 0) {
+                    _weekOffset--;
+                  }
+                  // Auto-select first weekday of new week
+                  final newWeek = _getWeekDates(_weekOffset);
+                  final firstWeekday = newWeek.firstWhere((d) => !_isWeekend(d), orElse: () => newWeek.first);
+                  _selectedDate = firstWeekday;
+                });
+                _loadAvailability();
+              }
+            },
+            child: Row(
+              children: [
+                // Previous week arrow
+                GestureDetector(
+                  onTap: _weekOffset > 0 ? () {
+                    setState(() {
+                      _weekOffset--;
+                      final newWeek = _getWeekDates(_weekOffset);
+                      _selectedDate = newWeek.firstWhere((d) => !_isWeekend(d), orElse: () => newWeek.first);
+                    });
+                    _loadAvailability();
+                  } : null,
+                  child: Icon(Icons.chevron_left, size: 20, color: _weekOffset > 0 ? (isDark ? Colors.white : Colors.black) : Colors.transparent),
+                ),
+                ...weekDates.where((date) => !_isWeekend(date)).map((date) {
               final isSelected = _isSameDay(date, _selectedDate);
               final isToday = _isSameDay(date, today);
               final isPast = date.isBefore(DateTime(today.year, today.month, today.day));
@@ -289,7 +325,7 @@ class _RoomsScreenState extends State<RoomsScreen> {
               final canAccessPast = userRole == UserRole.MANAGER || userRole == UserRole.ADMIN;
               final isDisabled = isPast && !canAccessPast;
 
-              return GestureDetector(
+              return Expanded(child: GestureDetector(
                 onTap: isDisabled ? null : () {
                   setState(() => _selectedDate = date);
                   _loadAvailability();
@@ -299,7 +335,7 @@ class _RoomsScreenState extends State<RoomsScreen> {
                   child: AnimatedContainer(
                   duration: const Duration(milliseconds: 200),
                   padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
                   decoration: BoxDecoration(
                     color: isSelected && !isDisabled
                         ? (isDark ? Colors.white : Colors.black)
@@ -340,8 +376,22 @@ class _RoomsScreenState extends State<RoomsScreen> {
                   ),
                 ),
                 ),
-              );
+              ));
             }).toList(),
+                // Next week arrow
+                GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      _weekOffset++;
+                      final newWeek = _getWeekDates(_weekOffset);
+                      _selectedDate = newWeek.firstWhere((d) => !_isWeekend(d), orElse: () => newWeek.first);
+                    });
+                    _loadAvailability();
+                  },
+                  child: Icon(Icons.chevron_right, size: 20, color: isDark ? Colors.white : Colors.black),
+                ),
+              ],
+            ),
           ),
         ],
       ),
