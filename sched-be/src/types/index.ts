@@ -184,6 +184,7 @@ export const BookingGuestCreateSchema = BookingBaseSchema.extend({
 
 export const BookingUpdateSchema = BookingBaseSchema.partial().extend({
   status: BookingStatusSchema.optional(),
+  reviewReason: z.string().nullable().optional(),
 });
 
 // ==================== STATUS CHANGE SCHEMAS ====================

@@ -166,6 +166,7 @@ class Booking {
   final VisitDuration duration;
   final VisitType visitType;
   final BookingStatus status;
+  final String? reviewReason;
 
   // Multi-day & buffer
   final int totalDays;
@@ -262,6 +263,7 @@ class Booking {
     required this.duration,
     required this.visitType,
     required this.status,
+    this.reviewReason,
     this.totalDays = 1,
     this.bufferBefore = 0,
     this.bufferAfter = 0,
@@ -340,6 +342,7 @@ class Booking {
       status: BookingStatus.values.firstWhere(
         (e) => e.name == json['status'],
       ),
+      reviewReason: json['reviewReason'] as String?,
       totalDays: json['totalDays'] as int? ?? 1,
       bufferBefore: json['bufferBefore'] as int? ?? 0,
       bufferAfter: json['bufferAfter'] as int? ?? 0,

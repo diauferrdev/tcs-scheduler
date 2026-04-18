@@ -54,6 +54,32 @@ class _BookingCardState extends State<BookingCard> with SingleTickerProviderStat
     super.dispose();
   }
 
+  Widget _buildReviewReasonBadge(String reason) {
+    final (label, color) = switch (reason) {
+      'NEW' => ('New', const Color(0xFF22C55E)),
+      'RESCHEDULED' => ('Rescheduled', const Color(0xFF3B82F6)),
+      'DATA_EDITED' => ('Edited', const Color(0xFFF97316)),
+      'EDIT_RESPONSE' => ('Edit Response', const Color(0xFFF97316)),
+      _ => (reason, Colors.grey),
+    };
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.w600,
+          color: color,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -115,7 +141,12 @@ class _BookingCardState extends State<BookingCard> with SingleTickerProviderStat
                         softWrap: false,
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: 8),
+                    // Review reason badge
+                    if (widget.booking.reviewReason != null)
+                      _buildReviewReasonBadge(widget.booking.reviewReason!),
+                    if (widget.booking.reviewReason != null)
+                      const SizedBox(width: 8),
                     // Date and time
                     Text(
                       '${DateFormat('MMM d').format(widget.booking.date)} • ${widget.booking.startTime}',

@@ -815,6 +815,7 @@ export async function createBooking(data: BookingCreateInput, createdById?: stri
       where: { id: booking.id },
       data: {
         status: newStatus,
+        reviewReason: isPrivileged ? null : 'NEW',
         ...(isPrivileged ? { approvedById: createdById, approvedAt: new Date() } : {}),
       },
       include: {
@@ -1798,6 +1799,7 @@ export async function userRescheduleBooking(
       startTime: newStartTime,
       duration: effectiveDuration,
       status: 'UNDER_REVIEW', // Back to review after user reschedules
+      reviewReason: 'RESCHEDULED',
       rescheduleRequestMessage: null, // Clear the message
     },
     include: {
@@ -1843,6 +1845,7 @@ export async function updateBookingWithStatusTransition(id: string, data: Bookin
   let updateData = { ...data };
   if (originalBooking.status === 'NEED_EDIT' && userId === originalBooking.createdById) {
     updateData.status = 'UNDER_REVIEW';
+    updateData.reviewReason = 'EDIT_RESPONSE';
     updateData.editRequestMessage = null; // Clear the edit request message
   }
 

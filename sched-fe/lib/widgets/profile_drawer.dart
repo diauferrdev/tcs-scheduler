@@ -52,6 +52,9 @@ class _ProfileDrawerState extends State<ProfileDrawer> {
   // Role switching
   bool _switchingRole = false;
 
+  // Logout
+  bool _loggingOut = false;
+
   @override
   void initState() {
     super.initState();
@@ -319,6 +322,7 @@ class _ProfileDrawerState extends State<ProfileDrawer> {
     );
 
     if (confirmed == true && mounted) {
+      setState(() => _loggingOut = true);
       final authProvider = context.read<AuthProvider>();
       await authProvider.logout();
     }
@@ -851,74 +855,87 @@ class _ProfileDrawerState extends State<ProfileDrawer> {
                     const SizedBox(height: 24),
 
                     // Logout Button
-                    Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        onTap: _handleLogout,
-                        borderRadius: BorderRadius.circular(16),
-                        child: Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: isDark ? const Color(0xFF27272A) : Colors.white,
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(
-                              color: Colors.red.withValues(alpha: 0.2),
-                              width: 1,
+                    AnimatedOpacity(
+                      opacity: _loggingOut ? 0.6 : 1.0,
+                      duration: const Duration(milliseconds: 200),
+                      child: Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          onTap: _loggingOut ? null : _handleLogout,
+                          borderRadius: BorderRadius.circular(16),
+                          child: Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: isDark ? const Color(0xFF27272A) : Colors.white,
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(
+                                color: Colors.red.withValues(alpha: 0.2),
+                                width: 1,
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.red.withValues(alpha: 0.05),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
                             ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.red.withValues(alpha: 0.05),
-                                blurRadius: 8,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
-                          ),
-                          child: Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(11),
-                                decoration: BoxDecoration(
-                                  color: Colors.red.withValues(alpha: 0.12),
-                                  borderRadius: BorderRadius.circular(12),
+                            child: Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(11),
+                                  decoration: BoxDecoration(
+                                    color: Colors.red.withValues(alpha: 0.12),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: _loggingOut
+                                      ? const SizedBox(
+                                          width: 22,
+                                          height: 22,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                            valueColor: AlwaysStoppedAnimation<Color>(Colors.red),
+                                          ),
+                                        )
+                                      : const Icon(
+                                          Icons.logout_rounded,
+                                          size: 22,
+                                          color: Colors.red,
+                                        ),
                                 ),
-                                child: const Icon(
-                                  Icons.logout_rounded,
-                                  size: 22,
-                                  color: Colors.red,
-                                ),
-                              ),
-                              const SizedBox(width: 14),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'Logout',
-                                      style: TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w700,
-                                        color: isDark ? Colors.white : Colors.black,
-                                        letterSpacing: -0.2,
+                                const SizedBox(width: 14),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        _loggingOut ? 'Logging out...' : 'Logout',
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w700,
+                                          color: isDark ? Colors.white : Colors.black,
+                                          letterSpacing: -0.2,
+                                        ),
                                       ),
-                                    ),
-                                    const SizedBox(height: 2),
-                                    Text(
-                                      'Sign out of your account',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: isDark ? Colors.grey[500] : Colors.grey[600],
-                                        letterSpacing: -0.1,
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        'Sign out of your account',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: isDark ? Colors.grey[500] : Colors.grey[600],
+                                          letterSpacing: -0.1,
+                                        ),
                                       ),
-                                    ),
-                                  ],
+                                    ],
+                                  ),
                                 ),
-                              ),
-                              Icon(
-                                Icons.chevron_right_rounded,
-                                color: isDark ? Colors.grey[600] : Colors.grey[400],
-                                size: 24,
-                              ),
-                            ],
+                                Icon(
+                                  Icons.chevron_right_rounded,
+                                  color: isDark ? Colors.grey[600] : Colors.grey[400],
+                                  size: 24,
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       ),

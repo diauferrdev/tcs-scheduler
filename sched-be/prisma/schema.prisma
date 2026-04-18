@@ -155,6 +155,7 @@ model Booking {
   engagementType  EngagementType @default(PACE_VISIT)
   visitType       VisitType      @default(PACE_TOUR)
   status          BookingStatus  @default(CREATED)
+  reviewReason    String?        // e.g. "NEW", "DATE_CHANGED", "DATA_EDITED", "RESCHEDULED", "EDIT_RESPONSE"
 
   // Multi-day event support
   endDate         DateTime?      @db.Date       // End date for multi-day events (null = single-day)

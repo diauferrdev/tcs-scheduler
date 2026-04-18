@@ -181,6 +181,7 @@ app.patch('/:id', authMiddleware, zValidator('json', BookingUpdateSchema), async
     // When owner edits, set status back to UNDER_REVIEW for re-approval
     if (isUserEditing && !data.status) {
       data.status = 'UNDER_REVIEW';
+      data.reviewReason = 'DATA_EDITED';
     }
 
     const booking = await bookingService.updateBooking(id, data);
