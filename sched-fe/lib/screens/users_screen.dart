@@ -101,10 +101,10 @@ class _UsersScreenState extends State<UsersScreen> {
               ),
               const SizedBox(height: 8),
               ...[
-                if (currentUserRole == UserRole.ADMIN) ...[UserRole.ADMIN, UserRole.MANAGER],
+                if (currentUserRole == UserRole.ADMIN) UserRole.ADMIN,
+                if (currentUserRole == UserRole.ADMIN || currentUserRole == UserRole.MANAGER) UserRole.MANAGER,
                 UserRole.USER,
-              ].map((role) {
-                final r = role is UserRole ? role : role as UserRole;
+              ].map((r) {
                 final isSelected = selectedRoles.contains(r);
                 return CheckboxListTile(
                   value: isSelected,
