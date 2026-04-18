@@ -1783,10 +1783,13 @@ export async function userRescheduleBooking(
     }
   }
 
-  // Update booking with new date/time and set status to UNDER_REVIEW
+  // Save previous date/time before updating
   const updatedBooking = await prisma.booking.update({
     where: { id: bookingId },
     data: {
+      previousDate: booking.date,
+      previousStartTime: booking.startTime,
+      previousDuration: booking.duration,
       date: new Date(newDate),
       startTime: newStartTime,
       duration: effectiveDuration,

@@ -214,6 +214,11 @@ model Booking {
   rejectedBy      User?         @relation("RejectedBy", fields: [rejectedById], references: [id])
   rejectedAt      DateTime?
 
+  // Reschedule history (previous date/time before reschedule)
+  previousDate      DateTime?
+  previousStartTime String?
+  previousDuration  String?
+
   // Status Change Messages
   editRequestMessage String?    @db.Text  // Message when requesting edit
   rescheduleRequestMessage String? @db.Text  // Message when requesting reschedule

@@ -224,6 +224,10 @@ class Booking {
   final String? rejectedById;
   final DateTime? rejectedAt;
 
+  // Reschedule history
+  final DateTime? previousDate;
+  final String? previousStartTime;
+
   // Status Change Messages
   final String? editRequestMessage;
   final String? rescheduleRequestMessage;
@@ -297,6 +301,8 @@ class Booking {
     this.rejectionReason,
     this.rejectedById,
     this.rejectedAt,
+    this.previousDate,
+    this.previousStartTime,
     this.editRequestMessage,
     this.rescheduleRequestMessage,
     this.cancellationReason,
@@ -401,6 +407,8 @@ class Booking {
       rejectedAt: json['rejectedAt'] != null
           ? DateTime.parse(json['rejectedAt'] as String)
           : null,
+      previousDate: json['previousDate'] != null ? DateTime.parse(json['previousDate'] as String) : null,
+      previousStartTime: json['previousStartTime'] as String?,
       editRequestMessage: json['editRequestMessage'] as String?,
       rescheduleRequestMessage: json['rescheduleRequestMessage'] as String?,
       cancellationReason: json['cancellationReason'] as String?,

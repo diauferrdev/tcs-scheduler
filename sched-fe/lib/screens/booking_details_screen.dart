@@ -1360,7 +1360,25 @@ Enterprise Office Visit Management
               DateFormat('EEEE, MMMM d, yyyy').format(_booking!.date),
               isDark,
             ),
+            if (_booking!.previousDate != null) ...[
+              _buildInfoRow(
+                Icons.history,
+                'Previous Date',
+                DateFormat('MMM d, yyyy').format(_booking!.previousDate!),
+                isDark,
+                strikethrough: true,
+              ),
+            ],
             _buildInfoRow(Icons.access_time, 'Time', _booking!.startTime, isDark),
+            if (_booking!.previousStartTime != null) ...[
+              _buildInfoRow(
+                Icons.history,
+                'Previous Time',
+                _booking!.previousStartTime!,
+                isDark,
+                strikethrough: true,
+              ),
+            ],
             _buildInfoRow(
               Icons.timer,
               'Duration',
@@ -1878,16 +1896,20 @@ Enterprise Office Visit Management
     );
   }
 
-  Widget _buildInfoRow(IconData icon, String label, String value, bool isDark) {
+  Widget _buildInfoRow(IconData icon, String label, String value, bool isDark, {bool strikethrough = false}) {
+    final valueColor = strikethrough
+        ? (isDark ? Colors.grey[600]! : Colors.grey[400]!)
+        : (isDark ? Colors.white : Colors.black);
+
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
+      padding: EdgeInsets.symmetric(vertical: strikethrough ? 2 : 8),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Icon(
             icon,
-            size: 20,
-            color: isDark ? Colors.grey[400] : Colors.grey[600],
+            size: strikethrough ? 16 : 20,
+            color: isDark ? Colors.grey[600] : Colors.grey[400],
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -1897,17 +1919,19 @@ Enterprise Office Visit Management
                 Text(
                   label,
                   style: TextStyle(
-                    fontSize: 12,
-                    color: isDark ? Colors.grey[500] : Colors.grey[600],
+                    fontSize: strikethrough ? 11 : 12,
+                    color: isDark ? Colors.grey[600] : Colors.grey[500],
                   ),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   value,
                   style: TextStyle(
-                    fontSize: 14,
+                    fontSize: strikethrough ? 13 : 14,
                     fontWeight: FontWeight.w500,
-                    color: isDark ? Colors.white : Colors.black,
+                    color: valueColor,
+                    decoration: strikethrough ? TextDecoration.lineThrough : null,
+                    decorationColor: valueColor,
                   ),
                 ),
               ],
