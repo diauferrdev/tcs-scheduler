@@ -761,12 +761,12 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
                           color: isDark ? Colors.black : Colors.white,
                           borderRadius: BorderRadius.circular(16),
                         ),
-                        padding: const EdgeInsets.only(left: 0, right: 12, top: 12, bottom: 12),
+                        padding: EdgeInsets.only(left: _selectedTab == 'Year' ? 6 : 0, right: _selectedTab == 'Year' ? 6 : 12, top: 8, bottom: _selectedTab == 'Year' ? 0 : 12),
                         child: Column(
                           children: [
                             // FIXED HEADER - stays the same for both views
                             _buildCalendarHeader(isDark),
-                            const SizedBox(height: 12),
+                            SizedBox(height: _selectedTab == 'Year' ? 4 : 12),
                             // CONTENT - cached views with smooth fade in
                             Expanded(
                               child: TweenAnimationBuilder<double>(
@@ -1048,7 +1048,7 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
 
           return _KeepAlivePage(
             child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 6),
+              padding: const EdgeInsets.only(top: 2, bottom: 0, left: 6, right: 6),
               child: _yearGridCache[cacheKey]!,
             ),
           );
@@ -1068,42 +1068,12 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
         final rows = isNarrow ? 6 : 4;
         final hGap = isNarrow ? 2.0 : 6.0;
 
-        // Always scroll on narrow (mobile) screens, or when height is insufficient
-        if (isNarrow || constraints.maxHeight < 800) {
-          final rowHeight = isNarrow ? 130.0 : 150.0;
-          return SingleChildScrollView(
-            child: Column(
-              children: List.generate(rows, (rowIndex) {
-                return SizedBox(
-                  height: rowHeight,
-                  child: Padding(
-                    padding: EdgeInsets.symmetric(vertical: isNarrow ? 4.0 : 6.0),
-                    child: Row(
-                      children: List.generate(columns, (colIndex) {
-                        final monthIndex = rowIndex * columns + colIndex;
-                        if (monthIndex >= 12) return const Expanded(child: SizedBox());
-                        final month = DateTime(year, monthIndex + 1, 1);
-                        return Expanded(
-                          child: Padding(
-                            padding: EdgeInsets.symmetric(horizontal: hGap),
-                            child: _buildCompactMonthForYear(month, monthNames[monthIndex], isDark, authProvider),
-                          ),
-                        );
-                      }),
-                    ),
-                  ),
-                );
-              }),
-            ),
-          );
-        }
-
-        // Normal: existing Expanded layout
+        // DEBUG: using Expanded layout to see available space with RED background
         return Column(
           children: List.generate(rows, (rowIndex) {
             return Expanded(
               child: Padding(
-                padding: EdgeInsets.symmetric(vertical: isNarrow ? 4.0 : 6.0),
+                padding: EdgeInsets.symmetric(vertical: isNarrow ? 1.0 : 4.0),
                 child: Row(
                 children: List.generate(columns, (colIndex) {
                   final monthIndex = rowIndex * columns + colIndex;
@@ -1217,30 +1187,27 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
                           });
                         } : null,
                         child: Container(
-                          margin: EdgeInsets.all(isNarrow ? 2.5 : 1.5),
+                          margin: EdgeInsets.symmetric(horizontal: isNarrow ? 2.5 : 1.5, vertical: isNarrow ? 3.5 : 1.5),
                           child: LayoutBuilder(
                             builder: (context, constraints) {
                               return Stack(
                                 clipBehavior: Clip.none,
                                 children: [
-                                  // Day number - centered (anchor)
-                                  Positioned.fill(
-                                    child: Align(
-                                      alignment: Alignment.center,
-                                      child: Text(
-                                        '$dayNumber',
-                                        style: TextStyle(
-                                          fontFamily: 'BasisGrotesquePro',
-                                          fontSize: isNarrow ? 12 : 14,
-                                          height: 1.0,
-                                          letterSpacing: 0,
-                                          fontWeight: isToday ? FontWeight.w700 : FontWeight.w600,
-                                          color: isToday
-                                              ? const Color(0xFFF05E1B)
-                                              : !isBookable || isPast || !hasAvailableSlots
-                                                  ? (isDark ? const Color(0xFF666666) : const Color(0xFFD1D5DB))
-                                                  : (isDark ? Colors.white : Colors.black),
-                                        ),
+                                  // Day number - centered, scales down to fit
+                                  Center(
+                                    child: Text(
+                                      '$dayNumber',
+                                      style: TextStyle(
+                                        fontFamily: 'BasisGrotesquePro',
+                                        fontSize: (constraints.maxHeight * 0.55).clamp(8.0, 11.0),
+                                        height: 1.0,
+                                        letterSpacing: 0,
+                                        fontWeight: isToday ? FontWeight.w700 : FontWeight.w600,
+                                        color: isToday
+                                            ? const Color(0xFFF05E1B)
+                                            : !isBookable || isPast || !hasAvailableSlots
+                                                ? (isDark ? const Color(0xFF666666) : const Color(0xFFD1D5DB))
+                                                : (isDark ? Colors.white : Colors.black),
                                       ),
                                     ),
                                   ),
@@ -1249,7 +1216,7 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
                                     Positioned(
                                       left: 0,
                                       right: 0,
-                                      top: constraints.maxHeight / 2 + (isNarrow ? 4 : 6),
+                                      top: constraints.maxHeight / 2 + (isNarrow ? 7 : 6),
                                       child: Center(
                                         child: Container(
                                           width: isNarrow ? 7 : 10,
