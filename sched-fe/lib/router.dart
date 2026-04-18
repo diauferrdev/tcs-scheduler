@@ -273,7 +273,7 @@ GoRouter createRouter(AuthProvider authProvider) {
             },
           ),
           GoRoute(
-            path: '/app/my-visits',
+            path: '/app/my-bookings',
             pageBuilder: (context, state) {
               final bookingId = state.uri.queryParameters['bookingId'];
               return _buildPageWithTransition(

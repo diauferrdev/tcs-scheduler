@@ -371,7 +371,7 @@ class BookingFlowService {
       // Build navigation route BEFORE any context operations
       final String navigationRoute;
       if (userRole == UserRole.USER) {
-        navigationRoute = '/app/my-visits?bookingId=$bookingId';
+        navigationRoute = '/app/my-bookings?bookingId=$bookingId';
       } else {
         navigationRoute = '/app/pending';
       }

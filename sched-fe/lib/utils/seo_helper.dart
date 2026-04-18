@@ -65,7 +65,7 @@ class SeoHelper {
           'Create a new office visit booking. View availability, select dates, and schedule your visit.',
       'keywords': 'New Booking, Create Booking, Office Calendar, Schedule Management, Pace Scheduler',
     },
-    'my-visits': {
+    'my-bookings': {
       'title': 'My Visits | Pace Scheduler',
       'description':
           'View and manage your office visit bookings. Check booking status, invitations, and visit history.',

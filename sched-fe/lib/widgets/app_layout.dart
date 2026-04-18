@@ -504,22 +504,26 @@ class _AppLayoutState extends State<AppLayout> {
       // USER sees: Events → Rooms → My Bookings → Support
       {'path': '/app/schedule', 'label': 'Events', 'icon': Icons.event, 'roles': [UserRole.USER], 'order': 1},
       {'path': '/app/rooms', 'label': 'Rooms', 'icon': Icons.meeting_room, 'roles': [UserRole.USER], 'order': 2},
-      {'path': '/app/my-visits', 'label': 'My Bookings', 'icon': Icons.event_note, 'roles': [UserRole.USER], 'order': 3},
+      {'path': '/app/my-bookings', 'label': 'My Bookings', 'icon': Icons.event_note, 'roles': [UserRole.USER], 'order': 3},
 
-      // MANAGER sees: Dashboard → Pending → Agenda → Users → Support
+      // MANAGER sees: Dashboard → Pending → Events → Rooms → My Bookings → Agenda → Users → Support
       {'path': '/app/dashboard', 'label': 'Dashboard', 'icon': Icons.dashboard, 'roles': [UserRole.MANAGER], 'order': 1},
       {'path': '/app/pending', 'label': 'Pending', 'icon': Icons.pending_actions, 'roles': [UserRole.MANAGER], 'order': 2},
-      {'path': '/app/agenda', 'label': 'Agenda', 'icon': Icons.view_timeline, 'roles': [UserRole.MANAGER], 'order': 3},
-      {'path': '/app/users', 'label': 'Users', 'icon': Icons.people, 'roles': [UserRole.MANAGER], 'order': 4},
+      {'path': '/app/schedule', 'label': 'Events', 'icon': Icons.event, 'roles': [UserRole.MANAGER], 'order': 3},
+      {'path': '/app/rooms', 'label': 'Rooms', 'icon': Icons.meeting_room, 'roles': [UserRole.MANAGER], 'order': 4},
+      {'path': '/app/my-bookings', 'label': 'My Bookings', 'icon': Icons.event_note, 'roles': [UserRole.MANAGER], 'order': 5},
+      {'path': '/app/agenda', 'label': 'Agenda', 'icon': Icons.view_timeline, 'roles': [UserRole.MANAGER], 'order': 6},
+      {'path': '/app/users', 'label': 'Users', 'icon': Icons.people, 'roles': [UserRole.MANAGER], 'order': 7},
 
-      // ADMIN sees: Dashboard → Pending → Events → Agenda → Rooms → Users → Audit
+      // ADMIN sees: Dashboard → Pending → Events → Rooms → My Bookings → Agenda → Users → Audit
       {'path': '/app/dashboard', 'label': 'Dashboard', 'icon': Icons.dashboard, 'roles': [UserRole.ADMIN], 'order': 1},
       {'path': '/app/pending', 'label': 'Pending', 'icon': Icons.pending_actions, 'roles': [UserRole.ADMIN], 'order': 2},
       {'path': '/app/schedule', 'label': 'Events', 'icon': Icons.event, 'roles': [UserRole.ADMIN], 'order': 3},
-      {'path': '/app/agenda', 'label': 'Agenda', 'icon': Icons.view_timeline, 'roles': [UserRole.ADMIN], 'order': 4},
-      {'path': '/app/rooms', 'label': 'Rooms', 'icon': Icons.meeting_room, 'roles': [UserRole.ADMIN], 'order': 5},
-      {'path': '/app/users', 'label': 'Users', 'icon': Icons.people, 'roles': [UserRole.ADMIN], 'order': 6},
-      {'path': '/app/audit', 'label': 'Audit', 'icon': Icons.history, 'roles': [UserRole.ADMIN], 'order': 7},
+      {'path': '/app/rooms', 'label': 'Rooms', 'icon': Icons.meeting_room, 'roles': [UserRole.ADMIN], 'order': 4},
+      {'path': '/app/my-bookings', 'label': 'My Bookings', 'icon': Icons.event_note, 'roles': [UserRole.ADMIN], 'order': 5},
+      {'path': '/app/agenda', 'label': 'Agenda', 'icon': Icons.view_timeline, 'roles': [UserRole.ADMIN], 'order': 6},
+      {'path': '/app/users', 'label': 'Users', 'icon': Icons.people, 'roles': [UserRole.ADMIN], 'order': 7},
+      {'path': '/app/audit', 'label': 'Audit', 'icon': Icons.history, 'roles': [UserRole.ADMIN], 'order': 8},
 
       // Support - available to all roles (last position)
       {'path': '/app/support', 'label': 'Support', 'icon': Icons.support_agent, 'roles': [UserRole.ADMIN, UserRole.MANAGER, UserRole.USER], 'order': 999},
