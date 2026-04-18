@@ -775,6 +775,7 @@ export async function createBooking(data: BookingCreateInput, createdById?: stri
       lastInnovationDay: lastInnovationDay ? new Date(lastInnovationDay) : null,
       expectedAttendees: data.expectedAttendees || 1,
       status: 'CREATED',
+      createdAsRole: creatorRole || 'USER',
       createdById,
       attendees: attendees
         ? {
@@ -849,12 +850,15 @@ export async function createBooking(data: BookingCreateInput, createdById?: stri
   return booking;
 }
 
-export async function getBookings(month?: string, status?: string, userId?: string) {
+export async function getBookings(month?: string, status?: string, userId?: string, createdAsRole?: string) {
   const where: any = {};
 
   // Filter by userId if provided (for USER role - only see their own bookings)
   if (userId) {
     where.createdById = userId;
+  }
+  if (createdAsRole) {
+    where.createdAsRole = createdAsRole;
   }
 
   if (month) {

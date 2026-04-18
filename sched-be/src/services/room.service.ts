@@ -37,6 +37,7 @@ export async function createRoomBooking(data: RoomBookingCreateInput, bookedById
       attendees: data.attendees,
       vertical: data.vertical,
       bookedById,
+      createdAsRole: bookerRole || 'USER',
       status: isPrivileged ? 'APPROVED' : 'PENDING',
       ...(isPrivileged ? { approvedById: bookedById, approvedAt: new Date() } : {}),
     },
@@ -66,6 +67,7 @@ export async function getRoomBookings(filters: {
   room?: string;
   status?: string;
   bookedById?: string;
+  createdAsRole?: string;
 }) {
   const where: Record<string, unknown> = {};
 
@@ -80,6 +82,9 @@ export async function getRoomBookings(filters: {
   }
   if (filters.bookedById) {
     where.bookedById = filters.bookedById;
+  }
+  if (filters.createdAsRole) {
+    where.createdAsRole = filters.createdAsRole;
   }
 
   const bookings = await prisma.roomBooking.findMany({

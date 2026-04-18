@@ -47,6 +47,7 @@ app.get('/', authMiddleware, async (c) => {
       room: room || undefined,
       status: status || undefined,
       bookedById: (user.role === 'USER' || mine === 'true') ? user.id : undefined,
+      createdAsRole: mine === 'true' ? user.role : undefined,
     });
 
     return c.json({ bookings });

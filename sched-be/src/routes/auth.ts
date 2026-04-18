@@ -35,8 +35,9 @@ app.post('/login', zValidator('json', LoginSchema), async (c) => {
     await activityLogService.logActivity({
       action: 'LOGIN',
       resource: 'SESSION',
-      description: `User ${user.name} logged in`,
+      description: `User ${user.name} logged in as ${user.role}`,
       userId: user.id,
+      metadata: { activeRole: user.role },
       ipAddress: c.req.header('x-forwarded-for') || c.req.header('x-real-ip'),
       userAgent: c.req.header('user-agent'),
     });

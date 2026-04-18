@@ -131,7 +131,7 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
     }
 
     try {
-      final response = await _apiService.getBookings();
+      final response = await _apiService.get('/api/bookings?mine=true');
 
       // Also load user's room bookings
       List<Map<String, dynamic>> roomBookings = [];

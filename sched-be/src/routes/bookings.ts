@@ -140,11 +140,12 @@ app.get('/', authMiddleware, async (c) => {
     const month = c.req.query('month');
     const status = c.req.query('status');
 
-    // USER role can only see their own bookings
-    // ADMIN and MANAGER can see all bookings
-    const userId = user.role === 'USER' ? user.id : undefined;
+    const mine = c.req.query('mine');
+    // USER role always sees own, mine=true for manager/admin to see their own
+    const userId = (user.role === 'USER' || mine === 'true') ? user.id : undefined;
+    const createdAsRole = mine === 'true' ? user.role : undefined;
 
-    const bookings = await bookingService.getBookings(month, status, userId);
+    const bookings = await bookingService.getBookings(month, status, userId, createdAsRole);
     return c.json({ bookings });
   } catch (error: any) {
     return c.json({ error: error.message }, 400);

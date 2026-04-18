@@ -148,6 +148,9 @@ model Booking {
   startTime       String
   duration        VisitDuration
 
+  // Role tracking
+  createdAsRole   UserRole       @default(USER)
+
   // Engagement flow
   engagementType  EngagementType @default(PACE_VISIT)
   visitType       VisitType      @default(PACE_TOUR)
@@ -625,6 +628,7 @@ model RoomBooking {
   // Who booked
   bookedById    String
   bookedBy      User              @relation("RoomBookedBy", fields: [bookedById], references: [id])
+  createdAsRole UserRole          @default(USER)
 
   // Booking info
   purpose       String            // Reason for booking
