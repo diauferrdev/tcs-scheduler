@@ -1511,9 +1511,9 @@ export async function requestEdit(
     throw new Error('Booking not found');
   }
 
-  // Can only request edit from CREATED or UNDER_REVIEW
-  if (booking.status !== 'CREATED' && booking.status !== 'UNDER_REVIEW') {
-    throw new Error(`Cannot request edit from status ${booking.status}. Booking must be in CREATED or UNDER_REVIEW status.`);
+  // Can request edit from CREATED, UNDER_REVIEW, or APPROVED
+  if (!['CREATED', 'UNDER_REVIEW', 'APPROVED'].includes(booking.status)) {
+    throw new Error(`Cannot request edit from status ${booking.status}.`);
   }
 
   const updatedBooking = await prisma.booking.update({
@@ -1559,9 +1559,9 @@ export async function requestReschedule(
     throw new Error('Booking not found');
   }
 
-  // Can only request reschedule from CREATED or UNDER_REVIEW
-  if (booking.status !== 'CREATED' && booking.status !== 'UNDER_REVIEW') {
-    throw new Error(`Cannot request reschedule from status ${booking.status}. Booking must be in CREATED or UNDER_REVIEW status.`);
+  // Can request reschedule from CREATED, UNDER_REVIEW, or APPROVED
+  if (!['CREATED', 'UNDER_REVIEW', 'APPROVED'].includes(booking.status)) {
+    throw new Error(`Cannot request reschedule from status ${booking.status}.`);
   }
 
   const updatedBooking = await prisma.booking.update({
@@ -1758,27 +1758,13 @@ export async function userRescheduleBooking(
     throw new Error('Bookings are not allowed on weekends (Saturday/Sunday)');
   }
 
-  // Validate visit type specific rules
-  if (booking.visitType === 'PACE_TOUR') {
-    const paceTourValidation = await validatePaceTour(newDate, newDuration);
-    if (!paceTourValidation.valid) {
-      throw new Error(paceTourValidation.error);
-    }
-  } else if (booking.visitType === 'INNOVATION_EXCHANGE' || booking.visitType === 'PACE_EXPERIENCE' || booking.visitType === 'PACE_VISIT_FULLDAY') {
-    const innovationValidation = await validateInnovationExchange(
-      newDate,
-      newStartTime,
-      newDuration
-    );
-    if (!innovationValidation.valid) {
-      throw new Error(innovationValidation.error);
-    }
-  }
+  // Use the original booking's duration if not changing duration (reschedule only changes date/time)
+  const effectiveDuration = newDuration || booking.duration;
 
   // Check availability
   const availability = await checkAvailability(newDate, booking.visitType);
   const requestedStartMinutes = timeToMinutes(newStartTime);
-  const requestedDurationHours = durationToHours(newDuration);
+  const requestedDurationHours = durationToHours(effectiveDuration);
 
   // Check for time conflicts
   for (const existing of availability.existingBookings) {
@@ -1803,7 +1789,7 @@ export async function userRescheduleBooking(
     data: {
       date: new Date(newDate),
       startTime: newStartTime,
-      duration: newDuration,
+      duration: effectiveDuration,
       status: 'UNDER_REVIEW', // Back to review after user reschedules
       rescheduleRequestMessage: null, // Clear the message
     },

@@ -810,7 +810,8 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
     // Determine if FAB should be shown
     final userRole = authProvider.user?.role;
     final isManagerOrAdmin = userRole == UserRole.MANAGER || userRole == UserRole.ADMIN;
-    final canCreateBooking = _selectedDate != null &&
+    final canCreateBooking = widget.onDaySelected == null &&
+        _selectedDate != null &&
         _isDateBookable(_selectedDate!) &&
         (isManagerOrAdmin || _getAvailableSlots(_selectedDate!).isNotEmpty) &&
         _selectedTab != 'Year';
@@ -1405,9 +1406,12 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
               return Expanded(
                 child: GestureDetector(
                   onTap: canClickDay ? () {
+                    if (widget.onDaySelected != null) {
+                      widget.onDaySelected!(day);
+                      return;
+                    }
                     setState(() {
                       _selectedDate = day;
-                      // Clear cache to force rebuild with new selection
                       _monthGridCache.clear();
                     });
                   } : null,

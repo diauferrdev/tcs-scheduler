@@ -88,7 +88,8 @@ class _RoomsScreenState extends State<RoomsScreen> {
 
   List<DateTime> _getWeekDates([int offset = 0]) {
     final now = DateTime.now();
-    final startOfWeek = now.subtract(Duration(days: now.weekday - 1)).add(Duration(days: offset * 7));
+    // Start on Sunday (weekday 7), end on Saturday
+    final startOfWeek = now.subtract(Duration(days: now.weekday % 7)).add(Duration(days: offset * 7));
     return List.generate(7, (i) => startOfWeek.add(Duration(days: i)));
   }
 
@@ -292,7 +293,7 @@ class _RoomsScreenState extends State<RoomsScreen> {
                 setState(() {
                   if (details.primaryVelocity! < 0) {
                     _weekOffset++;
-                  } else if (details.primaryVelocity! > 0 && _weekOffset > 0) {
+                  } else if (details.primaryVelocity! > 0) {
                     _weekOffset--;
                   }
                   // Auto-select first weekday of new week
@@ -307,31 +308,33 @@ class _RoomsScreenState extends State<RoomsScreen> {
               children: [
                 // Previous week arrow
                 GestureDetector(
-                  onTap: _weekOffset > 0 ? () {
+                  onTap: () {
                     setState(() {
                       _weekOffset--;
                       final newWeek = _getWeekDates(_weekOffset);
                       _selectedDate = newWeek.firstWhere((d) => !_isWeekend(d), orElse: () => newWeek.first);
                     });
                     _loadAvailability();
-                  } : null,
-                  child: Icon(Icons.chevron_left, size: 20, color: _weekOffset > 0 ? (isDark ? Colors.white : Colors.black) : Colors.transparent),
+                  },
+                  child: Icon(Icons.chevron_left, size: 20, color: isDark ? Colors.white : Colors.black),
                 ),
-                ...weekDates.where((date) => !_isWeekend(date)).map((date) {
+                ...weekDates.map((date) {
               final isSelected = _isSameDay(date, _selectedDate);
               final isToday = _isSameDay(date, today);
               final isPast = date.isBefore(DateTime(today.year, today.month, today.day));
-              final userRole = context.read<AuthProvider>().user?.role;
-              final canAccessPast = userRole == UserRole.MANAGER || userRole == UserRole.ADMIN;
-              final isDisabled = isPast && !canAccessPast;
+              final isWeekendDay = _isWeekend(date);
+              final isCurrent = _isSameDay(date, today);
+              final isDisabled = isCurrent ? false : (isPast || isWeekendDay);
 
-              return Expanded(child: GestureDetector(
-                onTap: isDisabled ? null : () {
+              return Expanded(child: IgnorePointer(
+                ignoring: isDisabled,
+                child: GestureDetector(
+                onTap: () {
                   setState(() => _selectedDate = date);
                   _loadAvailability();
                 },
                 child: Opacity(
-                  opacity: isDisabled ? 0.3 : 1.0,
+                  opacity: isDisabled ? 0.35 : isWeekendDay ? 0.5 : 1.0,
                   child: AnimatedContainer(
                   duration: const Duration(milliseconds: 200),
                   padding:
@@ -376,7 +379,7 @@ class _RoomsScreenState extends State<RoomsScreen> {
                   ),
                 ),
                 ),
-              ));
+              )));
             }).toList(),
                 // Next week arrow
                 GestureDetector(
@@ -399,6 +402,37 @@ class _RoomsScreenState extends State<RoomsScreen> {
   }
 
   Widget _buildBody(bool isDark) {
+    if (_isWeekend(_selectedDate)) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.weekend_outlined,
+              size: 64,
+              color: isDark ? Colors.grey[600] : Colors.grey[400],
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'No bookings on weekends',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: isDark ? Colors.white : Colors.black,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Room bookings are available Monday to Friday',
+              style: TextStyle(
+                color: isDark ? Colors.grey[400] : Colors.grey[600],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     if (_isLoading) {
       return Center(
         child: CircularProgressIndicator(

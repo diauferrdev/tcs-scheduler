@@ -30,9 +30,7 @@ class _RescheduleDrawerState extends State<RescheduleDrawer> {
   bool _submitting = false;
 
   Future<void> _handleDaySelected(DateTime day) async {
-    setState(() {
-      _loading = true;
-    });
+    setState(() => _loading = true);
 
     try {
       final response = await _apiService.checkAvailability(
@@ -43,16 +41,11 @@ class _RescheduleDrawerState extends State<RescheduleDrawer> {
       if (mounted) {
         setState(() => _loading = false);
 
-        // Immediately open slot picker drawer with availability
         final availability = DayAvailability.fromJson(response);
         final allPeriods = availability.allPeriods ?? [];
 
         if (allPeriods.isEmpty) {
-          ToastNotification.show(
-            context,
-            message: 'No time slots available for this date',
-            type: ToastType.warning,
-          );
+          ToastNotification.show(context, message: 'No time slots available for this date', type: ToastType.warning);
           return;
         }
 
@@ -61,22 +54,20 @@ class _RescheduleDrawerState extends State<RescheduleDrawer> {
     } catch (e) {
       if (mounted) {
         setState(() => _loading = false);
-        ToastNotification.show(
-          context,
-          message: 'Error loading availability: $e',
-          type: ToastType.error,
-        );
+        ToastNotification.show(context, message: 'Error loading availability: $e', type: ToastType.error);
       }
     }
   }
 
   Future<void> _openSlotPickerDrawer(DateTime date, List<AvailablePeriod> allPeriods) async {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final visitTypeLabel = widget.booking.visitType == VisitType.PACE_TOUR
-        ? 'Pace Tour (2h)'
-        : widget.booking.visitType == VisitType.PACE_EXPERIENCE
-            ? 'Pace Experience (4h)'
-            : 'Innovation Exchange (6h)';
+    final durationMap = {
+      VisitType.PACE_TOUR: 'Pace Tour (2h)',
+      VisitType.PACE_EXPERIENCE: 'Pace Experience (4h)',
+      VisitType.PACE_VISIT_FULLDAY: 'Pace Visit Fullday (6h)',
+      VisitType.INNOVATION_EXCHANGE: 'Innovation Exchange (7h)',
+    };
+    final visitTypeLabel = durationMap[widget.booking.visitType] ?? widget.booking.visitType.name;
 
     await showModalBottomSheet(
       context: context,
@@ -91,15 +82,10 @@ class _RescheduleDrawerState extends State<RescheduleDrawer> {
         isUserRole: true,
         isDark: isDark,
         onSlotSelected: (TimeOfDay startTime, int duration) async {
-          // Format time as HH:mm
           final formattedTime = '${startTime.hour.toString().padLeft(2, '0')}:${startTime.minute.toString().padLeft(2, '0')}';
-
-          // Immediately reschedule
           await _performReschedule(date, formattedTime);
         },
-        onClose: () {
-          // User cancelled selection
-        },
+        onClose: () {},
       ),
     );
   }

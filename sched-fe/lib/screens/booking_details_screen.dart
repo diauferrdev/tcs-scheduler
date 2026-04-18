@@ -1703,258 +1703,95 @@ Enterprise Office Visit Management
             isDark,
           ),
 
-        // Owner: Cancel own APPROVED booking
-        if (_booking!.status == BookingStatus.APPROVED) ...[
-          Builder(
-            builder: (context) {
-              final authProvider = Provider.of<AuthProvider>(context, listen: false);
-              final isOwner = _booking?.createdById == authProvider.user?.id;
-              if (!isOwner) return const SizedBox.shrink();
-              return Padding(
-                padding: const EdgeInsets.only(top: 20),
-                child: OutlinedButton.icon(
-                  onPressed: _processing ? null : _handleCancel,
-                  icon: const Icon(Icons.block, size: 16),
-                  label: const Text(
-                    'Cancel Booking',
-                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
-                  ),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.red,
-                    side: const BorderSide(color: Colors.red),
-                    padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 24),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
+        // === ACTION BUTTONS ===
+        Builder(
+          builder: (context) {
+            final authProvider = Provider.of<AuthProvider>(context, listen: false);
+            final userRole = authProvider.user?.role;
+            final isAdminOrManager = userRole == UserRole.ADMIN || userRole == UserRole.MANAGER;
+            final isOwner = _booking?.createdById == authProvider.user?.id;
+            final status = _booking!.status;
+
+            if (!isOwner && !isAdminOrManager) return const SizedBox.shrink();
+
+            Widget actionBtn(String label, IconData icon, VoidCallback? onTap, {Color? bg, Color? fg}) {
+              final defBg = isDark ? const Color(0xFF27272A) : const Color(0xFFF3F4F6);
+              final defFg = isDark ? Colors.white : Colors.black;
+              return Expanded(
+                child: Material(
+                  color: bg ?? defBg,
+                  borderRadius: BorderRadius.circular(10),
+                  child: InkWell(
+                    onTap: _processing ? null : onTap,
+                    borderRadius: BorderRadius.circular(10),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(icon, size: 18, color: fg ?? defFg),
+                          const SizedBox(height: 4),
+                          Text(label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: fg ?? defFg), textAlign: TextAlign.center),
+                        ],
+                      ),
                     ),
                   ),
                 ),
               );
-            },
-          ),
-        ],
+            }
 
-        // Manager/Admin Actions for Review Statuses
-        if (_booking!.status == BookingStatus.CREATED ||
-            _booking!.status == BookingStatus.UNDER_REVIEW ||
-            _booking!.status == BookingStatus.NEED_EDIT ||
-            _booking!.status == BookingStatus.NEED_RESCHEDULE) ...[
-          const SizedBox(height: 20),
-          Builder(
-            builder: (context) {
-              final authProvider = Provider.of<AuthProvider>(context, listen: false);
-              final userRole = authProvider.user?.role;
-              final isAdminOrManager =
-                  userRole == UserRole.ADMIN || userRole == UserRole.MANAGER;
-              final isOwner = _booking?.createdById == authProvider.user?.id;
+            final actions = <Widget>[];
 
-              if (!isAdminOrManager && !isOwner) return const SizedBox.shrink();
-
-              // Owner-only: show just a cancel button
-              if (!isAdminOrManager && isOwner) {
-                return OutlinedButton.icon(
-                  onPressed: _processing ? null : _handleCancel,
-                  icon: const Icon(Icons.block, size: 16),
-                  label: const Text(
-                    'Cancel Booking',
-                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
-                  ),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.red,
-                    side: const BorderSide(color: Colors.red),
-                    padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 24),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                );
+            // Owner actions: Reschedule + Cancel
+            if (isOwner && (status == BookingStatus.APPROVED || status == BookingStatus.UNDER_REVIEW || status == BookingStatus.CREATED || status == BookingStatus.NEED_RESCHEDULE)) {
+              if (status != BookingStatus.NEED_RESCHEDULE) {
+                actions.add(actionBtn('Reschedule', Icons.calendar_month, _handleUserReschedule));
               }
+              actions.add(actionBtn('Cancel', Icons.close, _handleCancel, bg: isDark ? const Color(0xFF450A0A) : const Color(0xFFFEE2E2), fg: Colors.red));
+            }
 
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // Action buttons for CREATED, UNDER_REVIEW
-                  if (_booking!.status == BookingStatus.CREATED ||
-                      _booking!.status == BookingStatus.UNDER_REVIEW) ...[
-                    // First row: Change Request, Need Reschedule, Cancel
-                    Row(
-                      children: [
-                        Expanded(
-                          child: OutlinedButton.icon(
-                            onPressed: _processing ? null : _handleRequestEdit,
-                            icon: const Icon(Icons.edit_outlined, size: 16),
-                            label: const Text(
-                              'Change Request',
-                              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
-                            ),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: isDark ? Colors.white : Colors.black,
-                              side: BorderSide(
-                                color: isDark ? Colors.white.withValues(alpha: 0.2) : Colors.black.withValues(alpha: 0.2),
-                              ),
-                              padding: const EdgeInsets.symmetric(vertical: 10),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: OutlinedButton.icon(
-                            onPressed: _processing ? null : _handleRequestReschedule,
-                            icon: const Icon(Icons.calendar_month, size: 16),
-                            label: const Text(
-                              'Need Reschedule',
-                              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
-                            ),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: isDark ? Colors.white : Colors.black,
-                              side: BorderSide(
-                                color: isDark ? Colors.white.withValues(alpha: 0.2) : Colors.black.withValues(alpha: 0.2),
-                              ),
-                              padding: const EdgeInsets.symmetric(vertical: 10),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: OutlinedButton.icon(
-                            onPressed: _processing ? null : _handleCancel,
-                            icon: const Icon(Icons.block, size: 16),
-                            label: const Text(
-                              'Cancel',
-                              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
-                            ),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: isDark ? Colors.white : Colors.black,
-                              side: BorderSide(
-                                color: isDark ? Colors.white.withValues(alpha: 0.2) : Colors.black.withValues(alpha: 0.2),
-                              ),
-                              padding: const EdgeInsets.symmetric(vertical: 10),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    // Second row: Not Approve (red) and Approve (green)
-                    Row(
-                      children: [
-                        Expanded(
-                          child: ElevatedButton.icon(
-                            onPressed: _processing ? null : _handleReject,
-                            icon: const Icon(Icons.close, size: 16),
-                            label: const Text(
-                              'Not Approve',
-                              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-                            ),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: isDark ? const Color(0xFF7F1D1D) : const Color(0xFFDC2626),
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                              elevation: 0,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: ElevatedButton.icon(
-                            onPressed: _processing ? null : _handleApprove,
-                            icon: _processing
-                                ? const SizedBox(
-                                    width: 16,
-                                    height: 16,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                                    ),
-                                  )
-                                : const Icon(Icons.check, size: 16),
-                            label: const Text(
-                              'Approve',
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: isDark ? const Color(0xFF065F46) : const Color(0xFF059669),
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                              elevation: 0,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
+            // Manager/Admin actions
+            if (isAdminOrManager && (status == BookingStatus.CREATED || status == BookingStatus.UNDER_REVIEW)) {
+              actions.addAll([
+                actionBtn('Ask Edit', Icons.edit_outlined, _handleRequestEdit),
+                actionBtn('Ask Reschedule', Icons.event_repeat, _handleRequestReschedule),
+                actionBtn('Reject', Icons.thumb_down_outlined, _handleReject, bg: isDark ? const Color(0xFF450A0A) : const Color(0xFFFEE2E2), fg: Colors.red),
+                actionBtn('Approve', Icons.thumb_up_outlined, _handleApprove, bg: isDark ? const Color(0xFF052E16) : const Color(0xFFDCFCE7), fg: const Color(0xFF059669)),
+              ]);
+            }
 
-                  // For NEED_EDIT and NEED_RESCHEDULE - Only show reject/cancel
-                  if (_booking!.status == BookingStatus.NEED_EDIT ||
-                      _booking!.status == BookingStatus.NEED_RESCHEDULE) ...[
-                    Row(
-                      children: [
-                        Expanded(
-                          child: OutlinedButton.icon(
-                            onPressed: _processing ? null : _handleReject,
-                            icon: const Icon(Icons.close, size: 16),
-                            label: const Text(
-                              'Not Approve',
-                              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
-                            ),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: isDark ? Colors.white : Colors.black,
-                              side: BorderSide(
-                                color: isDark ? Colors.white.withValues(alpha: 0.2) : Colors.black.withValues(alpha: 0.2),
-                              ),
-                              padding: const EdgeInsets.symmetric(vertical: 10),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: OutlinedButton.icon(
-                            onPressed: _processing ? null : _handleCancel,
-                            icon: const Icon(Icons.block, size: 16),
-                            label: const Text(
-                              'Cancel',
-                              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
-                            ),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: isDark ? Colors.white : Colors.black,
-                              side: BorderSide(
-                                color: isDark ? Colors.white.withValues(alpha: 0.2) : Colors.black.withValues(alpha: 0.2),
-                              ),
-                              padding: const EdgeInsets.symmetric(vertical: 10),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ],
-              );
-            },
-          ),
-        ],
+            if (isAdminOrManager && status == BookingStatus.APPROVED) {
+              actions.addAll([
+                actionBtn('Ask Edit', Icons.edit_outlined, _handleRequestEdit),
+                actionBtn('Ask Reschedule', Icons.event_repeat, _handleRequestReschedule),
+              ]);
+            }
+
+            if (isAdminOrManager && (status == BookingStatus.NEED_EDIT || status == BookingStatus.NEED_RESCHEDULE)) {
+              actions.addAll([
+                actionBtn('Reject', Icons.thumb_down_outlined, _handleReject, bg: isDark ? const Color(0xFF450A0A) : const Color(0xFFFEE2E2), fg: Colors.red),
+                actionBtn('Cancel', Icons.close, _handleCancel),
+              ]);
+            }
+
+            if (actions.isEmpty) return const SizedBox.shrink();
+
+            // Split into rows of 2 for compact layout
+            final rows = <Widget>[];
+            for (var i = 0; i < actions.length; i += 2) {
+              final rowItems = actions.sublist(i, (i + 2).clamp(0, actions.length));
+              rows.add(Row(
+                children: rowItems.expand((w) => [w, const SizedBox(width: 8)]).toList()..removeLast(),
+              ));
+              if (i + 2 < actions.length) rows.add(const SizedBox(height: 8));
+            }
+
+            return Padding(
+              padding: const EdgeInsets.only(top: 20),
+              child: Column(children: rows),
+            );
+          },
+        ),
 
         const SizedBox(height: 32),
       ],
