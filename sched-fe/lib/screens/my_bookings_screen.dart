@@ -336,7 +336,8 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
   }
 
   Widget _buildNewRequestsSection(bool isDark) {
-    if (_newRequests.isEmpty) {
+    final pendingRooms = _myRoomBookings.where((r) => r['status'] == 'PENDING' || r['status'] == 'APPROVED').toList();
+    if (_newRequests.isEmpty && pendingRooms.isEmpty) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -403,7 +404,7 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Text(
-                '${_newRequests.length + _myRoomBookings.where((r) => r['status'] == 'PENDING').length}',
+                '${_newRequests.length + pendingRooms.length}',
                 style: const TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.bold,
@@ -414,10 +415,8 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
           ],
         ),
         const SizedBox(height: 16),
-        // Room bookings (pending)
-        ..._myRoomBookings
-            .where((r) => r['status'] == 'PENDING')
-            .map((room) => _buildRoomCard(room, isDark)),
+        // Room bookings (pending + approved)
+        ...pendingRooms.map((room) => _buildRoomCard(room, isDark)),
         // Event bookings
         ..._newRequests.map((booking) {
           return BookingCard(
@@ -531,9 +530,9 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
         Expanded(
           child: ListView(
             children: [
-              // Approved/rejected room bookings
+              // Rejected/cancelled room bookings
               ..._myRoomBookings
-                  .where((r) => r['status'] == 'APPROVED' || r['status'] == 'REJECTED' || r['status'] == 'CANCELLED')
+                  .where((r) => r['status'] == 'REJECTED' || r['status'] == 'CANCELLED')
                   .map((room) => _buildRoomCard(room, isDark)),
               // Event bookings history
               ..._recentHistory.map((booking) {
