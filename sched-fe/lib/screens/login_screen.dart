@@ -22,6 +22,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
   bool _biometricAvailable = false;
   bool _biometricEnabled = false;
   bool _showPendingApproval = false;
+  bool _isNewAccount = false;
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
@@ -119,7 +120,10 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
       if (mounted) {
         final errorMsg = e.toString();
         if (errorMsg.contains('pending approval')) {
-          setState(() => _showPendingApproval = true);
+          setState(() {
+            _showPendingApproval = true;
+            _isNewAccount = errorMsg.contains('Account created');
+          });
         } else {
           ToastNotification.show(context, message: 'Biometric login failed: $errorMsg', type: ToastType.error);
         }
@@ -189,7 +193,10 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
       if (mounted) {
         final errorMsg = e.toString();
         if (errorMsg.contains('pending approval')) {
-          setState(() => _showPendingApproval = true);
+          setState(() {
+            _showPendingApproval = true;
+            _isNewAccount = errorMsg.contains('Account created');
+          });
         } else {
           ToastNotification.show(
             context,
@@ -261,17 +268,19 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                 ),
               ),
               const SizedBox(height: 24),
-              const Text(
-                'Account Pending Approval',
-                style: TextStyle(
+              Text(
+                _isNewAccount ? 'Account Created!' : 'Pending Approval',
+                style: const TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.w600,
                   color: Colors.white,
                 ),
               ),
               const SizedBox(height: 12),
-              const Text(
-                'Your account has been created successfully. An administrator will review and approve your access shortly.',
+              Text(
+                _isNewAccount
+                    ? 'Your account has been created successfully. An administrator will review and approve your access shortly.'
+                    : 'Your account is still waiting for approval. Please contact your administrator.',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 14,

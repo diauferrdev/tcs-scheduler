@@ -45,10 +45,11 @@ export async function login(data: LoginInput) {
     });
 
     console.log(`[Auth] Auto-registered new user: ${email} (${displayName})`);
+    throw new Error('Account created! Your account is pending approval by an administrator.');
   }
 
   if (!user.isActive) {
-    throw new Error('Your account is pending approval by an administrator.');
+    throw new Error('Your account is still pending approval by an administrator.');
   }
 
   const validPassword = await verify(user.passwordHash, data.password, {
