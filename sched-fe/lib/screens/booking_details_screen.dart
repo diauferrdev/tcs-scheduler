@@ -160,17 +160,21 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
 
     if (_booking == null) return false;
 
+    final isOwner = _booking!.createdById == userId;
+    final activeStatuses = [
+      BookingStatus.CREATED,
+      BookingStatus.UNDER_REVIEW,
+      BookingStatus.NEED_EDIT,
+      BookingStatus.NEED_RESCHEDULE,
+      BookingStatus.APPROVED,
+    ];
+
+    // Owner can edit their booking in any active status
+    if (isOwner && activeStatuses.contains(_booking!.status)) return true;
+
     // ADMIN can always edit
     if (userRole == UserRole.ADMIN) return true;
 
-    // USER can ONLY edit when status = NEED_EDIT (manager requested edits)
-    if (userRole == UserRole.USER) {
-      final isOwner = _booking!.createdById == userId;
-      final canEditStatus = _booking!.status == BookingStatus.NEED_EDIT;
-      return isOwner && canEditStatus;
-    }
-
-    // MANAGER cannot edit bookings directly (they review/approve/reject)
     return false;
   }
 
@@ -1760,8 +1764,9 @@ Enterprise Office Visit Management
 
             final actions = <Widget>[];
 
-            // Owner actions: Reschedule + Cancel
-            if (isOwner && (status == BookingStatus.APPROVED || status == BookingStatus.UNDER_REVIEW || status == BookingStatus.CREATED || status == BookingStatus.NEED_RESCHEDULE)) {
+            // Owner actions: Edit + Reschedule + Cancel
+            if (isOwner && [BookingStatus.APPROVED, BookingStatus.UNDER_REVIEW, BookingStatus.CREATED, BookingStatus.NEED_EDIT, BookingStatus.NEED_RESCHEDULE].contains(status)) {
+              actions.add(actionBtn('Edit', Icons.edit_outlined, _enterEditMode));
               if (status != BookingStatus.NEED_RESCHEDULE) {
                 actions.add(actionBtn('Reschedule', Icons.calendar_month, _handleUserReschedule));
               }

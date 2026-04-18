@@ -448,7 +448,8 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
   }
 
   Widget _buildRecentHistorySection(bool isDark) {
-    if (_recentHistory.isEmpty) {
+    final historyRooms = _myRoomBookings.where((r) => r['status'] == 'REJECTED' || r['status'] == 'CANCELLED').toList();
+    if (_recentHistory.isEmpty && historyRooms.isEmpty) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -515,7 +516,7 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Text(
-                '${_recentHistory.length}',
+                '${_recentHistory.length + historyRooms.length}',
                 style: const TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.bold,
@@ -531,9 +532,7 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
           child: ListView(
             children: [
               // Rejected/cancelled room bookings
-              ..._myRoomBookings
-                  .where((r) => r['status'] == 'REJECTED' || r['status'] == 'CANCELLED')
-                  .map((room) => _buildRoomCard(room, isDark)),
+              ...historyRooms.map((room) => _buildRoomCard(room, isDark)),
               // Event bookings history
               ..._recentHistory.map((booking) {
                 return BookingCard(

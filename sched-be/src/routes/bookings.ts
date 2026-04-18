@@ -173,8 +173,14 @@ app.patch('/:id', authMiddleware, zValidator('json', BookingUpdateSchema), async
     const originalBooking = await bookingService.getBookingById(id);
     const wasNeedEdit = originalBooking.status === 'NEED_EDIT';
     const wasNeedReschedule = originalBooking.status === 'NEED_RESCHEDULE';
-    const isUserEditing = user.role === 'USER' && originalBooking.createdById === user.id;
+    const isOwner = originalBooking.createdById === user.id;
+    const isUserEditing = isOwner && user.role !== 'ADMIN';
     const isChangingToReview = data.status === 'UNDER_REVIEW' || data.status === 'CREATED';
+
+    // When owner edits, set status back to UNDER_REVIEW for re-approval
+    if (isUserEditing && !data.status) {
+      data.status = 'UNDER_REVIEW';
+    }
 
     const booking = await bookingService.updateBooking(id, data);
 
