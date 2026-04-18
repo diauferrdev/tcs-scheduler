@@ -462,10 +462,12 @@ class ApiService {
   }
 
   /// Manager/Admin: Cancel booking (ANY → CANCELLED)
-  Future<Map<String, dynamic>> cancelBooking(String id, String cancellationReason) async {
-    return await post('/api/bookings/$id/cancel', {
-      'cancellationReason': cancellationReason,
-    });
+  Future<Map<String, dynamic>> cancelBooking(String id, String? cancellationReason) async {
+    final body = <String, dynamic>{};
+    if (cancellationReason != null && cancellationReason.isNotEmpty) {
+      body['cancellationReason'] = cancellationReason;
+    }
+    return await post('/api/bookings/$id/cancel', body);
   }
 
   /// User: Reschedule when status is NEED_RESCHEDULE (NEED_RESCHEDULE → UNDER_REVIEW)

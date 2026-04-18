@@ -210,7 +210,7 @@ export const ApproveBookingSchema = z.object({
 
 // Manager/Admin: Cancel booking
 export const CancelBookingSchema = z.object({
-  cancellationReason: z.string().min(10, 'Cancellation reason must be at least 10 characters').max(1000),
+  cancellationReason: z.string().min(10, 'Cancellation reason must be at least 10 characters').max(1000).optional(),
 });
 
 // User: Reschedule booking (when status is NEED_RESCHEDULE)

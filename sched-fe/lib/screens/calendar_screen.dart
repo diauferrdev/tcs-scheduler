@@ -1068,6 +1068,37 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
         final rows = isNarrow ? 6 : 4;
         final hGap = isNarrow ? 2.0 : 6.0;
 
+        if (constraints.maxHeight < 500) {
+          // Short screen: scrollable with fixed height rows
+          final rowHeight = isNarrow ? 130.0 : 150.0;
+          return SingleChildScrollView(
+            child: Column(
+              children: List.generate(rows, (rowIndex) {
+                return SizedBox(
+                  height: rowHeight,
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(vertical: isNarrow ? 4.0 : 6.0),
+                    child: Row(
+                      children: List.generate(columns, (colIndex) {
+                        final monthIndex = rowIndex * columns + colIndex;
+                        if (monthIndex >= 12) return const Expanded(child: SizedBox());
+                        final month = DateTime(year, monthIndex + 1, 1);
+                        return Expanded(
+                          child: Padding(
+                            padding: EdgeInsets.symmetric(horizontal: hGap),
+                            child: _buildCompactMonthForYear(month, monthNames[monthIndex], isDark, authProvider),
+                          ),
+                        );
+                      }),
+                    ),
+                  ),
+                );
+              }),
+            ),
+          );
+        }
+
+        // Normal: existing Expanded layout
         return Column(
           children: List.generate(rows, (rowIndex) {
             return Expanded(

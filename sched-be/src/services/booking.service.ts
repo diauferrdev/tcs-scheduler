@@ -1663,8 +1663,8 @@ export async function rejectBooking(
 // Manager/Admin: Cancel Booking (ANY → CANCELLED)
 export async function cancelBooking(
   bookingId: string,
-  managerId: string,
-  cancellationReason: string
+  cancelledById: string,
+  cancellationReason?: string
 ) {
   const booking = await prisma.booking.findUnique({
     where: { id: bookingId },
@@ -1685,8 +1685,8 @@ export async function cancelBooking(
     where: { id: bookingId },
     data: {
       status: 'CANCELLED',
-      cancellationReason,
-      cancelledById: managerId,
+      cancellationReason: cancellationReason || null,
+      cancelledById,
       cancelledAt: new Date(),
     },
     include: {
@@ -1706,7 +1706,7 @@ export async function cancelBooking(
     notificationService.createNotification({
       type: 'BOOKING_CANCELLED',
       title: 'Booking Cancelled',
-      message: `Your booking for ${booking.organizationName || booking.companyName} on ${new Date(booking.date).toLocaleDateString()} was cancelled. Reason: ${cancellationReason}`,
+      message: `Your booking for ${booking.organizationName || booking.companyName} on ${new Date(booking.date).toLocaleDateString()} was cancelled.${cancellationReason ? ` Reason: ${cancellationReason}` : ''}`,
       userId: booking.createdById,
       bookingId: booking.id,
       screen: 'my_bookings',
@@ -1745,9 +1745,9 @@ export async function userRescheduleBooking(
     throw new Error('You can only reschedule your own bookings');
   }
 
-  // Can only reschedule when status is NEED_RESCHEDULE
-  if (booking.status !== 'NEED_RESCHEDULE') {
-    throw new Error('Booking must be in NEED_RESCHEDULE status to reschedule');
+  // Can only reschedule when status is NEED_RESCHEDULE, APPROVED, or UNDER_REVIEW
+  if (booking.status !== 'NEED_RESCHEDULE' && booking.status !== 'APPROVED' && booking.status !== 'UNDER_REVIEW') {
+    throw new Error('Booking must be in NEED_RESCHEDULE, APPROVED, or UNDER_REVIEW status to reschedule');
   }
 
   // Validate new date/time (similar to createBooking validations)

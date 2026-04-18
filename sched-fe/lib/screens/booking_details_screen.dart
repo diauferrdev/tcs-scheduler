@@ -647,6 +647,10 @@ Enterprise Office Visit Management
 
     final reasonController = TextEditingController();
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final authProvider = context.read<AuthProvider>();
+    final userRole = authProvider.user?.role;
+    final isSelfCancel = userRole == UserRole.USER && _booking?.createdById == authProvider.user?.id;
+    final reasonRequired = !isSelfCancel;
 
     final confirmed = await showDialog<bool>(
       context: context,
@@ -662,14 +666,16 @@ Enterprise Office Visit Management
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Cancel this booking. This can be used for approved bookings that need to be cancelled.',
+                isSelfCancel
+                    ? 'Are you sure you want to cancel this booking?'
+                    : 'Cancel this booking. This can be used for approved bookings that need to be cancelled.',
                 style: TextStyle(color: isDark ? Colors.grey[300] : Colors.grey[700]),
               ),
               const SizedBox(height: 16),
               TextField(
                 controller: reasonController,
                 decoration: InputDecoration(
-                  labelText: 'Cancellation Reason*',
+                  labelText: reasonRequired ? 'Cancellation Reason*' : 'Cancellation Reason (optional)',
                   hintText: 'Explain why this booking is cancelled...',
                   border: const OutlineInputBorder(),
                   labelStyle: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey[600]),
@@ -686,7 +692,7 @@ Enterprise Office Visit Management
             ),
             TextButton(
               onPressed: () {
-                if (reasonController.text.trim().isEmpty) {
+                if (reasonRequired && reasonController.text.trim().isEmpty) {
                   ToastNotification.show(
                     context,
                     message: 'Please provide a cancellation reason',
@@ -708,7 +714,7 @@ Enterprise Office Visit Management
 
     try {
       setState(() => _processing = true);
-      await _apiService.cancelBooking(_booking!.id, reasonController.text);
+      await _apiService.cancelBooking(_booking!.id, reasonController.text.trim().isEmpty ? null : reasonController.text);
 
       if (mounted) {
         ToastNotification.show(
@@ -873,7 +879,11 @@ Enterprise Office Visit Management
     final isOwner = _booking?.createdById == userId;
 
     // Check if user can reschedule
-    final canReschedule = isOwner && _booking?.status == BookingStatus.NEED_RESCHEDULE;
+    final canReschedule = isOwner && (
+      _booking?.status == BookingStatus.NEED_RESCHEDULE ||
+      _booking?.status == BookingStatus.APPROVED ||
+      _booking?.status == BookingStatus.UNDER_REVIEW
+    );
 
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
@@ -1693,6 +1703,36 @@ Enterprise Office Visit Management
             isDark,
           ),
 
+        // Owner: Cancel own APPROVED booking
+        if (_booking!.status == BookingStatus.APPROVED) ...[
+          Builder(
+            builder: (context) {
+              final authProvider = Provider.of<AuthProvider>(context, listen: false);
+              final isOwner = _booking?.createdById == authProvider.user?.id;
+              if (!isOwner) return const SizedBox.shrink();
+              return Padding(
+                padding: const EdgeInsets.only(top: 20),
+                child: OutlinedButton.icon(
+                  onPressed: _processing ? null : _handleCancel,
+                  icon: const Icon(Icons.block, size: 16),
+                  label: const Text(
+                    'Cancel Booking',
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.red,
+                    side: const BorderSide(color: Colors.red),
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ],
+
         // Manager/Admin Actions for Review Statuses
         if (_booking!.status == BookingStatus.CREATED ||
             _booking!.status == BookingStatus.UNDER_REVIEW ||
@@ -1705,8 +1745,29 @@ Enterprise Office Visit Management
               final userRole = authProvider.user?.role;
               final isAdminOrManager =
                   userRole == UserRole.ADMIN || userRole == UserRole.MANAGER;
+              final isOwner = _booking?.createdById == authProvider.user?.id;
 
-              if (!isAdminOrManager) return const SizedBox.shrink();
+              if (!isAdminOrManager && !isOwner) return const SizedBox.shrink();
+
+              // Owner-only: show just a cancel button
+              if (!isAdminOrManager && isOwner) {
+                return OutlinedButton.icon(
+                  onPressed: _processing ? null : _handleCancel,
+                  icon: const Icon(Icons.block, size: 16),
+                  label: const Text(
+                    'Cancel Booking',
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.red,
+                    side: const BorderSide(color: Colors.red),
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                  ),
+                );
+              }
 
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,

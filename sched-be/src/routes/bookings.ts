@@ -382,14 +382,17 @@ app.post('/:id/reject', authMiddleware, zValidator('json', RejectBookingSchema),
 app.post('/:id/cancel', authMiddleware, zValidator('json', CancelBookingSchema), async (c) => {
   try {
     const user = c.get('user');
-
-    // Check if user is manager or admin
-    if (user.role !== 'MANAGER' && user.role !== 'ADMIN') {
-      return c.json({ error: 'Only managers and admins can cancel bookings' }, 403);
-    }
-
     const id = c.req.param('id');
     const data = c.req.valid('json');
+
+    // Allow managers/admins to cancel any booking, or users to cancel their own
+    if (user.role === 'USER') {
+      const booking = await bookingService.getBookingById(id);
+      if (booking.createdById !== user.id) {
+        return c.json({ error: 'You can only cancel your own bookings' }, 403);
+      }
+    }
+
     const booking = await bookingService.cancelBooking(id, user.id, data.cancellationReason);
     return c.json(booking);
   } catch (error: any) {
