@@ -70,6 +70,11 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
         _biometricAvailable = available;
         _biometricEnabled = enabled;
       });
+
+      // Auto-prompt biometric login if available and enabled
+      if (available && enabled) {
+        _handleBiometricLogin();
+      }
     }
   }
 
