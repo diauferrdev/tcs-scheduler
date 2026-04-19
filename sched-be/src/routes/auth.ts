@@ -381,6 +381,17 @@ app.post('/users/:id/approve', authMiddleware, zValidator('json', ApproveUserSch
 
     const updatedUser = await authService.approveUser(id, roles);
 
+    // Notify the approved user
+    try {
+      const notificationService = await import('../services/notification.service');
+      await notificationService.createNotification({
+        userId: id,
+        type: 'BOOKING_APPROVED',
+        title: 'Account Approved!',
+        message: `Your account has been approved by ${currentUser.name}. You now have access as ${roles.join(', ')}.`,
+      });
+    } catch (_) {}
+
     await activityLogService.logActivity({
       action: 'UPDATE',
       resource: 'USER',

@@ -9,12 +9,12 @@ importScripts('https://www.gstatic.com/firebasejs/10.7.0/firebase-messaging-comp
 // Initialize Firebase app in service worker
 // Note: This uses the same config as the main app
 firebase.initializeApp({
-  apiKey: "AIzaSyA7JcVv5pKQ5qX9Y8zZY5jX9qY5jX9qY5j",
+  apiKey: "AIzaSyDrGoDIT_Ea9-_Asc7VKoZ_7dEhF2YLMng",
   authDomain: "tcs-paceport-scheduler.firebaseapp.com",
   projectId: "tcs-paceport-scheduler",
-  storageBucket: "tcs-paceport-scheduler.appspot.com",
+  storageBucket: "tcs-paceport-scheduler.firebasestorage.app",
   messagingSenderId: "874457674237",
-  appId: "1:874457674237:web:81596c5009b03f9a9fa994"
+  appId: "1:874457674237:web:3178aef43c686e2c9fa994"
 });
 
 const messaging = firebase.messaging();
