@@ -1,5 +1,5 @@
 import { prisma } from '../lib/prisma';
-import type { RoomBookingCreateInput } from '../types/room.types';
+import type { RoomBookingCreateInput, RoomBookingEditInput } from '../types/room.types';
 import { RoomTypeSchema } from '../types/room.types';
 import * as websocketService from './websocket.service';
 import * as notificationService from './notification.service';
@@ -39,6 +39,7 @@ export async function createRoomBooking(data: RoomBookingCreateInput, bookedById
       bookedById,
       createdAsRole: bookerRole || 'USER',
       status: isPrivileged ? 'APPROVED' : 'PENDING',
+      reviewReason: isPrivileged ? null : 'NEW',
       ...(isPrivileged ? { approvedById: bookedById, approvedAt: new Date() } : {}),
     },
     include: {
@@ -190,7 +191,7 @@ export async function approveRoomBooking(id: string, approvedById: string) {
     throw new Error('Room booking not found');
   }
 
-  if (booking.status !== 'PENDING') {
+  if (!['PENDING', 'NEED_EDIT', 'NEED_RESCHEDULE'].includes(booking.status)) {
     throw new Error(`Cannot approve a booking with status ${booking.status}`);
   }
 
@@ -248,7 +249,7 @@ export async function rejectRoomBooking(id: string, approvedById: string, reject
     throw new Error('Room booking not found');
   }
 
-  if (booking.status !== 'PENDING') {
+  if (!['PENDING', 'NEED_EDIT', 'NEED_RESCHEDULE'].includes(booking.status)) {
     throw new Error(`Cannot reject a booking with status ${booking.status}`);
   }
 
@@ -258,6 +259,7 @@ export async function rejectRoomBooking(id: string, approvedById: string, reject
       status: 'REJECTED',
       approvedById,
       rejectionReason,
+      rejectedAt: new Date(),
     },
     include: {
       bookedBy: { select: { id: true, name: true, email: true } },
@@ -294,7 +296,7 @@ export async function cancelRoomBooking(id: string) {
 
   const updated = await prisma.roomBooking.update({
     where: { id },
-    data: { status: 'CANCELLED' },
+    data: { status: 'CANCELLED', cancelledAt: new Date() },
     include: {
       bookedBy: { select: { id: true, name: true, email: true } },
     },
@@ -309,6 +311,194 @@ export async function cancelRoomBooking(id: string) {
     type: 'BOOKING_CANCELLED',
     title: 'Room Booking Cancelled',
     message: `Your ${canRoomLabel} booking on ${updated.date.toISOString().split('T')[0]} (${updated.startTime}-${updated.endTime}) has been cancelled.`,
+  }).catch(() => {});
+
+  return updated;
+}
+
+// ==================== UPDATE (EDIT) ====================
+
+export async function updateRoomBooking(id: string, data: RoomBookingEditInput) {
+  const booking = await prisma.roomBooking.findUnique({ where: { id } });
+
+  if (!booking) {
+    throw new Error('Room booking not found');
+  }
+
+  if (['REJECTED', 'CANCELLED'].includes(booking.status)) {
+    throw new Error(`Cannot edit a booking with status ${booking.status}`);
+  }
+
+  const updateData: Record<string, unknown> = {};
+  if (data.purpose !== undefined) updateData.purpose = data.purpose;
+  if (data.attendees !== undefined) updateData.attendees = data.attendees;
+  if (data.vertical !== undefined) updateData.vertical = data.vertical;
+
+  // Owner edits set status back to PENDING for re-review
+  updateData.status = 'PENDING';
+  updateData.reviewReason = 'DATA_EDITED';
+
+  const updated = await prisma.roomBooking.update({
+    where: { id },
+    data: updateData,
+    include: {
+      bookedBy: { select: { id: true, name: true, email: true } },
+      approvedBy: { select: { id: true, name: true, email: true } },
+    },
+  });
+
+  websocketService.broadcastRoomBookingUpdated(updated);
+
+  const editRoomLabel = updated.room.replace(/_/g, ' ');
+  notificationService.notifyAllManagers(
+    'BOOKING_CREATED',
+    'Room Booking Edited',
+    `${updated.bookedBy.name} edited their ${editRoomLabel} booking on ${updated.date.toISOString().split('T')[0]} (${updated.startTime}-${updated.endTime})`,
+    undefined
+  ).catch(() => {});
+
+  return updated;
+}
+
+// ==================== RESCHEDULE ====================
+
+export async function rescheduleRoomBooking(
+  id: string,
+  userId: string,
+  newDate: string,
+  newStartTime: string,
+  newEndTime: string,
+) {
+  const booking = await prisma.roomBooking.findUnique({ where: { id } });
+
+  if (!booking) {
+    throw new Error('Room booking not found');
+  }
+
+  if (['REJECTED', 'CANCELLED'].includes(booking.status)) {
+    throw new Error(`Cannot reschedule a booking with status ${booking.status}`);
+  }
+
+  // Check for time conflicts on the new date/time (excluding this booking)
+  const conflicting = await prisma.roomBooking.findFirst({
+    where: {
+      id: { not: id },
+      room: booking.room,
+      date: new Date(newDate),
+      status: { in: ['APPROVED', 'PENDING'] },
+      AND: [
+        { startTime: { lt: newEndTime } },
+        { endTime: { gt: newStartTime } },
+      ],
+    },
+  });
+
+  if (conflicting) {
+    throw new Error(`Room is already booked from ${conflicting.startTime} to ${conflicting.endTime} (${conflicting.status.toLowerCase()})`);
+  }
+
+  const updated = await prisma.roomBooking.update({
+    where: { id },
+    data: {
+      previousDate: booking.date,
+      previousStartTime: booking.startTime,
+      previousEndTime: booking.endTime,
+      date: new Date(newDate),
+      startTime: newStartTime,
+      endTime: newEndTime,
+      status: 'PENDING',
+      reviewReason: 'RESCHEDULED',
+    },
+    include: {
+      bookedBy: { select: { id: true, name: true, email: true } },
+      approvedBy: { select: { id: true, name: true, email: true } },
+    },
+  });
+
+  websocketService.broadcastRoomBookingUpdated(updated);
+
+  const resRoomLabel = updated.room.replace(/_/g, ' ');
+  notificationService.notifyAllManagers(
+    'BOOKING_CREATED',
+    'Room Booking Rescheduled',
+    `${updated.bookedBy.name} rescheduled their ${resRoomLabel} booking to ${newDate} (${newStartTime}-${newEndTime})`,
+    undefined
+  ).catch(() => {});
+
+  return updated;
+}
+
+// ==================== REQUEST EDIT ====================
+
+export async function requestEditRoomBooking(id: string, managerId: string, message?: string) {
+  const booking = await prisma.roomBooking.findUnique({ where: { id } });
+
+  if (!booking) {
+    throw new Error('Room booking not found');
+  }
+
+  if (!['PENDING', 'APPROVED'].includes(booking.status)) {
+    throw new Error(`Cannot request edit for a booking with status ${booking.status}`);
+  }
+
+  const updated = await prisma.roomBooking.update({
+    where: { id },
+    data: {
+      status: 'NEED_EDIT',
+      editRequestMessage: message || null,
+    },
+    include: {
+      bookedBy: { select: { id: true, name: true, email: true } },
+      approvedBy: { select: { id: true, name: true, email: true } },
+    },
+  });
+
+  websocketService.broadcastRoomBookingUpdated(updated);
+
+  const reqEditRoomLabel = updated.room.replace(/_/g, ' ');
+  notificationService.createNotification({
+    userId: updated.bookedById,
+    type: 'BOOKING_NOT_APPROVED',
+    title: 'Room Booking: Edit Requested',
+    message: `A manager has requested edits to your ${reqEditRoomLabel} booking on ${updated.date.toISOString().split('T')[0]}.${message ? ' Message: ' + message : ''}`,
+  }).catch(() => {});
+
+  return updated;
+}
+
+// ==================== REQUEST RESCHEDULE ====================
+
+export async function requestRescheduleRoomBooking(id: string, managerId: string, message?: string) {
+  const booking = await prisma.roomBooking.findUnique({ where: { id } });
+
+  if (!booking) {
+    throw new Error('Room booking not found');
+  }
+
+  if (!['PENDING', 'APPROVED'].includes(booking.status)) {
+    throw new Error(`Cannot request reschedule for a booking with status ${booking.status}`);
+  }
+
+  const updated = await prisma.roomBooking.update({
+    where: { id },
+    data: {
+      status: 'NEED_RESCHEDULE',
+      rescheduleRequestMessage: message || null,
+    },
+    include: {
+      bookedBy: { select: { id: true, name: true, email: true } },
+      approvedBy: { select: { id: true, name: true, email: true } },
+    },
+  });
+
+  websocketService.broadcastRoomBookingUpdated(updated);
+
+  const reqResRoomLabel = updated.room.replace(/_/g, ' ');
+  notificationService.createNotification({
+    userId: updated.bookedById,
+    type: 'BOOKING_NOT_APPROVED',
+    title: 'Room Booking: Reschedule Requested',
+    message: `A manager has requested you reschedule your ${reqResRoomLabel} booking on ${updated.date.toISOString().split('T')[0]}.${message ? ' Message: ' + message : ''}`,
   }).catch(() => {});
 
   return updated;

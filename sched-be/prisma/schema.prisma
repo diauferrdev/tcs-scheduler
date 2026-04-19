@@ -616,6 +616,8 @@ enum RoomBookingStatus {
   APPROVED
   REJECTED
   CANCELLED
+  NEED_EDIT
+  NEED_RESCHEDULE
 }
 
 model RoomBooking {
@@ -641,6 +643,16 @@ model RoomBooking {
   approvedBy    User?             @relation("RoomApprovedBy", fields: [approvedById], references: [id])
   approvedAt    DateTime?
   rejectionReason String?
+
+  // Review / edit / reschedule flow
+  reviewReason             String?
+  editRequestMessage       String?
+  rescheduleRequestMessage String?
+  previousDate             DateTime?         @db.Date
+  previousStartTime        String?
+  previousEndTime          String?
+  rejectedAt               DateTime?
+  cancelledAt              DateTime?
 
   createdAt     DateTime          @default(now())
   updatedAt     DateTime          @updatedAt

@@ -62,7 +62,7 @@ class _RoomBookingCardState extends State<RoomBookingCard>
 
     _animationController.forward();
 
-    if (_status == 'PENDING') {
+    if (['PENDING', 'NEED_EDIT', 'NEED_RESCHEDULE'].contains(_status)) {
       _pulseController.repeat();
     }
   }
@@ -76,17 +76,43 @@ class _RoomBookingCardState extends State<RoomBookingCard>
 
   String get _status => widget.roomBooking['status'] as String? ?? 'PENDING';
 
+  Widget _buildReviewReasonBadge(String reason) {
+    final (label, color) = switch (reason) {
+      'NEW' => ('New', const Color(0xFF22C55E)),
+      'RESCHEDULED' => ('Rescheduled', const Color(0xFF3B82F6)),
+      'DATA_EDITED' => ('Edited', const Color(0xFFF97316)),
+      'EDIT_RESPONSE' => ('Edit Response', const Color(0xFFF97316)),
+      _ => (reason, Colors.grey),
+    };
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.w600,
+          color: color,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     final status = _status;
-    final isPending = status == 'PENDING';
+    final isActive = ['PENDING', 'NEED_EDIT', 'NEED_RESCHEDULE'].contains(status);
 
-    final backgroundColor = isPending
+    final backgroundColor = isActive
         ? (isDark ? const Color(0xFF18181B) : Colors.white)
         : (isDark ? const Color(0xFF0A0A0B) : const Color(0xFFF3F4F6));
-    final borderColor = isPending
+    final borderColor = isActive
         ? (isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB))
         : (isDark ? const Color(0xFF1C1C1E) : const Color(0xFFD1D5DB));
 
@@ -96,6 +122,7 @@ class _RoomBookingCardState extends State<RoomBookingCard>
     final date = widget.roomBooking['date'] as String? ?? '';
     final startTime = widget.roomBooking['startTime'] as String? ?? '';
     final endTime = widget.roomBooking['endTime'] as String? ?? '';
+    final reviewReason = widget.roomBooking['reviewReason'] as String?;
 
     String formattedDate = date;
     try {
@@ -146,6 +173,10 @@ class _RoomBookingCardState extends State<RoomBookingCard>
                         softWrap: false,
                       ),
                     ),
+                    if (reviewReason != null) ...[
+                      const SizedBox(width: 8),
+                      _buildReviewReasonBadge(reviewReason),
+                    ],
                     const SizedBox(width: 12),
                     Text(
                       '$formattedDate \u2022 $startTime\u2013$endTime',
@@ -211,7 +242,7 @@ class _RoomBookingCardState extends State<RoomBookingCard>
     required bool isDark,
   }) {
     final isCurrent = stepIndex == currentStepIndex;
-    final isPulse = isCurrent && status == 'PENDING';
+    final isPulse = isCurrent && ['PENDING', 'NEED_EDIT', 'NEED_RESCHEDULE'].contains(status);
 
     final Color circleColor;
     if (stepIndex != currentStepIndex) {
@@ -318,6 +349,10 @@ class _RoomBookingCardState extends State<RoomBookingCard>
       finalLabel = 'Rejected';
     } else if (status == 'CANCELLED') {
       finalLabel = 'Cancelled';
+    } else if (status == 'NEED_EDIT') {
+      finalLabel = 'Edit Needed';
+    } else if (status == 'NEED_RESCHEDULE') {
+      finalLabel = 'Reschedule Needed';
     } else {
       finalLabel = 'Approved';
     }
@@ -331,6 +366,8 @@ class _RoomBookingCardState extends State<RoomBookingCard>
       case 'APPROVED':
       case 'REJECTED':
       case 'CANCELLED':
+      case 'NEED_EDIT':
+      case 'NEED_RESCHEDULE':
         return 2;
       default:
         return 0;
@@ -347,6 +384,9 @@ class _RoomBookingCardState extends State<RoomBookingCard>
         return const Color(0xFFEF4444);
       case 'PENDING':
         return const Color(0xFFF05E1B);
+      case 'NEED_EDIT':
+      case 'NEED_RESCHEDULE':
+        return const Color(0xFFF97316);
       default:
         return const Color(0xFF6B7280);
     }

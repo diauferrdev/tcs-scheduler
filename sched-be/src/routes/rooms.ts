@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
-import { RoomBookingCreateSchema, RoomBookingRejectSchema } from '../types/room.types';
+import { RoomBookingCreateSchema, RoomBookingRejectSchema, RoomBookingEditSchema, RoomBookingRescheduleSchema, RoomBookingRequestMessageSchema } from '../types/room.types';
 import * as roomService from '../services/room.service';
 import { authMiddleware } from '../middleware/auth';
 import type { AppContext } from '../lib/context';
@@ -99,6 +99,88 @@ app.post('/:id/reject', authMiddleware, zValidator('json', RoomBookingRejectSche
     const id = c.req.param('id');
     const data = c.req.valid('json');
     const booking = await roomService.rejectRoomBooking(id, user.id, data.rejectionReason);
+    return c.json(booking);
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    return c.json({ error: message }, 400);
+  }
+});
+
+// Update room booking (owner edit)
+app.patch('/:id', authMiddleware, zValidator('json', RoomBookingEditSchema), async (c) => {
+  try {
+    const user = c.get('user');
+    const id = c.req.param('id');
+
+    // Verify ownership
+    const existing = await roomService.getRoomBookingById(id);
+    const bookedById = (existing as Record<string, unknown>).bookedById as string;
+    if (bookedById !== user.id && user.role !== 'ADMIN') {
+      return c.json({ error: 'Only the booking owner or admin can edit' }, 403);
+    }
+
+    const data = c.req.valid('json');
+    const booking = await roomService.updateRoomBooking(id, data);
+    return c.json(booking);
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    return c.json({ error: message }, 400);
+  }
+});
+
+// Reschedule room booking (owner)
+app.post('/:id/reschedule', authMiddleware, zValidator('json', RoomBookingRescheduleSchema), async (c) => {
+  try {
+    const user = c.get('user');
+    const id = c.req.param('id');
+
+    // Verify ownership
+    const existing = await roomService.getRoomBookingById(id);
+    const bookedById = (existing as Record<string, unknown>).bookedById as string;
+    if (bookedById !== user.id && user.role !== 'ADMIN') {
+      return c.json({ error: 'Only the booking owner or admin can reschedule' }, 403);
+    }
+
+    const data = c.req.valid('json');
+    const booking = await roomService.rescheduleRoomBooking(id, user.id, data.date, data.startTime, data.endTime);
+    return c.json(booking);
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    return c.json({ error: message }, 400);
+  }
+});
+
+// Request edit (manager/admin)
+app.post('/:id/request-edit', authMiddleware, zValidator('json', RoomBookingRequestMessageSchema), async (c) => {
+  try {
+    const user = c.get('user');
+
+    if (user.role !== 'MANAGER' && user.role !== 'ADMIN') {
+      return c.json({ error: 'Only managers and admins can request edits' }, 403);
+    }
+
+    const id = c.req.param('id');
+    const data = c.req.valid('json');
+    const booking = await roomService.requestEditRoomBooking(id, user.id, data.message);
+    return c.json(booking);
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    return c.json({ error: message }, 400);
+  }
+});
+
+// Request reschedule (manager/admin)
+app.post('/:id/request-reschedule', authMiddleware, zValidator('json', RoomBookingRequestMessageSchema), async (c) => {
+  try {
+    const user = c.get('user');
+
+    if (user.role !== 'MANAGER' && user.role !== 'ADMIN') {
+      return c.json({ error: 'Only managers and admins can request reschedules' }, 403);
+    }
+
+    const id = c.req.param('id');
+    const data = c.req.valid('json');
+    const booking = await roomService.requestRescheduleRoomBooking(id, user.id, data.message);
     return c.json(booking);
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Unknown error';
