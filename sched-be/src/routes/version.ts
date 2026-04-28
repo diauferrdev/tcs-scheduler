@@ -16,8 +16,8 @@ const versionData = {
     linux: '',
   },
   releaseNotes: {
-    'pt-BR': 'Manager/Admin agora podem registrar eventos passados de qualquer tipo (Innovation Exchange, Hackathon).
-    'en': 'Manager/Admin can now register past events of any engagement type (Innovation Exchange, Hackathon).
+    'pt-BR': 'Manager/Admin agora podem registrar eventos passados de qualquer tipo (Innovation Exchange, Hackathon).',
+    'en': 'Manager/Admin can now register past events of any engagement type (Innovation Exchange, Hackathon).',
   },
   releaseDate: '2026-04-28T15:30:00-03:00',
   critical: false,
