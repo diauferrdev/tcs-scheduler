@@ -3,8 +3,8 @@ import { Hono } from 'hono';
 const app = new Hono();
 
 const versionData = {
-  version: '1.2.11',
-  buildNumber: 117,
+  version: '1.2.13',
+  buildNumber: 119,
   minVersion: '1.0.0',
   forceUpdate: false,
   downloadUrl: {
@@ -16,10 +16,10 @@ const versionData = {
     linux: '',
   },
   releaseNotes: {
-    'pt-BR': 'Melhorias na interface de bug reports: layout otimizado, botão de upvote reposicionado, rollback automático de anexos em caso de falha, e grid compacto de arquivos.',
-    'en': 'Bug report UI improvements: optimized layout, repositioned upvote button, automatic attachment rollback on failure, and compact file grid.',
+    'pt-BR': 'Manager/Admin agora podem registrar eventos passados de qualquer tipo (Innovation Exchange, Hackathon).
+    'en': 'Manager/Admin can now register past events of any engagement type (Innovation Exchange, Hackathon).
   },
-  releaseDate: '2025-11-03T07:34:26-03:00',
+  releaseDate: '2026-04-28T15:30:00-03:00',
   critical: false,
 };
 
