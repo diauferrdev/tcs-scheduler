@@ -1141,6 +1141,13 @@ class BookingFormScreenState extends State<BookingFormScreen> {
                 overflow: TextOverflow.ellipsis,
               ),
             ),
+            DropdownMenuItem(
+              value: 'OTHERS',
+              child: Text(
+                'Others',
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
           ],
           validator: (value) {
             if (value == null) {

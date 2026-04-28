@@ -50,6 +50,7 @@ export const TCSVerticalSchema = z.enum([
   'TRAVEL_HOSPITALITY',        // Travel, Transportation & Hospitality
   'PUBLIC_SERVICES',
   'BUSINESS_SERVICES',
+  'OTHERS',
 ]);
 
 // Target Audience options

@@ -330,6 +330,7 @@ class _BaseInfoDrawerState extends State<BaseInfoDrawer> {
                         const DropdownMenuItem(value: 'TRAVEL_HOSPITALITY', child: Text('Travel & Hospitality', overflow: TextOverflow.ellipsis)),
                         const DropdownMenuItem(value: 'PUBLIC_SERVICES', child: Text('Public Services', overflow: TextOverflow.ellipsis)),
                         const DropdownMenuItem(value: 'BUSINESS_SERVICES', child: Text('Business Services', overflow: TextOverflow.ellipsis)),
+                        const DropdownMenuItem(value: 'OTHERS', child: Text('Others', overflow: TextOverflow.ellipsis)),
                       ],
                       selectedItemBuilder: (BuildContext context) {
                         return [
@@ -343,6 +344,7 @@ class _BaseInfoDrawerState extends State<BaseInfoDrawer> {
                           const Text('Travel & Hospitality', overflow: TextOverflow.ellipsis),
                           const Text('Public Services', overflow: TextOverflow.ellipsis),
                           const Text('Business Services', overflow: TextOverflow.ellipsis),
+                          const Text('Others', overflow: TextOverflow.ellipsis),
                         ];
                       },
                       validator: (value) {

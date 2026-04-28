@@ -471,6 +471,10 @@ class _EditBookingDrawerState extends State<EditBookingDrawer> {
               value: 'BUSINESS_SERVICES',
               child: Text('Business Services', overflow: TextOverflow.ellipsis),
             ),
+            DropdownMenuItem(
+              value: 'OTHERS',
+              child: Text('Others', overflow: TextOverflow.ellipsis),
+            ),
           ],
           validator: (value) {
             if (value == null) {

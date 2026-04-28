@@ -54,6 +54,7 @@ enum TCSVertical {
   TRAVEL_HOSPITALITY,         // Travel, Transportation & Hospitality
   PUBLIC_SERVICES,
   BUSINESS_SERVICES,
+  OTHERS,
 }
 
 enum TargetAudience {

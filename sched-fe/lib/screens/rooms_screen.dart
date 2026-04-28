@@ -1133,6 +1133,7 @@ class _BookingFormSheetState extends State<_BookingFormSheet> {
     'TRAVEL_HOSPITALITY',
     'PUBLIC_SERVICES',
     'BUSINESS_SERVICES',
+    'OTHERS',
   ];
 
   @override
