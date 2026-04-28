@@ -3,8 +3,8 @@ import { Hono } from 'hono';
 const app = new Hono();
 
 const versionData = {
-  version: '1.2.13',
-  buildNumber: 119,
+  version: '1.2.14',
+  buildNumber: 120,
   minVersion: '1.0.0',
   forceUpdate: false,
   downloadUrl: {
@@ -16,10 +16,10 @@ const versionData = {
     linux: '',
   },
   releaseNotes: {
-    'pt-BR': 'Manager/Admin agora podem registrar eventos passados de qualquer tipo (Innovation Exchange, Hackathon).',
-    'en': 'Manager/Admin can now register past events of any engagement type (Innovation Exchange, Hackathon).',
+    'pt-BR': 'Adicionada opção OTHERS no dropdown de Vertical.',
+    'en': 'Added OTHERS option to the Vertical dropdown.',
   },
-  releaseDate: '2026-04-28T15:30:00-03:00',
+  releaseDate: '2026-04-28T17:35:00-03:00',
   critical: false,
 };
 
