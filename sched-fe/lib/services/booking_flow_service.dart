@@ -23,6 +23,7 @@ class BookingFlowService {
   DateTime? _selectedDate;
   TimeOfDay? _startTime;
   BuildContext? _rootContext; // Store the root context
+  bool _bypassPrepDays = false; // ADMIN/MANAGER can book past/short-notice events
 
   // Callbacks for period selection integration
   Function(DateTime, String)? _loadAvailability;
@@ -41,6 +42,7 @@ class BookingFlowService {
     _loadAvailability = loadAvailability;
     _showSlotPicker = showSlotPicker;
     _resetData();
+    _resolveBypassFromAuth(context);
 
     // Start with engagement type drawer
     _showEngagementTypeDrawerForPeriodFlow(context, onPeriodSelected);
@@ -56,7 +58,15 @@ class BookingFlowService {
     _startTime = startTime;
     _rootContext = context; // Store the root context for navigation
     _resetData();
+    _resolveBypassFromAuth(context);
     _showEngagementTypeDrawer(context);
+  }
+
+  /// Compute whether the current user can bypass prep-day rules.
+  /// MANAGER and ADMIN need to register past/short-notice events.
+  void _resolveBypassFromAuth(BuildContext context) {
+    final role = context.read<AuthProvider>().user?.role;
+    _bypassPrepDays = role == UserRole.MANAGER || role == UserRole.ADMIN;
   }
 
   void _resetData() {
@@ -83,6 +93,7 @@ class BookingFlowService {
         maxChildSize: 0.95,
         builder: (context, scrollController) => EngagementTypeDrawer(
           selectedDate: _selectedDate,
+          bypassPrepDays: _bypassPrepDays,
           onNext: (engagementType) {
             _engagementType = engagementType;
             Navigator.pop(context);
@@ -120,6 +131,7 @@ class BookingFlowService {
         maxChildSize: 0.95,
         builder: (context, scrollController) => EngagementTypeDrawer(
           selectedDate: _selectedDate,
+          bypassPrepDays: _bypassPrepDays,
           onNext: (engagementType) {
             _engagementType = engagementType;
             Navigator.pop(context);

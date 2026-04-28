@@ -4,11 +4,13 @@ import 'package:flutter/material.dart';
 class EngagementTypeDrawer extends StatefulWidget {
   final Function(String engagementType) onNext;
   final DateTime? selectedDate;
+  final bool bypassPrepDays;
 
   const EngagementTypeDrawer({
     super.key,
     required this.onNext,
     this.selectedDate,
+    this.bypassPrepDays = false,
   });
 
   @override
@@ -49,6 +51,7 @@ class _EngagementTypeDrawerState extends State<EngagementTypeDrawer> {
   }
 
   bool _isGreyedOut(String value) {
+    if (widget.bypassPrepDays) return false;
     if (!_prepRequiredTypes.contains(value)) return false;
     if (widget.selectedDate == null) return false;
     final today = DateTime.now();
