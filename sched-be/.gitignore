@@ -52,6 +52,10 @@ coverage/
 # Prisma
 *.db-journal
 
-# User uploads (never commit user-uploaded files)
+# User uploads & build artifacts (APKs, installers, avatars, attachments).
+# Never commit these — they are generated/uploaded at runtime and can be 100s of MB.
+uploads/*
+!uploads/.gitkeep
+!uploads/attachments/
 uploads/attachments/*
 !uploads/attachments/.gitkeep

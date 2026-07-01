@@ -2,6 +2,7 @@ import { prisma } from '../lib/prisma';
 import type { BookingCreateInput, BookingUpdateInput } from '../types';
 import * as pushService from './push.service';
 import * as websocketService from './websocket.service';
+import { isAfternoonPeriod, isMorningPeriod, timeRangesOverlap } from '../utils/time-overlap';
 
 // Helper: Convert time string to minutes since 9AM
 function timeToMinutes(timeStr: string): number {
@@ -216,30 +217,8 @@ function getNextBusinessDay(date: Date): Date {
   return nextDay;
 }
 
-// Helper: Check if time is in morning period (9:00-13:00)
-function isMorningPeriod(startTime: string): boolean {
-  const hour = parseInt(startTime.split(':')[0]);
-  return hour >= 9 && hour < 13;
-}
-
-// Helper: Check if time is in afternoon period (13:00-17:00)
-function isAfternoonPeriod(startTime: string): boolean {
-  const hour = parseInt(startTime.split(':')[0]);
-  return hour >= 13 && hour < 17;
-}
-
-// Helper: Check if two time ranges overlap
-function timeRangesOverlap(
-  start1Minutes: number,
-  duration1Hours: number,
-  start2Minutes: number,
-  duration2Hours: number
-): boolean {
-  const end1Minutes = start1Minutes + duration1Hours * 60;
-  const end2Minutes = start2Minutes + duration2Hours * 60;
-
-  return start1Minutes < end2Minutes && start2Minutes < end1Minutes;
-}
+// Pure time-period helpers (morning/afternoon windows, range overlap) live in
+// src/utils/time-overlap.ts so they can be unit-tested without a database.
 
 // Helper: Check if a period (morning or afternoon) is free on a given date
 // Only considers APPROVED bookings (PENDING do not block)
@@ -808,34 +787,70 @@ export async function createBooking(data: BookingCreateInput, createdById?: stri
     },
   });
 
-  // Auto-approve for MANAGER/ADMIN, otherwise transition to UNDER_REVIEW
+  // Auto-approve for MANAGER/ADMIN, otherwise transition to UNDER_REVIEW.
   const isPrivileged = creatorRole === 'MANAGER' || creatorRole === 'ADMIN';
-  const newStatus = isPrivileged ? 'APPROVED' : 'UNDER_REVIEW';
-  const updatedBooking = await prisma.booking.update({
-      where: { id: booking.id },
-      data: {
-        status: newStatus,
-        reviewReason: isPrivileged ? null : 'NEW',
-        ...(isPrivileged ? { approvedById: createdById, approvedAt: new Date() } : {}),
-      },
-      include: {
-        createdBy: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-          },
-        },
-        attendees: true,
-      },
-    });
 
-    // Notify all managers about the new booking (async, don't block)
+  const includeShape = {
+    createdBy: {
+      select: {
+        id: true,
+        name: true,
+        email: true,
+      },
+    },
+    attendees: true,
+  } as const;
+
+  // Privileged auto-approval is written inside a Serializable transaction that
+  // re-checks for an overlapping APPROVED booking, so two near-simultaneous
+  // auto-approvals can't double-book the same slot. Non-privileged bookings go
+  // to UNDER_REVIEW (which doesn't block slots) so no atomic guard is needed.
+  const updatedBooking = isPrivileged
+    ? await prisma.$transaction(async (tx) => {
+        const approvedOnDate = await tx.booking.findMany({
+          where: { date: new Date(data.date), status: 'APPROVED', id: { not: booking.id } },
+        });
+        for (const existing of approvedOnDate) {
+          if (timeRangesOverlap(
+            requestedStartMinutes,
+            requestedDurationHours,
+            timeToMinutes(existing.startTime),
+            durationToHours(existing.duration)
+          )) {
+            throw new Error('Cannot auto-approve: slot is now occupied by another confirmed booking');
+          }
+        }
+        return tx.booking.update({
+          where: { id: booking.id },
+          data: { status: 'APPROVED', reviewReason: null, approvedById: createdById, approvedAt: new Date() },
+          include: includeShape,
+        });
+      }, { isolationLevel: 'Serializable' })
+    : await prisma.booking.update({
+        where: { id: booking.id },
+        data: { status: 'UNDER_REVIEW', reviewReason: 'NEW' },
+        include: includeShape,
+      });
+
+    // Notify all managers (async, don't block). Branch the message so an
+    // auto-approved booking isn't announced as "awaiting review".
     const notificationService = await import('./notification.service');
+    const dateLabel = new Date(updatedBooking.date).toLocaleDateString();
+    const notification = isPrivileged
+      ? {
+          type: 'BOOKING_APPROVED' as const,
+          title: 'New Booking Confirmed',
+          body: `${updatedBooking.companyName}'s visit on ${dateLabel} at ${updatedBooking.startTime} was created and auto-approved. ${updatedBooking.expectedAttendees} attendees expected.`,
+        }
+      : {
+          type: 'BOOKING_UNDER_REVIEW' as const,
+          title: 'New Booking - Awaiting Review',
+          body: `${updatedBooking.companyName} requested a visit on ${dateLabel} at ${updatedBooking.startTime}. ${updatedBooking.expectedAttendees} attendees expected.`,
+        };
     notificationService.notifyAllManagers(
-      'BOOKING_UNDER_REVIEW',
-      'New Booking - Awaiting Review',
-      `${updatedBooking.companyName} requested a visit on ${new Date(updatedBooking.date).toLocaleDateString()} at ${updatedBooking.startTime}. ${updatedBooking.expectedAttendees} attendees expected.`,
+      notification.type,
+      notification.title,
+      notification.body,
       updatedBooking.id
     ).catch((error: any) => {
       console.error('Failed to send manager notifications:', error);
@@ -864,8 +879,11 @@ export async function getBookings(month?: string, status?: string, userId?: stri
 
   if (month) {
     const [year, monthNum] = month.split('-');
-    const startDate = new Date(parseInt(year), parseInt(monthNum) - 1, 1);
-    const endDate = new Date(parseInt(year), parseInt(monthNum), 0);
+    // Use UTC to match how booking dates are stored (UTC midnight). A local-time
+    // constructor on a non-UTC host would shift the range and silently drop
+    // bookings that fall on the month boundary from the calendar view.
+    const startDate = new Date(Date.UTC(parseInt(year), parseInt(monthNum) - 1, 1));
+    const endDate = new Date(Date.UTC(parseInt(year), parseInt(monthNum), 0));
 
     where.date = {
       gte: startDate,
@@ -905,8 +923,11 @@ export async function getBookingsAvailability(month?: string) {
 
   if (month) {
     const [year, monthNum] = month.split('-');
-    const startDate = new Date(parseInt(year), parseInt(monthNum) - 1, 1);
-    const endDate = new Date(parseInt(year), parseInt(monthNum), 0);
+    // Use UTC to match how booking dates are stored (UTC midnight). A local-time
+    // constructor on a non-UTC host would shift the range and silently drop
+    // bookings that fall on the month boundary from the calendar view.
+    const startDate = new Date(Date.UTC(parseInt(year), parseInt(monthNum) - 1, 1));
+    const endDate = new Date(Date.UTC(parseInt(year), parseInt(monthNum), 0));
 
     where.date = {
       gte: startDate,
@@ -949,8 +970,11 @@ export async function getBookingsAvailabilityForAdmins(month?: string) {
 
   if (month) {
     const [year, monthNum] = month.split('-');
-    const startDate = new Date(parseInt(year), parseInt(monthNum) - 1, 1);
-    const endDate = new Date(parseInt(year), parseInt(monthNum), 0);
+    // Use UTC to match how booking dates are stored (UTC midnight). A local-time
+    // constructor on a non-UTC host would shift the range and silently drop
+    // bookings that fall on the month boundary from the calendar view.
+    const startDate = new Date(Date.UTC(parseInt(year), parseInt(monthNum) - 1, 1));
+    const endDate = new Date(Date.UTC(parseInt(year), parseInt(monthNum), 0));
 
     where.date = {
       gte: startDate,
@@ -1199,32 +1223,58 @@ export async function approveBooking(bookingId: string, managerId: string) {
     }
   }
 
-  // Approve the booking
-  const updatedBooking = await prisma.booking.update({
-    where: { id: bookingId },
-    data: {
-      status: 'APPROVED',
-      approvedById: managerId,
-      approvedAt: new Date(),
-    },
-    include: {
-      createdBy: {
-        select: {
-          id: true,
-          name: true,
-          email: true,
-        },
+  // Approve the booking ATOMICALLY. The checkAvailability pass above is only a
+  // fast, friendly pre-check — two managers approving conflicting bookings within
+  // milliseconds could both pass it and double-book the slot. Re-checking for an
+  // overlapping APPROVED booking and writing the APPROVED status inside a single
+  // Serializable transaction makes concurrent approvals serialize at the DB level:
+  // the second one hits a write-conflict (P2034) and fails instead of double-booking.
+  const updatedBooking = await prisma.$transaction(async (tx) => {
+    const approvedOnDate = await tx.booking.findMany({
+      where: {
+        date: booking.date,
+        status: 'APPROVED',
+        id: { not: bookingId },
       },
-      approvedBy: {
-        select: {
-          id: true,
-          name: true,
-          email: true,
-        },
+    });
+
+    for (const existing of approvedOnDate) {
+      if (timeRangesOverlap(
+        requestedStartMinutes,
+        requestedDurationHours,
+        timeToMinutes(existing.startTime),
+        durationToHours(existing.duration)
+      )) {
+        throw new Error('Cannot approve: slot is now occupied by another confirmed booking');
+      }
+    }
+
+    return tx.booking.update({
+      where: { id: bookingId },
+      data: {
+        status: 'APPROVED',
+        approvedById: managerId,
+        approvedAt: new Date(),
       },
-      attendees: true,
-    },
-  });
+      include: {
+        createdBy: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+        approvedBy: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+        attendees: true,
+      },
+    });
+  }, { isolationLevel: 'Serializable' });
 
   // Find all pending/under review bookings that conflict with this approved booking
   const conflictingBookings = await prisma.booking.findMany({
@@ -1345,7 +1395,7 @@ export async function approveBooking(bookingId: string, managerId: string) {
 
     for (const pendingBooking of bookingsToCancel) {
       // Mark as NEED_RESCHEDULE instead of CANCELLED
-      await prisma.booking.update({
+      const updatedPending = await prisma.booking.update({
         where: { id: pendingBooking.id },
         data: {
           status: 'NEED_RESCHEDULE',
@@ -1367,8 +1417,9 @@ export async function approveBooking(bookingId: string, managerId: string) {
         });
       }
 
-      // Broadcast booking update (not deletion, since it's not cancelled)
-      websocketService.broadcastBookingUpdated(pendingBooking);
+      // Broadcast the UPDATED booking (fresh NEED_RESCHEDULE status + message),
+      // not the stale pre-update object, so clients see the correct state.
+      websocketService.broadcastBookingUpdated(updatedPending);
     }
 
     console.log(`[Approval] Successfully marked ${conflictingCount} conflicting bookings as NEED_RESCHEDULE`);
@@ -1414,23 +1465,39 @@ export async function rescheduleBooking(
     throw new Error('Booking not found');
   }
 
-  // Validate new date/time availability
-  const availability = await checkAvailability(newDate);
+  // Validate new date/time availability using the period-based model.
+  // checkAvailability returns { availablePeriods, allPeriods, existingBookings } —
+  // there is no `availableTimeSlots` (referencing it crashed every reschedule).
+  // Map the requested start time to its period (morning/afternoon), confirm that
+  // period is free, then guard against any direct overlap with APPROVED bookings.
+  const availability = await checkAvailability(newDate, originalBooking.visitType);
   const requestedStartMinutes = timeToMinutes(newStartTime);
   const requestedDurationHours = durationToHours(newDuration);
 
-  const availableSlot = availability.availableTimeSlots.find(
-    slot => slot.time === newStartTime
-  );
+  const requestedPeriod = isMorningPeriod(newStartTime) ? 'MORNING' : 'AFTERNOON';
+  const period = availability.allPeriods.find(p => p.period === requestedPeriod);
 
-  if (!availableSlot) {
-    throw new Error(`Time slot ${newStartTime} is not available on ${newDate}`);
+  if (!period || !period.available) {
+    throw new Error(
+      `The ${requestedPeriod.toLowerCase()} period is not available on ${newDate}` +
+        (period?.blockedBy ? ` (${period.blockedBy})` : '')
+    );
   }
 
-  if (requestedDurationHours > availableSlot.maxDuration) {
-    throw new Error(
-      `Duration of ${requestedDurationHours} hours exceeds maximum available duration of ${availableSlot.maxDuration} hours at ${newStartTime}`
+  // Defense in depth: reject if the exact requested time range overlaps an
+  // existing APPROVED booking (excluding the booking being rescheduled itself).
+  const hasOverlap = availability.existingBookings.some((b) => {
+    if (b.id === bookingId) return false;
+    return timeRangesOverlap(
+      requestedStartMinutes,
+      requestedDurationHours,
+      timeToMinutes(b.startTime),
+      durationToHours(b.duration)
     );
+  });
+
+  if (hasOverlap) {
+    throw new Error(`Time ${newStartTime} on ${newDate} conflicts with an existing booking`);
   }
 
   // Create new booking with same data but new date/time

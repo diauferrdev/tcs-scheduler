@@ -1,35 +1,26 @@
 import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
 import { setCookie, deleteCookie } from 'hono/cookie';
-import { LoginSchema, UserCreateSchema, PasswordChangeSchema, ProfileUpdateSchema, SwitchRoleSchema, UpdateUserRolesSchema, ApproveUserSchema } from '../types';
+import { LoginSchema, UserCreateSchema, PasswordChangeSchema, ProfileUpdateSchema, SwitchRoleSchema, UpdateUserRolesSchema, ApproveUserSchema, AdminPasswordResetSchema } from '../types';
 import * as authService from '../services/auth.service';
 import * as activityLogService from '../services/activity-log.service';
 import { authMiddleware, requireRole } from '../middleware/auth';
+import { rateLimit } from '../middleware/rate-limit';
 import type { AppContext } from '../lib/context';
 import { prisma } from '../lib/prisma';
 
 const app = new Hono<AppContext>();
 
-app.post('/login', zValidator('json', LoginSchema), async (c) => {
+const loginRateLimit = rateLimit({ windowMs: 15 * 60 * 1000, max: 10, keyPrefix: 'login' });
+const changePasswordRateLimit = rateLimit({ windowMs: 15 * 60 * 1000, max: 5, keyPrefix: 'change-password' });
+
+app.post('/login', loginRateLimit, zValidator('json', LoginSchema), async (c) => {
   try {
     const data = c.req.valid('json');
     const result = await authService.login(data);
     const { user, sessionCookie } = result;
-    const userAgent = c.req.header('user-agent') || '';
-    const isIOS = /iPad|iPhone|iPod/.test(userAgent);
-    const origin = c.req.header('origin') || '';
 
     setCookie(c, sessionCookie.name, sessionCookie.value, sessionCookie.attributes);
-
-    // Debug logging
-    console.log('[Login] Login successful:', {
-      userId: user.id,
-      cookieName: sessionCookie.name,
-      cookieValue: sessionCookie.value.substring(0, 20) + '...',
-      origin,
-      isIOS,
-      userAgent: userAgent.substring(0, 50)
-    });
 
     // Log login activity
     await activityLogService.logActivity({
@@ -202,14 +193,10 @@ app.delete('/users/:id', authMiddleware, requireRole('ADMIN'), async (c) => {
   }
 });
 
-app.patch('/users/:id/password', authMiddleware, requireRole('ADMIN'), async (c) => {
+app.patch('/users/:id/password', authMiddleware, requireRole('ADMIN'), zValidator('json', AdminPasswordResetSchema), async (c) => {
   try {
     const id = c.req.param('id');
-    const { password } = await c.req.json();
-
-    if (!password || password.length < 8) {
-      return c.json({ error: 'Password must be at least 8 characters' }, 400);
-    }
+    const { password } = c.req.valid('json');
 
     await authService.resetUserPassword(id, password);
     return c.json({ success: true });
@@ -219,7 +206,7 @@ app.patch('/users/:id/password', authMiddleware, requireRole('ADMIN'), async (c)
 });
 
 // User self-service: Change own password
-app.post('/me/change-password', authMiddleware, zValidator('json', PasswordChangeSchema), async (c) => {
+app.post('/me/change-password', authMiddleware, changePasswordRateLimit, zValidator('json', PasswordChangeSchema), async (c) => {
   try {
     const user = c.get('user');
     const data = c.req.valid('json');

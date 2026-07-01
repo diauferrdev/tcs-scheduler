@@ -75,7 +75,7 @@ flutter build apk --release
 
 ### Upload to VPS (direct download)
 ```bash
-VERSION="1.2.12"  # change this
+VERSION="1.2.14"  # match sched-fe/pubspec.yaml (single source of truth)
 
 scp build/app/outputs/flutter-apk/app-release.apk \
   root@aimaturity.lat:/root/tcs/tcs-sched/sched-be/uploads/pace-scheduler-v${VERSION}.apk
@@ -130,31 +130,34 @@ flutter build windows --release
 ```
 Output: `build\windows\x64\runner\Release\`
 
-To zip for distribution:
+To zip for distribution (set `$VERSION` to match `sched-fe/pubspec.yaml`):
 ```powershell
-Compress-Archive -Path build\windows\x64\runner\Release\* -DestinationPath pace-scheduler-windows-v1.2.12.zip
+$VERSION = "1.2.14"
+Compress-Archive -Path build\windows\x64\runner\Release\* -DestinationPath "pace-scheduler-windows-v$VERSION.zip"
 ```
 
 Upload to VPS:
 ```bash
-scp pace-scheduler-windows-v1.2.12.zip root@aimaturity.lat:/root/tcs/tcs-sched/sched-be/uploads/
-ssh root@aimaturity.lat "ln -sf pace-scheduler-windows-v1.2.12.zip /root/tcs/tcs-sched/sched-be/uploads/pace-scheduler-windows-latest.zip"
+VERSION="1.2.14"
+scp pace-scheduler-windows-v${VERSION}.zip root@aimaturity.lat:/root/tcs/tcs-sched/sched-be/uploads/
+ssh root@aimaturity.lat "ln -sf pace-scheduler-windows-v${VERSION}.zip /root/tcs/tcs-sched/sched-be/uploads/pace-scheduler-windows-latest.zip"
 ```
 
 ### Linux Build (run in Ubuntu/WSL)
 
 ```bash
+VERSION="1.2.14"  # match sched-fe/pubspec.yaml
 cd sched-fe
 flutter build linux --release
 # Package:
 cd build/linux/x64/release
-tar czf pace-scheduler-linux-v1.2.12.tar.gz -C bundle .
+tar czf pace-scheduler-linux-v${VERSION}.tar.gz -C bundle .
 ```
 
 Upload to VPS:
 ```bash
-scp pace-scheduler-linux-v1.2.12.tar.gz root@aimaturity.lat:/root/tcs/tcs-sched/sched-be/uploads/
-ssh root@aimaturity.lat "ln -sf pace-scheduler-linux-v1.2.12.tar.gz /root/tcs/tcs-sched/sched-be/uploads/pace-scheduler-linux-latest.tar.gz"
+scp pace-scheduler-linux-v${VERSION}.tar.gz root@aimaturity.lat:/root/tcs/tcs-sched/sched-be/uploads/
+ssh root@aimaturity.lat "ln -sf pace-scheduler-linux-v${VERSION}.tar.gz /root/tcs/tcs-sched/sched-be/uploads/pace-scheduler-linux-latest.tar.gz"
 ```
 
 ### Unified Script (Linux/macOS only)

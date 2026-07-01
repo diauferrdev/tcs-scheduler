@@ -1,10 +1,43 @@
 import { Hono } from 'hono';
+import { join } from 'path';
 
 const app = new Hono();
 
+// Single source of truth for the app version is the Flutter pubspec.yaml
+// (format: `version: 1.2.14+120`). The backend reads it at startup so the
+// /version endpoint never drifts from the shipped client. Falls back to the
+// literals below if the file can't be read (e.g. backend deployed alone).
+const FALLBACK_VERSION = '1.2.14';
+const FALLBACK_BUILD = 120;
+
+async function readPubspecVersion(): Promise<{ version: string; buildNumber: number }> {
+  try {
+    // version.ts -> src/routes; pubspec lives at ../../../sched-fe/pubspec.yaml
+    const pubspecPath = join(import.meta.dir, '../../../sched-fe/pubspec.yaml');
+    const content = await Bun.file(pubspecPath).text();
+    const match = content.match(/^version:\s*([0-9]+\.[0-9]+\.[0-9]+)\+([0-9]+)/m);
+    if (match) {
+      return { version: match[1], buildNumber: parseInt(match[2], 10) };
+    }
+    console.warn('[version] pubspec.yaml did not match expected version format, serving fallback version', {
+      fallbackVersion: FALLBACK_VERSION,
+      fallbackBuild: FALLBACK_BUILD,
+    });
+  } catch (error) {
+    console.warn('[version] Could not read pubspec.yaml, serving fallback version', {
+      fallbackVersion: FALLBACK_VERSION,
+      fallbackBuild: FALLBACK_BUILD,
+      error,
+    });
+  }
+  return { version: FALLBACK_VERSION, buildNumber: FALLBACK_BUILD };
+}
+
+const { version, buildNumber } = await readPubspecVersion();
+
 const versionData = {
-  version: '1.2.14',
-  buildNumber: 120,
+  version,
+  buildNumber,
   minVersion: '1.0.0',
   forceUpdate: false,
   downloadUrl: {

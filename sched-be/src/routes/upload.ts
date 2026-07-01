@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
-import { authMiddleware } from '../middleware/auth';
+import { bodyLimit } from 'hono/body-limit';
+import { authMiddleware, requireRole } from '../middleware/auth';
 import type { AppContext } from '../lib/context';
 import { prisma } from '../lib/prisma';
 import { writeFile, mkdir } from 'fs/promises';
@@ -12,7 +13,9 @@ const app = new Hono<AppContext>();
 // ==================== CONFIGURATION ====================
 
 // Allowed file types
-const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml'];
+// NOTE: image/svg+xml is intentionally excluded — SVGs can embed <script> and,
+// since uploads are served same-origin, would enable stored XSS via avatars/images.
+const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
 const ALLOWED_VIDEO_TYPES = ['video/mp4', 'video/webm', 'video/ogg', 'video/quicktime', 'video/x-msvideo'];
 const ALLOWED_AUDIO_TYPES = ['audio/mp4', 'audio/mpeg', 'audio/wav', 'audio/ogg', 'audio/aac', 'audio/webm', 'audio/x-m4a'];
 const ALLOWED_DOCUMENT_TYPES = [
@@ -50,8 +53,8 @@ const MAX_IMAGE_SIZE = 30 * 1024 * 1024; // 30MB
 const MAX_VIDEO_SIZE = 300 * 1024 * 1024; // 300MB
 const MAX_AUDIO_SIZE = 50 * 1024 * 1024; // 50MB
 const MAX_DOCUMENT_SIZE = 20 * 1024 * 1024; // 20MB
-const MAX_FILE_SIZE = 1024 * 1024 * 1024; // 1GB - Arquivos gerais
-const MAX_ATTACHMENT_SIZE = 1024 * 1024 * 1024; // 1GB - Aumentado para suportar arquivos gerais
+const MAX_FILE_SIZE = 250 * 1024 * 1024; // 250MB - Arquivos gerais (release binaries: APK/EXE/MSIX)
+const MAX_ATTACHMENT_SIZE = 100 * 1024 * 1024; // 100MB - Anexos de tickets/bug reports
 
 // Upload directories
 const UPLOAD_BASE_DIR = join(process.cwd(), 'uploads');
@@ -76,7 +79,11 @@ async function ensureUploadDirs() {
 
 function getFileExtension(filename: string): string {
   const parts = filename.split('.');
-  return parts.length > 1 ? parts.pop()!.toLowerCase() : '';
+  const raw = parts.length > 1 ? parts.pop()!.toLowerCase() : '';
+  // Only accept a simple alphanumeric extension. This strips any path-significant
+  // characters (`/`, `\`, `..`) so the generated `${uuid}.${ext}` name can never
+  // escape the target upload directory or receive an unexpected/dangerous suffix.
+  return /^[a-z0-9]{1,8}$/.test(raw) ? raw : '';
 }
 
 function generateFilename(originalFilename: string): string {
@@ -314,7 +321,10 @@ app.post('/document', authMiddleware, async (c) => {
  * Upload general file (exe, zip, apk, etc - up to 1GB)
  * POST /api/upload/file
  */
-app.post('/file', authMiddleware, async (c) => {
+// Restricted to ADMIN/MANAGER: this endpoint accepts arbitrary binary types
+// (EXE/APK/MSIX) for release self-distribution. Leaving it open to every
+// authenticated user turns the domain into a malware-hosting surface.
+app.post('/file', authMiddleware, requireRole('ADMIN', 'MANAGER'), bodyLimit({ maxSize: MAX_FILE_SIZE }), async (c) => {
   try {
     await ensureUploadDirs();
 
@@ -325,7 +335,7 @@ app.post('/file', authMiddleware, async (c) => {
       return c.json({ error: 'No file provided' }, 400);
     }
 
-    // Aceita qualquer tipo de arquivo
+    // Accepts any file type (release binaries), but only for privileged roles above.
     if (file.size > MAX_FILE_SIZE) {
       return c.json({
         error: `File too large. Maximum size is ${MAX_FILE_SIZE / (1024 * 1024 * 1024)}GB`

@@ -166,6 +166,12 @@ const server = Bun.serve<WebSocketData>({
 
   // WebSocket upgrade handler
   websocket: {
+    // Reap dead connections: the client pings every 30s, so any live socket
+    // keeps resetting this timer. A socket that goes silent (network drop, no
+    // clean close) is closed after 120s, firing close() → removeConnection,
+    // so stale entries can't accumulate in the connection map.
+    idleTimeout: 120,
+
     open(ws) {
       console.log('[WS] Connection opened for user:', ws.data.userId);
       websocketService.addConnection(ws.data.userId, ws);
@@ -424,7 +430,11 @@ const server = Bun.serve<WebSocketData>({
   },
 
   async fetch(request, server) {
-    const url = new URL(request.url);
+    // request.url can arrive as a relative path (e.g. "/") from health checks,
+    // HTTP/1.0 probes, or requests missing a Host header. Resolving against a
+    // base derived from the Host header keeps `new URL` from throwing
+    // ERR_INVALID_URL and returning a 500 for otherwise harmless traffic.
+    const url = new URL(request.url, `http://${request.headers.get('host') ?? 'localhost'}`);
 
     // Handle WebSocket upgrade
     if (url.pathname === '/ws' && request.headers.get('upgrade') === 'websocket') {
@@ -492,4 +502,14 @@ process.on('SIGTERM', () => {
   console.log('[Server] Shutting down gracefully...');
   server.stop();
   process.exit(0);
+});
+
+// Process-level safety net: log-only handlers so a single stray rejection or
+// unhandled throw can't silently crash the whole server (no process.exit).
+process.on('unhandledRejection', (reason) => {
+  console.error('[Process] Unhandled promise rejection:', reason);
+});
+
+process.on('uncaughtException', (err) => {
+  console.error('[Process] Uncaught exception:', err);
 });

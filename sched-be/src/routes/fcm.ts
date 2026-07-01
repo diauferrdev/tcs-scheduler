@@ -46,11 +46,11 @@ app.get('/tokens', authMiddleware, async (c) => {
 
 // Admin: Get all registered FCM tokens (admin only)
 app.get('/tokens/all', authMiddleware, async (c) => {
-  const userEmail = c.get('user').email;
+  const user = c.get('user');
 
-  // Only allow diego@tcs.com
-  if (userEmail !== 'diego@tcs.com') {
-    return c.json({ error: 'Unauthorized. Only diego@tcs.com can view all tokens.' }, 403);
+  // Only admins can view all tokens
+  if (user.role !== 'ADMIN') {
+    return c.json({ error: 'Unauthorized. Only admins can view all tokens.' }, 403);
   }
 
   try {
@@ -94,11 +94,11 @@ app.get('/tokens/all', authMiddleware, async (c) => {
 
 // Send test notification to all devices (admin only)
 app.post('/test-notification', authMiddleware, async (c) => {
-  const userEmail = c.get('user').email;
+  const user = c.get('user');
 
-  // Only allow diego@tcs.com to send test notifications
-  if (userEmail !== 'diego@tcs.com') {
-    return c.json({ error: 'Unauthorized. Only diego@tcs.com can send test notifications.' }, 403);
+  // Only admins can send test notifications
+  if (user.role !== 'ADMIN') {
+    return c.json({ error: 'Unauthorized. Only admins can send test notifications.' }, 403);
   }
 
   try {

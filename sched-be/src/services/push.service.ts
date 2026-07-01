@@ -582,7 +582,7 @@ export async function getUserSubscriptions(userId: string): Promise<any[]> {
  * @param notification - Notification payload
  */
 export async function sendPushToRole(
-  role: 'ADMIN' | 'MANAGER' | 'GUEST',
+  role: 'ADMIN' | 'MANAGER' | 'USER',
   notification: PushNotification
 ): Promise<void> {
   console.log(`[FCM] Sending push to all users with role: ${role}`);

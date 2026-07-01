@@ -3,9 +3,12 @@ import { zValidator } from '@hono/zod-validator';
 import { InvitationCreateSchema } from '../types';
 import * as invitationService from '../services/invitation.service';
 import { authMiddleware, requireRole } from '../middleware/auth';
+import { rateLimit } from '../middleware/rate-limit';
 import type { AppContext } from '../lib/context';
 
 const app = new Hono<AppContext>();
+
+const validateTokenRateLimit = rateLimit({ windowMs: 15 * 60 * 1000, max: 20, keyPrefix: 'invitation-validate' });
 
 // Create invitation (ADMIN/MANAGER only)
 app.post('/', authMiddleware, requireRole('ADMIN', 'MANAGER'), zValidator('json', InvitationCreateSchema), async (c) => {
@@ -20,7 +23,7 @@ app.post('/', authMiddleware, requireRole('ADMIN', 'MANAGER'), zValidator('json'
 });
 
 // Validate token (public)
-app.get('/:token/validate', async (c) => {
+app.get('/:token/validate', validateTokenRateLimit, async (c) => {
   try {
     const token = c.req.param('token');
     const validation = await invitationService.validateToken(token);

@@ -1,6 +1,6 @@
 import { prisma } from '../lib/prisma';
 import type { TicketCreate, TicketUpdate, TicketFilter, TicketMessageCreate } from '../types/ticket.types';
-import { join } from 'path';
+import { join, resolve, sep } from 'path';
 
 // Audio MIME types
 const AUDIO_MIME_TYPES = [
@@ -37,6 +37,16 @@ async function extractAudioDuration(fileUrl: string, mimeType: string): Promise<
     }
     relativePath = relativePath.replace('/uploads/', '');
     const filepath = join(UPLOAD_BASE_DIR, relativePath);
+
+    // Containment check: fileUrl is client-supplied, so a crafted value like
+    // `/uploads/../../etc/passwd` could otherwise make ffprobe read an arbitrary
+    // file. Reject anything that resolves outside the uploads directory.
+    const resolvedBase = resolve(UPLOAD_BASE_DIR);
+    const resolvedPath = resolve(filepath);
+    if (resolvedPath !== resolvedBase && !resolvedPath.startsWith(resolvedBase + sep)) {
+      console.warn('[AudioExtract] Rejected path outside uploads dir:', fileUrl);
+      return null;
+    }
 
     console.log(`[AudioExtract] Extracting duration from: ${filepath}`);
 

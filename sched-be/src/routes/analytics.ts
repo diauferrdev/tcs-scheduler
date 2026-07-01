@@ -1,12 +1,12 @@
 import { Hono } from 'hono';
-import { authMiddleware } from '../middleware/auth';
+import { authMiddleware, requireRole } from '../middleware/auth';
 import * as analyticsService from '../services/analytics.service';
 import type { AppContext } from '../lib/context';
 
 const app = new Hono<AppContext>();
 
-// All analytics endpoints require authentication
-app.use('*', authMiddleware);
+// All analytics endpoints require authentication and ADMIN/MANAGER role
+app.use('*', authMiddleware, requireRole('ADMIN', 'MANAGER'));
 
 // Dashboard stats
 app.get('/dashboard', async (c) => {

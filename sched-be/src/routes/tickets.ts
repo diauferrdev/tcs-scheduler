@@ -339,6 +339,19 @@ app.post('/:id/read', authMiddleware, async (c) => {
       return c.json({ error: 'messageIds array is required' }, 400);
     }
 
+    const ticketForAccess = await prisma.ticket.findUnique({
+      where: { id: ticketId },
+      select: { createdById: true },
+    });
+
+    if (!ticketForAccess) {
+      return c.json({ error: 'Ticket not found' }, 404);
+    }
+
+    if (user.role === 'USER' && ticketForAccess.createdById !== user.id) {
+      return c.json({ error: 'Forbidden' }, 403);
+    }
+
     console.log(`[Read Receipts] Marking ${messageIds.length} messages as read for user ${user.id}`);
 
     // Update messages
@@ -431,6 +444,10 @@ app.post('/:id/typing', authMiddleware, async (c) => {
       return c.json({ error: 'Ticket not found' }, 404);
     }
 
+    if (user.role === 'USER' && ticket.createdById !== user.id) {
+      return c.json({ error: 'Forbidden' }, 403);
+    }
+
     // Notify the other party
     const userIdsToNotify: string[] = [];
     if (user.role === 'ADMIN') {
@@ -480,6 +497,10 @@ app.post('/:id/recording', authMiddleware, async (c) => {
 
     if (!ticket) {
       return c.json({ error: 'Ticket not found' }, 404);
+    }
+
+    if (user.role === 'USER' && ticket.createdById !== user.id) {
+      return c.json({ error: 'Forbidden' }, 403);
     }
 
     // Notify the other party

@@ -4,6 +4,19 @@ import { format } from 'date-fns';
 
 const app = new Hono();
 
+// These SVGs are public and unauthenticated, and interpolate user-supplied
+// free-text (names, company). Without escaping, a value like
+// `</text><script>...` executes when the SVG is opened directly in a browser
+// (stored XSS). Escape every XML-significant character before interpolation.
+function escapeXml(value: unknown): string {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+}
+
 /**
  * GET /api/og/attendee/:attendeeId
  * Generate Open Graph image for attendee badge
@@ -65,15 +78,15 @@ app.get('/attendee/:attendeeId', async (c) => {
 
         <!-- Attendee name -->
         <text x="120" y="240" font-family="Arial, sans-serif" font-size="52" font-weight="bold" fill="#FFFFFF">
-          ${attendee.name}
+          ${escapeXml(attendee.name)}
         </text>
 
         <!-- Position and Company -->
         <text x="120" y="290" font-family="Arial, sans-serif" font-size="24" fill="#CCCCCC">
-          ${attendee.position || 'Visitor'}
+          ${escapeXml(attendee.position || 'Visitor')}
         </text>
         <text x="120" y="325" font-family="Arial, sans-serif" font-size="24" fill="#999999">
-          ${booking.companyName}
+          ${escapeXml(booking.companyName)}
         </text>
 
         <!-- Visit details -->
@@ -149,7 +162,7 @@ app.get('/booking/:bookingId', async (c) => {
         <rect x="80" y="160" width="1040" height="320" rx="16" fill="#1a1a1a" stroke="#FFFFFF" stroke-width="3"/>
 
         <text x="120" y="240" font-family="Arial, sans-serif" font-size="48" font-weight="bold" fill="#FFFFFF">
-          ${booking.companyName}
+          ${escapeXml(booking.companyName)}
         </text>
 
         <text x="120" y="300" font-family="Arial, sans-serif" font-size="28" fill="#CCCCCC">
@@ -161,7 +174,7 @@ app.get('/booking/:bookingId', async (c) => {
         </text>
 
         <text x="120" y="420" font-family="Arial, sans-serif" font-size="24" fill="#999999">
-          🏢 ${booking.companySector}
+          🏢 ${escapeXml(booking.companySector)}
         </text>
 
         <text x="600" y="580" font-family="Arial, sans-serif" font-size="16" fill="#666666" text-anchor="middle">

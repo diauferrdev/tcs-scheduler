@@ -3,7 +3,7 @@ import { lucia } from '../lib/lucia';
 import { prisma } from '../lib/prisma';
 import type { LoginInput, PasswordChangeInput, ProfileUpdateInput } from '../types';
 
-const DEFAULT_PASSWORD = 'Tata@123';
+const DEFAULT_PASSWORD = process.env.DEFAULT_ONBOARDING_PASSWORD || 'Tata@123';
 
 export async function login(data: LoginInput) {
   const email = data.email.includes('@') ? data.email : `${data.email}@tcs.com`;

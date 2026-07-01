@@ -196,7 +196,7 @@ app.post(
         return c.json({ error: 'Unauthorized' }, 403);
       }
 
-      const role = c.req.param('role') as 'ADMIN' | 'MANAGER' | 'GUEST';
+      const role = c.req.param('role') as 'ADMIN' | 'MANAGER' | 'USER';
       const payload = c.req.valid('json');
 
       const result = await pushService.sendPushToRole(role, payload);

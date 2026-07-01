@@ -175,11 +175,28 @@ app.patch('/:id', authMiddleware, zValidator('json', BookingUpdateSchema), async
     const wasNeedEdit = originalBooking.status === 'NEED_EDIT';
     const wasNeedReschedule = originalBooking.status === 'NEED_RESCHEDULE';
     const isOwner = originalBooking.createdById === user.id;
-    const isUserEditing = isOwner && user.role !== 'ADMIN';
+    const isPrivileged = user.role === 'ADMIN' || user.role === 'MANAGER';
+
+    // Authorization: only the booking owner or a privileged role (ADMIN/MANAGER)
+    // may modify a booking. Prevents IDOR on other companies' bookings.
+    if (!isOwner && !isPrivileged) {
+      return c.json({ error: 'Forbidden' }, 403);
+    }
+
+    // Non-privileged users must never set status/reviewReason directly, or they
+    // could self-approve and bypass the manager review workflow. Status changes
+    // for regular users are driven server-side (re-review below) or via the
+    // dedicated approve/reject endpoints.
+    if (!isPrivileged) {
+      delete (data as { status?: unknown }).status;
+      delete (data as { reviewReason?: unknown }).reviewReason;
+    }
+
+    const isUserEditing = isOwner && !isPrivileged;
     const isChangingToReview = data.status === 'UNDER_REVIEW' || data.status === 'CREATED';
 
-    // When owner edits, set status back to UNDER_REVIEW for re-approval
-    if (isUserEditing && !data.status) {
+    // When an owner edits their booking, send it back to UNDER_REVIEW for re-approval.
+    if (isUserEditing) {
       data.status = 'UNDER_REVIEW';
       data.reviewReason = 'DATA_EDITED';
     }
@@ -281,6 +298,13 @@ app.post('/:id/reschedule', authMiddleware, async (c) => {
 
     if (!date || !startTime || !duration) {
       return c.json({ error: 'Missing required fields: date, startTime, duration' }, 400);
+    }
+
+    // Authorization: only the owner or a privileged role may reschedule (prevents IDOR).
+    const existing = await bookingService.getBookingById(id);
+    const isPrivileged = user.role === 'ADMIN' || user.role === 'MANAGER';
+    if (existing.createdById !== user.id && !isPrivileged) {
+      return c.json({ error: 'Forbidden' }, 403);
     }
 
     const newBooking = await bookingService.rescheduleBooking(id, date, startTime, duration, user.id);

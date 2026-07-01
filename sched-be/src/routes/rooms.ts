@@ -188,10 +188,19 @@ app.post('/:id/request-reschedule', authMiddleware, zValidator('json', RoomBooki
   }
 });
 
-// Cancel room booking (authenticated)
+// Cancel room booking (owner or admin)
 app.post('/:id/cancel', authMiddleware, async (c) => {
   try {
+    const user = c.get('user');
     const id = c.req.param('id');
+
+    // Verify ownership (prevents IDOR — any user cancelling another's booking)
+    const existing = await roomService.getRoomBookingById(id);
+    const bookedById = (existing as Record<string, unknown>).bookedById as string;
+    if (bookedById !== user.id && user.role !== 'ADMIN') {
+      return c.json({ error: 'Only the booking owner or admin can cancel' }, 403);
+    }
+
     const booking = await roomService.cancelRoomBooking(id);
     return c.json(booking);
   } catch (error: unknown) {
