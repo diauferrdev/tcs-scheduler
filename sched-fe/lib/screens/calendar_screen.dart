@@ -14,12 +14,27 @@ import '../services/navigation_service.dart';
 import '../models/booking.dart';
 import '../models/user.dart';
 import '../utils/adaptive_panel.dart';
+import '../utils/responsive_helper.dart';
 import '../utils/time_formatter.dart';
 import '../utils/toast_notification.dart';
 import 'booking_form_screen.dart';
 import '../services/booking_flow_service.dart';
 
 enum CalendarViewType { month, week, day }
+
+/// Safely extracts the hour component from a "HH:mm" time string.
+/// Returns 0 if the string is empty, malformed, or non-numeric instead of throwing.
+int _hourOf(String t) {
+  final p = t.split(':');
+  return p.isNotEmpty ? (int.tryParse(p[0]) ?? 0) : 0;
+}
+
+/// Safely extracts the minute component from a "HH:mm" time string.
+/// Returns 0 if the string is empty, malformed, or non-numeric instead of throwing.
+int _minuteOf(String t) {
+  final p = t.split(':');
+  return p.length > 1 ? (int.tryParse(p[1]) ?? 0) : 0;
+}
 
 class CalendarScreen extends StatefulWidget {
   final bool skipLayout;
@@ -139,10 +154,9 @@ class _CalendarScreenState extends State<CalendarScreen>
 
   void _showBookingFormWithDraft(Booking draft) {
     // Parse start time to TimeOfDay
-    final timeParts = draft.startTime.split(':');
     final startTime = TimeOfDay(
-      hour: int.parse(timeParts[0]),
-      minute: int.parse(timeParts[1]),
+      hour: _hourOf(draft.startTime),
+      minute: _minuteOf(draft.startTime),
     );
 
     // Calculate duration from the draft
@@ -209,6 +223,7 @@ class _CalendarScreenState extends State<CalendarScreen>
     _realtimeService.removeBookingApprovedListener(_onBookingApprovedListener);
     _realtimeService.removeBookingDeletedListener(_onBookingDeletedListener);
     _pageController.dispose();
+    _yearPageController.dispose();
     super.dispose();
   }
 
@@ -346,7 +361,7 @@ class _CalendarScreenState extends State<CalendarScreen>
 
     for (final ie in ieBookings) {
       final eventDate = ie.date;
-      final eventHour = int.parse(ie.startTime.split(':')[0]);
+      final eventHour = _hourOf(ie.startTime);
       final isMorning = eventHour < 13;
 
       final eventDateStr = DateFormat('yyyy-MM-dd').format(eventDate);
@@ -436,7 +451,7 @@ class _CalendarScreenState extends State<CalendarScreen>
         // Check if this is the actual IE event or prep/teardown
         final hasIEMorning = _bookings.any((b) {
           final bookingDate = DateFormat('yyyy-MM-dd').format(b.date);
-          final eventHour = int.parse(b.startTime.split(':')[0]);
+          final eventHour = _hourOf(b.startTime);
           return bookingDate == dayStr &&
               b.visitType == VisitType.INNOVATION_EXCHANGE &&
               eventHour < 13 &&
@@ -451,7 +466,7 @@ class _CalendarScreenState extends State<CalendarScreen>
           // Check if there's an IE in the afternoon of same day (this would be prep for that IE)
           final hasIEAfternoonSameDay = _bookings.any((b) {
             final bookingDate = DateFormat('yyyy-MM-dd').format(b.date);
-            final eventHour = int.parse(b.startTime.split(':')[0]);
+            final eventHour = _hourOf(b.startTime);
             return bookingDate == dayStr &&
                 b.visitType == VisitType.INNOVATION_EXCHANGE &&
                 eventHour >= 13 &&
@@ -478,7 +493,7 @@ class _CalendarScreenState extends State<CalendarScreen>
         // Check if this is the actual IE event or prep/teardown
         final hasIEAfternoon = _bookings.any((b) {
           final bookingDate = DateFormat('yyyy-MM-dd').format(b.date);
-          final eventHour = int.parse(b.startTime.split(':')[0]);
+          final eventHour = _hourOf(b.startTime);
           return bookingDate == dayStr &&
               b.visitType == VisitType.INNOVATION_EXCHANGE &&
               eventHour >= 13 &&
@@ -493,7 +508,7 @@ class _CalendarScreenState extends State<CalendarScreen>
           // Check if there's an IE in the morning of same day (this would be teardown for that IE)
           final hasIEMorningSameDay = _bookings.any((b) {
             final bookingDate = DateFormat('yyyy-MM-dd').format(b.date);
-            final eventHour = int.parse(b.startTime.split(':')[0]);
+            final eventHour = _hourOf(b.startTime);
             return bookingDate == dayStr &&
                 b.visitType == VisitType.INNOVATION_EXCHANGE &&
                 eventHour < 13 &&
@@ -651,7 +666,7 @@ class _CalendarScreenState extends State<CalendarScreen>
 
     // 1. Check actual bookings
     for (final booking in activeBookings) {
-      final startHour = int.parse(booking.startTime.split(':')[0]);
+      final startHour = _hourOf(booking.startTime);
       final durationHours =
           {
             VisitDuration.ONE_HOUR: 1,
@@ -1264,9 +1279,7 @@ class _CalendarScreenState extends State<CalendarScreen>
                         .where((b) => b.status == BookingStatus.APPROVED)
                         .toList();
                     for (final booking in confirmedBookings) {
-                      final startHour = int.parse(
-                        booking.startTime.split(':')[0],
-                      );
+                      final startHour = _hourOf(booking.startTime);
                       if (startHour < 13) morningOccupied = true;
                       if (startHour >= 13) afternoonOccupied = true;
                     }
@@ -1484,7 +1497,7 @@ class _CalendarScreenState extends State<CalendarScreen>
 
                 // 1. Check APPROVED bookings only
                 for (final booking in confirmedBookings) {
-                  final startHour = int.parse(booking.startTime.split(':')[0]);
+                  final startHour = _hourOf(booking.startTime);
                   final durationHours =
                       {
                         VisitDuration.ONE_HOUR: 1,
@@ -1766,7 +1779,7 @@ class _CalendarScreenState extends State<CalendarScreen>
 
     // Add bookings with sortOrder based on time
     for (final booking in bookingsList) {
-      final startHour = int.parse(booking.startTime.split(':')[0]);
+      final startHour = _hourOf(booking.startTime);
       final sortOrder = startHour < 13
           ? '0'
           : '1'; // Morning = 0, Afternoon = 1
@@ -3661,30 +3674,55 @@ class SlotPickerContent extends StatefulWidget {
 
 class _SlotPickerContentState extends State<SlotPickerContent> {
   AvailablePeriod? _selectedPeriod;
+  final ScrollController _flatScrollController = ScrollController();
+
+  @override
+  void dispose() {
+    _flatScrollController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
+    // Hide the drag handle / draggable-sheet sizing when shown as a desktop modal.
+    final isModal = !ResponsiveHelper.isMobile(context);
+
+    if (isModal) {
+      return _buildContent(context, _flatScrollController, isModal);
+    }
+
     return DraggableScrollableSheet(
       initialChildSize: 0.75,
       minChildSize: 0.5,
       maxChildSize: 0.9,
-      builder: (context, scrollController) => Container(
+      builder: (context, scrollController) =>
+          _buildContent(context, scrollController, isModal),
+    );
+  }
+
+  Widget _buildContent(
+    BuildContext context,
+    ScrollController scrollController,
+    bool isModal,
+  ) {
+    return Container(
         decoration: BoxDecoration(
           color: widget.isDark ? const Color(0xFF18181B) : Colors.white,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
         ),
         child: Column(
           children: [
-            // Handle bar
-            Container(
-              margin: const EdgeInsets.only(top: 8, bottom: 4),
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: widget.isDark ? Colors.grey[700] : Colors.grey[300],
-                borderRadius: BorderRadius.circular(2),
+            // Handle bar (mobile bottom-sheet only)
+            if (!isModal)
+              Container(
+                margin: const EdgeInsets.only(top: 8, bottom: 4),
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: widget.isDark ? Colors.grey[700] : Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2),
+                ),
               ),
-            ),
             // Header
             Container(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
@@ -3839,8 +3877,7 @@ class _SlotPickerContentState extends State<SlotPickerContent> {
             ),
           ],
         ),
-      ),
-    );
+      );
   }
 
   Widget _buildSelectablePeriodCard(AvailablePeriod period) {
@@ -3975,10 +4012,9 @@ class _SlotPickerContentState extends State<SlotPickerContent> {
     final duration = widget.selectedVisitType == 'PACE_TOUR' ? 2 : 6;
 
     // Parse start time to TimeOfDay
-    final timeParts = _selectedPeriod!.startTime.split(':');
     final startTime = TimeOfDay(
-      hour: int.parse(timeParts[0]),
-      minute: int.parse(timeParts[1]),
+      hour: _hourOf(_selectedPeriod!.startTime),
+      minute: _minuteOf(_selectedPeriod!.startTime),
     );
 
     // Close the drawer

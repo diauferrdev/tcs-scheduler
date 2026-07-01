@@ -580,6 +580,7 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
   Future<void> _startRecording() async {
     try {
       if (await _audioRecorder.hasPermission()) {
+        if (!mounted) return;
         setState(() {
           _isRecording = true;
           _recordingDuration = Duration.zero;
@@ -618,6 +619,7 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
         });
       }
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _isRecording = false;
         _recordingDuration = Duration.zero;
@@ -632,6 +634,7 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
       _recordingKeepAliveTimer?.cancel();
       final path = await _audioRecorder.stop();
 
+      if (!mounted) return;
       setState(() {
         _isRecording = false;
         _recordingDuration = Duration.zero;

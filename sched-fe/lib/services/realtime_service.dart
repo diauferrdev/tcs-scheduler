@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import '../config/api_config.dart';
@@ -16,8 +17,12 @@ class RealtimeService {
 
   WebSocketChannel? _channel;
   bool _isConnected = false;
+  bool _manualDisconnect = false;
+  int _reconnectAttempts = 0;
   Timer? _reconnectTimer;
   Timer? _pingTimer;
+  static const Duration _reconnectBaseDelay = Duration(seconds: 5);
+  static const Duration _maxReconnectDelay = Duration(seconds: 30);
 
   // Callbacks for UnifiedNotificationService
   Function(Map<String, dynamic>)? onNewNotification;
@@ -123,6 +128,8 @@ class RealtimeService {
 
   /// Connect to WebSocket with authentication
   Future<void> connect() async {
+    _manualDisconnect = false;
+
     if (_isConnected) return;
 
     try {
@@ -181,6 +188,7 @@ class RealtimeService {
       );
 
       _isConnected = true;
+      _reconnectAttempts = 0; // Reset backoff on successful connection open
 
       _startPingTimer();
       onNotificationConnected?.call();
@@ -295,17 +303,36 @@ class RealtimeService {
     _scheduleReconnect();
   }
 
-  /// Schedule reconnection attempt
+  /// Schedule reconnection attempt with exponential backoff + jitter
   void _scheduleReconnect() {
+    // Do not reconnect after an explicit/manual disconnect (e.g. logout)
+    if (_manualDisconnect) {
+      return;
+    }
+
+    final delay = _nextReconnectDelay();
+    _reconnectAttempts++;
+
     _reconnectTimer?.cancel();
-    _reconnectTimer = Timer(const Duration(seconds: 5), () {
-      if (!_isConnected) connect();
+    _reconnectTimer = Timer(delay, () {
+      if (!_isConnected && !_manualDisconnect) connect();
     });
+  }
+
+  /// Exponential backoff with jitter, capped at [_maxReconnectDelay].
+  Duration _nextReconnectDelay() {
+    final exponentialMs =
+        _reconnectBaseDelay.inMilliseconds * pow(2, _reconnectAttempts).toInt();
+    final cappedMs = min(exponentialMs, _maxReconnectDelay.inMilliseconds);
+    final jitterMs = Random().nextInt(1000);
+    return Duration(milliseconds: cappedMs + jitterMs);
   }
 
   /// Disconnect from WebSocket
   Future<void> disconnect() async {
+    _manualDisconnect = true;
     _isConnected = false;
+    _reconnectAttempts = 0;
     _reconnectTimer?.cancel();
     _pingTimer?.cancel();
     await _channel?.sink.close();

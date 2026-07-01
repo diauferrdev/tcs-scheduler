@@ -19,6 +19,20 @@ import '../utils/document_opener.dart';
 import '../utils/toast_notification.dart';
 import 'image_viewer_screen.dart';
 
+/// Safely extracts the hour component from a "HH:mm" time string.
+/// Returns 0 if the string is empty, malformed, or non-numeric instead of throwing.
+int _hourOf(String t) {
+  final p = t.split(':');
+  return p.isNotEmpty ? (int.tryParse(p[0]) ?? 0) : 0;
+}
+
+/// Safely extracts the minute component from a "HH:mm" time string.
+/// Returns 0 if the string is empty, malformed, or non-numeric instead of throwing.
+int _minuteOf(String t) {
+  final p = t.split(':');
+  return p.length > 1 ? (int.tryParse(p[1]) ?? 0) : 0;
+}
+
 /// Booking Details Screen - Shows complete booking information
 ///
 /// Can be used in two modes:
@@ -248,7 +262,7 @@ $engagementTypeName
 ${booking.companyName}
 
 📍 Date: ${dateFormat.format(booking.date)}
-🕐 Time: ${timeFormat.format(DateTime(2024, 1, 1, int.parse(booking.startTime.split(':')[0]), int.parse(booking.startTime.split(':')[1])))}
+🕐 Time: ${timeFormat.format(DateTime(2024, 1, 1, _hourOf(booking.startTime), _minuteOf(booking.startTime)))}
 ⏱️ Duration: $durationHours hour(s)
 👥 Attendees: ${(booking.attendees?.length ?? 0) + 1}
 

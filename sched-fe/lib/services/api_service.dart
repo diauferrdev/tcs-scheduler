@@ -16,6 +16,26 @@ class ApiService {
   String? _sessionCookie;
   bool _initialized = false;
 
+  /// Called when a request fails with a 401 that isn't the login-time
+  /// "pending approval" case (i.e. a real session expiry). AuthProvider wires
+  /// this up to clear the session and route the user back to login, so an
+  /// expired session recovers instead of leaving the app stuck.
+  static void Function()? onUnauthorized;
+
+  /// Maps a thrown error to a short, user-friendly message for toasts/snackbars,
+  /// so users never see raw `TimeoutException`/`SocketException`/`FormatException`.
+  static String friendlyError(Object error) {
+    final s = error.toString();
+    if (error is UnauthorizedException) return 'Your session expired. Please sign in again.';
+    if (error is ApiException) return error.message;
+    if (s.contains('TimeoutException')) return 'Request timed out. Check your connection and try again.';
+    if (s.contains('SocketException') || s.contains('Failed host lookup')) {
+      return 'No internet connection.';
+    }
+    if (s.contains('FormatException')) return 'Server returned an unexpected response. Please try again.';
+    return 'Something went wrong. Please try again.';
+  }
+
   /// Initialize ApiService and load persisted session cookie
   Future<void> initialize() async {
     if (_initialized) return;
@@ -96,7 +116,7 @@ class ApiService {
         .put(url, headers: headers, body: jsonEncode(data))
         .timeout(ApiConfig.timeout);
 
-    _extractAndSaveCookies(response, endpoint);
+    await _extractAndSaveCookies(response, endpoint);
     return _handleResponse(response);
   }
 
@@ -117,7 +137,7 @@ class ApiService {
         .patch(url, headers: headers, body: jsonEncode(data))
         .timeout(ApiConfig.timeout);
 
-    _extractAndSaveCookies(response, endpoint);
+    await _extractAndSaveCookies(response, endpoint);
     return _handleResponse(response);
   }
 
@@ -135,7 +155,7 @@ class ApiService {
         .delete(url, headers: headers)
         .timeout(ApiConfig.timeout);
 
-    _extractAndSaveCookies(response, endpoint);
+    await _extractAndSaveCookies(response, endpoint);
     return _handleResponse(response);
   }
 
@@ -164,12 +184,22 @@ class ApiService {
       if (response.body.isEmpty) {
         return {};
       }
-      final decoded = jsonDecode(response.body);
+      dynamic decoded;
+      try {
+        decoded = jsonDecode(response.body);
+      } catch (_) {
+        throw ApiException('Server returned an invalid response.', response.statusCode);
+      }
       // If response is a list, wrap it in a map
       if (decoded is List) {
         return {'data': decoded};
       }
-      return decoded as Map<String, dynamic>;
+      if (decoded is Map<String, dynamic>) {
+        return decoded;
+      }
+      // 2xx but not an object/list (scalar/unexpected shape) — wrap defensively
+      // so callers doing `response['x']` don't crash on a bad cast.
+      return {'data': decoded};
     } else if (response.statusCode == 401) {
       // Parse error message from 401 response (e.g. pending approval)
       if (response.body.isNotEmpty) {
@@ -183,11 +213,21 @@ class ApiService {
           if (e is ApiException) rethrow;
         }
       }
+      // Real session expiry (not the login-time pending-approval case above):
+      // notify AuthProvider to clear the session and route back to login.
+      onUnauthorized?.call();
       throw UnauthorizedException();
     } else {
-      final error = response.body.isNotEmpty
-          ? jsonDecode(response.body)
-          : {'error': 'Request failed'};
+      dynamic decodedError;
+      try {
+        decodedError = response.body.isNotEmpty
+            ? jsonDecode(response.body)
+            : {'error': 'Request failed'};
+      } catch (_) {
+        // Non-JSON error body (proxy 502/503 HTML, plain text, gateway page).
+        throw ApiException('Server error (${response.statusCode}). Please try again.', response.statusCode);
+      }
+      final Map error = decodedError is Map ? decodedError : {'error': 'Request failed'};
 
       // Handle error field - it could be a string or an object
       String errorMessage = 'Unknown error';
@@ -908,7 +948,9 @@ class ApiService {
       }
     }
 
-    final streamedResponse = await request.send();
+    // Timeout so a stalled upload on a flaky network can't hang the submit
+    // button forever (matches the other upload methods).
+    final streamedResponse = await request.send().timeout(const Duration(minutes: 5));
     final response = await http.Response.fromStream(streamedResponse);
 
 

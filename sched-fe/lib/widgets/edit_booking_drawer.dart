@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import '../models/booking.dart';
 import '../services/api_service.dart';
 import '../widgets/booking_form_fields.dart';
+import '../utils/responsive_helper.dart';
 import '../utils/toast_notification.dart';
 
 /// Drawer for editing booking details when status is NEED_EDIT
@@ -242,6 +243,40 @@ class _EditBookingDrawerState extends State<EditBookingDrawer> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    // On desktop this is shown as a centered dialog (see showAdaptivePanel), so it
+    // shouldn't force the mobile bottom-sheet height/chrome — let it size within
+    // the dialog's own max height instead.
+    final isModal = !ResponsiveHelper.isMobile(context);
+
+    final content = Column(
+      children: [
+        // Header
+        _buildHeader(isDark),
+
+        // Body
+        Expanded(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: Form(
+              key: _formKey,
+              child: _currentStep == 3
+                  ? _buildStep3BaseInfo(isDark)
+                  : _buildStep4Questionnaire(isDark),
+            ),
+          ),
+        ),
+
+        // Footer with navigation buttons
+        _buildFooter(isDark),
+      ],
+    );
+
+    if (isModal) {
+      return Container(
+        color: isDark ? Colors.black : Colors.white,
+        child: content,
+      );
+    }
 
     return Container(
       height: MediaQuery.of(context).size.height * 0.90,
@@ -249,28 +284,7 @@ class _EditBookingDrawerState extends State<EditBookingDrawer> {
         color: isDark ? Colors.black : Colors.white,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      child: Column(
-        children: [
-          // Header
-          _buildHeader(isDark),
-
-          // Body
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(24),
-              child: Form(
-                key: _formKey,
-                child: _currentStep == 3
-                    ? _buildStep3BaseInfo(isDark)
-                    : _buildStep4Questionnaire(isDark),
-              ),
-            ),
-          ),
-
-          // Footer with navigation buttons
-          _buildFooter(isDark),
-        ],
-      ),
+      child: content,
     );
   }
 

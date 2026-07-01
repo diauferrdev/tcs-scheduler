@@ -66,11 +66,13 @@ class _QuestionnaireDrawerState extends State<QuestionnaireDrawer> {
         }
       }
 
+      if (!mounted) return;
       setState(() {
         _questions = questions;
         _loading = false;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _error = e.toString();
         _loading = false;

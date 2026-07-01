@@ -60,12 +60,16 @@ class RoomBooking {
   factory RoomBooking.fromJson(Map<String, dynamic> json) {
     return RoomBooking(
       id: json['id'] as String,
-      room: RoomType.values.firstWhere((e) => e.name == json['room']),
+      room: RoomType.values.firstWhere(
+        (e) => e.name == json['room'],
+        orElse: () => RoomType.values.first,
+      ),
       date: DateTime.parse(json['date'] as String),
       startTime: json['startTime'] as String,
       endTime: json['endTime'] as String,
       status: RoomBookingStatus.values.firstWhere(
         (e) => e.name == json['status'],
+        orElse: () => RoomBookingStatus.values.first,
       ),
       bookedById: json['bookedById'] as String,
       bookedByName: json['bookedByName'] as String?,

@@ -4,6 +4,7 @@ import '../models/booking.dart';
 import '../services/api_service.dart';
 import '../screens/calendar_screen.dart';
 import '../utils/adaptive_panel.dart';
+import '../utils/responsive_helper.dart';
 import '../utils/toast_notification.dart';
 
 /// Drawer for USER to reschedule booking when status is NEED_RESCHEDULE
@@ -70,24 +71,29 @@ class _RescheduleDrawerState extends State<RescheduleDrawer> {
     };
     final visitTypeLabel = durationMap[widget.booking.visitType] ?? widget.booking.visitType.name;
 
+    Widget slotPickerContent(BuildContext context) => SlotPickerContent(
+      date: date,
+      allPeriods: allPeriods,
+      visitTypeLabel: visitTypeLabel,
+      selectedVisitType: widget.booking.visitType.name,
+      isUserRole: true,
+      isDark: isDark,
+      onSlotSelected: (TimeOfDay startTime, int duration) async {
+        final formattedTime = '${startTime.hour.toString().padLeft(2, '0')}:${startTime.minute.toString().padLeft(2, '0')}';
+        await _performReschedule(date, formattedTime);
+      },
+      onClose: () {},
+    );
+
     await showAdaptivePanel(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       isDismissible: true,
-      builder: (context) => SlotPickerContent(
-        date: date,
-        allPeriods: allPeriods,
-        visitTypeLabel: visitTypeLabel,
-        selectedVisitType: widget.booking.visitType.name,
-        isUserRole: true,
-        isDark: isDark,
-        onSlotSelected: (TimeOfDay startTime, int duration) async {
-          final formattedTime = '${startTime.hour.toString().padLeft(2, '0')}:${startTime.minute.toString().padLeft(2, '0')}';
-          await _performReschedule(date, formattedTime);
-        },
-        onClose: () {},
-      ),
+      builder: slotPickerContent,
+      // SlotPickerContent renders itself flat on desktop (ResponsiveHelper-aware),
+      // so the same builder works for both presentations.
+      desktopBuilder: slotPickerContent,
     );
   }
 
@@ -129,6 +135,45 @@ class _RescheduleDrawerState extends State<RescheduleDrawer> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    // On desktop this is shown as a centered dialog (see showAdaptivePanel), so it
+    // shouldn't force the mobile bottom-sheet height/chrome.
+    final isModal = !ResponsiveHelper.isMobile(context);
+
+    final content = Stack(
+      children: [
+        Column(
+          children: [
+            _buildHeader(isDark),
+
+            // Use CalendarScreen directly - the SAME component as the main Calendar page
+            Expanded(
+              child: CalendarScreen(
+                skipLayout: true, // Don't show AppLayout wrapper
+                onDaySelected: _handleDaySelected, // Callback when user clicks a day
+              ),
+            ),
+          ],
+        ),
+
+        // Loading indicator overlay when loading availability or submitting
+        if (_loading || _submitting)
+          Container(
+            color: Colors.black.withValues(alpha: 0.5),
+            child: const Center(
+              child: CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+              ),
+            ),
+          ),
+      ],
+    );
+
+    if (isModal) {
+      return Container(
+        color: isDark ? Colors.black : Colors.white,
+        child: content,
+      );
+    }
 
     return Container(
       height: MediaQuery.of(context).size.height * 0.95,
@@ -136,34 +181,7 @@ class _RescheduleDrawerState extends State<RescheduleDrawer> {
         color: isDark ? Colors.black : Colors.white,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      child: Stack(
-        children: [
-          Column(
-            children: [
-              _buildHeader(isDark),
-
-              // Use CalendarScreen directly - the SAME component as the main Calendar page
-              Expanded(
-                child: CalendarScreen(
-                  skipLayout: true, // Don't show AppLayout wrapper
-                  onDaySelected: _handleDaySelected, // Callback when user clicks a day
-                ),
-              ),
-            ],
-          ),
-
-          // Loading indicator overlay when loading availability or submitting
-          if (_loading || _submitting)
-            Container(
-              color: Colors.black.withValues(alpha: 0.5),
-              child: const Center(
-                child: CircularProgressIndicator(
-                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                ),
-              ),
-            ),
-        ],
-      ),
+      child: content,
     );
   }
 

@@ -5,6 +5,7 @@ import '../models/user.dart';
 import '../providers/auth_provider.dart';
 import '../providers/theme_provider.dart';
 import '../services/api_service.dart';
+import '../utils/responsive_helper.dart';
 import '../widgets/media_fullscreen_viewer.dart';
 
 /// Drawer that shows ticket details (title, description, attachments, status selector for admin)
@@ -25,6 +26,7 @@ class TicketDetailsDrawer extends StatefulWidget {
 
 class _TicketDetailsDrawerState extends State<TicketDetailsDrawer> {
   final DraggableScrollableController _sheetController = DraggableScrollableController();
+  final ScrollController _flatScrollController = ScrollController();
   final ApiService _api = ApiService();
 
   TicketStatus? _selectedStatus;
@@ -39,6 +41,7 @@ class _TicketDetailsDrawerState extends State<TicketDetailsDrawer> {
   @override
   void dispose() {
     _sheetController.dispose();
+    _flatScrollController.dispose();
     super.dispose();
   }
 
@@ -131,19 +134,39 @@ class _TicketDetailsDrawerState extends State<TicketDetailsDrawer> {
     final user = authProvider.user;
     final isAdmin = user?.role == UserRole.ADMIN;
 
+    // Hide the drag handle / draggable-sheet sizing when shown as a desktop modal.
+    final isModal = !ResponsiveHelper.isMobile(context);
+
+    if (isModal) {
+      return _buildDrawerBody(context, isDark, isAdmin, _flatScrollController, isModal);
+    }
+
     return DraggableScrollableSheet(
       initialChildSize: 0.8,
       minChildSize: 0.4,
       maxChildSize: 0.95,
       controller: _sheetController,
-      builder: (context, scrollController) => Container(
-        decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF18181B) : Colors.white,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        child: Column(
-          children: [
-            // Handle bar
+      builder: (context, scrollController) =>
+          _buildDrawerBody(context, isDark, isAdmin, scrollController, isModal),
+    );
+  }
+
+  Widget _buildDrawerBody(
+    BuildContext context,
+    bool isDark,
+    bool isAdmin,
+    ScrollController scrollController,
+    bool isModal,
+  ) {
+    return Container(
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF18181B) : Colors.white,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      child: Column(
+        children: [
+          // Handle bar (mobile bottom-sheet only)
+          if (!isModal)
             Container(
               margin: const EdgeInsets.only(top: 8, bottom: 4),
               width: 40,
@@ -449,8 +472,7 @@ class _TicketDetailsDrawerState extends State<TicketDetailsDrawer> {
             ),
           ],
         ),
-      ),
-    );
+      );
   }
 
   IconData _getFileIcon(String fileName) {

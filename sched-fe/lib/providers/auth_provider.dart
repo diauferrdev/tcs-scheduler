@@ -4,6 +4,7 @@ import '../models/user.dart';
 import '../services/api_service.dart';
 import '../services/token_storage.dart';
 import '../services/unified_notification_service.dart';
+import '../services/websocket_service.dart';
 import '../utils/web_helper.dart';
 
 class AuthProvider with ChangeNotifier {
@@ -17,13 +18,29 @@ class AuthProvider with ChangeNotifier {
   bool get mustChangePassword => _user?.mustChangePassword ?? false;
 
   AuthProvider() {
+    // Recover from a mid-session 401 (expired session): clear auth state so the
+    // router redirects to login, instead of leaving the app stuck on a dead screen.
+    ApiService.onUnauthorized = _onSessionExpired;
     checkAuth();
   }
 
-  Future<void> checkAuth() async {
+  void _onSessionExpired() {
+    if (_user == null) return; // already signed out — avoid redundant work
+    _user = null;
+    _apiService.setSessionCookie(null);
     try {
-      _loading = true;
-      notifyListeners();
+      WebSocketService().disconnect();
+      UnifiedNotificationService().disconnectWebSocket();
+    } catch (_) {/* best-effort */}
+    notifyListeners();
+  }
+
+  Future<void> checkAuth({bool silent = false}) async {
+    try {
+      if (!silent) {
+        _loading = true;
+        notifyListeners();
+      }
 
       await _apiService.initialize();
 
@@ -38,9 +55,11 @@ class AuthProvider with ChangeNotifier {
       _user = null;
       _apiService.setSessionCookie(null);
     } finally {
-      _loading = false;
+      if (!silent) {
+        _loading = false;
+        _signalAppReady();
+      }
       notifyListeners();
-      _signalAppReady();
     }
   }
 
@@ -116,6 +135,7 @@ class AuthProvider with ChangeNotifier {
       await tokenStorage.deleteToken();
 
       try {
+        WebSocketService().disconnect();
         await UnifiedNotificationService().disconnectWebSocket();
       } catch (e) { /* ignored: non-critical failure */ }
 

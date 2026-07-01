@@ -48,9 +48,11 @@ class ActivityLog {
       id: json['id'] as String,
       action: ActivityAction.values.firstWhere(
         (e) => e.name == json['action'],
+        orElse: () => ActivityAction.values.first,
       ),
       resource: ActivityResource.values.firstWhere(
         (e) => e.name == json['resource'],
+        orElse: () => ActivityResource.values.first,
       ),
       resourceId: json['resourceId'] as String?,
       description: json['description'] as String,

@@ -6,6 +6,7 @@ import '../providers/auth_provider.dart';
 import '../services/api_service.dart';
 import '../models/user.dart';
 import '../utils/toast_notification.dart';
+import '../utils/responsive_helper.dart';
 import '../config/api_config.dart';
 
 /// Profile Drawer - User self-service settings
@@ -29,8 +30,11 @@ class _ProfileDrawerState extends State<ProfileDrawer> {
   bool _accountExpanded = false;
   bool _securityExpanded = false;
 
-  // Draggable sheet controller
+  // Draggable sheet controller (mobile bottom-sheet only)
   late DraggableScrollableController _sheetController;
+
+  // Scroll controller used when rendered flat as a desktop modal
+  final ScrollController _flatScrollController = ScrollController();
 
   // Form controllers for password change
   final _currentPasswordController = TextEditingController();
@@ -67,6 +71,7 @@ class _ProfileDrawerState extends State<ProfileDrawer> {
   @override
   void dispose() {
     _sheetController.dispose();
+    _flatScrollController.dispose();
     _currentPasswordController.dispose();
     _newPasswordController.dispose();
     _confirmPasswordController.dispose();
@@ -338,19 +343,39 @@ class _ProfileDrawerState extends State<ProfileDrawer> {
       return const SizedBox.shrink();
     }
 
+    // Hide the drag handle / draggable-sheet sizing when shown as a desktop modal.
+    final isModal = !ResponsiveHelper.isMobile(context);
+
+    if (isModal) {
+      return _buildDrawerBody(context, isDark, user, _flatScrollController, isModal);
+    }
+
     return DraggableScrollableSheet(
       initialChildSize: 0.62,
       minChildSize: 0.4,
       maxChildSize: 0.9,
       controller: _sheetController,
-      builder: (context, scrollController) => Container(
-        decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF18181B) : Colors.white,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        child: Column(
-          children: [
-            // Handle bar
+      builder: (context, scrollController) =>
+          _buildDrawerBody(context, isDark, user, scrollController, isModal),
+    );
+  }
+
+  Widget _buildDrawerBody(
+    BuildContext context,
+    bool isDark,
+    User user,
+    ScrollController scrollController,
+    bool isModal,
+  ) {
+    return Container(
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF18181B) : Colors.white,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      child: Column(
+        children: [
+          // Handle bar (mobile bottom-sheet only)
+          if (!isModal)
             Container(
               margin: const EdgeInsets.only(top: 8, bottom: 4),
               width: 40,
@@ -948,8 +973,7 @@ class _ProfileDrawerState extends State<ProfileDrawer> {
             ),
           ],
         ),
-      ),
-    );
+      );
   }
 
   Widget _buildExpandableSection({

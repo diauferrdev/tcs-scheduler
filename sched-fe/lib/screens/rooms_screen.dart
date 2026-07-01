@@ -6,6 +6,20 @@ import '../models/room_booking.dart';
 import '../services/api_service.dart';
 import '../utils/adaptive_panel.dart';
 
+/// Safely extracts the hour component from a "HH:mm" time string.
+/// Returns 0 if the string is empty, malformed, or non-numeric instead of throwing.
+int _hourOf(String t) {
+  final p = t.split(':');
+  return p.isNotEmpty ? (int.tryParse(p[0]) ?? 0) : 0;
+}
+
+/// Safely extracts the minute component from a "HH:mm" time string.
+/// Returns 0 if the string is empty, malformed, or non-numeric instead of throwing.
+int _minuteOf(String t) {
+  final p = t.split(':');
+  return p.length > 1 ? (int.tryParse(p[1]) ?? 0) : 0;
+}
+
 class RoomsScreen extends StatefulWidget {
   const RoomsScreen({super.key});
 
@@ -107,15 +121,9 @@ class _RoomsScreenState extends State<RoomsScreen> {
     return _roomAvailability[room.name] ?? [];
   }
 
-  int _parseHour(String time) {
-    final parts = time.split(':');
-    return int.parse(parts[0]);
-  }
+  int _parseHour(String time) => _hourOf(time);
 
-  int _parseMinutes(String time) {
-    final parts = time.split(':');
-    return int.parse(parts[0]) * 60 + int.parse(parts[1]);
-  }
+  int _parseMinutes(String time) => _hourOf(time) * 60 + _minuteOf(time);
 
   /// Check if room is currently in use (APPROVED booking covering right now)
   bool _isRoomBusyNow(RoomType room) {
@@ -945,10 +953,7 @@ class _RoomDetailSheet extends StatelessWidget {
   // 30-min slot height in pixels
   static const double _slotHeight = 32.0;
 
-  int _toMinutes(String time) {
-    final p = time.split(':');
-    return int.parse(p[0]) * 60 + int.parse(p[1]);
-  }
+  int _toMinutes(String time) => _hourOf(time) * 60 + _minuteOf(time);
 
   String _fromMinutes(int m) =>
       '${(m ~/ 60).toString().padLeft(2, '0')}:${(m % 60).toString().padLeft(2, '0')}';

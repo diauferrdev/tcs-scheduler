@@ -82,7 +82,9 @@ Future<T?> showAdaptivePanel<T>({
     context: context,
     barrierDismissible: isDismissible,
     barrierColor: barrierColor,
-    useRootNavigator: useRootNavigator,
+    // Always use the root navigator on desktop so the modal + barrier cover the
+    // whole window (header/sidebar of the ShellRoute), not just the content pane.
+    useRootNavigator: true,
     builder: (dialogContext) {
       final maxHeight =
           MediaQuery.of(dialogContext).size.height * desktopMaxHeightFactor;
@@ -136,12 +138,17 @@ Future<T?> showAdaptiveSideSheet<T>({
   final isDark = Theme.of(context).brightness == Brightness.dark;
   final panelColor =
       backgroundColor ?? (isDark ? const Color(0xFF18181B) : Colors.white);
+  // Never let a fixed-width side sheet exceed the viewport (narrow tablet windows).
+  final maxPanelWidth = MediaQuery.of(context).size.width * 0.9;
+  final effectiveWidth = width > maxPanelWidth ? maxPanelWidth : width;
 
   return showGeneralDialog<T>(
     context: context,
     barrierDismissible: isDismissible,
     barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
     barrierColor: Colors.black54,
+    // Root navigator so the side sheet + barrier cover the whole window.
+    useRootNavigator: true,
     transitionDuration: const Duration(milliseconds: 250),
     pageBuilder: (dialogContext, animation, secondaryAnimation) {
       return Align(
@@ -152,7 +159,7 @@ Future<T?> showAdaptiveSideSheet<T>({
           color: panelColor,
           elevation: 16,
           child: SizedBox(
-            width: width,
+            width: effectiveWidth,
             height: double.infinity,
             child: SafeArea(child: effectiveBuilder(dialogContext)),
           ),

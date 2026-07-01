@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io' show WebSocket;
+import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:web_socket_channel/io.dart';
@@ -17,26 +18,36 @@ class WebSocketService {
   Timer? _reconnectTimer;
   Timer? _heartbeatTimer;
   bool _isConnecting = false;
+  bool _manualDisconnect = false;
   int _reconnectAttempts = 0;
   String? _userId;
-  static const int _maxReconnectAttempts = 10;
-  static const Duration _reconnectDelay = Duration(seconds: 3);
+  static const Duration _reconnectBaseDelay = Duration(seconds: 3);
+  static const Duration _maxReconnectDelay = Duration(seconds: 30);
   static const Duration _heartbeatInterval = Duration(seconds: 30);
 
   Stream<Map<String, dynamic>> get messages => _messageController!.stream;
   bool get isConnected => _channel != null;
 
   void connect(String userId) async {
-    _userId = userId;
+    _manualDisconnect = false;
 
     if (_isConnecting) {
       return;
     }
 
-    if (_channel != null) {
+    // If already connected but for a different user, tear down the stale
+    // connection first so we don't leak messages across accounts.
+    if (_channel != null && _userId != null && _userId != userId) {
+      disconnect();
+      // disconnect() flips _manualDisconnect to true; clear it again since
+      // we are about to open a fresh connection right below.
+      _manualDisconnect = false;
+    } else if (_channel != null) {
+      _userId = userId;
       return;
     }
 
+    _userId = userId;
     _isConnecting = true;
     _messageController ??= StreamController<Map<String, dynamic>>.broadcast();
 
@@ -101,6 +112,9 @@ class WebSocketService {
 
   void _setupConnection() {
     try {
+      // Connection successfully opened - reset backoff counter
+      _reconnectAttempts = 0;
+
       // Start heartbeat
       _startHeartbeat();
 
@@ -151,18 +165,33 @@ class WebSocketService {
     _isConnecting = false;
     _heartbeatTimer?.cancel();
 
-    // Attempt reconnection if we have a userId
-    if (_userId != null && _reconnectAttempts < _maxReconnectAttempts) {
+    // Do not reconnect after an explicit/manual disconnect (e.g. logout)
+    if (_manualDisconnect) {
+      return;
+    }
+
+    // Attempt reconnection if we have a userId. Keep retrying indefinitely
+    // while foregrounded, spaced out by exponential backoff capped at 30s.
+    if (_userId != null) {
+      final delay = _nextReconnectDelay();
       _reconnectAttempts++;
 
       _reconnectTimer?.cancel();
-      _reconnectTimer = Timer(_reconnectDelay, () {
-        if (_userId != null) {
+      _reconnectTimer = Timer(delay, () {
+        if (_userId != null && !_manualDisconnect) {
           connect(_userId!);
         }
       });
-    } else {
     }
+  }
+
+  /// Exponential backoff with jitter, capped at [_maxReconnectDelay].
+  Duration _nextReconnectDelay() {
+    final exponentialMs =
+        _reconnectBaseDelay.inMilliseconds * pow(2, _reconnectAttempts).toInt();
+    final cappedMs = min(exponentialMs, _maxReconnectDelay.inMilliseconds);
+    final jitterMs = Random().nextInt(1000);
+    return Duration(milliseconds: cappedMs + jitterMs);
   }
 
   void sendMessage(Map<String, dynamic> message) {
@@ -198,6 +227,7 @@ class WebSocketService {
   }
 
   void disconnect() {
+    _manualDisconnect = true;
     _reconnectTimer?.cancel();
     _channel?.sink.close();
     _channel = null;

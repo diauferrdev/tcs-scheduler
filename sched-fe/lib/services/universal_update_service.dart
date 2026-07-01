@@ -40,12 +40,13 @@ class UniversalUpdateService {
       // Check backend for latest version
       final response = await _apiService.get('/api/version/current');
 
-      final latestVersion = response['version'] as String;
-      final minVersion = response['minVersion'] as String;
+      final latestVersion = response['version'] as String?;
+      final minVersion = response['minVersion'] as String?;
+      if (latestVersion == null || minVersion == null) return;
       final forceUpdate = response['forceUpdate'] as bool? ?? false;
       final critical = response['critical'] as bool? ?? false;
-      final downloadUrls = response['downloadUrl'] as Map<String, dynamic>;
-      final releaseNotes = response['releaseNotes'] as Map<String, dynamic>;
+      final downloadUrls = (response['downloadUrl'] as Map?)?.cast<String, dynamic>() ?? const <String, dynamic>{};
+      final releaseNotes = (response['releaseNotes'] as Map?)?.cast<String, dynamic>() ?? const <String, dynamic>{};
 
 
       // Check if app is below minimum version (BLOCKED)
@@ -72,8 +73,10 @@ class UniversalUpdateService {
           downloadUrl: _getDownloadUrlForPlatform(downloadUrls),
           releaseNotes: releaseNotes['pt-BR'] ?? releaseNotes['en'] ?? 'Nova versão disponível!',
         );
-      } else {
       }
+    } catch (e) {
+      // Version check is a best-effort background feature invoked fire-and-forget;
+      // never let a missing field / shape change / network error crash the session.
     } finally {
       _isChecking = false;
     }

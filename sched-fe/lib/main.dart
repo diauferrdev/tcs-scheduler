@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -59,8 +60,21 @@ Future<void> _requestPermissions() async {
   } catch (e) { /* ignored: non-critical failure */ }
 }
 
-void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
+void main() {
+  // Run inside a guarded zone so any uncaught async error is logged instead of
+  // crashing the app — a last-resort safety net for store-review stability.
+  runZonedGuarded(() async {
+    WidgetsFlutterBinding.ensureInitialized();
+
+    // Framework + platform-level error handlers (sync build errors, engine errors).
+    FlutterError.onError = (details) {
+      FlutterError.presentError(details);
+      debugPrint('[FlutterError] ${details.exceptionAsString()}');
+    };
+    PlatformDispatcher.instance.onError = (error, stack) {
+      debugPrint('[PlatformError] $error');
+      return true; // handled — do not crash the app
+    };
 
   // Initialize Firebase ONLY on supported platforms (Android, iOS, web, macOS)
   // Windows and Linux desktop use local_notifier instead
@@ -100,6 +114,10 @@ void main() async {
 
   // Start the app with splash screen
   runApp(const MyApp());
+  }, (error, stack) {
+    // Uncaught async errors from anywhere in the app land here.
+    debugPrint('[Uncaught] $error');
+  });
 }
 
 class MyApp extends StatelessWidget {
@@ -124,15 +142,34 @@ class _AppRouter extends StatefulWidget {
   State<_AppRouter> createState() => _AppRouterState();
 }
 
-class _AppRouterState extends State<_AppRouter> {
+class _AppRouterState extends State<_AppRouter> with WidgetsBindingObserver {
   late final GoRouter _router;
   bool _showSplash = false; // Splash animation disabled for now
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     final authProvider = context.read<AuthProvider>();
     _router = createRouter(authProvider);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // On resume from background, silently re-validate the session (expired →
+    // 401 → redirect to login) and let checkAuth reconnect realtime/WS.
+    if (state == AppLifecycleState.resumed && mounted) {
+      final authProvider = context.read<AuthProvider>();
+      if (authProvider.isAuthenticated) {
+        authProvider.checkAuth(silent: true);
+      }
+    }
   }
 
   void _onSplashComplete() {

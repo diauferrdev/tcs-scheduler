@@ -85,6 +85,13 @@ class DrawerService {
       desktopBuilder: (context) => _buildDrawerContent(context, type, params, isDesktop: true),
     );
 
+    // Revert the deep-link URL on ANY dismissal (barrier tap, Esc/back, swipe, or
+    // the in-content close button), so route state doesn't stay stuck on the
+    // drawer URL and re-open it on refresh/next deep link.
+    if (updateUrl && context.mounted) {
+      _navigateToBaseRoute(context, type);
+    }
+
     // Clear current drawer when closed
     _currentDrawer = null;
     _currentParams = null;
@@ -155,8 +162,8 @@ class DrawerService {
               showScaffold: false,
               scrollController: sc,
               onClose: () {
+                // URL revert is handled centrally in openDrawer's whenComplete.
                 closeDrawer(context);
-                _navigateToBaseRoute(context, type);
               },
             );
         break;
@@ -172,8 +179,8 @@ class DrawerService {
               ticketId: ticketId,
               scrollController: sc,
               onClose: () {
+                // URL revert is handled centrally in openDrawer's whenComplete.
                 closeDrawer(context);
-                _navigateToBaseRoute(context, type);
               },
             );
         break;
@@ -188,8 +195,8 @@ class DrawerService {
               showScaffold: false,
               scrollController: sc,
               onClose: () {
+                // URL revert is handled centrally in openDrawer's whenComplete.
                 closeDrawer(context);
-                _navigateToBaseRoute(context, type);
               },
             );
         break;
@@ -262,8 +269,8 @@ class DrawerService {
         children: [
           IconButton(
             onPressed: () {
+              // URL revert is handled centrally in openDrawer's whenComplete.
               closeDrawer(context);
-              _navigateToBaseRoute(context, type);
             },
             icon: Icon(Icons.close, color: isDark ? Colors.white : Colors.black),
             tooltip: 'Close',

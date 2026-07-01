@@ -128,7 +128,10 @@ class Attendee {
       email: json['email'] as String,
       role: json['role'] as String?,
       tcsSupporter: json['tcsSupporter'] != null
-          ? TCSSupporter.values.firstWhere((e) => e.name == json['tcsSupporter'])
+          ? TCSSupporter.values.firstWhere(
+              (e) => e.name == json['tcsSupporter'],
+              orElse: () => TCSSupporter.NEUTRAL,
+            )
           : null,
       understandingOfTCS: json['understandingOfTCS'] as String?,
       focusAreas: json['focusAreas'] as String?,
@@ -332,16 +335,21 @@ class Booking {
       startTime: json['startTime'] as String,
       duration: VisitDuration.values.firstWhere(
         (e) => e.name == json['duration'],
+        orElse: () => VisitDuration.values.first,
       ),
       visitType: json['visitType'] != null
           ? (() {
               final raw = json['visitType'] as String;
               if (raw == 'PACE_EXPERIENCE') return VisitType.PACE_VISIT_FULLDAY;
-              return VisitType.values.firstWhere((e) => e.name == raw);
+              return VisitType.values.firstWhere(
+                (e) => e.name == raw,
+                orElse: () => VisitType.PACE_TOUR,
+              );
             })()
           : VisitType.PACE_TOUR,
       status: BookingStatus.values.firstWhere(
         (e) => e.name == json['status'],
+        orElse: () => BookingStatus.values.first,
       ),
       reviewReason: json['reviewReason'] as String?,
       totalDays: json['totalDays'] as int? ?? 1,
@@ -354,24 +362,36 @@ class Booking {
           ? (() {
               final raw = json['engagementType'] as String;
               if (raw == 'VISIT') return EngagementType.PACE_VISIT;
-              return EngagementType.values.firstWhere((e) => e.name == raw);
+              return EngagementType.values.firstWhere(
+                (e) => e.name == raw,
+                orElse: () => EngagementType.values.first,
+              );
             })()
           : null,
       requesterName: json['requesterName'] as String?,
       employeeId: json['employeeId'] as String?,
       vertical: json['vertical'] != null
-          ? TCSVertical.values.firstWhere((e) => e.name == json['vertical'])
+          ? TCSVertical.values.firstWhere(
+              (e) => e.name == json['vertical'],
+              orElse: () => TCSVertical.OTHERS,
+            )
           : null,
       organizationName: json['organizationName'] as String?,
       organizationType: json['organizationType'] != null
-          ? OrganizationType.values.firstWhere((e) => e.name == json['organizationType'])
+          ? OrganizationType.values.firstWhere(
+              (e) => e.name == json['organizationType'],
+              orElse: () => OrganizationType.OTHER,
+            )
           : null,
       organizationTypeOther: json['organizationTypeOther'] as String?,
       organizationDescription: json['organizationDescription'] as String?,
       objectiveInterest: json['objectiveInterest'] as String?,
       targetAudience: json['targetAudience'] != null
           ? (json['targetAudience'] as List)
-              .map((e) => TargetAudience.values.firstWhere((ta) => ta.name == e))
+              .map((e) => TargetAudience.values.firstWhere(
+                    (ta) => ta.name == e,
+                    orElse: () => TargetAudience.OTHER,
+                  ))
               .toList()
           : null,
       questionnaireAnswers: json['questionnaireAnswers'] as Map<String, dynamic>?,
@@ -392,11 +412,17 @@ class Booking {
           ? DateTime.parse(json['lastInnovationDay'] as String)
           : null,
       eventType: json['eventType'] != null
-          ? EventType.values.firstWhere((e) => e.name == json['eventType'])
+          ? EventType.values.firstWhere(
+              (e) => e.name == json['eventType'],
+              orElse: () => EventType.values.first,
+            )
           : null,
       partnerName: json['partnerName'] as String?,
       dealStatus: json['dealStatus'] != null
-          ? DealStatus.values.firstWhere((e) => e.name == json['dealStatus'])
+          ? DealStatus.values.firstWhere(
+              (e) => e.name == json['dealStatus'],
+              orElse: () => DealStatus.values.first,
+            )
           : null,
       attachHeadApproval: json['attachHeadApproval'] as bool? ?? false,
       attachments: json['attachments'] != null

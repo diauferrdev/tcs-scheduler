@@ -36,6 +36,8 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
 
       await _videoPlayerController.initialize();
 
+      if (!mounted) return;
+
       _chewieController = ChewieController(
         videoPlayerController: _videoPlayerController,
         autoPlay: false,
@@ -79,10 +81,12 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
         },
       );
 
+      if (!mounted) return;
       setState(() {
         _isLoading = false;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _isLoading = false;
         _errorMessage = e.toString();

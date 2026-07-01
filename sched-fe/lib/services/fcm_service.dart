@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
@@ -24,12 +25,31 @@ class FCMService {
   bool _initialized = false;
   bool get isInitialized => _initialized;
 
+  // Stream subscriptions - must be cancelled to avoid stacking duplicate
+  // listeners across repeated initialize() calls (e.g. logout -> login again)
+  StreamSubscription<String>? _onTokenRefreshSubscription;
+  StreamSubscription<RemoteMessage>? _onMessageSubscription;
+  StreamSubscription<RemoteMessage>? _onMessageOpenedAppSubscription;
+
+  /// Cancel any previously registered stream subscriptions
+  void _cancelSubscriptions() {
+    _onTokenRefreshSubscription?.cancel();
+    _onTokenRefreshSubscription = null;
+    _onMessageSubscription?.cancel();
+    _onMessageSubscription = null;
+    _onMessageOpenedAppSubscription?.cancel();
+    _onMessageOpenedAppSubscription = null;
+  }
+
   /// Initialize FCM after user login
   /// Call this ONLY after successful authentication
   Future<void> initialize() async {
     if (_initialized) {
       return;
     }
+
+    // Defensive: ensure no stale subscriptions remain before subscribing again
+    _cancelSubscriptions();
 
     // Skip FCM on desktop platforms only (Windows/Linux use local notifications)
     if (!kIsWeb && (Platform.isWindows || Platform.isLinux)) {
@@ -67,17 +87,18 @@ class FCMService {
       await _refreshFCMToken();
 
       // Listen for token refresh
-      _messaging.onTokenRefresh.listen((newToken) {
+      _onTokenRefreshSubscription = _messaging.onTokenRefresh.listen((newToken) {
         _fcmToken = newToken;
         _sendTokenToBackend(newToken);
       });
 
       // Setup foreground message handler
       // This handles push notifications when app is OPEN (foreground)
-      FirebaseMessaging.onMessage.listen(_handleForegroundMessage);
+      _onMessageSubscription = FirebaseMessaging.onMessage.listen(_handleForegroundMessage);
 
       // Setup notification tap handler (app in background/terminated)
-      FirebaseMessaging.onMessageOpenedApp.listen(_handleNotificationTap);
+      _onMessageOpenedAppSubscription =
+          FirebaseMessaging.onMessageOpenedApp.listen(_handleNotificationTap);
 
       // Check if app was opened from a notification (terminated state)
       final RemoteMessage? initialMessage = await _messaging.getInitialMessage();
@@ -182,6 +203,7 @@ class FCMService {
 
   /// Cleanup on logout
   Future<void> dispose() async {
+    _cancelSubscriptions();
     await deleteToken();
     _initialized = false;
   }

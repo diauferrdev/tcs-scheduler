@@ -192,16 +192,20 @@ class Ticket {
       description: json['description'],
       status: TicketStatus.values.firstWhere(
         (e) => e.toString().split('.').last == json['status'],
+        orElse: () => TicketStatus.values.first,
       ),
       priority: TicketPriority.values.firstWhere(
         (e) => e.toString().split('.').last == json['priority'],
+        orElse: () => TicketPriority.values.first,
       ),
       category: TicketCategory.values.firstWhere(
         (e) => e.toString().split('.').last == json['category'],
+        orElse: () => TicketCategory.OTHER,
       ),
       platform: json['platform'] != null
           ? Platform.values.firstWhere(
               (e) => e.toString().split('.').last == json['platform'],
+              orElse: () => Platform.WEB,
             )
           : null,
       createdBy: User.fromJson(json['createdBy']),

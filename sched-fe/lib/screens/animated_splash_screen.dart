@@ -24,6 +24,7 @@ class AnimatedSplashScreen extends StatefulWidget {
 class _AnimatedSplashScreenState extends State<AnimatedSplashScreen> {
   final audio.AudioPlayer _audioPlayer = audio.AudioPlayer();
   bool _navigated = false;
+  Timer? _navTimer;
 
   @override
   void initState() {
@@ -33,7 +34,7 @@ class _AnimatedSplashScreenState extends State<AnimatedSplashScreen> {
     // _playSound();
 
     // Navigate after 11.2 seconds
-    Timer(const Duration(milliseconds: 11200), () {
+    _navTimer = Timer(const Duration(milliseconds: 11200), () {
       if (!_navigated && mounted) {
         _navigated = true;
         widget.onAnimationComplete?.call();
@@ -59,6 +60,7 @@ class _AnimatedSplashScreenState extends State<AnimatedSplashScreen> {
 
   @override
   void dispose() {
+    _navTimer?.cancel();
     _audioPlayer.dispose();
     super.dispose();
   }
