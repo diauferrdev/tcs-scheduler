@@ -9,6 +9,7 @@ import '../providers/auth_provider.dart';
 import '../providers/theme_provider.dart';
 import '../services/api_service.dart';
 import '../services/websocket_service.dart';
+import '../utils/responsive_helper.dart';
 import '../widgets/ticket_chat_widget.dart';
 import 'tickets_admin_view.dart';
 
@@ -395,8 +396,8 @@ class _TicketsUserViewState extends State<TicketsUserView> {
                     ElevatedButton.icon(
                       onPressed: () => context.push('/app/support/create').then((_) => _loadTickets()),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.black,
-                        foregroundColor: Colors.white,
+                        backgroundColor: isDark ? Colors.white : Colors.black,
+                        foregroundColor: isDark ? Colors.black : Colors.white,
                         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(8),
@@ -436,33 +437,70 @@ class _TicketsUserViewState extends State<TicketsUserView> {
         // Tickets List
         Expanded(
           child: _isLoading
-              ? const Center(child: CircularProgressIndicator(color: AppTheme.primaryWhite))
+              ? Center(child: CircularProgressIndicator(color: isDark ? Colors.white : Colors.black))
               : _errorMessage != null
-                  ? Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.error_outline, size: 48, color: Colors.red.withValues(alpha: 0.5)),
-                          const SizedBox(height: 16),
-                          Text(_errorMessage!, style: const TextStyle(color: Colors.red)),
-                        ],
+                  ? RefreshIndicator(
+                      onRefresh: _loadTickets,
+                      color: isDark ? Colors.white : Colors.black,
+                      child: SingleChildScrollView(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        child: SizedBox(
+                          height: 400,
+                          child: Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.error_outline, size: 48, color: Colors.red.withValues(alpha: 0.5)),
+                                const SizedBox(height: 16),
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                                  child: Text(
+                                    _errorMessage!,
+                                    style: const TextStyle(color: Colors.red),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ),
+                                const SizedBox(height: 16),
+                                OutlinedButton.icon(
+                                  onPressed: _loadTickets,
+                                  icon: const Icon(Icons.refresh),
+                                  label: const Text('Retry'),
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: textColor,
+                                    side: BorderSide(color: textColor.withValues(alpha: 0.3)),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
                       ),
                     )
                   : sortedTickets.isEmpty
-                      ? Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.chat_bubble_outline, size: 64, color: textColor.withValues(alpha: 0.2)),
-                              const SizedBox(height: 16),
-                              Text(
-                                'No conversations yet',
-                                style: TextStyle(
-                                  color: textColor.withValues(alpha: 0.5),
-                                  fontSize: 16,
+                      ? RefreshIndicator(
+                          onRefresh: _loadTickets,
+                          color: isDark ? Colors.white : Colors.black,
+                          child: SingleChildScrollView(
+                            physics: const AlwaysScrollableScrollPhysics(),
+                            child: SizedBox(
+                              height: 400,
+                              child: Center(
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(Icons.chat_bubble_outline, size: 64, color: textColor.withValues(alpha: 0.2)),
+                                    const SizedBox(height: 16),
+                                    Text(
+                                      'No conversations yet',
+                                      style: TextStyle(
+                                        color: textColor.withValues(alpha: 0.5),
+                                        fontSize: 16,
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
-                            ],
+                            ),
                           ),
                         )
                       : RefreshIndicator(
@@ -518,7 +556,7 @@ class _TicketsUserViewState extends State<TicketsUserView> {
       return bTime.compareTo(aTime);
     });
 
-    final isDesktop = MediaQuery.of(context).size.width >= 600;
+    final isDesktop = !ResponsiveHelper.isMobile(context);
 
     return Scaffold(
       backgroundColor: backgroundColor,
@@ -588,8 +626,8 @@ class _TicketsUserViewState extends State<TicketsUserView> {
       floatingActionButton: user.role != UserRole.ADMIN && !isDesktop && _selectedTicket == null
           ? FloatingActionButton.extended(
               onPressed: () => context.push('/app/support/create').then((_) => _loadTickets()),
-              backgroundColor: Colors.white,
-              foregroundColor: Colors.black,
+              backgroundColor: isDark ? Colors.black : Colors.white,
+              foregroundColor: isDark ? Colors.white : Colors.black,
               icon: const Icon(Icons.add),
               label: const Text(
                 'New Ticket',

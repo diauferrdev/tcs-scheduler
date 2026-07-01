@@ -188,6 +188,29 @@ class _AppLayoutState extends State<AppLayout> {
                               width: 36,
                               height: 36,
                               fit: BoxFit.cover,
+                              loadingBuilder: (context, child, loadingProgress) {
+                                // Show a subtle loader while the avatar fetches,
+                                // instead of a blank/flickering circle.
+                                if (loadingProgress == null) return child;
+                                return Center(
+                                  child: SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      valueColor: AlwaysStoppedAnimation<Color>(
+                                        isDark
+                                            ? Colors.white.withValues(alpha: 0.6)
+                                            : Colors.black.withValues(alpha: 0.4),
+                                      ),
+                                      value: loadingProgress.expectedTotalBytes != null
+                                          ? loadingProgress.cumulativeBytesLoaded /
+                                              loadingProgress.expectedTotalBytes!
+                                          : null,
+                                    ),
+                                  ),
+                                );
+                              },
                               errorBuilder: (context, error, stackTrace) {
                                 // Fallback to initials if image fails to load
                                 return Center(
@@ -374,6 +397,10 @@ class _AppLayoutState extends State<AppLayout> {
   Widget _buildBottomNav(BuildContext context, User user, bool isDark) {
     final menuItems = _getMenuItems(user);
     final currentPath = GoRouterState.of(context).uri.path;
+    // Tighter horizontal padding when there are many items (e.g. ADMIN with
+    // 8 tabs) so labels get more room and never force a RenderFlex overflow
+    // on narrow (~360dp) phones.
+    final horizontalPadding = menuItems.length > 5 ? 2.0 : 4.0;
 
     return Container(
       height: 80,
@@ -389,13 +416,19 @@ class _AppLayoutState extends State<AppLayout> {
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: menuItems.map((item) {
           final isActive = currentPath == item['path'];
-          return _buildBottomNavItem(
-            context,
-            item['label'] as String,
-            item['icon'] as IconData,
-            item['path'] as String,
-            isActive,
-            isDark,
+          // Expanded so each tab shares the available width equally and can
+          // never push the Row wider than the screen (fixes overflow with
+          // up to 8 ADMIN items on narrow phones).
+          return Expanded(
+            child: _buildBottomNavItem(
+              context,
+              item['label'] as String,
+              item['icon'] as IconData,
+              item['path'] as String,
+              isActive,
+              isDark,
+              horizontalPadding,
+            ),
           );
         }).toList(),
       ),
@@ -490,33 +523,45 @@ class _AppLayoutState extends State<AppLayout> {
     String path,
     bool isActive,
     bool isDark,
+    double horizontalPadding,
   ) {
     return InkWell(
       onTap: () => context.go(path),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            icon,
-            size: 24,
-            color: isActive
-                ? (isDark ? Colors.white : Colors.black)
-                : (isDark ? const Color(0xFF6B7280) : const Color(0xFF9CA3AF)),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 10,
-              fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
+      child: Padding(
+        padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              icon,
+              size: 24,
               color: isActive
                   ? (isDark ? Colors.white : Colors.black)
                   : (isDark
                         ? const Color(0xFF6B7280)
                         : const Color(0xFF9CA3AF)),
             ),
-          ),
-        ],
+            const SizedBox(height: 4),
+            Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                // Floor kept small enough that long labels (e.g. "My
+                // Bookings") still fit an Expanded slot when 8 ADMIN items
+                // share a 360dp-wide row.
+                fontSize: 9.5,
+                fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
+                color: isActive
+                    ? (isDark ? Colors.white : Colors.black)
+                    : (isDark
+                          ? const Color(0xFF6B7280)
+                          : const Color(0xFF9CA3AF)),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

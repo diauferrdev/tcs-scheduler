@@ -64,13 +64,27 @@ class _VisitTypeDrawerState extends State<VisitTypeDrawer> {
                 ),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: Text(
-                    'Select Visit Type',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: isDark ? Colors.white : Colors.black,
-                    ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'Select Visit Type',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: isDark ? Colors.white : Colors.black,
+                        ),
+                      ),
+                      Text(
+                        'Step 2 of 4',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: isDark ? Colors.grey[500] : Colors.grey[600],
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
@@ -228,7 +242,7 @@ class _VisitTypeDrawerState extends State<VisitTypeDrawer> {
                     description,
                     style: TextStyle(
                       fontSize: 13,
-                      color: isDark ? Colors.grey[500] : Colors.grey[500],
+                      color: isDark ? Colors.grey[400] : Colors.grey[600],
                     ),
                   ),
                 ],

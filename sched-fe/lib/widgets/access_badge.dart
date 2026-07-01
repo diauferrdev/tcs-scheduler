@@ -343,7 +343,7 @@ class AccessBadge extends StatelessWidget {
                       mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                       children: [
                         pw.Text(
-                          '#${bookingId.substring(bookingId.length - 8).toUpperCase()}',
+                          '#${(bookingId.length > 8 ? bookingId.substring(bookingId.length - 8) : bookingId).toUpperCase()}',
                           style: pw.TextStyle(
                             fontSize: 10,
                             letterSpacing: 1,
@@ -856,11 +856,19 @@ class AccessBadge extends StatelessWidget {
     return Column(
       children: [
         // Badge Card with integrated bottom stripe
-        ClipRRect(
-          borderRadius: BorderRadius.circular(16),
-          child: Container(
-            width: 400,
-            height: 462,
+        // Wrapped so it scales down on narrow screens (e.g. iPhone SE ~360dp)
+        // instead of overflowing, while staying pixel-identical on screens
+        // wide enough to fit the fixed 400x462 size.
+        LayoutBuilder(
+          builder: (context, constraints) {
+            return Center(
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  child: Container(
+                    width: 400,
+                    height: 462,
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topLeft,
@@ -1001,6 +1009,7 @@ class AccessBadge extends StatelessWidget {
                                 child: Text(
                                   attendeeName,
                                   maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
                                   style: TextStyle(
                                     fontSize: 24,
                                     fontWeight: FontWeight.w900,
@@ -1037,6 +1046,7 @@ class AccessBadge extends StatelessWidget {
                                       child: Text(
                                         attendeePosition ?? 'Visitor',
                                         maxLines: 3,
+                                        overflow: TextOverflow.ellipsis,
                                         style: TextStyle(
                                           fontSize: 14,
                                           fontWeight: FontWeight.w600,
@@ -1068,6 +1078,7 @@ class AccessBadge extends StatelessWidget {
                                       child: Text(
                                         companyName,
                                         maxLines: 3,
+                                        overflow: TextOverflow.ellipsis,
                                         style: TextStyle(
                                           fontSize: 14,
                                           fontWeight: FontWeight.w600,
@@ -1129,7 +1140,7 @@ class AccessBadge extends StatelessWidget {
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               Text(
-                                '#${bookingId.substring(bookingId.length - 8).toUpperCase()}',
+                                '#${(bookingId.length > 8 ? bookingId.substring(bookingId.length - 8) : bookingId).toUpperCase()}',
                                 style: TextStyle(
                                   fontSize: 10,
                                   fontFamily: 'monospace',
@@ -1162,6 +1173,10 @@ class AccessBadge extends StatelessWidget {
               ],
             ),
           ),
+                ),
+              ),
+            );
+          },
         ),
 
         if (showActions) ...[

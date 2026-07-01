@@ -45,9 +45,17 @@ class _ProfileDrawerState extends State<ProfileDrawer> {
   bool _obscureConfirmPassword = true;
   bool _changingPassword = false;
 
+  // Inline validation errors (security section)
+  String? _currentPasswordError;
+  String? _newPasswordError;
+  String? _confirmPasswordError;
+
   // Form controllers for profile update
   final _nameController = TextEditingController();
   bool _updatingProfile = false;
+
+  // Inline validation error (account section)
+  String? _nameError;
 
   // Avatar upload
   final ImagePicker _imagePicker = ImagePicker();
@@ -97,29 +105,42 @@ class _ProfileDrawerState extends State<ProfileDrawer> {
     final newPassword = _newPasswordController.text.trim();
     final confirmPassword = _confirmPasswordController.text.trim();
 
+    // Clear previous inline errors before re-validating.
+    setState(() {
+      _currentPasswordError = null;
+      _newPasswordError = null;
+      _confirmPasswordError = null;
+    });
+
     // Validation
     if (currentPassword.isEmpty) {
+      setState(() => _currentPasswordError = 'Please enter your current password');
       _showError('Please enter your current password');
       return;
     }
 
     if (newPassword.isEmpty) {
+      setState(() => _newPasswordError = 'Please enter a new password');
       _showError('Please enter a new password');
       return;
     }
 
     if (newPassword.length < 8) {
+      setState(() => _newPasswordError = 'New password must be at least 8 characters');
       _showError('New password must be at least 8 characters');
       return;
     }
 
     if (newPassword != confirmPassword) {
+      setState(() => _confirmPasswordError = 'Passwords do not match');
       _showError('Passwords do not match');
       return;
     }
 
     // Check password strength
     if (!_isPasswordStrong(newPassword)) {
+      setState(() => _newPasswordError =
+          'Must include uppercase, lowercase, number, and special character');
       _showError('Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character');
       return;
     }
@@ -146,6 +167,9 @@ class _ProfileDrawerState extends State<ProfileDrawer> {
         setState(() {
           _securityExpanded = false;
           _changingPassword = false;
+          _currentPasswordError = null;
+          _newPasswordError = null;
+          _confirmPasswordError = null;
         });
         _animateSheetSize(_accountExpanded || _securityExpanded);
       }
@@ -160,7 +184,10 @@ class _ProfileDrawerState extends State<ProfileDrawer> {
   Future<void> _updateProfile() async {
     final name = _nameController.text.trim();
 
+    setState(() => _nameError = null);
+
     if (name.isEmpty) {
+      setState(() => _nameError = 'Name cannot be empty');
       _showError('Name cannot be empty');
       return;
     }
@@ -186,6 +213,7 @@ class _ProfileDrawerState extends State<ProfileDrawer> {
         setState(() {
           _accountExpanded = false;
           _updatingProfile = false;
+          _nameError = null;
         });
         _animateSheetSize(_accountExpanded || _securityExpanded);
       }
@@ -510,36 +538,44 @@ class _ProfileDrawerState extends State<ProfileDrawer> {
                                           : const SizedBox.shrink(),
                                 ),
                               ),
-                              // Camera button overlay
+                              // Camera button overlay. The visible badge stays small
+                              // (24dp) to match the avatar proportions, but the tap
+                              // target is padded out to the 48dp Material a11y
+                              // minimum via transparent padding around it, with the
+                              // Positioned offset compensated so the visible badge
+                              // doesn't shift on screen.
                               Positioned(
-                                bottom: -2,
-                                right: -2,
+                                bottom: -14,
+                                right: -14,
                                 child: Material(
                                   color: Colors.transparent,
                                   child: InkWell(
                                     onTap: _uploadingAvatar ? null : _uploadAvatar,
-                                    borderRadius: BorderRadius.circular(12),
-                                    child: Container(
-                                      padding: const EdgeInsets.all(6),
-                                      decoration: BoxDecoration(
-                                        color: isDark ? Colors.white : Colors.black,
-                                        shape: BoxShape.circle,
-                                        border: Border.all(
-                                          color: isDark ? const Color(0xFF27272A) : const Color(0xFFF9FAFB),
-                                          width: 2,
-                                        ),
-                                        boxShadow: [
-                                          BoxShadow(
-                                            color: Colors.black.withValues(alpha: 0.2),
-                                            blurRadius: 4,
-                                            offset: const Offset(0, 1),
+                                    customBorder: const CircleBorder(),
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(12),
+                                      child: Container(
+                                        padding: const EdgeInsets.all(6),
+                                        decoration: BoxDecoration(
+                                          color: isDark ? Colors.white : Colors.black,
+                                          shape: BoxShape.circle,
+                                          border: Border.all(
+                                            color: isDark ? const Color(0xFF27272A) : const Color(0xFFF9FAFB),
+                                            width: 2,
                                           ),
-                                        ],
-                                      ),
-                                      child: Icon(
-                                        Icons.camera_alt,
-                                        size: 12,
-                                        color: isDark ? Colors.black : Colors.white,
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: Colors.black.withValues(alpha: 0.2),
+                                              blurRadius: 4,
+                                              offset: const Offset(0, 1),
+                                            ),
+                                          ],
+                                        ),
+                                        child: Icon(
+                                          Icons.camera_alt,
+                                          size: 12,
+                                          color: isDark ? Colors.black : Colors.white,
+                                        ),
                                       ),
                                     ),
                                   ),
@@ -569,7 +605,10 @@ class _ProfileDrawerState extends State<ProfileDrawer> {
                                   user.email,
                                   style: TextStyle(
                                     fontSize: 13,
-                                    color: isDark ? Colors.grey[400] : Colors.grey[600],
+                                    // Darker/lighter than the previous grey[400]/
+                                    // grey[600] pair for a comfortable AA contrast
+                                    // margin against the card background.
+                                    color: isDark ? Colors.grey[300] : Colors.grey[700],
                                     letterSpacing: -0.1,
                                   ),
                                   maxLines: 1,
@@ -647,6 +686,13 @@ class _ProfileDrawerState extends State<ProfileDrawer> {
                                     borderRadius: BorderRadius.circular(8),
                                     child: AnimatedContainer(
                                       duration: const Duration(milliseconds: 200),
+                                      // Guarantee a >=48dp tap target (Material a11y
+                                      // guideline) even for short role labels.
+                                      constraints: const BoxConstraints(
+                                        minWidth: 48,
+                                        minHeight: 48,
+                                      ),
+                                      alignment: Alignment.center,
                                       padding: const EdgeInsets.symmetric(
                                         horizontal: 14,
                                         vertical: 8,
@@ -715,6 +761,9 @@ class _ProfileDrawerState extends State<ProfileDrawer> {
                             icon: Icons.person,
                             enabled: !_updatingProfile,
                             isDark: isDark,
+                            errorText: _nameError,
+                            textInputAction: TextInputAction.done,
+                            keyboardType: TextInputType.name,
                           ),
                           const SizedBox(height: 10),
                           // Email display (read-only)
@@ -763,19 +812,23 @@ class _ProfileDrawerState extends State<ProfileDrawer> {
                             child: ElevatedButton.icon(
                               onPressed: _updatingProfile ? null : _updateProfile,
                               icon: _updatingProfile
-                                  ? const SizedBox(
+                                  ? SizedBox(
                                       width: 18,
                                       height: 18,
                                       child: CircularProgressIndicator(
                                         strokeWidth: 2,
-                                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                        valueColor: AlwaysStoppedAnimation<Color>(
+                                          isDark ? Colors.black : Colors.white,
+                                        ),
                                       ),
                                     )
                                   : const Icon(Icons.save),
                               label: const Text('Save Changes'),
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.black,
-                                foregroundColor: Colors.white,
+                                // Theme-aware: a solid black button on the dark
+                                // card background was nearly invisible in dark mode.
+                                backgroundColor: isDark ? Colors.white : Colors.black,
+                                foregroundColor: isDark ? Colors.black : Colors.white,
                                 padding: const EdgeInsets.symmetric(vertical: 16),
                                 elevation: 0,
                               ),
@@ -807,6 +860,8 @@ class _ProfileDrawerState extends State<ProfileDrawer> {
                             onToggleVisibility: () => setState(() => _obscureCurrentPassword = !_obscureCurrentPassword),
                             enabled: !_changingPassword,
                             isDark: isDark,
+                            errorText: _currentPasswordError,
+                            textInputAction: TextInputAction.next,
                           ),
                           const SizedBox(height: 10),
                           _buildPasswordField(
@@ -816,6 +871,8 @@ class _ProfileDrawerState extends State<ProfileDrawer> {
                             onToggleVisibility: () => setState(() => _obscureNewPassword = !_obscureNewPassword),
                             enabled: !_changingPassword,
                             isDark: isDark,
+                            errorText: _newPasswordError,
+                            textInputAction: TextInputAction.next,
                           ),
                           const SizedBox(height: 10),
                           _buildPasswordField(
@@ -825,6 +882,8 @@ class _ProfileDrawerState extends State<ProfileDrawer> {
                             onToggleVisibility: () => setState(() => _obscureConfirmPassword = !_obscureConfirmPassword),
                             enabled: !_changingPassword,
                             isDark: isDark,
+                            errorText: _confirmPasswordError,
+                            textInputAction: TextInputAction.done,
                           ),
                           const SizedBox(height: 12),
                           Container(
@@ -855,19 +914,23 @@ class _ProfileDrawerState extends State<ProfileDrawer> {
                             child: ElevatedButton.icon(
                               onPressed: _changingPassword ? null : _changePassword,
                               icon: _changingPassword
-                                  ? const SizedBox(
+                                  ? SizedBox(
                                       width: 18,
                                       height: 18,
                                       child: CircularProgressIndicator(
                                         strokeWidth: 2,
-                                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                        valueColor: AlwaysStoppedAnimation<Color>(
+                                          isDark ? Colors.black : Colors.white,
+                                        ),
                                       ),
                                     )
                                   : const Icon(Icons.lock),
                               label: const Text('Change Password'),
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.black,
-                                foregroundColor: Colors.white,
+                                // Theme-aware: a solid black button on the dark
+                                // card background was nearly invisible in dark mode.
+                                backgroundColor: isDark ? Colors.white : Colors.black,
+                                foregroundColor: isDark ? Colors.black : Colors.white,
                                 padding: const EdgeInsets.symmetric(vertical: 16),
                                 elevation: 0,
                               ),
@@ -947,7 +1010,9 @@ class _ProfileDrawerState extends State<ProfileDrawer> {
                                         'Sign out of your account',
                                         style: TextStyle(
                                           fontSize: 12,
-                                          color: isDark ? Colors.grey[500] : Colors.grey[600],
+                                          // Bumped from grey[500]/grey[600] for a
+                                          // safer AA contrast margin at this small size.
+                                          color: isDark ? Colors.grey[400] : Colors.grey[700],
                                           letterSpacing: -0.1,
                                         ),
                                       ),
@@ -1106,13 +1171,19 @@ class _ProfileDrawerState extends State<ProfileDrawer> {
     required IconData icon,
     required bool enabled,
     required bool isDark,
+    String? errorText,
+    TextInputAction? textInputAction,
+    TextInputType? keyboardType,
   }) {
     return TextField(
       controller: controller,
       enabled: enabled,
+      textInputAction: textInputAction,
+      keyboardType: keyboardType,
       style: TextStyle(color: isDark ? Colors.white : Colors.black),
       decoration: InputDecoration(
         labelText: label,
+        errorText: errorText,
         prefixIcon: Icon(icon, color: isDark ? Colors.grey[400] : Colors.grey[600]),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
@@ -1146,14 +1217,19 @@ class _ProfileDrawerState extends State<ProfileDrawer> {
     required VoidCallback onToggleVisibility,
     required bool enabled,
     required bool isDark,
+    String? errorText,
+    TextInputAction? textInputAction,
   }) {
     return TextField(
       controller: controller,
       obscureText: obscureText,
       enabled: enabled,
+      textInputAction: textInputAction,
+      keyboardType: TextInputType.visiblePassword,
       style: TextStyle(color: isDark ? Colors.white : Colors.black),
       decoration: InputDecoration(
         labelText: label,
+        errorText: errorText,
         prefixIcon: Icon(Icons.lock_outline, color: isDark ? Colors.grey[400] : Colors.grey[600]),
         suffixIcon: IconButton(
           onPressed: enabled ? onToggleVisibility : null,

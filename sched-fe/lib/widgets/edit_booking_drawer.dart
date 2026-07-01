@@ -49,13 +49,15 @@ class _EditBookingDrawerState extends State<EditBookingDrawer> {
   // Attendees (optional)
   List<AttendeeFormData> _attendees = [];
 
-  // Step 4: Questionnaire
-  final _questionnaireAnswers = <String, String>{
-    'q1': '',
-    'q2': '',
-    'q3': '',
-    'q4': '',
-    'q5': '',
+  // Step 4: Questionnaire — backed by controllers (not `initialValue`) so
+  // typed answers survive rebuilds triggered elsewhere in this widget
+  // (e.g. toggling _submitting), instead of being reset to a stale map value.
+  final Map<String, TextEditingController> _questionnaireControllers = {
+    'q1': TextEditingController(),
+    'q2': TextEditingController(),
+    'q3': TextEditingController(),
+    'q4': TextEditingController(),
+    'q5': TextEditingController(),
   };
 
   @override
@@ -92,8 +94,8 @@ class _EditBookingDrawerState extends State<EditBookingDrawer> {
       // Step 4: Questionnaire
       if (booking.questionnaireAnswers != null) {
         booking.questionnaireAnswers!.forEach((key, value) {
-          if (_questionnaireAnswers.containsKey(key)) {
-            _questionnaireAnswers[key] = value.toString();
+          if (_questionnaireControllers.containsKey(key)) {
+            _questionnaireControllers[key]!.text = value.toString();
           }
         });
       }
@@ -110,6 +112,9 @@ class _EditBookingDrawerState extends State<EditBookingDrawer> {
     _objectiveInterestController.dispose();
     for (var attendee in _attendees) {
       attendee.dispose();
+    }
+    for (var controller in _questionnaireControllers.values) {
+      controller.dispose();
     }
     super.dispose();
   }
@@ -139,7 +144,10 @@ class _EditBookingDrawerState extends State<EditBookingDrawer> {
 
       // Questionnaire (if applicable)
       if (_requiresQuestionnaire())
-        'questionnaireAnswers': _questionnaireAnswers,
+        'questionnaireAnswers': {
+          for (final entry in _questionnaireControllers.entries)
+            entry.key: entry.value.text.trim(),
+        },
 
       // Attendees
       if (_attendees.isNotEmpty)
@@ -178,7 +186,7 @@ class _EditBookingDrawerState extends State<EditBookingDrawer> {
       }
     } else if (_currentStep == 4) {
       // Validate questionnaire
-      bool allAnswered = _questionnaireAnswers.values.every((answer) => answer.trim().isNotEmpty);
+      bool allAnswered = _questionnaireControllers.values.every((c) => c.text.trim().isNotEmpty);
       if (!allAnswered) {
         ToastNotification.show(
           context,
@@ -278,8 +286,15 @@ class _EditBookingDrawerState extends State<EditBookingDrawer> {
       );
     }
 
-    return Container(
-      height: MediaQuery.of(context).size.height * 0.90,
+    // Keep the sheet within the visible area above the keyboard so the
+    // footer (submit button) never ends up hidden behind it on small phones.
+    final mediaQuery = MediaQuery.of(context);
+    final availableHeight = mediaQuery.size.height - mediaQuery.viewInsets.bottom;
+    final sheetHeight = (mediaQuery.size.height * 0.90).clamp(0.0, availableHeight);
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 100),
+      height: sheetHeight,
       decoration: BoxDecoration(
         color: isDark ? Colors.black : Colors.white,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
@@ -916,7 +931,7 @@ class _EditBookingDrawerState extends State<EditBookingDrawer> {
         ),
         const SizedBox(height: 8),
         TextFormField(
-          initialValue: _questionnaireAnswers[key],
+          controller: _questionnaireControllers[key],
           decoration: InputDecoration(
             hintText: 'Your answer...',
             border: const OutlineInputBorder(),
@@ -924,9 +939,6 @@ class _EditBookingDrawerState extends State<EditBookingDrawer> {
             fillColor: isDark ? const Color(0xFF18181B) : Colors.white,
           ),
           maxLines: 3,
-          onChanged: (value) {
-            _questionnaireAnswers[key] = value;
-          },
         ),
       ],
     );

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../services/api_service.dart';
 import '../services/realtime_service.dart';
 import '../models/booking.dart';
@@ -81,6 +82,7 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
   bool _isLoading = true;
   String? _error;
   bool _processing = false;
+  String? _processingAction;
   bool _isEditing = false;
   int _currentBadgePage = 0;
 
@@ -365,8 +367,43 @@ Enterprise Office Visit Management
   Future<void> _handleApprove() async {
     if (_booking == null) return;
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: isDark ? const Color(0xFF18181B) : Colors.white,
+          title: Text(
+            'Approve Booking',
+            style: TextStyle(color: isDark ? Colors.white : Colors.black),
+          ),
+          content: Text(
+            'Approve this booking?',
+            style: TextStyle(color: isDark ? Colors.grey[300] : Colors.grey[700]),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              style: TextButton.styleFrom(foregroundColor: const Color(0xFF059669)),
+              child: const Text('Approve'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed != true) return;
+
     try {
-      setState(() => _processing = true);
+      setState(() {
+        _processing = true;
+        _processingAction = 'Approve';
+      });
       await _apiService.approveBooking(_booking!.id);
 
       if (mounted) {
@@ -447,13 +484,19 @@ Enterprise Office Visit Management
       },
     );
 
+    final message = messageController.text;
+    messageController.dispose();
+
     if (confirmed != true) return;
 
     try {
-      setState(() => _processing = true);
+      setState(() {
+        _processing = true;
+        _processingAction = 'Ask Edit';
+      });
       await _apiService.requestEdit(
         _booking!.id,
-        message: messageController.text.isNotEmpty ? messageController.text : null,
+        message: message.isNotEmpty ? message : null,
       );
 
       if (mounted) {
@@ -533,13 +576,19 @@ Enterprise Office Visit Management
       },
     );
 
+    final message = messageController.text;
+    messageController.dispose();
+
     if (confirmed != true) return;
 
     try {
-      setState(() => _processing = true);
+      setState(() {
+        _processing = true;
+        _processingAction = 'Ask Reschedule';
+      });
       await _apiService.requestReschedule(
         _booking!.id,
-        message: messageController.text.isNotEmpty ? messageController.text : null,
+        message: message.isNotEmpty ? message : null,
       );
 
       if (mounted) {
@@ -629,11 +678,17 @@ Enterprise Office Visit Management
       },
     );
 
+    final reason = reasonController.text;
+    reasonController.dispose();
+
     if (confirmed != true) return;
 
     try {
-      setState(() => _processing = true);
-      await _apiService.rejectBooking(_booking!.id, reasonController.text);
+      setState(() {
+        _processing = true;
+        _processingAction = 'Reject';
+      });
+      await _apiService.rejectBooking(_booking!.id, reason);
 
       if (mounted) {
         ToastNotification.show(
@@ -728,11 +783,17 @@ Enterprise Office Visit Management
       },
     );
 
+    final reason = reasonController.text.trim();
+    reasonController.dispose();
+
     if (confirmed != true) return;
 
     try {
-      setState(() => _processing = true);
-      await _apiService.cancelBooking(_booking!.id, reasonController.text.trim().isEmpty ? null : reasonController.text);
+      setState(() {
+        _processing = true;
+        _processingAction = 'Cancel';
+      });
+      await _apiService.cancelBooking(_booking!.id, reason.isEmpty ? null : reason);
 
       if (mounted) {
         ToastNotification.show(
@@ -793,8 +854,8 @@ Enterprise Office Visit Management
     return Scaffold(
       backgroundColor: isDark ? Colors.black : const Color(0xFFF9FAFB),
       appBar: AppBar(
-        backgroundColor: Colors.black,
-        foregroundColor: Colors.white,
+        backgroundColor: isDark ? const Color(0xFF18181B) : Colors.white,
+        foregroundColor: isDark ? Colors.white : Colors.black,
         title: const Text('Booking Details'),
         elevation: 0,
       ),
@@ -845,8 +906,8 @@ Enterprise Office Visit Management
             ElevatedButton(
               onPressed: _loadBookingDetails,
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.black,
-                foregroundColor: Colors.white,
+                backgroundColor: isDark ? Colors.white : Colors.black,
+                foregroundColor: isDark ? Colors.black : Colors.white,
               ),
               child: const Text('Retry'),
             ),
@@ -1734,7 +1795,7 @@ Enterprise Office Visit Management
                   DateFormat('MMM d, yyyy - HH:mm').format(_booking!.approvedAt!),
                   isDark,
                 ),
-              _buildInfoRow(Icons.tag, 'ID', _booking!.id.substring(0, 8), isDark),
+              _buildInfoRow(Icons.tag, 'ID', _booking!.id.length > 8 ? _booking!.id.substring(0, 8) : _booking!.id, isDark),
             ],
             isDark,
           ),
@@ -1753,22 +1814,43 @@ Enterprise Office Visit Management
             Widget actionBtn(String label, IconData icon, VoidCallback? onTap, {Color? bg, Color? fg}) {
               final defBg = isDark ? const Color(0xFF27272A) : const Color(0xFFF3F4F6);
               final defFg = isDark ? Colors.white : Colors.black;
+              final effectiveBg = bg ?? defBg;
+              final effectiveFg = fg ?? defFg;
+              final isThisButtonProcessing = _processing && _processingAction == label;
               return Expanded(
-                child: Material(
-                  color: bg ?? defBg,
-                  borderRadius: BorderRadius.circular(10),
-                  child: InkWell(
-                    onTap: _processing ? null : onTap,
+                child: AnimatedOpacity(
+                  opacity: _processing ? 0.5 : 1.0,
+                  duration: const Duration(milliseconds: 150),
+                  child: Material(
+                    color: effectiveBg,
                     borderRadius: BorderRadius.circular(10),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(icon, size: 18, color: fg ?? defFg),
-                          const SizedBox(height: 4),
-                          Text(label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: fg ?? defFg), textAlign: TextAlign.center),
-                        ],
+                    child: InkWell(
+                      onTap: _processing
+                          ? null
+                          : () {
+                              setState(() => _processingAction = label);
+                              onTap?.call();
+                            },
+                      borderRadius: BorderRadius.circular(10),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            isThisButtonProcessing
+                                ? SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      valueColor: AlwaysStoppedAnimation<Color>(effectiveFg),
+                                    ),
+                                  )
+                                : Icon(icon, size: 18, color: effectiveFg),
+                            const SizedBox(height: 4),
+                            Text(label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: effectiveFg), textAlign: TextAlign.center),
+                          ],
+                        ),
                       ),
                     ),
                   ),
@@ -2095,12 +2177,10 @@ Enterprise Office Visit Management
           ],
 
           // LinkedIn
-          if (attendee.linkedinProfile != null) ...[
+          if (attendee.linkedinProfile != null && attendee.linkedinProfile!.trim().isNotEmpty) ...[
             const SizedBox(height: 4),
             InkWell(
-              onTap: () {
-                // TODO: Open LinkedIn profile
-              },
+              onTap: () => _openLinkedInProfile(attendee.linkedinProfile!),
               child: Container(
                 padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
                 decoration: BoxDecoration(
@@ -2181,7 +2261,7 @@ Enterprise Office Visit Management
         .replaceAll('_', ' ')
         .toLowerCase()
         .split(' ')
-        .map((word) => word[0].toUpperCase() + word.substring(1))
+        .map((word) => word.isEmpty ? word : word[0].toUpperCase() + word.substring(1))
         .join(' ');
   }
 
@@ -2255,6 +2335,30 @@ Enterprise Office Visit Management
       // Open document with external app
       DocumentOpener.openDocument(context, url);
     }
+  }
+
+  /// Opens an attendee's LinkedIn profile URL in an external browser/app.
+  /// Normalizes the URL (adds https:// scheme if missing) and guards the
+  /// launch with canLaunchUrl to avoid throwing on malformed/unsupported URLs.
+  Future<void> _openLinkedInProfile(String rawUrl) async {
+    final trimmed = rawUrl.trim();
+    if (trimmed.isEmpty) return;
+
+    final hasScheme = trimmed.startsWith('http://') || trimmed.startsWith('https://');
+    final url = Uri.tryParse(hasScheme ? trimmed : 'https://$trimmed');
+
+    if (url == null || !(await canLaunchUrl(url))) {
+      if (mounted) {
+        ToastNotification.show(
+          context,
+          message: 'Could not open LinkedIn profile',
+          type: ToastType.error,
+        );
+      }
+      return;
+    }
+
+    await launchUrl(url, mode: LaunchMode.externalApplication);
   }
 
   Widget _buildFileIcon(String url) {

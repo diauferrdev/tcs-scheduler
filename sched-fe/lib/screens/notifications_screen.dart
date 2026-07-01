@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../services/api_service.dart';
@@ -24,46 +25,63 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   bool _isLoading = true;
   String? _error;
 
+  // Whether a test push notification is currently being sent (in-flight state)
+  bool _isSendingTestNotification = false;
+
   // Real-time notification stream subscription
   StreamSubscription<Map<String, dynamic>>? _notificationSubscription;
+
+  // Periodically rebuilds the list so relative timestamps ("2m ago") stay fresh
+  Timer? _relativeTimeTimer;
 
   @override
   void initState() {
     super.initState();
     _loadNotifications();
     _setupRealtimeListener();
+    _relativeTimeTimer = Timer.periodic(const Duration(minutes: 1), (_) {
+      if (mounted) setState(() {});
+    });
   }
 
   /// Setup real-time listener for new notifications
   void _setupRealtimeListener() {
-    _notificationSubscription = _notificationService.notificationStream.listen((
-      notificationData,
-    ) {
-      if (!mounted) return;
+    _notificationSubscription = _notificationService.notificationStream.listen(
+      (notificationData) {
+        if (!mounted) return;
 
-      try {
-        // Convert Map to AppNotification
-        final newNotification = AppNotification.fromJson(notificationData);
+        try {
+          // Convert Map to AppNotification
+          final newNotification = AppNotification.fromJson(notificationData);
 
-        setState(() {
-          // Add to top of list (newest first)
-          _notifications.insert(0, newNotification);
-        });
+          setState(() {
+            // Add to top of list (newest first)
+            _notifications.insert(0, newNotification);
+          });
 
-        // Show toast feedback
-        ToastNotification.show(
-          context,
-          message: 'New notification: ${newNotification.title}',
-          type: ToastType.success,
-          duration: const Duration(seconds: 2),
-        );
-      } catch (e) { /* ignored: non-critical failure */ }
-    }, onError: (error) {});
+          // Show toast feedback
+          ToastNotification.show(
+            context,
+            message: 'New notification: ${newNotification.title}',
+            type: ToastType.success,
+            duration: const Duration(seconds: 2),
+          );
+        } catch (e) {
+          debugPrint(
+            'NotificationsScreen: failed to process incoming notification: $e',
+          );
+        }
+      },
+      onError: (error) {
+        debugPrint('NotificationsScreen: notification stream error: $error');
+      },
+    );
   }
 
   @override
   void dispose() {
     _notificationSubscription?.cancel();
+    _relativeTimeTimer?.cancel();
     super.dispose();
   }
 
@@ -198,24 +216,68 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     }
   }
 
-  Future<void> _deleteNotification(String id) async {
-    try {
-      await _apiService.deleteNotification(id);
+  /// Handles a swipe-to-delete gesture with an "Undo" safety net.
+  ///
+  /// The notification is removed from the visible list immediately (required
+  /// for [Dismissible] to settle), but the actual delete API call is delayed
+  /// until the Undo SnackBar closes without being tapped. If the user taps
+  /// "Undo" in time, the notification is restored and no API call is made.
+  void _handleSwipeDelete(AppNotification notification) {
+    final removedIndex = _notifications.indexWhere(
+      (n) => n.id == notification.id,
+    );
+    if (removedIndex == -1) return;
 
-      if (mounted) {
-        setState(() {
-          _notifications.removeWhere((n) => n.id == id);
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        ToastNotification.show(
-          context,
-          message: 'Error: $e',
-          type: ToastType.error,
+    setState(() {
+      _notifications.removeAt(removedIndex);
+    });
+
+    bool undone = false;
+
+    ScaffoldMessenger.of(context).clearSnackBars();
+    final snackBarController = ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Text('Notification deleted'),
+        duration: const Duration(seconds: 4),
+        action: SnackBarAction(
+          label: 'Undo',
+          onPressed: () {
+            undone = true;
+            if (mounted) {
+              setState(() {
+                final insertIndex = removedIndex.clamp(
+                  0,
+                  _notifications.length,
+                );
+                _notifications.insert(insertIndex, notification);
+              });
+            }
+          },
+        ),
+      ),
+    );
+
+    snackBarController.closed.then((_) async {
+      if (undone) return;
+      try {
+        await _apiService.deleteNotification(notification.id);
+      } catch (e) {
+        debugPrint(
+          'NotificationsScreen: failed to delete notification ${notification.id}: $e',
         );
+        if (mounted) {
+          setState(() {
+            final insertIndex = removedIndex.clamp(0, _notifications.length);
+            _notifications.insert(insertIndex, notification);
+          });
+          ToastNotification.show(
+            context,
+            message: 'Failed to delete notification. Please try again.',
+            type: ToastType.error,
+          );
+        }
       }
-    }
+    });
   }
 
   List<AppNotification> _sortNotifications() {
@@ -231,6 +293,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   }
 
   void _showNotificationMenu() {
+    if (!kDebugMode) return; // Dev-only tooling, hidden in release builds
     showAdaptiveSideSheet(
       context: context,
       side: AdaptiveSide.right,
@@ -304,113 +367,127 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
         const Divider(),
 
+        // In-flight indicator while a test push is being sent
+        if (_isSendingTestNotification)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 8),
+            child: LinearProgressIndicator(),
+          ),
+
         // Notification options (scrollable)
         Flexible(
-          child: ListView(
-            controller: scrollController,
-            children: [
-              _buildNotificationOption(
-                icon: Icons.add_circle,
-                color: Colors.green,
-                title: 'New Booking',
-                subtitle: 'Send to all admins/managers',
-                onTap: () => _sendPushNotification(
-                  type: 'BOOKING_CONFIRMED',
-                  title: 'New Booking Confirmed',
-                  message:
-                      'Acme Corp scheduled a visit for Oct 15, 2025 at 14:00',
-                  metadata: {
-                    'companyName': 'Acme Corp',
-                    'date': '15/10/2025',
-                    'time': '14:00',
-                    'sector': 'Technology & Innovation',
-                    'expectedAttendees': 15,
-                    'eventType': 'Innovation Day',
-                  },
-                ),
+          child: AbsorbPointer(
+            absorbing: _isSendingTestNotification,
+            child: Opacity(
+              opacity: _isSendingTestNotification ? 0.5 : 1.0,
+              child: ListView(
+                controller: scrollController,
+                children: [
+                  _buildNotificationOption(
+                    icon: Icons.add_circle,
+                    color: Colors.green,
+                    title: 'New Booking',
+                    subtitle: 'Send to all admins/managers',
+                    onTap: () => _sendPushNotification(
+                      type: 'BOOKING_CONFIRMED',
+                      title: 'New Booking Confirmed',
+                      message:
+                          'Acme Corp scheduled a visit for Oct 15, 2025 at 14:00',
+                      metadata: {
+                        'companyName': 'Acme Corp',
+                        'date': '15/10/2025',
+                        'time': '14:00',
+                        'sector': 'Technology & Innovation',
+                        'expectedAttendees': 15,
+                        'eventType': 'Innovation Day',
+                      },
+                    ),
+                  ),
+                  _buildNotificationOption(
+                    icon: Icons.update,
+                    color: Colors.blue,
+                    title: 'Booking Updated',
+                    subtitle: 'Notify changes to all',
+                    onTap: () => _sendPushNotification(
+                      type: 'BOOKING_UPDATED',
+                      title: 'Booking Updated',
+                      message: 'Accenture booking updated: attendees increased',
+                      metadata: {
+                        'companyName': 'Accenture',
+                        'previousDate': 'Oct 18, 2025',
+                        'newDate': 'Oct 20, 2025',
+                        'previousTime': '10:00 AM',
+                        'newTime': '2:00 PM',
+                      },
+                    ),
+                  ),
+                  _buildNotificationOption(
+                    icon: Icons.cancel,
+                    color: Colors.red,
+                    title: 'Booking Cancelled',
+                    subtitle: 'Alert cancellation',
+                    onTap: () => _sendPushNotification(
+                      type: 'BOOKING_CANCELLED',
+                      title: 'Booking Cancelled',
+                      message:
+                          'IBM Brasil cancelled their visit due to schedule conflict',
+                      metadata: {
+                        'companyName': 'IBM Brasil',
+                        'date': 'Oct 18, 2025',
+                        'time': '9:00 AM',
+                        'reason': 'Client schedule conflict',
+                      },
+                    ),
+                  ),
+                  _buildNotificationOption(
+                    icon: Icons.check_circle,
+                    color: Colors.green,
+                    title: 'Booking Approved',
+                    subtitle: 'Confirm approval',
+                    onTap: () => _sendPushNotification(
+                      type: 'BOOKING_APPROVED',
+                      title: 'Booking Approved',
+                      message: 'Microsoft visit approved by John Silva',
+                      metadata: {
+                        'companyName': 'Microsoft',
+                        'date': 'Oct 22, 2025',
+                        'time': '10:30 AM',
+                        'approvedBy': 'John Silva (Manager)',
+                      },
+                    ),
+                  ),
+                  _buildNotificationOption(
+                    icon: Icons.event_repeat,
+                    color: Colors.blue,
+                    title: 'Booking Rescheduled',
+                    subtitle: 'Notify time change',
+                    onTap: () => _sendPushNotification(
+                      type: 'BOOKING_RESCHEDULED',
+                      title: 'Booking Rescheduled',
+                      message: 'SAP visit moved to a new date',
+                      metadata: {
+                        'companyName': 'SAP',
+                        'previousDate': 'Nov 1, 2025',
+                        'newDate': 'Nov 5, 2025',
+                      },
+                    ),
+                  ),
+                  _buildNotificationOption(
+                    icon: Icons.science,
+                    color: Colors.deepPurple,
+                    title: 'Generic Test',
+                    subtitle: 'Simple test notification',
+                    onTap: () => _sendPushNotification(
+                      type: 'BOOKING_UPDATED',
+                      title: 'Test Notification',
+                      message:
+                          'This is a test push notification from Flutter app',
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                ],
               ),
-              _buildNotificationOption(
-                icon: Icons.update,
-                color: Colors.blue,
-                title: 'Booking Updated',
-                subtitle: 'Notify changes to all',
-                onTap: () => _sendPushNotification(
-                  type: 'BOOKING_UPDATED',
-                  title: 'Booking Updated',
-                  message: 'Accenture booking updated: attendees increased',
-                  metadata: {
-                    'companyName': 'Accenture',
-                    'previousDate': 'Oct 18, 2025',
-                    'newDate': 'Oct 20, 2025',
-                    'previousTime': '10:00 AM',
-                    'newTime': '2:00 PM',
-                  },
-                ),
-              ),
-              _buildNotificationOption(
-                icon: Icons.cancel,
-                color: Colors.red,
-                title: 'Booking Cancelled',
-                subtitle: 'Alert cancellation',
-                onTap: () => _sendPushNotification(
-                  type: 'BOOKING_CANCELLED',
-                  title: 'Booking Cancelled',
-                  message:
-                      'IBM Brasil cancelled their visit due to schedule conflict',
-                  metadata: {
-                    'companyName': 'IBM Brasil',
-                    'date': 'Oct 18, 2025',
-                    'time': '9:00 AM',
-                    'reason': 'Client schedule conflict',
-                  },
-                ),
-              ),
-              _buildNotificationOption(
-                icon: Icons.check_circle,
-                color: Colors.green,
-                title: 'Booking Approved',
-                subtitle: 'Confirm approval',
-                onTap: () => _sendPushNotification(
-                  type: 'BOOKING_APPROVED',
-                  title: 'Booking Approved',
-                  message: 'Microsoft visit approved by John Silva',
-                  metadata: {
-                    'companyName': 'Microsoft',
-                    'date': 'Oct 22, 2025',
-                    'time': '10:30 AM',
-                    'approvedBy': 'John Silva (Manager)',
-                  },
-                ),
-              ),
-              _buildNotificationOption(
-                icon: Icons.event_repeat,
-                color: Colors.blue,
-                title: 'Booking Rescheduled',
-                subtitle: 'Notify time change',
-                onTap: () => _sendPushNotification(
-                  type: 'BOOKING_RESCHEDULED',
-                  title: 'Booking Rescheduled',
-                  message: 'SAP visit moved to a new date',
-                  metadata: {
-                    'companyName': 'SAP',
-                    'previousDate': 'Nov 1, 2025',
-                    'newDate': 'Nov 5, 2025',
-                  },
-                ),
-              ),
-              _buildNotificationOption(
-                icon: Icons.science,
-                color: Colors.deepPurple,
-                title: 'Generic Test',
-                subtitle: 'Simple test notification',
-                onTap: () => _sendPushNotification(
-                  type: 'BOOKING_UPDATED',
-                  title: 'Test Notification',
-                  message: 'This is a test push notification from Flutter app',
-                ),
-              ),
-              const SizedBox(height: 16),
-            ],
+            ),
           ),
         ),
       ],
@@ -423,7 +500,11 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     required String message,
     Map<String, dynamic>? metadata,
   }) async {
-    Navigator.pop(context); // Close menu
+    if (_isSendingTestNotification) return;
+
+    // Keep the menu open showing an in-flight state until the API resolves,
+    // instead of popping immediately and letting the call fail silently.
+    setState(() => _isSendingTestNotification = true);
 
     try {
       await _apiService.sendTestNotification(
@@ -434,6 +515,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       );
 
       if (mounted) {
+        Navigator.pop(context); // Close menu now that the call succeeded
         ToastNotification.show(
           context,
           message: 'Push notification sent to all devices!',
@@ -446,12 +528,17 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       await Future.delayed(const Duration(seconds: 2));
       await _loadNotifications();
     } catch (e) {
+      debugPrint('NotificationsScreen: failed to send test notification: $e');
       if (mounted) {
         ToastNotification.show(
           context,
-          message: 'Error: $e',
+          message: 'Failed to send push notification. Please try again.',
           type: ToastType.error,
         );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isSendingTestNotification = false);
       }
     }
   }
@@ -522,17 +609,17 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     return Scaffold(
       backgroundColor: isDark ? Colors.black : const Color(0xFFF9FAFB),
       appBar: AppBar(
-        backgroundColor: Colors.black,
-        foregroundColor: Colors.white,
+        backgroundColor: isDark ? Colors.black : Colors.white,
+        foregroundColor: isDark ? Colors.white : Colors.black,
         title: const Text('Notifications'),
         elevation: 0,
         actions: [
           if (_notifications.any((n) => !n.isRead))
             TextButton(
               onPressed: _markAllAsRead,
-              child: const Text(
+              child: Text(
                 'Mark all read',
-                style: TextStyle(color: Colors.white),
+                style: TextStyle(color: isDark ? Colors.white : Colors.black),
               ),
             ),
         ],
@@ -542,14 +629,16 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         color: isDark ? Colors.white : Colors.black,
         child: _buildBody(isDark),
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _showNotificationMenu,
-        backgroundColor: Colors.black,
-        foregroundColor: Colors.white,
-        icon: const Icon(Icons.notifications_active),
-        label: const Text('Test'),
-        tooltip: 'Test local notifications',
-      ),
+      floatingActionButton: kDebugMode
+          ? FloatingActionButton.extended(
+              onPressed: _showNotificationMenu,
+              backgroundColor: Colors.black,
+              foregroundColor: Colors.white,
+              icon: const Icon(Icons.notifications_active),
+              label: const Text('Test'),
+              tooltip: 'Test local notifications',
+            )
+          : null,
     );
   }
 
@@ -660,7 +749,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         ),
         child: const Icon(Icons.delete, color: Colors.white),
       ),
-      onDismissed: (_) => _deleteNotification(notification.id),
+      onDismissed: (_) => _handleSwipeDelete(notification),
       child: InkWell(
         onTap: () => _handleNotificationTap(notification),
         borderRadius: BorderRadius.circular(12),
@@ -714,6 +803,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                     const SizedBox(height: 4),
                     Text(
                       notification.message,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         fontSize: 14,
                         color: isDark ? Colors.grey[400] : Colors.grey[600],
@@ -847,30 +938,44 @@ class _NotificationsDrawerState extends State<NotificationsDrawer> {
   String? _error;
   StreamSubscription<Map<String, dynamic>>? _notificationSubscription;
 
+  // Periodically rebuilds the list so relative timestamps ("2m ago") stay fresh
+  Timer? _relativeTimeTimer;
+
   @override
   void initState() {
     super.initState();
     _loadNotifications();
     _setupRealtimeListener();
+    _relativeTimeTimer = Timer.periodic(const Duration(minutes: 1), (_) {
+      if (mounted) setState(() {});
+    });
   }
 
   void _setupRealtimeListener() {
-    _notificationSubscription = _notificationService.notificationStream.listen((
-      notificationData,
-    ) {
-      if (!mounted) return;
-      try {
-        final newNotification = AppNotification.fromJson(notificationData);
-        setState(() {
-          _notifications.insert(0, newNotification);
-        });
-      } catch (e) { /* ignored: non-critical failure */ }
-    });
+    _notificationSubscription = _notificationService.notificationStream.listen(
+      (notificationData) {
+        if (!mounted) return;
+        try {
+          final newNotification = AppNotification.fromJson(notificationData);
+          setState(() {
+            _notifications.insert(0, newNotification);
+          });
+        } catch (e) {
+          debugPrint(
+            'NotificationsDrawer: failed to process incoming notification: $e',
+          );
+        }
+      },
+      onError: (error) {
+        debugPrint('NotificationsDrawer: notification stream error: $error');
+      },
+    );
   }
 
   @override
   void dispose() {
     _notificationSubscription?.cancel();
+    _relativeTimeTimer?.cancel();
     super.dispose();
   }
 
@@ -1041,15 +1146,63 @@ class _NotificationsDrawerState extends State<NotificationsDrawer> {
     }
   }
 
-  Future<void> _deleteNotification(String id) async {
-    try {
-      await _apiService.deleteNotification(id);
-      if (mounted) {
-        setState(() {
-          _notifications.removeWhere((n) => n.id == id);
-        });
+  /// Handles a swipe-to-delete gesture with an "Undo" safety net.
+  ///
+  /// The notification is removed from the visible list immediately (required
+  /// for [Dismissible] to settle), but the actual delete API call is delayed
+  /// until the Undo SnackBar closes without being tapped. If the user taps
+  /// "Undo" in time, the notification is restored and no API call is made.
+  void _handleSwipeDelete(AppNotification notification) {
+    final removedIndex = _notifications.indexWhere(
+      (n) => n.id == notification.id,
+    );
+    if (removedIndex == -1) return;
+
+    setState(() {
+      _notifications.removeAt(removedIndex);
+    });
+
+    bool undone = false;
+
+    ScaffoldMessenger.of(context).clearSnackBars();
+    final snackBarController = ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Text('Notification deleted'),
+        duration: const Duration(seconds: 4),
+        action: SnackBarAction(
+          label: 'Undo',
+          onPressed: () {
+            undone = true;
+            if (mounted) {
+              setState(() {
+                final insertIndex = removedIndex.clamp(
+                  0,
+                  _notifications.length,
+                );
+                _notifications.insert(insertIndex, notification);
+              });
+            }
+          },
+        ),
+      ),
+    );
+
+    snackBarController.closed.then((_) async {
+      if (undone) return;
+      try {
+        await _apiService.deleteNotification(notification.id);
+      } catch (e) {
+        debugPrint(
+          'NotificationsDrawer: failed to delete notification ${notification.id}: $e',
+        );
+        if (mounted) {
+          setState(() {
+            final insertIndex = removedIndex.clamp(0, _notifications.length);
+            _notifications.insert(insertIndex, notification);
+          });
+        }
       }
-    } catch (e) { /* ignored: non-critical failure */ }
+    });
   }
 
   List<AppNotification> _sortNotifications() {
@@ -1296,7 +1449,7 @@ class _NotificationsDrawerState extends State<NotificationsDrawer> {
         ),
         child: const Icon(Icons.delete, color: Colors.white),
       ),
-      onDismissed: (_) => _deleteNotification(notification.id),
+      onDismissed: (_) => _handleSwipeDelete(notification),
       child: InkWell(
         onTap: () => _handleNotificationTap(notification),
         borderRadius: BorderRadius.circular(12),
@@ -1350,6 +1503,8 @@ class _NotificationsDrawerState extends State<NotificationsDrawer> {
                     const SizedBox(height: 4),
                     Text(
                       notification.message,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         fontSize: 14,
                         color: isDark ? Colors.grey[400] : Colors.grey[600],

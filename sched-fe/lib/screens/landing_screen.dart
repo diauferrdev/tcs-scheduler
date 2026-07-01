@@ -13,6 +13,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:sched_fe/utils/responsive_helper.dart';
 import 'package:sched_fe/providers/auth_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../utils/toast_notification.dart';
 
 class LandingScreen extends StatefulWidget {
   const LandingScreen({super.key});
@@ -55,13 +56,53 @@ class _LandingScreenState extends State<LandingScreen> {
       final response = await http.get(Uri.parse('${ApiConfig.baseUrl}/version'));
 
       if (response.statusCode == 200) {
-        setState(() {
-          _versionInfo = json.decode(response.body);
-          _loading = false;
-        });
+        _versionInfo = json.decode(response.body);
+      }
+      // Non-200 responses just mean the version badge won't be shown;
+      // _loading is always cleared below regardless of status code.
+    } catch (e) {
+      // ignored: version badge is optional, non-critical failure
+    } finally {
+      if (mounted) {
+        setState(() => _loading = false);
+      }
+    }
+  }
+
+  /// Opens a download link, guarding against launch failures instead of
+  /// firing-and-forgetting `launchUrl` (which silently no-ops if there's no
+  /// handler for the URL / browser).
+  Future<void> _launchDownload(String url) async {
+    final uri = Uri.parse(url);
+    try {
+      final canLaunch = await canLaunchUrl(uri);
+      if (!canLaunch) {
+        if (mounted) {
+          ToastNotification.show(
+            context,
+            message: 'Unable to open download link on this device',
+            type: ToastType.error,
+          );
+        }
+        return;
+      }
+
+      final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
+      if (!launched && mounted) {
+        ToastNotification.show(
+          context,
+          message: 'Failed to start the download',
+          type: ToastType.error,
+        );
       }
     } catch (e) {
-      setState(() => _loading = false);
+      if (mounted) {
+        ToastNotification.show(
+          context,
+          message: 'Error opening download link: $e',
+          type: ToastType.error,
+        );
+      }
     }
   }
 
@@ -191,7 +232,7 @@ class _LandingScreenState extends State<LandingScreen> {
                     '97 MB',
                     'Android 8.0+',
                     true,
-                    () => launchUrl(Uri.parse('https://api.pacesched.com/uploads/pace-scheduler-latest.apk'), mode: LaunchMode.externalApplication),
+                    () => _launchDownload('https://api.pacesched.com/uploads/pace-scheduler-latest.apk'),
                     isMobile,
                   ),
                   _buildPlatformCard(
@@ -201,7 +242,7 @@ class _LandingScreenState extends State<LandingScreen> {
                     '17 MB',
                     'Windows 10+',
                     true,
-                    () => launchUrl(Uri.parse('https://api.pacesched.com/uploads/pace-scheduler-windows-latest.exe'), mode: LaunchMode.externalApplication),
+                    () => _launchDownload('https://api.pacesched.com/uploads/pace-scheduler-windows-latest.exe'),
                     isMobile,
                   ),
                   _buildPlatformCard(
@@ -211,7 +252,7 @@ class _LandingScreenState extends State<LandingScreen> {
                     '28 MB',
                     'Ubuntu 20.04+',
                     true,
-                    () => launchUrl(Uri.parse('https://api.pacesched.com/uploads/pace-scheduler-linux-latest.tar.gz'), mode: LaunchMode.externalApplication),
+                    () => _launchDownload('https://api.pacesched.com/uploads/pace-scheduler-linux-latest.tar.gz'),
                     isMobile,
                   ),
                   _buildPlatformCard(

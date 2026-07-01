@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kDebugMode;
 import '../../utils/responsive_helper.dart';
 import 'dart:math';
 import '../../utils/toast_notification.dart';
@@ -29,6 +30,9 @@ class _BaseInfoDrawerState extends State<BaseInfoDrawer> {
   final _organizationDescriptionController = TextEditingController();
   final _objectiveInterestController = TextEditingController();
   List<String> _selectedTargetAudience = [];
+  final GlobalKey<FormFieldState<List<String>>> _targetAudienceFieldKey =
+      GlobalKey<FormFieldState<List<String>>>();
+  bool _submitting = false;
 
   final List<String> _targetAudienceOptions = [
     'C-Level',
@@ -146,6 +150,7 @@ class _BaseInfoDrawerState extends State<BaseInfoDrawer> {
       _objectiveInterestController.text = selectedMock['objectiveInterest'] as String;
       _selectedTargetAudience = List<String>.from(selectedMock['targetAudience'] as List);
     });
+    _targetAudienceFieldKey.currentState?.didChange(_selectedTargetAudience);
 
     ToastNotification.show(
       context,
@@ -168,37 +173,52 @@ class _BaseInfoDrawerState extends State<BaseInfoDrawer> {
   }
 
   void _submitForm() {
-    if (!_formKey.currentState!.validate()) {
-      ToastNotification.show(
-        context,
-        message: 'Please fill in all required fields',
-        type: ToastType.error,
-      );
-      return;
+    // Guard against double-tap / duplicate submissions while already in flight.
+    if (_submitting) return;
+
+    setState(() {
+      _submitting = true;
+    });
+
+    try {
+      if (!_formKey.currentState!.validate()) {
+        ToastNotification.show(
+          context,
+          message: 'Please fill in all required fields',
+          type: ToastType.error,
+        );
+        return;
+      }
+
+      // Convert target audience display names to enum values
+      final mappedTargetAudience = _selectedTargetAudience
+          .map((displayName) => _mapTargetAudienceToEnum(displayName))
+          .toSet() // Remove duplicates
+          .toList();
+
+      final data = {
+        'requesterName': _requesterNameController.text.trim(),
+        'employeeId': _employeeIdController.text.trim(),
+        'vertical': _vertical!,
+        'organizationName': _organizationNameController.text.trim(),
+        'organizationType': _organizationType!,
+        if (_organizationType == 'OTHER')
+          'organizationTypeOther': _organizationTypeOtherController.text.trim(),
+        if (_organizationDescriptionController.text.trim().isNotEmpty)
+          'organizationDescription': _organizationDescriptionController.text.trim(),
+        if (_objectiveInterestController.text.trim().isNotEmpty)
+          'objectiveInterest': _objectiveInterestController.text.trim(),
+        'targetAudience': mappedTargetAudience,
+      };
+
+      widget.onNext(data);
+    } finally {
+      if (mounted) {
+        setState(() {
+          _submitting = false;
+        });
+      }
     }
-
-    // Convert target audience display names to enum values
-    final mappedTargetAudience = _selectedTargetAudience
-        .map((displayName) => _mapTargetAudienceToEnum(displayName))
-        .toSet() // Remove duplicates
-        .toList();
-
-    final data = {
-      'requesterName': _requesterNameController.text.trim(),
-      'employeeId': _employeeIdController.text.trim(),
-      'vertical': _vertical!,
-      'organizationName': _organizationNameController.text.trim(),
-      'organizationType': _organizationType!,
-      if (_organizationType == 'OTHER')
-        'organizationTypeOther': _organizationTypeOtherController.text.trim(),
-      if (_organizationDescriptionController.text.trim().isNotEmpty)
-        'organizationDescription': _organizationDescriptionController.text.trim(),
-      if (_objectiveInterestController.text.trim().isNotEmpty)
-        'objectiveInterest': _objectiveInterestController.text.trim(),
-      'targetAudience': mappedTargetAudience,
-    };
-
-    widget.onNext(data);
   }
 
   @override
@@ -246,19 +266,34 @@ class _BaseInfoDrawerState extends State<BaseInfoDrawer> {
                 ),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: Text(
-                    'Base Information',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: isDark ? Colors.white : Colors.black,
-                    ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'Base Information',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: isDark ? Colors.white : Colors.black,
+                        ),
+                      ),
+                      Text(
+                        'Step 3 of 4',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: isDark ? Colors.grey[500] : Colors.grey[600],
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                IconButton(
-                  onPressed: _fillMockData,
-                  icon: Icon(Icons.flash_on, color: isDark ? Colors.white : Colors.black),
-                ),
+                if (kDebugMode)
+                  IconButton(
+                    onPressed: _fillMockData,
+                    icon: Icon(Icons.flash_on, color: isDark ? Colors.white : Colors.black),
+                  ),
               ],
             ),
           ),
@@ -468,9 +503,9 @@ class _BaseInfoDrawerState extends State<BaseInfoDrawer> {
                     ),
                     const SizedBox(height: 16),
 
-                    // Target Audience - Multi-select dropdown
+                    // Target Audience - Multi-select dropdown (validated as a required field)
                     Text(
-                      'Target Audience',
+                      'Target Audience *',
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w500,
@@ -478,43 +513,62 @@ class _BaseInfoDrawerState extends State<BaseInfoDrawer> {
                       ),
                     ),
                     const SizedBox(height: 8),
-                    InkWell(
-                      onTap: () => _showTargetAudienceDialog(isDark),
-                      borderRadius: BorderRadius.circular(4),
-                      child: InputDecorator(
-                        decoration: InputDecoration(
-                          border: const OutlineInputBorder(),
-                          filled: true,
-                          fillColor: isDark ? const Color(0xFF18181B) : Colors.white,
-                          suffixIcon: const Icon(Icons.arrow_drop_down),
-                        ),
-                        child: Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          children: _selectedTargetAudience.isEmpty
-                              ? [
-                                  Text(
-                                    'Select target audience',
-                                    style: TextStyle(
-                                      color: isDark ? Colors.grey[500] : Colors.grey[600],
-                                    ),
-                                  )
-                                ]
-                              : _selectedTargetAudience.map((audience) {
-                                  return Chip(
-                                    label: Text(audience),
-                                    onDeleted: () {
-                                      setState(() {
-                                        _selectedTargetAudience.remove(audience);
-                                      });
-                                    },
-                                    backgroundColor: Colors.black,
-                                    labelStyle: const TextStyle(color: Colors.white),
-                                    deleteIconColor: Colors.white,
-                                  );
-                                }).toList(),
-                        ),
-                      ),
+                    FormField<List<String>>(
+                      key: _targetAudienceFieldKey,
+                      initialValue: _selectedTargetAudience,
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Please select at least one target audience';
+                        }
+                        return null;
+                      },
+                      builder: (field) {
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            InkWell(
+                              onTap: () => _showTargetAudienceDialog(isDark),
+                              borderRadius: BorderRadius.circular(4),
+                              child: InputDecorator(
+                                decoration: InputDecoration(
+                                  border: const OutlineInputBorder(),
+                                  filled: true,
+                                  fillColor: isDark ? const Color(0xFF18181B) : Colors.white,
+                                  suffixIcon: const Icon(Icons.arrow_drop_down),
+                                  errorText: field.errorText,
+                                ),
+                                child: Wrap(
+                                  spacing: 8,
+                                  runSpacing: 8,
+                                  children: _selectedTargetAudience.isEmpty
+                                      ? [
+                                          Text(
+                                            'Select target audience',
+                                            style: TextStyle(
+                                              color: isDark ? Colors.grey[500] : Colors.grey[600],
+                                            ),
+                                          )
+                                        ]
+                                      : _selectedTargetAudience.map((audience) {
+                                          return Chip(
+                                            label: Text(audience),
+                                            onDeleted: () {
+                                              setState(() {
+                                                _selectedTargetAudience.remove(audience);
+                                              });
+                                              field.didChange(_selectedTargetAudience);
+                                            },
+                                            backgroundColor: Colors.black,
+                                            labelStyle: const TextStyle(color: Colors.white),
+                                            deleteIconColor: Colors.white,
+                                          );
+                                        }).toList(),
+                                ),
+                              ),
+                            ),
+                          ],
+                        );
+                      },
                     ),
                   ],
                 ),
@@ -533,22 +587,32 @@ class _BaseInfoDrawerState extends State<BaseInfoDrawer> {
               ),
             ),
             child: ElevatedButton(
-              onPressed: _submitForm,
+              onPressed: _submitting ? null : _submitForm,
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.black,
                 foregroundColor: Colors.white,
                 minimumSize: const Size(double.infinity, 50),
+                disabledBackgroundColor: Colors.grey,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8),
                 ),
               ),
-              child: const Text(
-                'Next',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
+              child: _submitting
+                  ? const SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                      ),
+                    )
+                  : const Text(
+                      'Next',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
             ),
           ),
         ],
@@ -614,6 +678,7 @@ class _BaseInfoDrawerState extends State<BaseInfoDrawer> {
                     setState(() {
                       _selectedTargetAudience = tempSelected;
                     });
+                    _targetAudienceFieldKey.currentState?.didChange(_selectedTargetAudience);
                     Navigator.pop(context);
                   },
                   style: ElevatedButton.styleFrom(

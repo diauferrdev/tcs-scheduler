@@ -20,6 +20,37 @@ int _minuteOf(String t) {
   return p.length > 1 ? (int.tryParse(p[1]) ?? 0) : 0;
 }
 
+/// Extracts a user-friendly message from a caught error, avoiding leaking
+/// raw exception type prefixes (e.g. "Exception: ...") into the UI.
+String _errorMessage(Object error) {
+  if (error is ApiException) return error.message;
+  if (error is UnauthorizedException) return error.toString();
+  final text = error.toString();
+  return text.startsWith('Exception: ') ? text.substring(11) : text;
+}
+
+/// Deterministic accent color per room, used as a fallback backdrop when a
+/// room's cover image fails to load.
+Color _roomColor(RoomType room) {
+  switch (room) {
+    case RoomType.PHONE_BOOTH_1:
+    case RoomType.PHONE_BOOTH_2:
+      return const Color(0xFF6366F1);
+    case RoomType.AGILE_SPACE:
+      return const Color(0xFF10B981);
+    case RoomType.THINKING_SPACE:
+      return const Color(0xFF8B5CF6);
+    case RoomType.IMMERSIVE_ROOM:
+      return const Color(0xFFEC4899);
+    case RoomType.CONFERENCE_ROOM:
+      return const Color(0xFF3B82F6);
+    case RoomType.PODCAST_ROOM:
+      return const Color(0xFFF59E0B);
+    case RoomType.GREEN_ROOM:
+      return const Color(0xFF22C55E);
+  }
+}
+
 class RoomsScreen extends StatefulWidget {
   const RoomsScreen({super.key});
 
@@ -54,16 +85,18 @@ class _RoomsScreenState extends State<RoomsScreen> {
     // Auto-refresh every 30s when viewing today
     _refreshTimer = Timer.periodic(const Duration(seconds: 30), (_) {
       if (_isSameDay(_selectedDate, DateTime.now()) && mounted) {
-        _loadAvailability();
+        // Background refresh: update data in place without blanking the
+        // grid to a spinner (showLoading: false).
+        _loadAvailability(showLoading: false);
       }
     });
   }
 
-  Future<void> _loadAvailability() async {
+  Future<void> _loadAvailability({bool showLoading = true}) async {
     if (!mounted) return;
 
     setState(() {
-      _isLoading = true;
+      if (showLoading) _isLoading = true;
       _error = null;
     });
 
@@ -92,7 +125,7 @@ class _RoomsScreenState extends State<RoomsScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = e.toString();
+        _error = _errorMessage(e);
         _isLoading = false;
       });
     }
@@ -217,8 +250,13 @@ class _RoomsScreenState extends State<RoomsScreen> {
         selectedDate: _selectedDate,
         isDark: isDark,
         onSubmit: (data) async {
-          Navigator.pop(context);
-          await _submitBooking(data);
+          // Keep the sheet open (with typed data intact) until the request
+          // resolves. Only dismiss on success so a failure lets the user
+          // retry without re-entering purpose/time/attendees.
+          final success = await _submitBooking(data);
+          if (success && context.mounted) {
+            Navigator.pop(context);
+          }
         },
       ),
       desktopBuilder: (context) => DialogScrollBody(
@@ -228,31 +266,39 @@ class _RoomsScreenState extends State<RoomsScreen> {
           isDark: isDark,
           desktopScrollController: scrollController,
           onSubmit: (data) async {
-            Navigator.pop(context);
-            await _submitBooking(data);
+            final success = await _submitBooking(data);
+            if (success && context.mounted) {
+              Navigator.pop(context);
+            }
           },
         ),
       ),
     );
   }
 
-  Future<void> _submitBooking(Map<String, dynamic> data) async {
+  /// Submits the booking and returns whether it succeeded. The caller is
+  /// responsible for closing the form sheet — this method never pops
+  /// navigation itself, so a failed request leaves the sheet (and all
+  /// typed data) intact for retry.
+  Future<bool> _submitBooking(Map<String, dynamic> data) async {
     try {
       await _apiService.post('/api/rooms', data);
 
-      if (!mounted) return;
+      if (!mounted) return true;
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Room booking submitted successfully')),
       );
 
       _loadAvailability();
+      return true;
     } catch (e) {
-      if (!mounted) return;
+      if (!mounted) return false;
 
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Failed to book room: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to book room: ${_errorMessage(e)}')),
+      );
+      return false;
     }
   }
 
@@ -344,9 +390,9 @@ class _RoomsScreenState extends State<RoomsScreen> {
             },
             child: Row(
               children: [
-                // Previous week arrow
-                GestureDetector(
-                  onTap: () {
+                // Previous week arrow — >=44dp hit area for accessibility
+                IconButton(
+                  onPressed: () {
                     setState(() {
                       _weekOffset--;
                       final newWeek = _getWeekDates(_weekOffset);
@@ -357,7 +403,13 @@ class _RoomsScreenState extends State<RoomsScreen> {
                     });
                     _loadAvailability();
                   },
-                  child: Icon(
+                  tooltip: 'Previous week',
+                  constraints: const BoxConstraints(
+                    minWidth: 44,
+                    minHeight: 44,
+                  ),
+                  padding: EdgeInsets.zero,
+                  icon: Icon(
                     Icons.chevron_left,
                     size: 20,
                     color: isDark ? Colors.white : Colors.black,
@@ -443,9 +495,9 @@ class _RoomsScreenState extends State<RoomsScreen> {
                     ),
                   );
                 }),
-                // Next week arrow
-                GestureDetector(
-                  onTap: () {
+                // Next week arrow — >=44dp hit area for accessibility
+                IconButton(
+                  onPressed: () {
                     setState(() {
                       _weekOffset++;
                       final newWeek = _getWeekDates(_weekOffset);
@@ -456,7 +508,13 @@ class _RoomsScreenState extends State<RoomsScreen> {
                     });
                     _loadAvailability();
                   },
-                  child: Icon(
+                  tooltip: 'Next week',
+                  constraints: const BoxConstraints(
+                    minWidth: 44,
+                    minHeight: 44,
+                  ),
+                  padding: EdgeInsets.zero,
+                  icon: Icon(
                     Icons.chevron_right,
                     size: 20,
                     color: isDark ? Colors.white : Colors.black,
@@ -470,11 +528,30 @@ class _RoomsScreenState extends State<RoomsScreen> {
     );
   }
 
+  /// Wraps a non-scrolling empty/error state in a [RefreshIndicator] +
+  /// scrollable so pull-to-refresh keeps working even when there is no
+  /// list content to scroll (weekend placeholder, error state, etc).
+  Widget _scrollableEmptyState(Widget child) {
+    return RefreshIndicator(
+      onRefresh: _loadAvailability,
+      child: LayoutBuilder(
+        builder: (context, constraints) => SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: constraints.maxHeight),
+            child: Center(child: child),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildBody(bool isDark) {
     if (_isWeekend(_selectedDate)) {
-      return Center(
-        child: Column(
+      return _scrollableEmptyState(
+        Column(
           mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
               Icons.weekend_outlined,
@@ -511,9 +588,10 @@ class _RoomsScreenState extends State<RoomsScreen> {
     }
 
     if (_error != null) {
-      return Center(
-        child: Column(
+      return _scrollableEmptyState(
+        Column(
           mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
               Icons.error_outline,
@@ -530,12 +608,15 @@ class _RoomsScreenState extends State<RoomsScreen> {
               ),
             ),
             const SizedBox(height: 8),
-            Text(
-              _error!,
-              style: TextStyle(
-                color: isDark ? Colors.grey[400] : Colors.grey[600],
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Text(
+                _error!,
+                style: TextStyle(
+                  color: isDark ? Colors.grey[400] : Colors.grey[600],
+                ),
+                textAlign: TextAlign.center,
               ),
-              textAlign: TextAlign.center,
             ),
             const SizedBox(height: 24),
             ElevatedButton(
@@ -545,6 +626,14 @@ class _RoomsScreenState extends State<RoomsScreen> {
                 foregroundColor: isDark ? Colors.black : Colors.white,
               ),
               child: const Text('Retry'),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Or pull down to refresh',
+              style: TextStyle(
+                fontSize: 11,
+                color: isDark ? Colors.grey[600] : Colors.grey[400],
+              ),
             ),
           ],
         ),
@@ -617,6 +706,22 @@ class _RoomsScreenState extends State<RoomsScreen> {
                       'assets/images/paceport-saopaulo.jpg',
                       width: double.infinity,
                       fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) {
+                        // A bad/missing asset must not break the whole
+                        // card — fall back to a neutral, room-colored
+                        // placeholder instead of throwing.
+                        final color = _roomColor(room);
+                        return Container(
+                          width: double.infinity,
+                          color: color.withValues(alpha: 0.25),
+                          alignment: Alignment.center,
+                          child: Icon(
+                            RoomBooking.roomIcon(room),
+                            size: 40,
+                            color: color,
+                          ),
+                        );
+                      },
                     ),
                     // Dark overlay
                     Container(
@@ -697,6 +802,7 @@ class _RoomsScreenState extends State<RoomsScreen> {
                     Positioned(
                       bottom: 8,
                       left: 10,
+                      right: 10,
                       child: Row(
                         children: [
                           Icon(
@@ -705,15 +811,19 @@ class _RoomsScreenState extends State<RoomsScreen> {
                             color: Colors.white,
                           ),
                           const SizedBox(width: 6),
-                          Text(
-                            RoomBooking.roomLabel(room),
-                            style: const TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                              shadows: [
-                                Shadow(blurRadius: 4, color: Colors.black54),
-                              ],
+                          Expanded(
+                            child: Text(
+                              RoomBooking.roomLabel(room),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                                shadows: [
+                                  Shadow(blurRadius: 4, color: Colors.black54),
+                                ],
+                              ),
                             ),
                           ),
                         ],
@@ -1491,74 +1601,96 @@ class _BookingFormSheetState extends State<_BookingFormSheet> {
                         .indexOf(selectedHour)
                         .clamp(0, hours.length - 1);
 
-                    return Row(
-                      children: [
-                        const SizedBox(width: 40),
-                        // Hour picker (only available hours)
-                        Expanded(
-                          child: CupertinoPicker(
-                            scrollController: FixedExtentScrollController(
-                              initialItem: hourIndex,
-                            ),
-                            itemExtent: 40,
-                            onSelectedItemChanged: (index) {
-                              setSheetState(() => selectedHour = hours[index]);
-                            },
-                            children: hours
-                                .map(
-                                  (h) => Center(
-                                    child: Text(
-                                      h.toString().padLeft(2, '0'),
-                                      style: TextStyle(
-                                        fontSize: 22,
-                                        color: isDark
-                                            ? Colors.white
-                                            : Colors.black,
+                    // Ensure the CupertinoPicker's default selection overlay
+                    // and chrome adapt to the current theme brightness —
+                    // without this the picker renders with light-theme
+                    // (near-black) defaults even inside a dark sheet.
+                    return CupertinoTheme(
+                      data: CupertinoThemeData(
+                        brightness: isDark ? Brightness.dark : Brightness.light,
+                        primaryColor: isDark ? Colors.white : Colors.black,
+                      ),
+                      child: Row(
+                        children: [
+                          const SizedBox(width: 40),
+                          // Hour picker (only available hours)
+                          Expanded(
+                            child: CupertinoPicker(
+                              scrollController: FixedExtentScrollController(
+                                initialItem: hourIndex,
+                              ),
+                              itemExtent: 40,
+                              onSelectedItemChanged: (index) {
+                                setSheetState(
+                                  () => selectedHour = hours[index],
+                                );
+                              },
+                              children: hours
+                                  .map(
+                                    (h) => Center(
+                                      child: Text(
+                                        h.toString().padLeft(2, '0'),
+                                        style: TextStyle(
+                                          fontSize: 22,
+                                          color: isDark
+                                              ? Colors.white
+                                              : Colors.black,
+                                        ),
                                       ),
                                     ),
-                                  ),
-                                )
-                                .toList(),
-                          ),
-                        ),
-                        Text(
-                          ':',
-                          style: TextStyle(
-                            fontSize: 28,
-                            fontWeight: FontWeight.bold,
-                            color: isDark ? Colors.white60 : Colors.black54,
-                          ),
-                        ),
-                        // Minute picker (00 and 30)
-                        Expanded(
-                          child: CupertinoPicker(
-                            scrollController: FixedExtentScrollController(
-                              initialItem: selectedMinute == 30 ? 1 : 0,
+                                  )
+                                  .toList(),
                             ),
-                            itemExtent: 40,
-                            onSelectedItemChanged: (index) {
-                              setSheetState(
-                                () => selectedMinute = index == 0 ? 0 : 30,
-                              );
-                            },
-                            children: const [
-                              Center(
-                                child: Text(
-                                  '00',
-                                  style: TextStyle(fontSize: 22),
-                                ),
-                              ),
-                              Center(
-                                child: Text(
-                                  '30',
-                                  style: TextStyle(fontSize: 22),
-                                ),
-                              ),
-                            ],
                           ),
-                        ),
-                        const SizedBox(width: 40),
-                      ],
+                          Text(
+                            ':',
+                            style: TextStyle(
+                              fontSize: 28,
+                              fontWeight: FontWeight.bold,
+                              color: isDark ? Colors.white60 : Colors.black54,
+                            ),
+                          ),
+                          // Minute picker (00 and 30)
+                          Expanded(
+                            child: CupertinoPicker(
+                              scrollController: FixedExtentScrollController(
+                                initialItem: selectedMinute == 30 ? 1 : 0,
+                              ),
+                              itemExtent: 40,
+                              onSelectedItemChanged: (index) {
+                                setSheetState(
+                                  () => selectedMinute = index == 0 ? 0 : 30,
+                                );
+                              },
+                              children: [
+                                Center(
+                                  child: Text(
+                                    '00',
+                                    style: TextStyle(
+                                      fontSize: 22,
+                                      color: isDark
+                                          ? Colors.white
+                                          : Colors.black,
+                                    ),
+                                  ),
+                                ),
+                                Center(
+                                  child: Text(
+                                    '30',
+                                    style: TextStyle(
+                                      fontSize: 22,
+                                      color: isDark
+                                          ? Colors.white
+                                          : Colors.black,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 40),
+                        ],
+                      ),
                     );
                   },
                 ),

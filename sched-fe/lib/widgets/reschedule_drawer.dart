@@ -175,8 +175,15 @@ class _RescheduleDrawerState extends State<RescheduleDrawer> {
       );
     }
 
-    return Container(
-      height: MediaQuery.of(context).size.height * 0.95,
+    // Keep the sheet within the visible area above the keyboard so any
+    // content/footer never ends up hidden behind it on small phones.
+    final mediaQuery = MediaQuery.of(context);
+    final availableHeight = mediaQuery.size.height - mediaQuery.viewInsets.bottom;
+    final sheetHeight = (mediaQuery.size.height * 0.95).clamp(0.0, availableHeight);
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 100),
+      height: sheetHeight,
       decoration: BoxDecoration(
         color: isDark ? Colors.black : Colors.white,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),

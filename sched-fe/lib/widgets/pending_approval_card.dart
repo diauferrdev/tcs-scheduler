@@ -20,14 +20,25 @@ class PendingApprovalCard extends StatefulWidget {
 class _PendingApprovalCardState extends State<PendingApprovalCard> {
 
 
-  void _showDetailsDrawer() {
-    // Use DrawerService for consistent drawer experience
-    DrawerService.instance.openDrawer(
+  Future<void> _showDetailsDrawer() async {
+    // Use DrawerService for consistent drawer experience. `openDrawer`
+    // returns a Future that completes once the drawer/modal is dismissed
+    // (approve, reject, edit, or a plain close all pop the same route), so
+    // awaiting it lets us notify the parent list right after any of those
+    // actions could have changed this booking's state.
+    await DrawerService.instance.openDrawer(
       context,
       DrawerType.bookingDetails,
       params: {'bookingId': widget.booking.id},
       updateUrl: false, // Don't update URL from Approvals screen
     );
+
+    // Refresh/remove this card from the parent list now that the drawer
+    // closed. This mirrors the room-booking card's behavior in
+    // ApprovalsScreen, which also unconditionally reloads on drawer close.
+    if (mounted) {
+      widget.onApproved();
+    }
   }
 
   @override

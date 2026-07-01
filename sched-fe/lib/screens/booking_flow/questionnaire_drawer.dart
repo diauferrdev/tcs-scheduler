@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kDebugMode;
 import '../../utils/responsive_helper.dart';
 import 'dart:math';
 import '../../services/api_service.dart';
@@ -31,6 +32,7 @@ class _QuestionnaireDrawerState extends State<QuestionnaireDrawer> {
   List<dynamic> _questions = [];
   bool _loading = true;
   String? _error;
+  bool _submitting = false;
 
   @override
   void initState() {
@@ -227,80 +229,95 @@ class _QuestionnaireDrawerState extends State<QuestionnaireDrawer> {
   }
 
   void _submitForm() {
-    if (!_formKey.currentState!.validate()) {
-      // Also check non-text required fields
-      ToastNotification.show(
-        context,
-        message: 'Please answer all required questions',
-        type: ToastType.error,
-      );
-      return;
-    }
+    // Guard against double-tap / duplicate submissions while already in flight.
+    if (_submitting) return;
 
-    // Validate required non-text fields
-    for (final q in _questions) {
-      final id = q['id'] as String;
-      final type = q['type'] as String;
-      final required = q['required'] as bool? ?? false;
-      if (!required) continue;
+    setState(() {
+      _submitting = true;
+    });
 
-      switch (type) {
-        case 'yes_no':
-          if (_yesNoAnswers[id] == null) {
-            ToastNotification.show(
-              context,
-              message: 'Please answer: ${q['question']}',
-              type: ToastType.error,
-            );
-            return;
-          }
-          break;
-        case 'single_choice':
-          if (_singleChoiceAnswers[id]?.isEmpty ?? true) {
-            ToastNotification.show(
-              context,
-              message: 'Please select an option for: ${q['question']}',
-              type: ToastType.error,
-            );
-            return;
-          }
-          break;
-        case 'multiple_choice':
-          if (_multiChoiceAnswers[id]?.isEmpty ?? true) {
-            ToastNotification.show(
-              context,
-              message: 'Please select at least one option for: ${q['question']}',
-              type: ToastType.error,
-            );
-            return;
-          }
-          break;
+    try {
+      if (!_formKey.currentState!.validate()) {
+        // Also check non-text required fields
+        ToastNotification.show(
+          context,
+          message: 'Please answer all required questions',
+          type: ToastType.error,
+        );
+        return;
+      }
+
+      // Validate required non-text fields
+      for (final q in _questions) {
+        final id = q['id'] as String;
+        final type = q['type'] as String;
+        final required = q['required'] as bool? ?? false;
+        if (!required) continue;
+
+        switch (type) {
+          case 'yes_no':
+            if (_yesNoAnswers[id] == null) {
+              ToastNotification.show(
+                context,
+                message: 'Please answer: ${q['question']}',
+                type: ToastType.error,
+              );
+              return;
+            }
+            break;
+          case 'single_choice':
+            if (_singleChoiceAnswers[id]?.isEmpty ?? true) {
+              ToastNotification.show(
+                context,
+                message: 'Please select an option for: ${q['question']}',
+                type: ToastType.error,
+              );
+              return;
+            }
+            break;
+          case 'multiple_choice':
+            if (_multiChoiceAnswers[id]?.isEmpty ?? true) {
+              ToastNotification.show(
+                context,
+                message: 'Please select at least one option for: ${q['question']}',
+                type: ToastType.error,
+              );
+              return;
+            }
+            break;
+        }
+      }
+
+      // Build answers map - serialize all types as strings for the API
+      final answers = <String, String>{};
+      for (final q in _questions) {
+        final id = q['id'] as String;
+        final type = q['type'] as String;
+
+        switch (type) {
+          case 'text':
+            answers[id] = _textControllers[id]?.text.trim() ?? '';
+            break;
+          case 'single_choice':
+            answers[id] = _singleChoiceAnswers[id] ?? '';
+            break;
+          case 'multiple_choice':
+            answers[id] = (_multiChoiceAnswers[id] ?? []).join(', ');
+            break;
+          case 'yes_no':
+            answers[id] = _yesNoAnswers[id] == true ? 'Yes' : 'No';
+            break;
+        }
+      }
+
+      widget.onSubmit(answers);
+    } finally {
+      if (mounted) {
+        setState(() {
+          _submitting = false;
+        });
       }
     }
-
-    // Build answers map - serialize all types as strings for the API
-    final answers = <String, String>{};
-    for (final q in _questions) {
-      final id = q['id'] as String;
-      final type = q['type'] as String;
-
-      switch (type) {
-        case 'text':
-          answers[id] = _textControllers[id]?.text.trim() ?? '';
-          break;
-        case 'single_choice':
-          answers[id] = _singleChoiceAnswers[id] ?? '';
-          break;
-        case 'multiple_choice':
-          answers[id] = (_multiChoiceAnswers[id] ?? []).join(', ');
-          break;
-        case 'yes_no':
-          answers[id] = _yesNoAnswers[id] == true ? 'Yes' : 'No';
-          break;
-      }
-    }
-
-    widget.onSubmit(answers);
   }
 
   @override
@@ -348,16 +365,30 @@ class _QuestionnaireDrawerState extends State<QuestionnaireDrawer> {
                 ),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: Text(
-                    'Questionnaire',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: isDark ? Colors.white : Colors.black,
-                    ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'Questionnaire',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: isDark ? Colors.white : Colors.black,
+                        ),
+                      ),
+                      Text(
+                        'Step 4 of 4',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: isDark ? Colors.grey[500] : Colors.grey[600],
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                if (!_loading && _error == null)
+                if (kDebugMode && !_loading && _error == null)
                   IconButton(
                     onPressed: _fillMockData,
                     icon: Icon(Icons.flash_on, color: isDark ? Colors.white : Colors.black),
@@ -474,22 +505,32 @@ class _QuestionnaireDrawerState extends State<QuestionnaireDrawer> {
                 ),
               ),
               child: ElevatedButton(
-                onPressed: _submitForm,
+                onPressed: _submitting ? null : _submitForm,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.black,
                   foregroundColor: Colors.white,
                   minimumSize: const Size(double.infinity, 50),
+                  disabledBackgroundColor: Colors.grey,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8),
                   ),
                 ),
-                child: const Text(
-                  'Create Booking',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
+                child: _submitting
+                    ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                        ),
+                      )
+                    : const Text(
+                        'Create Booking',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
               ),
             ),
         ],

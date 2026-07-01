@@ -28,12 +28,11 @@ class _RescheduleDialogState extends State<RescheduleDialog> {
   bool _loading = false;
   bool _checkingAvailability = false;
   List<String> _availableTimeSlots = [];
+  // Max duration per available time slot, keyed by "HH:mm", as returned by
+  // the server in the same call that populates _availableTimeSlots. Using
+  // this avoids a second (racy) network call when the user taps a slot.
+  Map<String, int> _slotMaxDurations = {};
   int _maxDuration = 4;
-
-  final List<String> _allTimeSlots = [
-    '09:00', '10:00', '11:00', '12:00',
-    '13:00', '14:00', '15:00', '16:00'
-  ];
 
   @override
   void initState() {
@@ -57,7 +56,12 @@ class _RescheduleDialogState extends State<RescheduleDialog> {
       setState(() {
         _availableTimeSlots = slots
             .map((s) => s['time'] as String)
-            .toList();
+            .toList()
+          ..sort();
+        _slotMaxDurations = {
+          for (final s in slots)
+            s['time'] as String: (s['maxDuration'] as int?) ?? 4,
+        };
 
         // If current time is not available, reset it
         if (_selectedTime != null && !_availableTimeSlots.contains(_selectedTime)) {
@@ -67,11 +71,7 @@ class _RescheduleDialogState extends State<RescheduleDialog> {
 
         // Update max duration if time is selected
         if (_selectedTime != null) {
-          final slot = slots.firstWhere(
-            (s) => s['time'] == _selectedTime,
-            orElse: () => {'maxDuration': 4},
-          );
-          _maxDuration = slot['maxDuration'] as int;
+          _maxDuration = _slotMaxDurations[_selectedTime] ?? 4;
         }
 
         _checkingAvailability = false;
@@ -380,51 +380,38 @@ class _RescheduleDialogState extends State<RescheduleDialog> {
                         ),
                       )
                     else
+                      // Render exactly the slots the server offered for this
+                      // date (previously a hardcoded 09:00-16:00 list, which
+                      // meant valid server slots outside that window could
+                      // never be selected).
                       Wrap(
                         spacing: 8,
                         runSpacing: 8,
-                        children: _allTimeSlots.map((time) {
-                          final isAvailable = _availableTimeSlots.contains(time);
+                        children: _availableTimeSlots.map((time) {
                           final isSelected = _selectedTime == time;
 
                           return InkWell(
-                            onTap: isAvailable
-                                ? () async {
-                                    setState(() {
-                                      _selectedTime = time;
-                                      _selectedDuration = null;
-                                    });
-                                    // Get max duration for this slot
-                                    try {
-                                      final dateStr = DateFormat('yyyy-MM-dd').format(_selectedDate!);
-                                      final response = await _apiService.checkAvailability(dateStr);
-                                      final slots = (response['availableTimeSlots'] as List?) ?? [];
-                                      final slot = slots.firstWhere(
-                                        (s) => s['time'] == time,
-                                        orElse: () => {'maxDuration': 4},
-                                      );
-                                      setState(() {
-                                        _maxDuration = slot['maxDuration'] as int;
-                                      });
-                                    } catch (e) {
-                                      // Keep default max duration
-                                    }
-                                  }
-                                : null,
+                            onTap: () {
+                              // Max duration for every offered slot was
+                              // already fetched in _checkAvailability(), so
+                              // selecting a slot is purely local state — no
+                              // extra network call, no race condition.
+                              setState(() {
+                                _selectedTime = time;
+                                _selectedDuration = null;
+                                _maxDuration = _slotMaxDurations[time] ?? 4;
+                              });
+                            },
                             child: Container(
                               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                               decoration: BoxDecoration(
                                 color: isSelected
                                     ? (isDark ? Colors.white : Colors.black)
-                                    : (isAvailable
-                                        ? Colors.transparent
-                                        : (isDark ? Colors.white : Colors.black).withValues(alpha: 0.05)),
+                                    : Colors.transparent,
                                 border: Border.all(
                                   color: isSelected
                                       ? (isDark ? Colors.white : Colors.black)
-                                      : (isAvailable
-                                          ? (isDark ? const Color(0xFF3F3F46) : const Color(0xFFD1D5DB))
-                                          : Colors.transparent),
+                                      : (isDark ? const Color(0xFF3F3F46) : const Color(0xFFD1D5DB)),
                                   width: isSelected ? 2 : 1,
                                 ),
                                 borderRadius: BorderRadius.circular(8),
@@ -436,9 +423,7 @@ class _RescheduleDialogState extends State<RescheduleDialog> {
                                   fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
                                   color: isSelected
                                       ? (isDark ? Colors.black : Colors.white)
-                                      : (isAvailable
-                                          ? (isDark ? Colors.white : Colors.black)
-                                          : (isDark ? const Color(0xFF52525B) : const Color(0xFFD1D5DB))),
+                                      : (isDark ? Colors.white : Colors.black),
                                 ),
                               ),
                             ),

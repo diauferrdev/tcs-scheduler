@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:intl/intl.dart';
 import 'dart:math';
 import '../services/api_service.dart';
@@ -29,6 +30,16 @@ class BookingFormScreen extends StatefulWidget {
 class BookingFormScreenState extends State<BookingFormScreen> {
   final _formKey = GlobalKey<FormState>();
   bool _isSubmitting = false;
+
+  // Shared cap for attendees, kept in sync with the limit enforced by
+  // BookingFormFields' AttendeeCard list (see widgets/booking_form_fields.dart).
+  static const int _maxAttendees = 3;
+
+  // Controls whether the system/Android back gesture or browser back is
+  // allowed to pop this route without a confirmation prompt. Flipped to
+  // true right before a deliberate, already-confirmed pop (e.g. after a
+  // successful submit or after the user confirms discarding the form).
+  bool _popAllowed = false;
 
   // Multi-step flow state
   int _currentStep = 1; // 1, 2, 3, 4
@@ -282,7 +293,7 @@ class BookingFormScreenState extends State<BookingFormScreen> {
         );
       }
 
-      Navigator.pop(context, true);
+      _requestPop(true);
     } catch (e) {
       if (!mounted) return;
 
@@ -297,6 +308,61 @@ class BookingFormScreenState extends State<BookingFormScreen> {
         duration: const Duration(seconds: 5),
       );
     }
+  }
+
+  /// Pops this route with [result], bypassing the "Discard booking?" guard.
+  ///
+  /// Because [PopScope]'s `canPop` value is only re-evaluated after a
+  /// rebuild, we flip [_popAllowed] via [setState] and then wait for the
+  /// resulting frame (via [WidgetsBinding.addPostFrameCallback]) before
+  /// actually popping, so the pop is not intercepted again.
+  void _requestPop([Object? result]) {
+    if (_popAllowed) {
+      Navigator.of(context).pop(result);
+      return;
+    }
+    setState(() {
+      _popAllowed = true;
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      Navigator.of(context).pop(result);
+    });
+  }
+
+  /// Shows a confirmation dialog asking the user whether they want to
+  /// discard the in-progress multi-step booking form.
+  Future<bool> _confirmDiscardBooking() async {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: isDark ? const Color(0xFF18181B) : Colors.white,
+        title: Text(
+          'Discard booking?',
+          style: TextStyle(color: isDark ? Colors.white : Colors.black),
+        ),
+        content: Text(
+          'You have unsaved changes in this booking form. If you leave now, your progress will be lost.',
+          style: TextStyle(color: isDark ? Colors.grey[300] : Colors.grey[700]),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: Text(
+              'Keep Editing',
+              style: TextStyle(color: isDark ? Colors.grey[300] : Colors.grey[700]),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Discard'),
+          ),
+        ],
+      ),
+    );
+    return result ?? false;
   }
 
   void _nextStep() {
@@ -391,7 +457,7 @@ class BookingFormScreenState extends State<BookingFormScreen> {
   // Attendee management
   void _addAttendee() {
     setState(() {
-      if (_attendees.length < 10) {
+      if (_attendees.length < _maxAttendees) {
         _attendees.add(AttendeeFormData());
       }
     });
@@ -508,23 +574,33 @@ class BookingFormScreenState extends State<BookingFormScreen> {
       return formContent;
     }
 
-    return Scaffold(
-      backgroundColor: isDark ? Colors.grey[900] : Colors.white,
-      appBar: AppBar(
-        backgroundColor: Colors.black,
-        foregroundColor: Colors.white,
-        title: Text(_isEditMode ? 'Edit Booking' : 'New Booking'),
-        elevation: 0,
-        actions: [
-          if (!_isEditMode)
-            IconButton(
-              icon: const Icon(Icons.auto_awesome),
-              tooltip: 'Fill with Mock Data',
-              onPressed: fillWithMockData,
-            ),
-        ],
+    return PopScope(
+      canPop: _popAllowed,
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop) return;
+        final shouldDiscard = await _confirmDiscardBooking();
+        if (shouldDiscard && mounted) {
+          _requestPop();
+        }
+      },
+      child: Scaffold(
+        backgroundColor: isDark ? Colors.grey[900] : Colors.white,
+        appBar: AppBar(
+          backgroundColor: Colors.black,
+          foregroundColor: Colors.white,
+          title: Text(_isEditMode ? 'Edit Booking' : 'New Booking'),
+          elevation: 0,
+          actions: [
+            if (!_isEditMode && kDebugMode)
+              IconButton(
+                icon: const Icon(Icons.auto_awesome),
+                tooltip: 'Fill with Mock Data',
+                onPressed: fillWithMockData,
+              ),
+          ],
+        ),
+        body: formContent,
       ),
-      body: formContent,
     );
   }
 
@@ -1276,7 +1352,7 @@ class BookingFormScreenState extends State<BookingFormScreen> {
                 color: isDark ? Colors.white : Colors.black,
               ),
             ),
-            if (_attendees.length < 10)
+            if (_attendees.length < _maxAttendees)
               TextButton.icon(
                 onPressed: _addAttendee,
                 icon: Icon(Icons.add, color: isDark ? Colors.white : Colors.black, size: 18),

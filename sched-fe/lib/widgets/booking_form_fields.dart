@@ -240,6 +240,18 @@ class AttendeeFormData {
   }
 
   Map<String, dynamic> toJson() {
+    // Guard against huge/invalid pastes: only accept a plausible, small
+    // non-negative number of years; anything else is dropped instead of
+    // throwing (int.parse would throw on malformed/overflowing input).
+    final yearsText = yearsWithTcsController.text.trim();
+    int? yearsWorkingWithTcs;
+    if (yearsText.isNotEmpty) {
+      final parsedYears = int.tryParse(yearsText);
+      if (parsedYears != null && parsedYears >= 0 && parsedYears <= 99) {
+        yearsWorkingWithTcs = parsedYears;
+      }
+    }
+
     return {
       'name': nameController.text.trim(),
       'email': emailController.text.trim(),
@@ -248,7 +260,7 @@ class AttendeeFormData {
       'tcsSupporter': tcsSupporter,
       'understandingOfTCS': understandingController.text.trim().isNotEmpty ? understandingController.text.trim() : null,
       'focusAreas': focusAreasController.text.trim().isNotEmpty ? focusAreasController.text.trim() : null,
-      'yearsWorkingWithTCS': yearsWithTcsController.text.trim().isNotEmpty ? int.parse(yearsWithTcsController.text.trim()) : null,
+      'yearsWorkingWithTCS': yearsWorkingWithTcs,
       'educationalQualification': educationController.text.trim().isNotEmpty ? educationController.text.trim() : null,
       'careerBackground': careerBackgroundController.text.trim().isNotEmpty ? careerBackgroundController.text.trim() : null,
       'linkedinProfile': linkedinController.text.trim().isNotEmpty ? linkedinController.text.trim() : null,
@@ -712,7 +724,7 @@ class AttendeeCard extends StatelessWidget {
                       if (value == null || value.trim().isEmpty) {
                         return 'Email is required';
                       }
-                      if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
+                      if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,}$').hasMatch(value)) {
                         return 'Enter a valid email';
                       }
                       return null;
@@ -836,10 +848,16 @@ class AttendeeCard extends StatelessWidget {
                     ),
                     keyboardType: TextInputType.url,
                     validator: (value) {
-                      if (value != null && value.isNotEmpty) {
-                        final uri = Uri.tryParse(value);
-                        if (uri == null || !uri.hasAbsolutePath) {
-                          return 'Enter a valid URL';
+                      if (value != null && value.trim().isNotEmpty) {
+                        final trimmed = value.trim();
+                        // Require a plausible LinkedIn URL (with or without
+                        // scheme), not just any scheme-less text.
+                        final linkedinRegex = RegExp(
+                          r'^(https?:\/\/)?([\w-]+\.)?linkedin\.com\/.+$',
+                          caseSensitive: false,
+                        );
+                        if (!linkedinRegex.hasMatch(trimmed)) {
+                          return 'Enter a valid LinkedIn URL (e.g. linkedin.com/in/...)';
                         }
                       }
                       return null;

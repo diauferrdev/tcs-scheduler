@@ -31,6 +31,9 @@ class _TicketDetailsDrawerState extends State<TicketDetailsDrawer> {
 
   TicketStatus? _selectedStatus;
   bool _isUpdatingStatus = false;
+  // Tracks which status row is currently being applied so we can show a
+  // small inline spinner on that row instead of swapping out the whole list.
+  TicketStatus? _pendingStatus;
 
   @override
   void initState() {
@@ -45,11 +48,61 @@ class _TicketDetailsDrawerState extends State<TicketDetailsDrawer> {
     super.dispose();
   }
 
+  bool _isTerminalStatus(TicketStatus status) {
+    return status == TicketStatus.CLOSED || status == TicketStatus.RESOLVED;
+  }
+
+  /// Handles a tap on a status row. Terminal statuses (CLOSED/RESOLVED)
+  /// require explicit confirmation before being applied, since they end
+  /// the conversation.
+  Future<void> _onStatusTap(TicketStatus newStatus) async {
+    if (_isUpdatingStatus || newStatus == _selectedStatus) return;
+
+    if (_isTerminalStatus(newStatus)) {
+      final confirmed = await _confirmTerminalStatusChange(newStatus);
+      if (confirmed != true) return;
+    }
+
+    await _updateStatus(newStatus);
+  }
+
+  Future<bool?> _confirmTerminalStatusChange(TicketStatus newStatus) {
+    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+    final isDark = themeProvider.isDark;
+    final label = _getStatusLabel(newStatus);
+
+    return showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: isDark ? const Color(0xFF18181B) : Colors.white,
+        title: Text(
+          'Mark ticket as $label?',
+          style: TextStyle(color: isDark ? Colors.white : Colors.black),
+        ),
+        content: Text(
+          'This will close the conversation. The ticket status will change to "$label".',
+          style: TextStyle(color: isDark ? Colors.grey[300] : Colors.grey[700]),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: Text(label, style: TextStyle(color: _getStatusColor(newStatus))),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _updateStatus(TicketStatus newStatus) async {
     if (_isUpdatingStatus || newStatus == _selectedStatus) return;
 
     setState(() {
       _isUpdatingStatus = true;
+      _pendingStatus = newStatus;
     });
 
     try {
@@ -64,6 +117,7 @@ class _TicketDetailsDrawerState extends State<TicketDetailsDrawer> {
       setState(() {
         _selectedStatus = newStatus;
         _isUpdatingStatus = false;
+        _pendingStatus = null;
       });
 
       // Notify parent
@@ -81,6 +135,7 @@ class _TicketDetailsDrawerState extends State<TicketDetailsDrawer> {
 
       setState(() {
         _isUpdatingStatus = false;
+        _pendingStatus = null;
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -401,20 +456,22 @@ class _TicketDetailsDrawerState extends State<TicketDetailsDrawer> {
                             width: 1,
                           ),
                         ),
-                        child: _isUpdatingStatus
-                            ? const Padding(
-                                padding: EdgeInsets.all(16),
-                                child: Center(
-                                  child: CircularProgressIndicator(strokeWidth: 2),
-                                ),
-                              )
-                            : Column(
+                        // Keep the status list visible while updating (inline/localized
+                        // loading) instead of swapping it for a full-panel spinner,
+                        // which would lose context of the current selection.
+                        child: IgnorePointer(
+                          ignoring: _isUpdatingStatus,
+                          child: AnimatedOpacity(
+                            duration: const Duration(milliseconds: 150),
+                            opacity: _isUpdatingStatus ? 0.6 : 1.0,
+                            child: Column(
                                 children: TicketStatus.values.map((status) {
                                   final isSelected = _selectedStatus == status;
                                   final statusColor = _getStatusColor(status);
+                                  final isPending = _isUpdatingStatus && _pendingStatus == status;
 
                                   return InkWell(
-                                    onTap: () => _updateStatus(status),
+                                    onTap: () => _onStatusTap(status),
                                     borderRadius: BorderRadius.circular(14),
                                     child: Container(
                                       margin: const EdgeInsets.symmetric(vertical: 2),
@@ -452,7 +509,13 @@ class _TicketDetailsDrawerState extends State<TicketDetailsDrawer> {
                                               ),
                                             ),
                                           ),
-                                          if (isSelected)
+                                          if (isPending)
+                                            const SizedBox(
+                                              width: 16,
+                                              height: 16,
+                                              child: CircularProgressIndicator(strokeWidth: 2),
+                                            )
+                                          else if (isSelected)
                                             Icon(
                                               Icons.check_circle,
                                               color: statusColor,
@@ -463,7 +526,9 @@ class _TicketDetailsDrawerState extends State<TicketDetailsDrawer> {
                                     ),
                                   );
                                 }).toList(),
-                              ),
+                            ),
+                          ),
+                        ),
                       ),
                     ],
                   ],

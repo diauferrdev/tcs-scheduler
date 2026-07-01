@@ -1,12 +1,12 @@
 
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:provider/provider.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:syncfusion_flutter_charts/charts.dart';
 import 'package:syncfusion_flutter_gauges/gauges.dart';
 import '../widgets/app_layout.dart';
 import '../providers/theme_provider.dart';
-import '../providers/auth_provider.dart';
 import '../services/api_service.dart';
 import '../services/universal_update_service.dart';
 import '../models/dashboard.dart';
@@ -50,18 +50,27 @@ class _DashboardScreenState extends State<DashboardScreen> {
     });
   }
 
+  static const String _friendlyErrorMessage =
+      "We couldn't load the dashboard data. Please check your connection and try again.";
+
   Future<void> _loadData() async {
     try {
       setState(() => _loading = true);
       final response = await _apiService.getDashboardStats();
+      if (!mounted) return;
       setState(() {
         _stats = DashboardStats.fromJson(response);
         _loading = false;
         _error = null;
       });
     } catch (e) {
+      // Log the real error for developers; never show raw exception text to users.
+      if (kDebugMode) {
+        debugPrint('DashboardScreen._loadData error: $e');
+      }
+      if (!mounted) return;
       setState(() {
-        _error = e.toString();
+        _error = _friendlyErrorMessage;
         _loading = false;
       });
     }
@@ -75,100 +84,154 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     final Widget content;
 
+    // True only when the initial/only load failed and there is no data to show at all.
+    final bool showFullError = _error != null && _stats == null;
+
     if (_selectedTabIndex == 0) {
-      // Simple mode: use Column + Expanded so charts fill available space without overflow
+      // Simple mode: use Column + Expanded so charts fill available space without overflow.
+      // Wrapped in RefreshIndicator + SingleChildScrollView(AlwaysScrollableScrollPhysics)
+      // so pull-to-refresh works even though the content is sized to fill the viewport.
       content = Container(
         color: isDark ? Colors.black : const Color(0xFFF9FAFB),
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (_error != null)
-              Container(
-                padding: const EdgeInsets.all(16),
-                margin: const EdgeInsets.only(bottom: 24),
-                decoration: BoxDecoration(
-                  color: Colors.red.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.red),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.error, color: Colors.red),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        _error!,
-                        style: const TextStyle(color: Colors.red),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            return RefreshIndicator(
+              onRefresh: _loadData,
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.all(24),
+                child: SizedBox(
+                  height: constraints.maxHeight,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (_error != null && _stats != null) _buildErrorBanner(isDark),
+                      _buildDashboardTabs(isDark),
+                      const SizedBox(height: 24),
+                      Expanded(
+                        child: showFullError
+                            ? _buildFullErrorState(isDark)
+                            : _buildBasicDashboard(isDark, screenWidth),
                       ),
-                    ),
-                    IconButton(
-                      onPressed: () => setState(() => _error = null),
-                      icon: const Icon(Icons.close, color: Colors.red),
-                    ),
-                  ],
+                      _buildDiscreteFCMTestButton(isDark),
+                    ],
+                  ),
                 ),
               ),
-            _buildDashboardTabs(isDark),
-            const SizedBox(height: 24),
-            Expanded(child: _buildBasicDashboard(isDark, screenWidth)),
-            _buildDiscreteFCMTestButton(isDark),
-          ],
+            );
+          },
         ),
       );
     } else {
       // Advanced mode: scrollable
       content = Container(
         color: isDark ? Colors.black : const Color(0xFFF9FAFB),
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (_error != null)
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  margin: const EdgeInsets.only(bottom: 24),
-                  decoration: BoxDecoration(
-                    color: Colors.red.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.red),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.error, color: Colors.red),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          _error!,
-                          style: const TextStyle(color: Colors.red),
-                        ),
-                      ),
-                      IconButton(
-                        onPressed: () => setState(() => _error = null),
-                        icon: const Icon(Icons.close, color: Colors.red),
-                      ),
-                    ],
-                  ),
-                ),
-              _buildDashboardTabs(isDark),
-              const SizedBox(height: 24),
-              _buildStatCardsGrid(isDark, screenWidth),
-              const SizedBox(height: 24),
-              if (screenWidth >= 1024) ...[
-                _buildMiniInsightsRow(isDark, screenWidth),
+        child: RefreshIndicator(
+          onRefresh: _loadData,
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (_error != null && _stats != null) _buildErrorBanner(isDark),
+                _buildDashboardTabs(isDark),
                 const SizedBox(height: 24),
+                if (showFullError)
+                  SizedBox(height: 400, child: _buildFullErrorState(isDark))
+                else ...[
+                  _buildStatCardsGrid(isDark, screenWidth),
+                  const SizedBox(height: 24),
+                  if (screenWidth >= 1024) ...[
+                    _buildMiniInsightsRow(isDark, screenWidth),
+                    const SizedBox(height: 24),
+                  ],
+                  _buildChartsGrid(isDark, screenWidth),
+                ],
+                const SizedBox(height: 24),
+                _buildDiscreteFCMTestButton(isDark),
               ],
-              _buildChartsGrid(isDark, screenWidth),
-              const SizedBox(height: 24),
-              _buildDiscreteFCMTestButton(isDark),
-            ],
+            ),
           ),
         ),
       );
     }
 
     return widget.skipLayout ? content : AppLayout(child: content);
+  }
+
+  /// Dismissible banner shown when a background refresh fails but stale data is still visible.
+  Widget _buildErrorBanner(bool isDark) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.only(bottom: 24),
+      decoration: BoxDecoration(
+        color: Colors.red.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.red),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.error, color: Colors.red),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              _error!,
+              style: const TextStyle(color: Colors.red),
+            ),
+          ),
+          TextButton(
+            onPressed: _loadData,
+            child: const Text(
+              'Retry',
+              style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+            ),
+          ),
+          IconButton(
+            onPressed: () => setState(() => _error = null),
+            icon: const Icon(Icons.close, color: Colors.red),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Full-page error state shown when there is no data to display at all.
+  Widget _buildFullErrorState(bool isDark) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.cloud_off,
+              size: 48,
+              color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              _error ?? _friendlyErrorMessage,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 14,
+                color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
+              ),
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton.icon(
+              onPressed: _loadData,
+              icon: const Icon(Icons.refresh),
+              label: const Text('Retry'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: isDark ? Colors.white : Colors.black,
+                foregroundColor: isDark ? Colors.black : Colors.white,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _buildDashboardTabs(bool isDark) {
@@ -189,6 +252,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         onTap: () => setState(() => _selectedTabIndex = index),
         borderRadius: BorderRadius.circular(8),
         child: Container(
+          constraints: const BoxConstraints(minHeight: 48),
           padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
           decoration: BoxDecoration(
             color: isSelected
@@ -302,54 +366,44 @@ class _DashboardScreenState extends State<DashboardScreen> {
       return _buildLoadingCards(isDark);
     }
 
+    // NOTE: No delta/trend text is shown here. The API does not provide
+    // period-over-period comparisons, so we never fabricate them.
     final statCards = [
       _buildStatCard(
         'Total Bookings',
         _stats!.totalBookings.toString(),
         Icons.calendar_today,
         isDark,
-        trend: '+12% vs last month',
-        trendDirection: 'up',
       ),
       _buildStatCard(
         'Avg Attendees',
         _stats!.avgAttendees.toStringAsFixed(1),
         Icons.people,
         isDark,
-        trend: '+0.3 increase',
-        trendDirection: 'up',
       ),
       _buildStatCard(
         'Approved',
         _stats!.statusDistribution.approved.toString(),
         Icons.check_circle,
         isDark,
-        trend: '+8% this week',
-        trendDirection: 'up',
       ),
       _buildStatCard(
         'Pending',
         _stats!.statusDistribution.pending.toString(),
         Icons.pending,
         isDark,
-        trend: '15% below peak',
-        trendDirection: 'down', // Down in pending is good, so down arrow
       ),
       _buildStatCard(
         'Not Approved',
         _stats!.statusDistribution.notApproved.toString(),
         Icons.cancel,
         isDark,
-        trend: '3 rejections',
-        trendDirection: 'neutral',
       ),
       _buildStatCard(
         'This Month',
         _stats!.thisMonthBookings.toString(),
         Icons.today,
         isDark,
-        trend: '+18% vs last month',
-        trendDirection: 'up',
       ),
     ];
 
@@ -449,8 +503,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
         const SizedBox(width: 16),
         Expanded(child: _buildStatusFunnel(isDark)),
         const SizedBox(width: 16),
-        Expanded(child: _buildMostPopularVisit(isDark)),
-        const SizedBox(width: 16),
         Expanded(child: _buildPeakTimeCard(isDark)),
       ],
     );
@@ -480,7 +532,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
           const SizedBox(height: 8),
           Expanded(
-            child: SfRadialGauge(
+            child: Semantics(
+              label: 'Approval rate gauge chart',
+              child: SfRadialGauge(
               axes: <RadialAxis>[
                 RadialAxis(
                   minimum: 0,
@@ -519,6 +573,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   ],
                 ),
               ],
+              ),
             ),
           ),
         ],
@@ -564,7 +619,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
           const SizedBox(height: 8),
           Expanded(
             child: hasData && maxValue > 0
-                ? Padding(
+                ? Semantics(
+                    label: 'Status flow line chart showing under review, changes needed, reschedule, approved and rejected counts',
+                    child: Padding(
                     padding: const EdgeInsets.only(right: 12, left: 4),
                     child: SfCartesianChart(
                       plotAreaBorderWidth: 0,
@@ -598,12 +655,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           yValueMapper: (data, _) => (data['value'] as int).toDouble(),
                           color: const Color(0xFFF97316),
                           width: 3,
-                          markerSettings: const MarkerSettings(
+                          markerSettings: MarkerSettings(
                             isVisible: true,
                             height: 8,
                             width: 8,
-                            color: Color(0xFFFB923C),
-                            borderColor: Colors.white,
+                            color: const Color(0xFFFB923C),
+                            borderColor: isDark ? Colors.white : Colors.black,
                             borderWidth: 2,
                           ),
                         ),
@@ -612,49 +669,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         enable: false,
                       ),
                     ),
-                  )
-                : Center(
-                    child: Text(
-                      'No data',
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
-                      ),
-                    ),
                   ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMostPopularVisit(bool isDark) {
-    final hasData = _stats != null && _stats!.visitTypeDistribution.total > 0;
-
-    return Container(
-      height: 140,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF18181B) : Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Visit Trends',
-            style: TextStyle(
-              fontSize: 11,
-              color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
-            ),
-          ),
-          const SizedBox(height: 4),
-          Expanded(
-            child: hasData
-                ? _ScatterChartWidget(isDark: isDark)
+                  )
                 : Center(
                     child: Text(
                       'No data',
@@ -709,7 +725,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
           const SizedBox(height: 8),
           Expanded(
             child: hasData
-                ? SfCartesianChart(
+                ? Semantics(
+                    label: 'Peak booking time bar chart',
+                    child: SfCartesianChart(
                     plotAreaBorderWidth: 0,
                     primaryXAxis: CategoryAxis(
                       majorGridLines: const MajorGridLines(width: 0),
@@ -750,6 +768,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     tooltipBehavior: TooltipBehavior(
                       enable: false,
                     ),
+                    ),
                   )
                 : Center(
                     child: Text(
@@ -789,17 +808,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
               const SizedBox(height: 16),
 
-              // Row 1.5: Top Visitors, Event Type, Deal Status (3 columns)
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  SizedBox(width: (maxWidth - 32) / 3, child: _buildTopCompaniesCard(isDark)),
-                  const SizedBox(width: 16),
-                  SizedBox(width: (maxWidth - 32) / 3, child: _buildEventTypeWaterfall(isDark)),
-                  const SizedBox(width: 16),
-                  SizedBox(width: (maxWidth - 32) / 3, child: _buildDealStatusBubble(isDark)),
-                ],
-              ),
+              // Row 1.5: Top Visitors
+              _buildTopCompaniesCard(isDark),
               const SizedBox(height: 16),
 
               // Row 2: Organization Type (bar) & Status Breakdown (pie)
@@ -824,17 +834,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
               const SizedBox(height: 16),
 
-              // Row 4: Lead Conversion, Avg Attendees, Engagement Depth (3 columns)
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  SizedBox(width: (maxWidth - 32) / 3, child: _buildOrgTypeConversion(isDark)),
-                  const SizedBox(width: 16),
-                  SizedBox(width: (maxWidth - 32) / 3, child: _buildAttendeesByType(isDark)),
-                  const SizedBox(width: 16),
-                  SizedBox(width: (maxWidth - 32) / 3, child: _buildEngagementDepth(isDark)),
-                ],
-              ),
+              // Row 4: Lead Conversion
+              _buildOrgTypeConversion(isDark),
             ],
           );
         } else if (isTablet) {
@@ -850,16 +851,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ],
               ),
               const SizedBox(height: 16),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  SizedBox(width: (maxWidth - 32) / 3, child: _buildOrgTypeConversion(isDark)),
-                  const SizedBox(width: 16),
-                  SizedBox(width: (maxWidth - 32) / 3, child: _buildAttendeesByType(isDark)),
-                  const SizedBox(width: 16),
-                  SizedBox(width: (maxWidth - 32) / 3, child: _buildEngagementDepth(isDark)),
-                ],
-              ),
+              _buildOrgTypeConversion(isDark),
               const SizedBox(height: 16),
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -875,10 +867,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
               _buildMonthlyTrendChart(isDark),
               const SizedBox(height: 16),
               _buildTopCompaniesCard(isDark),
-              const SizedBox(height: 16),
-              _buildEventTypeWaterfall(isDark),
-              const SizedBox(height: 16),
-              _buildDealStatusBubble(isDark),
             ],
           );
         } else {
@@ -891,10 +879,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
               const SizedBox(height: 16),
               _buildOrgTypeConversion(isDark),
               const SizedBox(height: 16),
-              _buildAttendeesByType(isDark),
-              const SizedBox(height: 16),
-              _buildEngagementDepth(isDark),
-              const SizedBox(height: 16),
               _buildOrganizationTypeChart(isDark),
               const SizedBox(height: 16),
               _buildStatusBreakdownChart(isDark),
@@ -904,10 +888,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
               _buildMonthlyTrendChart(isDark),
               const SizedBox(height: 16),
               _buildTopCompaniesCard(isDark),
-              const SizedBox(height: 16),
-              _buildEventTypeWaterfall(isDark),
-              const SizedBox(height: 16),
-              _buildDealStatusBubble(isDark),
             ],
           );
         }
@@ -1054,6 +1034,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 children: [
                   SizedBox(
                     height: 200,
+                    child: Semantics(
+                    label: 'Visit type distribution donut chart',
                     child: SfCircularChart(
                       series: <CircularSeries>[
                         DoughnutSeries<Map<String, dynamic>, String>(
@@ -1101,6 +1083,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         canShowMarker: false,
                         duration: 500,
                       ),
+                    ),
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -1166,6 +1149,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 children: [
                   SizedBox(
                     height: 200,
+                    child: Semantics(
+                    label: 'Status breakdown radial bar chart',
                     child: SfCircularChart(
                       series: <CircularSeries>[
                         RadialBarSeries<Map<String, dynamic>, String>(
@@ -1197,6 +1182,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         canShowMarker: false,
                         duration: 500,
                       ),
+                    ),
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -1242,7 +1228,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 {'stage': 'Government', 'value': govt, 'color': const Color(0xFFEF4444)},
               ];
 
-              return SizedBox(
+              return Semantics(
+                label: 'Lead funnel pyramid chart showing prospects, partners, customers and government stages',
+                child: SizedBox(
                 height: 240,
                 child: SfPyramidChart(
                   series: PyramidSeries<Map<String, dynamic>, String>(
@@ -1278,6 +1266,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     duration: 500,
                   ),
                 ),
+                ),
               );
             }(),
     );
@@ -1308,7 +1297,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
               final maxValue = chartData.fold<int>(0, (max, item) => (item['value'] as int) > max ? (item['value'] as int) : max);
 
-              return SizedBox(
+              return Semantics(
+                label: 'Vertical distribution bar chart',
+                child: SizedBox(
                 height: 240,
                 child: SfCartesianChart(
                   plotAreaBorderWidth: 0,
@@ -1367,6 +1358,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     canShowMarker: false,
                     duration: 500,
                   ),
+                ),
                 ),
               );
             }(),
@@ -1460,7 +1452,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
               final maxY = trend.fold<int>(0, (max, t) => t.count > max ? t.count : max).toDouble();
 
-              return SizedBox(
+              return Semantics(
+                label: 'Monthly trend line chart showing total and approved bookings over the last six months',
+                child: SizedBox(
                 height: 240,
                 child: SfCartesianChart(
                   plotAreaBorderWidth: 0,
@@ -1502,12 +1496,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       color: const Color(0xFF3B82F6).withValues(alpha: 0.3),
                       borderColor: const Color(0xFF3B82F6),
                       borderWidth: 2,
-                      markerSettings: const MarkerSettings(
+                      markerSettings: MarkerSettings(
                         isVisible: true,
                         height: 6,
                         width: 6,
-                        color: Color(0xFF3B82F6),
-                        borderColor: Colors.white,
+                        color: const Color(0xFF3B82F6),
+                        borderColor: isDark ? Colors.white : Colors.black,
                         borderWidth: 1,
                       ),
                     ),
@@ -1519,12 +1513,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       color: const Color(0xFF10B981).withValues(alpha: 0.3),
                       borderColor: const Color(0xFF10B981),
                       borderWidth: 2,
-                      markerSettings: const MarkerSettings(
+                      markerSettings: MarkerSettings(
                         isVisible: true,
                         height: 6,
                         width: 6,
-                        color: Color(0xFF10B981),
-                        borderColor: Colors.white,
+                        color: const Color(0xFF10B981),
+                        borderColor: isDark ? Colors.white : Colors.black,
                         borderWidth: 1,
                       ),
                     ),
@@ -1544,6 +1538,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     canShowMarker: false,
                     duration: 500,
                   ),
+                ),
                 ),
               );
             }(),
@@ -1676,190 +1671,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  // Event Type Distribution - Waterfall Chart showing Internal vs Partner events
-  Widget _buildEventTypeWaterfall(bool isDark) {
-    return _buildChartContainer(
-      title: 'Event Type Analysis',
-      isDark: isDark,
-      child: _loading || _stats == null
-          ? _buildLoadingIndicator(isDark)
-          : () {
-              // Simulated data based on total bookings
-              final total = _stats!.totalBookings;
-              final internalEvents = (total * 0.65).toInt();
-              final partnerEvents = total - internalEvents;
-
-              if (total == 0) return _buildNoData(isDark);
-
-              final waterfallData = [
-                {'category': 'Internal', 'value': internalEvents, 'color': const Color(0xFF0EA5E9)},
-                {'category': 'Partner', 'value': partnerEvents, 'color': const Color(0xFFA855F7)},
-              ];
-
-              return Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  SizedBox(
-                    height: 200,
-                    child: SfCartesianChart(
-                      plotAreaBorderWidth: 0,
-                      primaryXAxis: CategoryAxis(
-                        majorGridLines: const MajorGridLines(width: 0),
-                        labelStyle: TextStyle(
-                          color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
-                          fontSize: 10,
-                        ),
-                        axisLine: const AxisLine(width: 0),
-                      ),
-                      primaryYAxis: NumericAxis(
-                        majorGridLines: MajorGridLines(
-                          width: 1,
-                          color: (isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB)),
-                        ),
-                        axisLine: const AxisLine(width: 0),
-                        labelStyle: TextStyle(
-                          color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
-                          fontSize: 10,
-                        ),
-                      ),
-                      series: <CartesianSeries>[
-                        ColumnSeries<Map<String, dynamic>, String>(
-                          dataSource: waterfallData,
-                          xValueMapper: (data, _) => data['category'] as String,
-                          yValueMapper: (data, _) => (data['value'] as int).toDouble(),
-                          pointColorMapper: (data, _) => data['color'] as Color,
-                          borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
-                          dataLabelSettings: DataLabelSettings(
-                            isVisible: true,
-                            textStyle: const TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                            ),
-                          ),
-                          width: 0.7,
-                        ),
-                      ],
-                      tooltipBehavior: TooltipBehavior(
-                        enable: true,
-                        format: 'point.x: point.y',
-                        color: isDark ? const Color(0xFF27272A) : const Color(0xFFF9FAFB),
-                        textStyle: TextStyle(
-                          color: isDark ? Colors.white : Colors.black,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w500,
-                        ),
-                        borderWidth: 1,
-                        borderColor: isDark ? const Color(0xFF3F3F46) : const Color(0xFFE5E7EB),
-                        elevation: 2,
-                        canShowMarker: false,
-                        duration: 500,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Wrap(
-                    spacing: 12,
-                    runSpacing: 8,
-                    alignment: WrapAlignment.center,
-                    children: [
-                      _buildLegendItem('Internal Events ($internalEvents)', const Color(0xFF0EA5E9), isDark),
-                      _buildLegendItem('Partner Events ($partnerEvents)', const Color(0xFFA855F7), isDark),
-                    ],
-                  ),
-                ],
-              );
-            }(),
-    );
-  }
-
-  // Deal Status Distribution - Bubble chart showing SWON vs WON
-  Widget _buildDealStatusBubble(bool isDark) {
-    return _buildChartContainer(
-      title: 'Deal Pipeline Status',
-      isDark: isDark,
-      child: _loading || _stats == null
-          ? _buildLoadingIndicator(isDark)
-          : () {
-              // Simulated data based on total bookings
-              final total = _stats!.totalBookings;
-              final swon = (total * 0.45).toInt();
-              final won = (total * 0.55).toInt();
-
-              if (total == 0) return _buildNoData(isDark);
-
-              return Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  SizedBox(
-                    height: 200,
-                    child: SfCircularChart(
-                      series: <CircularSeries>[
-                        PieSeries<Map<String, dynamic>, String>(
-                          dataSource: [
-                            {'status': 'SWON', 'value': swon, 'color': const Color(0xFFFB923C)},
-                            {'status': 'WON', 'value': won, 'color': const Color(0xFF22C55E)},
-                          ],
-                          xValueMapper: (data, _) => data['status'] as String,
-                          yValueMapper: (data, _) => (data['value'] as int).toDouble(),
-                          pointColorMapper: (data, _) => data['color'] as Color,
-                          dataLabelSettings: DataLabelSettings(
-                            isVisible: true,
-                            labelPosition: ChartDataLabelPosition.outside,
-                            textStyle: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                              color: isDark ? Colors.white : Colors.black,
-                            ),
-                            connectorLineSettings: ConnectorLineSettings(
-                              type: ConnectorType.curve,
-                              width: 1.5,
-                              color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
-                            ),
-                          ),
-                          dataLabelMapper: (data, _) {
-                            final value = data['value'] as int;
-                            final percentage = (value / total * 100).toStringAsFixed(1);
-                            return '$percentage%';
-                          },
-                          explode: true,
-                          explodeIndex: 1,
-                          explodeOffset: '8%',
-                        ),
-                      ],
-                      tooltipBehavior: TooltipBehavior(
-                        enable: true,
-                        format: 'point.x: point.y',
-                        color: isDark ? const Color(0xFF27272A) : const Color(0xFFF9FAFB),
-                        textStyle: TextStyle(
-                          color: isDark ? Colors.white : Colors.black,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w500,
-                        ),
-                        borderWidth: 1,
-                        borderColor: isDark ? const Color(0xFF3F3F46) : const Color(0xFFE5E7EB),
-                        elevation: 2,
-                        canShowMarker: false,
-                        duration: 500,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Wrap(
-                    spacing: 12,
-                    runSpacing: 8,
-                    alignment: WrapAlignment.center,
-                    children: [
-                      _buildLegendItem('SWON ($swon)', const Color(0xFFFB923C), isDark),
-                      _buildLegendItem('WON ($won)', const Color(0xFF22C55E), isDark),
-                    ],
-                  ),
-                ],
-              );
-            }(),
-    );
-  }
-
   Widget _buildChartContainer({
     required String title,
     required bool isDark,
@@ -1987,6 +1798,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   String _formatVertical(String vertical) {
     return vertical.split('_').map((word) {
+      if (word.isEmpty) return word;
       return word[0].toUpperCase() + word.substring(1).toLowerCase();
     }).join(' ');
   }
@@ -2026,6 +1838,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 children: [
                   Padding(
                     padding: const EdgeInsets.only(top: 20),
+                    child: Semantics(
+                    label: 'Lead conversion by organization type bar chart',
                     child: SizedBox(
                       height: 220,
                       child: SfCartesianChart(
@@ -2088,6 +1902,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         ),
                       ),
                     ),
+                    ),
                   ),
                   const SizedBox(height: 16),
                   Wrap(
@@ -2107,189 +1922,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  // Average Attendees per Visit Type - Column Chart
-  Widget _buildAttendeesByType(bool isDark) {
-    return _buildChartContainer(
-      title: 'Avg Attendees/Type',
-      isDark: isDark,
-      child: _loading || _stats == null
-          ? _buildLoadingIndicator(isDark)
-          : () {
-              final avgAttendees = _stats!.avgAttendees;
-
-              // Simulate distribution - in reality would come from backend
-              final data = [
-                {'type': 'PACE\nTour', 'label': 'PACE Tour', 'value': (avgAttendees * 0.8).toDouble(), 'color': const Color(0xFFEF4444)},
-                {'type': 'PACE\nExp', 'label': 'PACE Experience', 'value': (avgAttendees * 1.2).toDouble(), 'color': const Color(0xFFF05E1B)},
-                {'type': 'Innovation\nExch', 'label': 'Innovation Exchange', 'value': (avgAttendees * 1.5).toDouble(), 'color': const Color(0xFF10B981)},
-              ];
-
-              return Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.only(top: 30),
-                    child: SizedBox(
-                      height: 200,
-                      child: SfCartesianChart(
-                        plotAreaBorderWidth: 0,
-                        primaryXAxis: CategoryAxis(
-                          majorGridLines: const MajorGridLines(width: 0),
-                          labelStyle: TextStyle(
-                            color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
-                            fontSize: 8,
-                          ),
-                          axisLine: const AxisLine(width: 0),
-                        ),
-                        primaryYAxis: NumericAxis(
-                          majorGridLines: MajorGridLines(
-                            width: 1,
-                            color: (isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB)).withValues(alpha: 0.5),
-                          ),
-                          axisLine: const AxisLine(width: 0),
-                          labelStyle: TextStyle(
-                            color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
-                            fontSize: 8,
-                          ),
-                        ),
-                        series: <CartesianSeries>[
-                          ColumnSeries<Map<String, dynamic>, String>(
-                            dataSource: data,
-                            xValueMapper: (data, _) => data['type'] as String,
-                            yValueMapper: (data, _) => data['value'] as double,
-                            pointColorMapper: (data, _) => data['color'] as Color,
-                            borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
-                            dataLabelSettings: DataLabelSettings(
-                              isVisible: true,
-                              textStyle: TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold,
-                                color: isDark ? Colors.white : Colors.black,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Wrap(
-                    spacing: 12,
-                    runSpacing: 8,
-                    alignment: WrapAlignment.center,
-                    children: data.map((item) {
-                      final label = item['label'] as String;
-                      final value = (item['value'] as double).toStringAsFixed(1);
-                      final color = item['color'] as Color;
-                      return _buildLegendItem('$label ($value)', color, isDark);
-                    }).toList(),
-                  ),
-                ],
-              );
-            }(),
-    );
-  }
-
-  // Engagement Depth - Stacked Column showing questionnaire completion
-  Widget _buildEngagementDepth(bool isDark) {
-    return _buildChartContainer(
-      title: 'Engagement Depth',
-      isDark: isDark,
-      child: _loading || _stats == null
-          ? _buildLoadingIndicator(isDark)
-          : () {
-              final total = _stats!.totalBookings;
-              if (total == 0) return _buildNoData(isDark);
-
-              // Simulate engagement metrics
-              final basic = (total * 0.4).toInt(); // Only basic visit
-              final questionnaire = (total * 0.35).toInt(); // With questionnaire
-              final fullEngagement = (total * 0.25).toInt(); // With alignment call
-
-              return Padding(
-                padding: const EdgeInsets.only(top: 20),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    SizedBox(
-                      height: 180,
-                      child: SfCartesianChart(
-                      plotAreaBorderWidth: 0,
-                      primaryXAxis: CategoryAxis(
-                        isVisible: false,
-                      ),
-                      primaryYAxis: NumericAxis(
-                        isVisible: false,
-                        maximum: total.toDouble(),
-                      ),
-                      series: <CartesianSeries>[
-                        StackedColumnSeries<Map<String, dynamic>, String>(
-                          dataSource: [{'x': 'Engagement'}],
-                          xValueMapper: (data, _) => data['x'] as String,
-                          yValueMapper: (_, __) => basic.toDouble(),
-                          color: const Color(0xFFF05E1B),
-                          borderRadius: const BorderRadius.vertical(bottom: Radius.circular(4)),
-                          dataLabelSettings: const DataLabelSettings(isVisible: false),
-                        ),
-                        StackedColumnSeries<Map<String, dynamic>, String>(
-                          dataSource: [{'x': 'Engagement'}],
-                          xValueMapper: (data, _) => data['x'] as String,
-                          yValueMapper: (_, __) => questionnaire.toDouble(),
-                          color: const Color(0xFF10B981),
-                          dataLabelSettings: const DataLabelSettings(isVisible: false),
-                        ),
-                        StackedColumnSeries<Map<String, dynamic>, String>(
-                          dataSource: [{'x': 'Engagement'}],
-                          xValueMapper: (data, _) => data['x'] as String,
-                          yValueMapper: (_, __) => fullEngagement.toDouble(),
-                          color: const Color(0xFFEF4444),
-                          borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
-                          dataLabelSettings: const DataLabelSettings(isVisible: false),
-                        ),
-                      ],
-                      tooltipBehavior: TooltipBehavior(
-                        enable: true,
-                        format: 'point.y',
-                        color: isDark ? const Color(0xFF27272A) : const Color(0xFFF9FAFB),
-                        textStyle: TextStyle(
-                          color: isDark ? Colors.white : Colors.black,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w500,
-                        ),
-                        borderWidth: 1,
-                        borderColor: isDark ? const Color(0xFF3F3F46) : const Color(0xFFE5E7EB),
-                        elevation: 2,
-                        canShowMarker: false,
-                        duration: 500,
-                      ),
-                    ),
-                  ),
-                    const SizedBox(height: 12),
-                    Wrap(
-                      spacing: 12,
-                      runSpacing: 8,
-                      alignment: WrapAlignment.center,
-                      children: [
-                        _buildLegendItem('Basic Visit ($basic)', const Color(0xFFF05E1B), isDark),
-                        _buildLegendItem('+ Questionnaire ($questionnaire)', const Color(0xFF10B981), isDark),
-                        _buildLegendItem('+ Alignment Call ($fullEngagement)', const Color(0xFFEF4444), isDark),
-                      ],
-                    ),
-                  ],
-                ),
-              );
-            }(),
-    );
-  }
-
-  /// Build discrete FCM Test Button (diego@tcs.com only)
+  /// Build discrete FCM Test Button (dev tooling only; hidden in release builds)
   Widget _buildDiscreteFCMTestButton(bool isDark) {
-    // Get current user email
-    final authProvider = context.read<AuthProvider>();
-    final userEmail = authProvider.user?.email;
-
-    // Only show for diego@tcs.com
-    if (userEmail != 'diego@tcs.com') {
+    // Dev-only affordance: hidden in production builds regardless of account.
+    if (!kDebugMode) {
       return const SizedBox.shrink();
     }
 
@@ -2365,114 +2001,4 @@ class _DashboardScreenState extends State<DashboardScreen> {
       );
     }
   }
-}
-
-// Stacked Area Chart Widget using Syncfusion
-class _ScatterChartWidget extends StatelessWidget {
-  final bool isDark;
-
-  const _ScatterChartWidget({required this.isDark});
-
-  List<_VisitData> _generateStackedData() {
-    // Generate sample data for the last 6 time periods
-    return [
-      _VisitData('Week 1', 8, 12, 5),
-      _VisitData('Week 2', 12, 15, 8),
-      _VisitData('Week 3', 10, 18, 10),
-      _VisitData('Week 4', 15, 20, 12),
-      _VisitData('Week 5', 18, 22, 15),
-      _VisitData('Week 6', 20, 25, 18),
-    ];
-  }
-
-  double _getMaxStackedValue() {
-    final data = _generateStackedData();
-    return data.map((d) => d.paceTour + d.paceExperience + d.innovationExchange).reduce((a, b) => a > b ? a : b);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final data = _generateStackedData();
-
-    return SfCartesianChart(
-      plotAreaBorderWidth: 0,
-      primaryXAxis: CategoryAxis(
-        majorGridLines: const MajorGridLines(width: 0),
-        labelStyle: TextStyle(
-          color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
-          fontSize: 7,
-        ),
-        axisLine: const AxisLine(width: 0),
-      ),
-      primaryYAxis: NumericAxis(
-        majorGridLines: MajorGridLines(
-          width: 1,
-          color: (isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB)).withValues(alpha: 0.5),
-        ),
-        axisLine: const AxisLine(width: 0),
-        labelStyle: TextStyle(
-          color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
-          fontSize: 7,
-        ),
-        minimum: 0,
-        maximum: (_getMaxStackedValue() * 1.05).ceilToDouble(), // Round up to ensure whole numbers
-        decimalPlaces: 0, // Force integer labels
-      ),
-      series: <CartesianSeries<_VisitData, String>>[
-        StackedAreaSeries<_VisitData, String>(
-          dataSource: data,
-          xValueMapper: (_VisitData visits, _) => visits.period,
-          yValueMapper: (_VisitData visits, _) => visits.paceTour,
-          name: 'PACE Tour',
-          color: const Color(0xFFEF4444).withValues(alpha: 0.7), // Red from palette
-          borderColor: const Color(0xFFEF4444),
-          borderWidth: 2,
-        ),
-        StackedAreaSeries<_VisitData, String>(
-          dataSource: data,
-          xValueMapper: (_VisitData visits, _) => visits.period,
-          yValueMapper: (_VisitData visits, _) => visits.paceExperience,
-          name: 'PACE Experience',
-          color: const Color(0xFFF05E1B).withValues(alpha: 0.7), // Yellow from palette
-          borderColor: const Color(0xFFF05E1B),
-          borderWidth: 2,
-        ),
-        StackedAreaSeries<_VisitData, String>(
-          dataSource: data,
-          xValueMapper: (_VisitData visits, _) => visits.period,
-          yValueMapper: (_VisitData visits, _) => visits.innovationExchange,
-          name: 'Innovation Exchange',
-          color: const Color(0xFF10B981).withValues(alpha: 0.7), // Green from palette
-          borderColor: const Color(0xFF10B981),
-          borderWidth: 2,
-        ),
-      ],
-      tooltipBehavior: TooltipBehavior(
-        enable: true,
-        color: isDark ? const Color(0xFF27272A) : const Color(0xFF1F2937),
-        textStyle: const TextStyle(
-          color: Colors.white,
-          fontSize: 9,
-          fontWeight: FontWeight.w500,
-        ),
-        format: 'point.x: point.y visits',
-        borderWidth: 0,
-        borderColor: Colors.transparent,
-        elevation: 2,
-        canShowMarker: false,
-        duration: 500,
-      ),
-    );
-  }
-
-}
-
-// Data class for stacked area chart
-class _VisitData {
-  _VisitData(this.period, this.paceTour, this.paceExperience, this.innovationExchange);
-
-  final String period;
-  final double paceTour;
-  final double paceExperience;
-  final double innovationExchange;
 }

@@ -70,95 +70,120 @@ class _UsersScreenState extends State<UsersScreen> {
     final currentUserRole = context.read<AuthProvider>().user?.role;
     final selectedRoles = <UserRole>{UserRole.USER};
     final isDark = context.read<ThemeProvider>().isDark;
+    bool isSubmitting = false;
 
     showDialog(
       context: context,
       builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          backgroundColor: isDark ? const Color(0xFF18181B) : Colors.white,
-          title: Text(
-            'Approve User',
-            style: TextStyle(color: isDark ? Colors.white : Colors.black),
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Approve ${user.name} (${user.email})',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
-                ),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'Assign Roles',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
-                ),
-              ),
-              const SizedBox(height: 8),
-              ...[
-                if (currentUserRole == UserRole.ADMIN) UserRole.ADMIN,
-                if (currentUserRole == UserRole.ADMIN || currentUserRole == UserRole.MANAGER) UserRole.MANAGER,
-                UserRole.USER,
-              ].map((r) {
-                final isSelected = selectedRoles.contains(r);
-                return CheckboxListTile(
-                  value: isSelected,
-                  onChanged: (checked) {
-                    setDialogState(() {
-                      if (checked == true) {
-                        selectedRoles.add(r);
-                      } else if (selectedRoles.length > 1) {
-                        selectedRoles.remove(r);
-                      }
-                    });
-                  },
-                  title: Text(
-                    r.name,
-                    style: TextStyle(
-                      color: isDark ? Colors.white : Colors.black,
-                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-                    ),
+        builder: (context, setDialogState) => PopScope(
+          canPop: !isSubmitting,
+          child: AlertDialog(
+            backgroundColor: isDark ? const Color(0xFF18181B) : Colors.white,
+            title: Text(
+              'Approve User',
+              style: TextStyle(color: isDark ? Colors.white : Colors.black),
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Approve ${user.name} (${user.email})',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
                   ),
-                  activeColor: isDark ? Colors.white : Colors.black,
-                  checkColor: isDark ? Colors.black : Colors.white,
-                  controlAffinity: ListTileControlAffinity.leading,
-                  contentPadding: EdgeInsets.zero,
-                  dense: true,
-                );
-              }),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Assign Roles',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                ...[
+                  if (currentUserRole == UserRole.ADMIN) UserRole.ADMIN,
+                  if (currentUserRole == UserRole.ADMIN || currentUserRole == UserRole.MANAGER) UserRole.MANAGER,
+                  UserRole.USER,
+                ].map((r) {
+                  final isSelected = selectedRoles.contains(r);
+                  return CheckboxListTile(
+                    value: isSelected,
+                    onChanged: isSubmitting
+                        ? null
+                        : (checked) {
+                            setDialogState(() {
+                              if (checked == true) {
+                                selectedRoles.add(r);
+                              } else if (selectedRoles.length > 1) {
+                                selectedRoles.remove(r);
+                              }
+                            });
+                          },
+                    title: Text(
+                      r.name,
+                      style: TextStyle(
+                        color: isDark ? Colors.white : Colors.black,
+                        fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                      ),
+                    ),
+                    activeColor: isDark ? Colors.white : Colors.black,
+                    checkColor: isDark ? Colors.black : Colors.white,
+                    controlAffinity: ListTileControlAffinity.leading,
+                    contentPadding: EdgeInsets.zero,
+                    dense: true,
+                  );
+                }),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: isSubmitting ? null : () => Navigator.pop(context),
+                child: Text(
+                  'Cancel',
+                  style: TextStyle(color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280)),
+                ),
+              ),
+              ElevatedButton(
+                onPressed: isSubmitting
+                    ? null
+                    : () async {
+                        setDialogState(() => isSubmitting = true);
+                        final success = await _approveUser(user.id, selectedRoles.toList());
+                        if (!context.mounted) return;
+                        if (success) {
+                          Navigator.pop(context);
+                        } else {
+                          setDialogState(() => isSubmitting = false);
+                        }
+                      },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green,
+                  foregroundColor: Colors.white,
+                ),
+                child: isSubmitting
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                        ),
+                      )
+                    : const Text('Approve'),
+              ),
             ],
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: Text(
-                'Cancel',
-                style: TextStyle(color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280)),
-              ),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.pop(context);
-                _approveUser(user.id, selectedRoles.toList());
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green,
-                foregroundColor: Colors.white,
-              ),
-              child: const Text('Approve'),
-            ),
-          ],
         ),
       ),
     );
   }
 
-  Future<void> _approveUser(String userId, List<UserRole> roles) async {
+  /// Returns `true` on success so the calling dialog knows whether it's safe
+  /// to close (pop only on success; stay open with the error surfaced otherwise).
+  Future<bool> _approveUser(String userId, List<UserRole> roles) async {
     try {
       await _apiService.approveUser(userId, roles.map((r) => r.name).toList());
 
@@ -170,52 +195,77 @@ class _UsersScreenState extends State<UsersScreen> {
         );
         _loadUsers();
       }
+      return true;
     } catch (e) {
       if (mounted) {
         ToastNotification.show(
           context,
-          message: e.toString(),
+          message: ApiService.friendlyError(e),
           type: ToastType.error,
         );
       }
+      return false;
     }
   }
 
   void _showRejectConfirmation(User user) {
     final isDark = context.read<ThemeProvider>().isDark;
+    bool isSubmitting = false;
 
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: isDark ? const Color(0xFF18181B) : Colors.white,
-        title: Text(
-          'Reject User',
-          style: TextStyle(color: isDark ? Colors.white : Colors.black),
-        ),
-        content: Text(
-          'Are you sure you want to reject ${user.name}? This will delete their account.',
-          style: TextStyle(color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280)),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(
-              'Cancel',
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => PopScope(
+          canPop: !isSubmitting,
+          child: AlertDialog(
+            backgroundColor: isDark ? const Color(0xFF18181B) : Colors.white,
+            title: Text(
+              'Reject User',
+              style: TextStyle(color: isDark ? Colors.white : Colors.black),
+            ),
+            content: Text(
+              'Are you sure you want to reject ${user.name}? This will delete their account.',
               style: TextStyle(color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280)),
             ),
+            actions: [
+              TextButton(
+                onPressed: isSubmitting ? null : () => Navigator.pop(context),
+                child: Text(
+                  'Cancel',
+                  style: TextStyle(color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280)),
+                ),
+              ),
+              ElevatedButton(
+                onPressed: isSubmitting
+                    ? null
+                    : () async {
+                        setDialogState(() => isSubmitting = true);
+                        final success = await _deleteUser(user.id);
+                        if (!context.mounted) return;
+                        if (success) {
+                          Navigator.pop(context);
+                        } else {
+                          setDialogState(() => isSubmitting = false);
+                        }
+                      },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red,
+                  foregroundColor: Colors.white,
+                ),
+                child: isSubmitting
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                        ),
+                      )
+                    : const Text('Reject'),
+              ),
+            ],
           ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _deleteUser(user.id);
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-              foregroundColor: Colors.white,
-            ),
-            child: const Text('Reject'),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -352,11 +402,16 @@ class _UsersScreenState extends State<UsersScreen> {
             ElevatedButton(
               onPressed: () async {
                 if (formKey.currentState!.validate()) {
+                  // Capture the entered text before popping so it's safe even
+                  // if the controllers are disposed right after the dialog closes.
+                  final name = nameController.text.trim();
+                  final nickname = nicknameController.text.trim();
+                  final roles = selectedRoles.toList();
                   Navigator.pop(context);
                   await _createUser(
-                    name: nameController.text.trim(),
-                    nickname: nicknameController.text.trim(),
-                    roles: selectedRoles.toList(),
+                    name: name,
+                    nickname: nickname,
+                    roles: roles,
                   );
                 }
               },
@@ -369,7 +424,12 @@ class _UsersScreenState extends State<UsersScreen> {
           ],
         ),
       ),
-    );
+    ).then((_) {
+      // Dispose after the dialog fully closes (any dismissal path: Create,
+      // Cancel, barrier tap, or system back) to avoid leaking controllers.
+      nameController.dispose();
+      nicknameController.dispose();
+    });
   }
 
   Future<void> _createUser({
@@ -428,43 +488,70 @@ class _UsersScreenState extends State<UsersScreen> {
       return;
     }
 
+    bool isSubmitting = false;
+
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: isDark ? const Color(0xFF18181B) : Colors.white,
-        title: Text(
-          'Delete User',
-          style: TextStyle(color: isDark ? Colors.white : Colors.black),
-        ),
-        content: Text(
-          'Are you sure you want to delete ${user.name}? This action cannot be undone.',
-          style: TextStyle(color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280)),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(
-              'Cancel',
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => PopScope(
+          canPop: !isSubmitting,
+          child: AlertDialog(
+            backgroundColor: isDark ? const Color(0xFF18181B) : Colors.white,
+            title: Text(
+              'Delete User',
+              style: TextStyle(color: isDark ? Colors.white : Colors.black),
+            ),
+            content: Text(
+              'Are you sure you want to delete ${user.name}? This action cannot be undone.',
               style: TextStyle(color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280)),
             ),
+            actions: [
+              TextButton(
+                onPressed: isSubmitting ? null : () => Navigator.pop(context),
+                child: Text(
+                  'Cancel',
+                  style: TextStyle(color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280)),
+                ),
+              ),
+              ElevatedButton(
+                onPressed: isSubmitting
+                    ? null
+                    : () async {
+                        setDialogState(() => isSubmitting = true);
+                        final success = await _deleteUser(user.id);
+                        if (!context.mounted) return;
+                        if (success) {
+                          Navigator.pop(context);
+                        } else {
+                          setDialogState(() => isSubmitting = false);
+                        }
+                      },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red,
+                  foregroundColor: Colors.white,
+                ),
+                child: isSubmitting
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                        ),
+                      )
+                    : const Text('Delete'),
+              ),
+            ],
           ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _deleteUser(user.id);
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-              foregroundColor: Colors.white,
-            ),
-            child: const Text('Delete'),
-          ),
-        ],
+        ),
       ),
     );
   }
 
-  Future<void> _deleteUser(String userId) async {
+  /// Returns `true` on success so the calling dialog (reject or delete) knows
+  /// whether it's safe to close (pop only on success; stay open + surface the
+  /// error otherwise).
+  Future<bool> _deleteUser(String userId) async {
     try {
       await _apiService.deleteUser(userId);
 
@@ -476,14 +563,16 @@ class _UsersScreenState extends State<UsersScreen> {
         );
         _loadUsers();
       }
+      return true;
     } catch (e) {
       if (mounted) {
         ToastNotification.show(
           context,
-          message: e.toString(),
+          message: ApiService.friendlyError(e),
           type: ToastType.error,
         );
       }
+      return false;
     }
   }
 
@@ -551,8 +640,11 @@ class _UsersScreenState extends State<UsersScreen> {
           ElevatedButton(
             onPressed: () async {
               if (formKey.currentState!.validate()) {
+                // Capture the entered text before popping so it's safe even
+                // if the controller is disposed right after the dialog closes.
+                final newPassword = passwordController.text;
                 Navigator.pop(context);
-                await _resetPassword(user.id, passwordController.text);
+                await _resetPassword(user.id, newPassword);
               }
             },
             style: ElevatedButton.styleFrom(
@@ -563,7 +655,11 @@ class _UsersScreenState extends State<UsersScreen> {
           ),
         ],
       ),
-    );
+    ).then((_) {
+      // Dispose after the dialog fully closes (Reset, Cancel, barrier tap, or
+      // system back) to avoid leaking the controller.
+      passwordController.dispose();
+    });
   }
 
   Future<void> _resetPassword(String userId, String newPassword) async {
@@ -835,8 +931,8 @@ class _UsersScreenState extends State<UsersScreen> {
           right: 20,
           child: FloatingActionButton.extended(
             onPressed: _showCreateUserDialog,
-            backgroundColor: Colors.white,
-            foregroundColor: Colors.black,
+            backgroundColor: isDark ? Colors.white : Colors.black,
+            foregroundColor: isDark ? Colors.black : Colors.white,
             icon: const Icon(Icons.person_add),
             label: const Text(
               'New User',
@@ -996,12 +1092,16 @@ class _UsersScreenState extends State<UsersScreen> {
                   children: [
                     Row(
                       children: [
-                        Text(
-                          user.name,
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                            color: isDark ? Colors.white : Colors.black,
+                        Flexible(
+                          child: Text(
+                            user.name,
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: isDark ? Colors.white : Colors.black,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
                         if (isCurrentUser) ...[

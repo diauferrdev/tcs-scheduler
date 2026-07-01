@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
@@ -21,6 +22,7 @@ import '../widgets/audio_message_player.dart';
 import '../widgets/video_message_player.dart' as video_player;
 import '../widgets/audio_recording_button.dart';
 import '../utils/adaptive_panel.dart';
+import '../utils/responsive_helper.dart';
 import '../utils/toast_notification.dart';
 import '../widgets/blob_helper_stub.dart'
     if (dart.library.html) '../widgets/blob_helper_web.dart';
@@ -147,7 +149,9 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
               if (newMessage.author.id != authProvider.user?.id) {
                 _markSingleMessageAsRead(newMessage.id);
               }
-            } catch (e) { /* ignored: non-critical failure */ }
+            } catch (e) {
+              debugPrint('TicketChatWidget: failed to parse malformed ticket_message payload: $e');
+            }
           } else {
           }
         } else if (type == 'message_read') {
@@ -446,6 +450,7 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
         'id': tempId,
         'content': content,
         'isUploading': true,
+        'hasFailed': false,
         'timestamp': DateTime.now(),
         'authorId': authProvider.user?.id,
         'authorName': authProvider.user?.name,
@@ -456,6 +461,21 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
 
     _messageController.clear();
 
+    await _sendOptimisticTextMessage(tempId, content);
+
+    if (mounted) {
+      setState(() {
+        _isSendingMessage = false;
+      });
+    }
+  }
+
+  /// Sends (or resends) the content of a text-only optimistic message.
+  /// On success, clears the uploading/failed flags so the bubble is
+  /// replaced by the real message once it arrives via WebSocket.
+  /// On failure, keeps the optimistic message in the list and marks it
+  /// as failed so the user can tap it to retry.
+  Future<void> _sendOptimisticTextMessage(String tempId, String content) async {
     try {
       final body = {'content': content};
       await _api.post('/api/tickets/${widget.ticketId}/messages', body);
@@ -470,6 +490,7 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
         );
         if (optimisticMsg.isNotEmpty) {
           optimisticMsg['isUploading'] = false;
+          optimisticMsg['hasFailed'] = false;
         }
       });
 
@@ -480,19 +501,34 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
     } catch (e) {
       if (!mounted) return;
 
-      // Remove optimistic message on error
+      // Keep the optimistic message but mark it as failed so the user
+      // can tap it to retry instead of silently losing the message.
       setState(() {
-        _optimisticMessages.removeWhere((msg) => msg['id'] == tempId);
+        final index = _optimisticMessages.indexWhere((msg) => msg['id'] == tempId);
+        if (index != -1) {
+          _optimisticMessages[index]['isUploading'] = false;
+          _optimisticMessages[index]['hasFailed'] = true;
+        }
       });
 
-      ToastNotification.show(context, message: 'Error sending message: $e');
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isSendingMessage = false;
-        });
-      }
+      ToastNotification.show(context, message: 'Error sending message: $e', type: ToastType.error);
     }
+  }
+
+  /// Retries a failed text-only optimistic message when the user taps it.
+  Future<void> _retryFailedTextMessage(String tempId) async {
+    final index = _optimisticMessages.indexWhere((m) => m['id'] == tempId);
+    if (index == -1) return;
+
+    final content = _optimisticMessages[index]['content']?.toString() ?? '';
+    if (content.trim().isEmpty) return;
+
+    setState(() {
+      _optimisticMessages[index]['isUploading'] = true;
+      _optimisticMessages[index]['hasFailed'] = false;
+    });
+
+    await _sendOptimisticTextMessage(tempId, content);
   }
 
   Future<void> _handleAttachment(List<int> bytes, String fileName) async {
@@ -828,7 +864,43 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
     }
 
     if (_errorMessage != null) {
-      return Center(child: Text('Error: $_errorMessage'));
+      return RefreshIndicator(
+        onRefresh: _loadTicketAndMessages,
+        color: isDark ? Colors.white : Colors.black,
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          child: SizedBox(
+            height: MediaQuery.of(context).size.height * 0.7,
+            child: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.error_outline, size: 48, color: Colors.red.withValues(alpha: 0.5)),
+                  const SizedBox(height: 16),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    child: Text(
+                      'Error: $_errorMessage',
+                      style: const TextStyle(color: Colors.red),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  OutlinedButton.icon(
+                    onPressed: _loadTicketAndMessages,
+                    icon: const Icon(Icons.refresh),
+                    label: const Text('Retry'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: isDark ? Colors.white : Colors.black,
+                      side: BorderSide(color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.3)),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
     }
 
     if (_ticket == null) {
@@ -859,7 +931,7 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
             ),
             child: LayoutBuilder(
               builder: (context, constraints) {
-                final isMobile = MediaQuery.of(context).size.width < 800;
+                final isMobile = ResponsiveHelper.isMobile(context);
 
                 return Row(
                   children: [
@@ -933,17 +1005,27 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
             child: !_isListViewReady
                 ? _buildMessagesSkeleton(isDark)
                 : _messages.isEmpty && _optimisticMessages.isEmpty
-                    ? Center(
-                        child: Text(
-                          'No messages yet',
-                          style: TextStyle(
-                            color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.4),
-                            fontFamily: 'BasisGrotesquePro',
+                    ? RefreshIndicator(
+                        onRefresh: _loadTicketAndMessages,
+                        color: isDark ? Colors.white : Colors.black,
+                        child: SingleChildScrollView(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          child: SizedBox(
+                            height: MediaQuery.of(context).size.height * 0.5,
+                            child: Center(
+                              child: Text(
+                                'No messages yet',
+                                style: TextStyle(
+                                  color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.4),
+                                  fontFamily: 'BasisGrotesquePro',
+                                ),
+                              ),
+                            ),
                           ),
                         ),
                       )
                     : ListView.builder(
-                        key: ValueKey('chat-${widget.ticketId}-${_messages.length}'),
+                        key: ValueKey('chat-${widget.ticketId}'),
                         controller: _scrollController,
                         reverse: true,
                         physics: const ClampingScrollPhysics(),
@@ -1112,23 +1194,30 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
                   )
                 else if (_hasText)
                   // Send button
-                  GestureDetector(
-                    onTap: _isTicketFinished() ? null : _sendMessage,
-                    child: Container(
-                      width: 48,
-                      height: 48,
-                      decoration: BoxDecoration(
-                        color: _isTicketFinished()
-                            ? Colors.grey
-                            : (isDark ? Colors.white : Colors.black),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(
-                        Icons.send,
-                        color: _isTicketFinished()
-                            ? Colors.white
-                            : (isDark ? Colors.black : Colors.white),
-                        size: 20,
+                  Semantics(
+                    button: true,
+                    label: 'Send message',
+                    child: Tooltip(
+                      message: 'Send message',
+                      child: GestureDetector(
+                        onTap: _isTicketFinished() ? null : _sendMessage,
+                        child: Container(
+                          width: 48,
+                          height: 48,
+                          decoration: BoxDecoration(
+                            color: _isTicketFinished()
+                                ? Colors.grey
+                                : (isDark ? Colors.white : Colors.black),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            Icons.send,
+                            color: _isTicketFinished()
+                                ? Colors.white
+                                : (isDark ? Colors.black : Colors.white),
+                            size: 20,
+                          ),
+                        ),
                       ),
                     ),
                   )
@@ -1191,6 +1280,13 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
     );
   }
 
+  /// Caps chat bubble width relative to the available screen width instead
+  /// of a fixed pixel value, so bubbles don't overflow on narrow screens.
+  double _maxBubbleWidth(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    return math.min(screenWidth * 0.75, 480.0);
+  }
+
   Widget _buildOptimisticMessage(Map<String, dynamic> msg, Color bubbleColor, Color textColor) {
     // Check if this is a text-only message or has an attachment
     final fileName = msg['fileName'];
@@ -1207,7 +1303,13 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
       (ext) => fileName.toString().toLowerCase().endsWith('.$ext'),
     );
 
-    return Padding(
+    // Only failed text-only messages support tap-to-retry here (attachments
+    // keep their existing auto-cleanup behavior).
+    final isRetryableText = msg['hasFailed'] == true && !hasFile;
+
+    return GestureDetector(
+      onTap: isRetryableText ? () => _retryFailedTextMessage(msg['id'] as String) : null,
+      child: Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.end,
@@ -1218,7 +1320,7 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Container(
-                  constraints: const BoxConstraints(maxWidth: 280),
+                  constraints: BoxConstraints(maxWidth: _maxBubbleWidth(context)),
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
                     color: bubbleColor,
@@ -1523,12 +1625,15 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
                       ],
                       if (msg['hasFailed'] == true) ...[
                         const SizedBox(height: 4),
-                        const Row(
+                        Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.error_outline, size: 12, color: Colors.red),
-                            SizedBox(width: 4),
-                            Text('Failed', style: TextStyle(color: Colors.red, fontSize: 11, fontFamily: 'BasisGrotesquePro')),
+                            const Icon(Icons.error_outline, size: 12, color: Colors.red),
+                            const SizedBox(width: 4),
+                            Text(
+                              isRetryableText ? 'Failed — tap to retry' : 'Failed',
+                              style: const TextStyle(color: Colors.red, fontSize: 11, fontFamily: 'BasisGrotesquePro'),
+                            ),
                           ],
                         ),
                       ],
@@ -1571,6 +1676,7 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
           ),
         ],
       ),
+      ),
     );
   }
 
@@ -1597,7 +1703,7 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
               children: [
                 // Bubble
                 Container(
-                  constraints: const BoxConstraints(maxWidth: 280),
+                  constraints: BoxConstraints(maxWidth: _maxBubbleWidth(context)),
                   padding: hasAttachments && !hasText ? EdgeInsets.zero : const EdgeInsets.all(8),
                   decoration: BoxDecoration(
                     color: bubbleColor,

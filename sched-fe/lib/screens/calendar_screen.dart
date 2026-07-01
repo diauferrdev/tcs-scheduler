@@ -897,6 +897,75 @@ class _CalendarScreenState extends State<CalendarScreen>
     );
   }
 
+  /// Step the active PageView (month or year) by [delta] pages, animated.
+  void _stepPage(int delta) {
+    final controller = _selectedTab == 'Year' ? _yearPageController : _pageController;
+    if (!controller.hasClients) return;
+    final current = (controller.page ?? controller.initialPage.toDouble()).round();
+    final target = (current + delta).clamp(0, 1 << 28);
+    controller.animateToPage(
+      target,
+      duration: const Duration(milliseconds: 320),
+      curve: Curves.easeOutCubic,
+    );
+  }
+
+  /// Jump back to the current month/year and select today.
+  void _goToToday() {
+    final controller = _selectedTab == 'Year' ? _yearPageController : _pageController;
+    final todayPage = _selectedTab == 'Year' ? 10 : 12;
+    if (controller.hasClients) {
+      controller.animateToPage(
+        todayPage,
+        duration: const Duration(milliseconds: 320),
+        curve: Curves.easeOutCubic,
+      );
+    }
+    setState(() {
+      _selectedDate = DateTime.now();
+      _monthGridCache.clear();
+    });
+  }
+
+  /// Compact chevron button for month/year navigation.
+  Widget _navIconButton(IconData icon, bool isDark, String tooltip, VoidCallback onTap) {
+    return IconButton(
+      onPressed: onTap,
+      icon: Icon(icon, size: 22),
+      color: isDark ? Colors.white : Colors.black,
+      splashRadius: 20,
+      tooltip: tooltip,
+      constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+      padding: EdgeInsets.zero,
+      visualDensity: VisualDensity.compact,
+    );
+  }
+
+  /// Outlined "Today" quick-jump button.
+  Widget _todayButton(bool isDark) {
+    final fg = isDark ? Colors.white : Colors.black;
+    return TextButton(
+      onPressed: _goToToday,
+      style: TextButton.styleFrom(
+        minimumSize: const Size(0, 34),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        foregroundColor: fg,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(6),
+          side: BorderSide(color: fg.withValues(alpha: 0.2)),
+        ),
+      ),
+      child: const Text(
+        'Today',
+        style: TextStyle(
+          fontFamily: 'BasisGrotesquePro',
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
+
   /// Fixed header for both Month and Year views
   Widget _buildCalendarHeader(bool isDark) {
     return Padding(
@@ -904,23 +973,24 @@ class _CalendarScreenState extends State<CalendarScreen>
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          // Calendar icon + date label with animated transition
-          Row(
-            children: [
-              Icon(
-                Icons.calendar_today,
-                size: 18,
-                color: isDark ? Colors.white : Colors.black,
-              ),
-              const SizedBox(width: 8),
-              AnimatedSwitcher(
-                duration: const Duration(milliseconds: 300),
-                transitionBuilder: (Widget child, Animation<double> animation) {
-                  return FadeTransition(
-                    opacity: animation,
-                    child: SlideTransition(
-                      position:
-                          Tween<Offset>(
+          // Prev / animated date label / next
+          Expanded(
+            child: Row(
+              children: [
+                _navIconButton(
+                  Icons.chevron_left,
+                  isDark,
+                  'Previous',
+                  () => _stepPage(-1),
+                ),
+                Flexible(
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 300),
+                    transitionBuilder: (Widget child, Animation<double> animation) {
+                      return FadeTransition(
+                        opacity: animation,
+                        child: SlideTransition(
+                          position: Tween<Offset>(
                             begin: const Offset(0.0, -0.3),
                             end: Offset.zero,
                           ).animate(
@@ -929,36 +999,50 @@ class _CalendarScreenState extends State<CalendarScreen>
                               curve: Curves.easeOutCubic,
                             ),
                           ),
-                      child: child,
+                          child: child,
+                        ),
+                      );
+                    },
+                    child: Text(
+                      _selectedTab == 'Year'
+                          ? DateFormat('yyyy').format(_currentMonth)
+                          : DateFormat('MMMM yyyy').format(_currentMonth),
+                      key: ValueKey(
+                        '${_selectedTab}_${DateFormat(_selectedTab == 'Year' ? 'yyyy' : 'MMMM yyyy').format(_currentMonth)}',
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontFamily: 'BasisGrotesquePro',
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: isDark ? Colors.white : Colors.black,
+                      ),
                     ),
-                  );
-                },
-                child: Text(
-                  _selectedTab == 'Year'
-                      ? DateFormat('yyyy').format(_currentMonth)
-                      : DateFormat('yyyy/MM').format(_currentMonth),
-                  key: ValueKey(
-                    '${_selectedTab}_${DateFormat(_selectedTab == 'Year' ? 'yyyy' : 'yyyy/MM').format(_currentMonth)}',
-                  ),
-                  style: TextStyle(
-                    fontFamily: 'BasisGrotesquePro',
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                    color: isDark ? Colors.white : Colors.black,
                   ),
                 ),
-              ),
-            ],
+                _navIconButton(
+                  Icons.chevron_right,
+                  isDark,
+                  'Next',
+                  () => _stepPage(1),
+                ),
+              ],
+            ),
           ),
-          // Month/Year tabs
+          const SizedBox(width: 8),
+          // Today + Month/Year tabs
           Row(
+            mainAxisSize: MainAxisSize.min,
             children: [
+              _todayButton(isDark),
+              const SizedBox(width: 8),
               GestureDetector(
                 onTap: () => setState(() => _selectedTab = 'Month'),
                 child: Container(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 4,
+                    horizontal: 14,
+                    vertical: 7,
                   ),
                   decoration: BoxDecoration(
                     color: _selectedTab == 'Month'
@@ -996,8 +1080,8 @@ class _CalendarScreenState extends State<CalendarScreen>
                 onTap: () => setState(() => _selectedTab = 'Year'),
                 child: Container(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 4,
+                    horizontal: 14,
+                    vertical: 7,
                   ),
                   decoration: BoxDecoration(
                     color: _selectedTab == 'Year'
@@ -1442,8 +1526,9 @@ class _CalendarScreenState extends State<CalendarScreen>
           ),
         ),
         const SizedBox(height: 8),
-        // Calendar grid
-        ...List.generate(5, (weekIndex) {
+        // Calendar grid — 6 week rows so months that span 6 weeks (e.g. a month
+        // starting on Fri/Sat with 30-31 days) never drop their last days.
+        ...List.generate(6, (weekIndex) {
           return Expanded(
             child: Row(
               children: List.generate(7, (dayIndex) {
@@ -1465,8 +1550,6 @@ class _CalendarScreenState extends State<CalendarScreen>
                     _selectedDate!.year == day.year &&
                     _selectedDate!.month == day.month &&
                     _selectedDate!.day == day.day;
-
-                if (isSelected) {}
 
                 final dayBookings = _getBookingsForDay(day);
 
@@ -1717,7 +1800,7 @@ class _CalendarScreenState extends State<CalendarScreen>
                                     child: Text(
                                       availabilityLabel,
                                       style: TextStyle(
-                                        fontSize: 8,
+                                        fontSize: 9.5,
                                         fontWeight: FontWeight.w600,
                                         color: availabilityColor,
                                       ),

@@ -493,12 +493,18 @@ class _AgendaScreenState extends State<AgendaScreen> {
                       ),
                       const SizedBox(width: 12),
 
-                      // Month and year only (without repeating day)
-                      Text(
-                        DateFormat('MMMM yyyy').format(date),
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: isDark ? Colors.white60 : Colors.black45,
+                      // Month and year only (without repeating day). Flexible
+                      // + ellipsis so long locale month names never overflow
+                      // the row when combined with the day number and badge.
+                      Flexible(
+                        child: Text(
+                          DateFormat('MMMM yyyy').format(date),
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: isDark ? Colors.white60 : Colors.black45,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
 
@@ -589,7 +595,9 @@ class _AgendaScreenState extends State<AgendaScreen> {
                   _getDurationText(booking.duration),
                   style: TextStyle(
                     fontSize: 12,
-                    color: isDark ? Colors.white38 : Colors.black38,
+                    // white38/black38 was too low-contrast to read comfortably;
+                    // bumped to match the muted-but-legible tone used elsewhere.
+                    color: isDark ? Colors.white60 : Colors.black54,
                   ),
                 ),
               ],
@@ -677,7 +685,7 @@ class _AgendaScreenState extends State<AgendaScreen> {
       case VisitType.PACE_VISIT_FULLDAY:
         return 'Pace Visit Fullday';
       case VisitType.PACE_EXPERIENCE:
-        return 'Pace Visit Fullday';
+        return 'Pace Experience';
       case VisitType.INNOVATION_EXCHANGE:
         return 'Innovation Exchange';
     }
@@ -690,7 +698,7 @@ class _AgendaScreenState extends State<AgendaScreen> {
       case VisitType.PACE_VISIT_FULLDAY:
         return const Color(0xFF8B5CF6); // Purple
       case VisitType.PACE_EXPERIENCE:
-        return const Color(0xFF8B5CF6); // Purple
+        return const Color(0xFFEC4899); // Pink
       case VisitType.INNOVATION_EXCHANGE:
         return const Color(0xFF06B6D4); // Cyan
     }

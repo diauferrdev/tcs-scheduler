@@ -52,11 +52,15 @@ class LandingHeader extends StatelessWidget {
                     size: 20,
                     color: Colors.white,
                   ),
+                  // Explicit min constraints guarantee a >=48dp tap target
+                  // regardless of icon size/padding (previous ~40dp button
+                  // was below the accessible minimum).
+                  constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
                   style: IconButton.styleFrom(
                     backgroundColor: isLoggedIn
                         ? Colors.white.withValues(alpha: 0.1)
                         : Colors.white.withValues(alpha: 0.15),
-                    padding: const EdgeInsets.all(10),
+                    padding: const EdgeInsets.all(12),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
                       side: BorderSide(

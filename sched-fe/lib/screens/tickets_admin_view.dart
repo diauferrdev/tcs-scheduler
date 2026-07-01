@@ -8,6 +8,7 @@ import '../providers/auth_provider.dart';
 import '../providers/theme_provider.dart';
 import '../services/api_service.dart';
 import '../services/websocket_service.dart';
+import '../utils/responsive_helper.dart';
 import '../widgets/ticket_chat_widget.dart';
 
 // Helper to get full avatar URL
@@ -346,7 +347,7 @@ class _TicketsAdminViewState extends State<TicketsAdminView> {
     final backgroundColor = isDark ? Colors.black : Colors.white;
     final textColor = isDark ? Colors.white : Colors.black;
 
-    final isDesktop = MediaQuery.of(context).size.width >= 600;
+    final isDesktop = !ResponsiveHelper.isMobile(context);
 
     return Scaffold(
       backgroundColor: backgroundColor,
