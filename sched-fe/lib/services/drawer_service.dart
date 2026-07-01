@@ -8,6 +8,7 @@ import '../models/user.dart';
 import '../providers/auth_provider.dart';
 import '../providers/theme_provider.dart';
 import '../services/api_service.dart';
+import '../utils/adaptive_panel.dart';
 import '../widgets/ticket_chat_widget.dart';
 
 /// Service to manage drawer deep linking and navigation
@@ -71,14 +72,17 @@ class DrawerService {
       }
     }
 
-    // Show bottom sheet drawer for all types (consistent UX)
-    final result = await showModalBottomSheet<T>(
+    // Bottom sheet on mobile, centered modal on desktop (adaptive).
+    final result = await showAdaptivePanel<T>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       isDismissible: true,
       enableDrag: true,
-      builder: (context) => _buildDrawerContent(context, type, params),
+      desktopMaxWidth: 720,
+      desktopMaxHeightFactor: 0.9,
+      builder: (context) => _buildDrawerContent(context, type, params, isDesktop: false),
+      desktopBuilder: (context) => _buildDrawerContent(context, type, params, isDesktop: true),
     );
 
     // Clear current drawer when closed
@@ -120,152 +124,99 @@ class DrawerService {
     }
   }
 
-  /// Build the drawer content based on type
+  /// Build the drawer content based on type.
+  ///
+  /// [isDesktop] selects presentation: on mobile a [DraggableScrollableSheet]
+  /// with a drag handle; on desktop flat content that fills the modal dialog
+  /// (chrome/rounding is provided by [showAdaptivePanel]).
   Widget _buildDrawerContent(
     BuildContext context,
     DrawerType type,
-    Map<String, dynamic>? params,
-  ) {
+    Map<String, dynamic>? params, {
+    required bool isDesktop,
+  }) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    // BookingDetails and TicketDetails manage their own headers
-    if (type == DrawerType.bookingDetails) {
-      final bookingId = params?['bookingId'] as String?;
-      if (bookingId == null) {
-        return _buildErrorDrawer(isDark, 'Booking ID is required');
-      }
+    // Resolve the per-type body (given a scroll controller) plus whether it
+    // needs the generic header. Detail screens render their own headers.
+    Widget Function(ScrollController scrollController) bodyBuilder;
+    bool genericHeader = false;
+    double initialSize = 0.75;
+    double maxSize = 0.9;
 
-      return DraggableScrollableSheet(
-        initialChildSize: 0.75,
-        minChildSize: 0.5,
-        maxChildSize: 0.9,
-        builder: (context, scrollController) => Container(
-          decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF18181B) : Colors.white,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-          ),
-          child: Column(
-            children: [
-              // Handle bar
-              Container(
-                margin: const EdgeInsets.only(top: 8, bottom: 4),
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: isDark ? Colors.grey[700] : Colors.grey[300],
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              // Content includes its own header
-              Expanded(
-                child: BookingDetailsScreen(
-                  bookingId: bookingId,
-                  showScaffold: false,
-                  scrollController: scrollController,
-                  onClose: () {
-                    closeDrawer(context);
-                    _navigateToBaseRoute(context, type);
-                  },
-                ),
-              ),
-            ],
-          ),
+    switch (type) {
+      case DrawerType.bookingDetails:
+        final bookingId = params?['bookingId'] as String?;
+        if (bookingId == null) {
+          return _buildErrorDrawer(isDark, 'Booking ID is required');
+        }
+        bodyBuilder = (sc) => BookingDetailsScreen(
+              bookingId: bookingId,
+              showScaffold: false,
+              scrollController: sc,
+              onClose: () {
+                closeDrawer(context);
+                _navigateToBaseRoute(context, type);
+              },
+            );
+        break;
+
+      case DrawerType.ticketDetails:
+        final ticketId = params?['ticketId'] as String?;
+        if (ticketId == null) {
+          return _buildErrorDrawer(isDark, 'Ticket ID is required');
+        }
+        initialSize = 0.85;
+        maxSize = 0.95;
+        bodyBuilder = (sc) => _TicketDetailDrawerContent(
+              ticketId: ticketId,
+              scrollController: sc,
+              onClose: () {
+                closeDrawer(context);
+                _navigateToBaseRoute(context, type);
+              },
+            );
+        break;
+
+      case DrawerType.roomBookingDetails:
+        final roomBookingId = params?['roomBookingId'] as String?;
+        if (roomBookingId == null) {
+          return _buildErrorDrawer(isDark, 'Room Booking ID is required');
+        }
+        bodyBuilder = (sc) => RoomBookingDetailsScreen(
+              roomBookingId: roomBookingId,
+              showScaffold: false,
+              scrollController: sc,
+              onClose: () {
+                closeDrawer(context);
+                _navigateToBaseRoute(context, type);
+              },
+            );
+        break;
+
+      default:
+        genericHeader = true;
+        bodyBuilder = (sc) => _buildDrawerBodyContent(context, type, params, sc);
+    }
+
+    // Desktop: flat content inside the modal dialog (no handle/rounded box).
+    if (isDesktop) {
+      return DialogScrollBody(
+        builder: (scrollController) => Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (genericHeader) _genericHeader(context, type, isDark),
+            Flexible(child: bodyBuilder(scrollController)),
+          ],
         ),
       );
     }
 
-    if (type == DrawerType.ticketDetails) {
-      final ticketId = params?['ticketId'] as String?;
-      if (ticketId == null) {
-        return _buildErrorDrawer(isDark, 'Ticket ID is required');
-      }
-
-      return DraggableScrollableSheet(
-        initialChildSize: 0.85,
-        minChildSize: 0.5,
-        maxChildSize: 0.95,
-        builder: (context, scrollController) => Container(
-          decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF18181B) : Colors.white,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-          ),
-          child: Column(
-            children: [
-              // Handle bar
-              Container(
-                margin: const EdgeInsets.only(top: 8, bottom: 4),
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: isDark ? Colors.grey[700] : Colors.grey[300],
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              // Ticket Detail - will need to create a drawer version
-              Expanded(
-                child: _TicketDetailDrawerContent(
-                  ticketId: ticketId,
-                  scrollController: scrollController,
-                  onClose: () {
-                    closeDrawer(context);
-                    _navigateToBaseRoute(context, type);
-                  },
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    if (type == DrawerType.roomBookingDetails) {
-      final roomBookingId = params?['roomBookingId'] as String?;
-      if (roomBookingId == null) {
-        return _buildErrorDrawer(isDark, 'Room Booking ID is required');
-      }
-
-      return DraggableScrollableSheet(
-        initialChildSize: 0.75,
-        minChildSize: 0.5,
-        maxChildSize: 0.9,
-        builder: (context, scrollController) => Container(
-          decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF18181B) : Colors.white,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-          ),
-          child: Column(
-            children: [
-              Container(
-                margin: const EdgeInsets.only(top: 8, bottom: 4),
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: isDark ? Colors.grey[700] : Colors.grey[300],
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              Expanded(
-                child: RoomBookingDetailsScreen(
-                  roomBookingId: roomBookingId,
-                  showScaffold: false,
-                  scrollController: scrollController,
-                  onClose: () {
-                    closeDrawer(context);
-                    _navigateToBaseRoute(context, type);
-                  },
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    // Standard drawer with generic header for other types
+    // Mobile: draggable bottom sheet with drag handle.
     return DraggableScrollableSheet(
-      initialChildSize: 0.75,
+      initialChildSize: initialSize,
       minChildSize: 0.5,
-      maxChildSize: 0.9,
+      maxChildSize: maxSize,
       builder: (context, scrollController) => Container(
         decoration: BoxDecoration(
           color: isDark ? const Color(0xFF18181B) : Colors.white,
@@ -273,65 +224,62 @@ class DrawerService {
         ),
         child: Column(
           children: [
-            // Handle bar
-            Container(
-              margin: const EdgeInsets.only(top: 8, bottom: 4),
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: isDark ? Colors.grey[700] : Colors.grey[300],
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-
-            // Header
-            Container(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-              decoration: BoxDecoration(
-                border: Border(
-                  bottom: BorderSide(
-                    color: isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
-                  ),
-                ),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  IconButton(
-                    onPressed: () {
-                      closeDrawer(context);
-                      // Navigate back to base route
-                      _navigateToBaseRoute(context, type);
-                    },
-                    icon: Icon(Icons.close, color: isDark ? Colors.white : Colors.black),
-                    tooltip: 'Close',
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      _getDrawerTitle(type),
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: isDark ? Colors.white : Colors.black,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            // Content
-            Expanded(
-              child: _buildDrawerBodyContent(
-                context,
-                type,
-                params,
-                scrollController,
-              ),
-            ),
+            _handleBar(isDark),
+            if (genericHeader) _genericHeader(context, type, isDark),
+            Expanded(child: bodyBuilder(scrollController)),
           ],
         ),
+      ),
+    );
+  }
+
+  /// Bottom-sheet drag handle (mobile only).
+  Widget _handleBar(bool isDark) {
+    return Container(
+      margin: const EdgeInsets.only(top: 8, bottom: 4),
+      width: 40,
+      height: 4,
+      decoration: BoxDecoration(
+        color: isDark ? Colors.grey[700] : Colors.grey[300],
+        borderRadius: BorderRadius.circular(2),
+      ),
+    );
+  }
+
+  /// Generic close-button + title header for drawer types without their own.
+  Widget _genericHeader(BuildContext context, DrawerType type, bool isDark) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+      decoration: BoxDecoration(
+        border: Border(
+          bottom: BorderSide(
+            color: isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
+          ),
+        ),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          IconButton(
+            onPressed: () {
+              closeDrawer(context);
+              _navigateToBaseRoute(context, type);
+            },
+            icon: Icon(Icons.close, color: isDark ? Colors.white : Colors.black),
+            tooltip: 'Close',
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              _getDrawerTitle(type),
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: isDark ? Colors.white : Colors.black,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

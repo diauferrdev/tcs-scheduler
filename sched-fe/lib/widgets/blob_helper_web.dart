@@ -1,3 +1,6 @@
+// Web-only helper (conditionally imported): dart:html is the correct API for
+// Blob handling on web, so these web-library lints don't apply here.
+// ignore_for_file: avoid_web_libraries_in_flutter, deprecated_member_use
 import 'dart:html' as html;
 import 'dart:async';
 import 'dart:typed_data';

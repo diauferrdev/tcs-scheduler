@@ -147,12 +147,10 @@ class _GlobeSectionState extends State<GlobeSection> {
           js.context.callMethod('eval', ['window.viewerManager.registerViewer("$canvasId", window["$canvasId"+"_viewer"])']);
           // Store viewer reference globally for manager access
           js.context['${canvasId}_viewer'] = viewer;
-        } catch (e) {
-        }
+        } catch (e) { /* ignored: non-critical failure */ }
       }
 
-    } catch (e) {
-    }
+    } catch (e) { /* ignored: non-critical failure */ }
   }
 
   @override

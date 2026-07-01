@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../utils/responsive_helper.dart';
 import 'dart:math';
 import '../../utils/toast_notification.dart';
 
@@ -203,6 +204,8 @@ class _BaseInfoDrawerState extends State<BaseInfoDrawer> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    // Hide the bottom-sheet drag handle when shown as a desktop modal.
+    final isModal = !ResponsiveHelper.isMobile(context);
 
     return Container(
       decoration: BoxDecoration(
@@ -211,16 +214,17 @@ class _BaseInfoDrawerState extends State<BaseInfoDrawer> {
       ),
       child: Column(
         children: [
-          // Handle bar
-          Container(
-            margin: const EdgeInsets.only(top: 8, bottom: 4),
-            width: 40,
-            height: 4,
-            decoration: BoxDecoration(
-              color: isDark ? Colors.grey[700] : Colors.grey[300],
-              borderRadius: BorderRadius.circular(2),
+          // Handle bar (mobile bottom-sheet only)
+          if (!isModal)
+            Container(
+              margin: const EdgeInsets.only(top: 8, bottom: 4),
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: isDark ? Colors.grey[700] : Colors.grey[300],
+                borderRadius: BorderRadius.circular(2),
+              ),
             ),
-          ),
 
           // Header
           Container(

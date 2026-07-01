@@ -55,8 +55,7 @@ class WebNotificationService {
       _setupServiceWorkerListener();
 
       _initialized = true;
-    } catch (e) {
-    }
+    } catch (e) { /* ignored: non-critical failure */ }
   }
 
   /// Setup listener for Service Worker navigation messages
@@ -102,8 +101,7 @@ class WebNotificationService {
         }
       });
 
-    } catch (e) {
-    }
+    } catch (e) { /* ignored: non-critical failure */ }
   }
 
   /// Wait for Service Worker to be ready
@@ -153,8 +151,7 @@ class WebNotificationService {
       // Send subscription to backend
       await _sendSubscriptionToBackend(subscriptionJson);
 
-    } catch (e) {
-    }
+    } catch (e) { /* ignored: non-critical failure */ }
   }
 
   /// Get VAPID public key from backend
@@ -176,8 +173,7 @@ class WebNotificationService {
       await _apiService.post('/api/push/subscribe', subscriptionData);
 
       _subscription = subscriptionJson;
-    } catch (e) {
-    }
+    } catch (e) { /* ignored: non-critical failure */ }
   }
 
   /// Show a local notification (when app is open)
@@ -193,8 +189,7 @@ class WebNotificationService {
       // Always try to show notification, even if not fully initialized
       // This ensures notifications work even if push subscription failed
       showBrowserNotification(title, body);
-    } catch (e) {
-    }
+    } catch (e) { /* ignored: non-critical failure */ }
   }
 
   /// Check if notifications are supported and permitted

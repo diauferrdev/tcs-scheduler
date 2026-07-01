@@ -122,8 +122,7 @@ class _FullscreenAudioPlayerState extends State<FullscreenAudioPlayer> {
       } else {
         await _audioPlayer!.resume();
       }
-    } catch (e) {
-    }
+    } catch (e) { /* ignored: non-critical failure */ }
   }
 
   String _formatDuration(Duration duration) {

@@ -7,6 +7,7 @@ import '../providers/theme_provider.dart';
 import '../models/user.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import '../services/unified_notification_service.dart';
+import '../utils/adaptive_panel.dart';
 import '../utils/web_helper.dart';
 import 'notification_bell.dart';
 import 'profile_drawer.dart';
@@ -21,7 +22,8 @@ class AppLayout extends StatefulWidget {
 }
 
 class _AppLayoutState extends State<AppLayout> {
-  final UnifiedNotificationService _notificationService = UnifiedNotificationService();
+  final UnifiedNotificationService _notificationService =
+      UnifiedNotificationService();
   bool _initialized = false;
   bool _sidebarCollapsed = false;
 
@@ -37,8 +39,7 @@ class _AppLayoutState extends State<AppLayout> {
     try {
       await _notificationService.initialize();
       _initialized = true;
-    } catch (e) {
-    }
+    } catch (e) { /* ignored: non-critical failure */ }
   }
 
   @override
@@ -68,7 +69,8 @@ class _AppLayoutState extends State<AppLayout> {
     return Scaffold(
       backgroundColor: isDark ? Colors.black : Colors.white,
       body: SafeArea(
-        bottom: !isMobile, // Only apply bottom padding on desktop (mobile has bottomNavigationBar)
+        bottom:
+            !isMobile, // Only apply bottom padding on desktop (mobile has bottomNavigationBar)
         child: Column(
           children: [
             // Header
@@ -82,9 +84,7 @@ class _AppLayoutState extends State<AppLayout> {
                   if (!isMobile) _buildSidebar(context, user, isDark),
 
                   // Main Content
-                  Expanded(
-                    child: widget.child,
-                  ),
+                  Expanded(child: widget.child),
                 ],
               ),
             ),
@@ -93,8 +93,9 @@ class _AppLayoutState extends State<AppLayout> {
       ),
 
       // Bottom Navigation (Mobile only)
-      bottomNavigationBar:
-          isMobile ? SafeArea(child: _buildBottomNav(context, user, isDark)) : null,
+      bottomNavigationBar: isMobile
+          ? SafeArea(child: _buildBottomNav(context, user, isDark))
+          : null,
     );
   }
 
@@ -120,7 +121,9 @@ class _AppLayoutState extends State<AppLayout> {
         children: [
           // Logo - Pace logo (already includes "Scheduler" text)
           SvgPicture.asset(
-            isDark ? 'assets/logos/pace-scheduler-logo-w.svg' : 'assets/logos/pace-scheduler-logo-b.svg',
+            isDark
+                ? 'assets/logos/pace-scheduler-logo-w.svg'
+                : 'assets/logos/pace-scheduler-logo-b.svg',
             height: 16,
           ),
 
@@ -130,7 +133,10 @@ class _AppLayoutState extends State<AppLayout> {
           if (kIsWeb && WebHelper.pwaCanInstall())
             IconButton(
               onPressed: () => WebHelper.pwaInstall(),
-              icon: Icon(Icons.install_mobile, color: isDark ? Colors.white : Colors.black),
+              icon: Icon(
+                Icons.install_mobile,
+                color: isDark ? Colors.white : Colors.black,
+              ),
               tooltip: 'Install App',
             ),
 
@@ -153,12 +159,11 @@ class _AppLayoutState extends State<AppLayout> {
           // User Profile Button with Avatar and Info
           InkWell(
             onTap: () {
-              showModalBottomSheet(
+              showAdaptiveSideSheet(
                 context: context,
-                isScrollControlled: true,
-                backgroundColor: Colors.transparent,
                 isDismissible: true,
-                enableDrag: true,
+                side: AdaptiveSide.right,
+                width: 380,
                 builder: (context) => const ProfileDrawer(),
               );
             },
@@ -171,7 +176,9 @@ class _AppLayoutState extends State<AppLayout> {
                   // Avatar
                   CircleAvatar(
                     radius: 18,
-                    backgroundColor: isDark ? const Color(0xFF27272A) : const Color(0xFFF3F4F6),
+                    backgroundColor: isDark
+                        ? const Color(0xFF27272A)
+                        : const Color(0xFFF3F4F6),
                     child: user.avatarUrl != null && user.avatarUrl!.isNotEmpty
                         ? ClipOval(
                             child: Image.network(
@@ -185,11 +192,15 @@ class _AppLayoutState extends State<AppLayout> {
                                 // Fallback to initials if image fails to load
                                 return Center(
                                   child: Text(
-                                    user.name.isNotEmpty ? user.name[0].toUpperCase() : 'U',
+                                    user.name.isNotEmpty
+                                        ? user.name[0].toUpperCase()
+                                        : 'U',
                                     style: TextStyle(
                                       fontSize: 14,
                                       fontWeight: FontWeight.bold,
-                                      color: isDark ? Colors.white : Colors.black,
+                                      color: isDark
+                                          ? Colors.white
+                                          : Colors.black,
                                     ),
                                   ),
                                 );
@@ -197,7 +208,9 @@ class _AppLayoutState extends State<AppLayout> {
                             ),
                           )
                         : Text(
-                            user.name.isNotEmpty ? user.name[0].toUpperCase() : 'U',
+                            user.name.isNotEmpty
+                                ? user.name[0].toUpperCase()
+                                : 'U',
                             style: TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.bold,
@@ -213,7 +226,9 @@ class _AppLayoutState extends State<AppLayout> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
-                          user.name.length > 15 ? '${user.name.substring(0, 15)}...' : user.name,
+                          user.name.length > 15
+                              ? '${user.name.substring(0, 15)}...'
+                              : user.name,
                           style: TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w600,
@@ -224,7 +239,9 @@ class _AppLayoutState extends State<AppLayout> {
                           _capitalizeRole(user.role.toString().split('.').last),
                           style: TextStyle(
                             fontSize: 11,
-                            color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
+                            color: isDark
+                                ? const Color(0xFF9CA3AF)
+                                : const Color(0xFF6B7280),
                           ),
                         ),
                       ],
@@ -233,7 +250,9 @@ class _AppLayoutState extends State<AppLayout> {
                     Icon(
                       Icons.keyboard_arrow_down,
                       size: 18,
-                      color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
+                      color: isDark
+                          ? const Color(0xFF9CA3AF)
+                          : const Color(0xFF6B7280),
                     ),
                   ],
                 ],
@@ -303,7 +322,9 @@ class _AppLayoutState extends State<AppLayout> {
             decoration: BoxDecoration(
               border: Border(
                 top: BorderSide(
-                  color: isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
+                  color: isDark
+                      ? const Color(0xFF27272A)
+                      : const Color(0xFFE5E7EB),
                   width: 1,
                 ),
               ),
@@ -325,14 +346,20 @@ class _AppLayoutState extends State<AppLayout> {
                     vertical: 10,
                   ),
                   decoration: BoxDecoration(
-                    color: (isDark ? const Color(0xFF27272A) : const Color(0xFFF3F4F6)),
+                    color: (isDark
+                        ? const Color(0xFF27272A)
+                        : const Color(0xFFF3F4F6)),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Center(
                     child: Icon(
-                      _sidebarCollapsed ? Icons.chevron_right : Icons.chevron_left,
+                      _sidebarCollapsed
+                          ? Icons.chevron_right
+                          : Icons.chevron_left,
                       size: 20,
-                      color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
+                      color: isDark
+                          ? const Color(0xFF9CA3AF)
+                          : const Color(0xFF6B7280),
                     ),
                   ),
                 ),
@@ -420,11 +447,7 @@ class _AppLayoutState extends State<AppLayout> {
                   // Show icon only if width is less than 90px (collapsed state + animation)
                   if (constraints.maxWidth < 90) {
                     return Center(
-                      child: Icon(
-                        icon,
-                        size: 20,
-                        color: iconColor,
-                      ),
+                      child: Icon(icon, size: 20, color: iconColor),
                     );
                   }
                   // Show full row when expanded - aligned to left
@@ -432,18 +455,16 @@ class _AppLayoutState extends State<AppLayout> {
                     mainAxisSize: MainAxisSize.max,
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      Icon(
-                        icon,
-                        size: 20,
-                        color: iconColor,
-                      ),
+                      Icon(icon, size: 20, color: iconColor),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Text(
                           label,
                           style: TextStyle(
                             fontSize: 14,
-                            fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
+                            fontWeight: isActive
+                                ? FontWeight.w600
+                                : FontWeight.w500,
                             color: iconColor,
                             letterSpacing: -0.2,
                           ),
@@ -490,7 +511,9 @@ class _AppLayoutState extends State<AppLayout> {
               fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
               color: isActive
                   ? (isDark ? Colors.white : Colors.black)
-                  : (isDark ? const Color(0xFF6B7280) : const Color(0xFF9CA3AF)),
+                  : (isDark
+                        ? const Color(0xFF6B7280)
+                        : const Color(0xFF9CA3AF)),
             ),
           ),
         ],
@@ -502,31 +525,145 @@ class _AppLayoutState extends State<AppLayout> {
     // Order optimized by role priority (most important first for each role)
     final items = <Map<String, dynamic>>[
       // USER sees: Events → Rooms → My Bookings → Support
-      {'path': '/app/schedule', 'label': 'Events', 'icon': Icons.event, 'roles': [UserRole.USER], 'order': 1},
-      {'path': '/app/rooms', 'label': 'Rooms', 'icon': Icons.meeting_room, 'roles': [UserRole.USER], 'order': 2},
-      {'path': '/app/my-bookings', 'label': 'My Bookings', 'icon': Icons.event_note, 'roles': [UserRole.USER], 'order': 3},
+      {
+        'path': '/app/schedule',
+        'label': 'Events',
+        'icon': Icons.event,
+        'roles': [UserRole.USER],
+        'order': 1,
+      },
+      {
+        'path': '/app/rooms',
+        'label': 'Rooms',
+        'icon': Icons.meeting_room,
+        'roles': [UserRole.USER],
+        'order': 2,
+      },
+      {
+        'path': '/app/my-bookings',
+        'label': 'My Bookings',
+        'icon': Icons.event_note,
+        'roles': [UserRole.USER],
+        'order': 3,
+      },
 
       // MANAGER sees: Dashboard → Pending → Events → Rooms → My Bookings → Agenda → Users → Support
-      {'path': '/app/dashboard', 'label': 'Dashboard', 'icon': Icons.dashboard, 'roles': [UserRole.MANAGER], 'order': 1},
-      {'path': '/app/pending', 'label': 'Pending', 'icon': Icons.pending_actions, 'roles': [UserRole.MANAGER], 'order': 2},
-      {'path': '/app/schedule', 'label': 'Events', 'icon': Icons.event, 'roles': [UserRole.MANAGER], 'order': 3},
-      {'path': '/app/rooms', 'label': 'Rooms', 'icon': Icons.meeting_room, 'roles': [UserRole.MANAGER], 'order': 4},
-      {'path': '/app/my-bookings', 'label': 'My Bookings', 'icon': Icons.event_note, 'roles': [UserRole.MANAGER], 'order': 5},
-      {'path': '/app/agenda', 'label': 'Agenda', 'icon': Icons.view_timeline, 'roles': [UserRole.MANAGER], 'order': 6},
-      {'path': '/app/users', 'label': 'Users', 'icon': Icons.people, 'roles': [UserRole.MANAGER], 'order': 7},
+      {
+        'path': '/app/dashboard',
+        'label': 'Dashboard',
+        'icon': Icons.dashboard,
+        'roles': [UserRole.MANAGER],
+        'order': 1,
+      },
+      {
+        'path': '/app/pending',
+        'label': 'Pending',
+        'icon': Icons.pending_actions,
+        'roles': [UserRole.MANAGER],
+        'order': 2,
+      },
+      {
+        'path': '/app/schedule',
+        'label': 'Events',
+        'icon': Icons.event,
+        'roles': [UserRole.MANAGER],
+        'order': 3,
+      },
+      {
+        'path': '/app/rooms',
+        'label': 'Rooms',
+        'icon': Icons.meeting_room,
+        'roles': [UserRole.MANAGER],
+        'order': 4,
+      },
+      {
+        'path': '/app/my-bookings',
+        'label': 'My Bookings',
+        'icon': Icons.event_note,
+        'roles': [UserRole.MANAGER],
+        'order': 5,
+      },
+      {
+        'path': '/app/agenda',
+        'label': 'Agenda',
+        'icon': Icons.view_timeline,
+        'roles': [UserRole.MANAGER],
+        'order': 6,
+      },
+      {
+        'path': '/app/users',
+        'label': 'Users',
+        'icon': Icons.people,
+        'roles': [UserRole.MANAGER],
+        'order': 7,
+      },
 
       // ADMIN sees: Dashboard → Pending → Events → Rooms → My Bookings → Agenda → Users → Audit
-      {'path': '/app/dashboard', 'label': 'Dashboard', 'icon': Icons.dashboard, 'roles': [UserRole.ADMIN], 'order': 1},
-      {'path': '/app/pending', 'label': 'Pending', 'icon': Icons.pending_actions, 'roles': [UserRole.ADMIN], 'order': 2},
-      {'path': '/app/schedule', 'label': 'Events', 'icon': Icons.event, 'roles': [UserRole.ADMIN], 'order': 3},
-      {'path': '/app/rooms', 'label': 'Rooms', 'icon': Icons.meeting_room, 'roles': [UserRole.ADMIN], 'order': 4},
-      {'path': '/app/my-bookings', 'label': 'My Bookings', 'icon': Icons.event_note, 'roles': [UserRole.ADMIN], 'order': 5},
-      {'path': '/app/agenda', 'label': 'Agenda', 'icon': Icons.view_timeline, 'roles': [UserRole.ADMIN], 'order': 6},
-      {'path': '/app/users', 'label': 'Users', 'icon': Icons.people, 'roles': [UserRole.ADMIN], 'order': 7},
-      {'path': '/app/audit', 'label': 'Audit', 'icon': Icons.history, 'roles': [UserRole.ADMIN], 'order': 8},
+      {
+        'path': '/app/dashboard',
+        'label': 'Dashboard',
+        'icon': Icons.dashboard,
+        'roles': [UserRole.ADMIN],
+        'order': 1,
+      },
+      {
+        'path': '/app/pending',
+        'label': 'Pending',
+        'icon': Icons.pending_actions,
+        'roles': [UserRole.ADMIN],
+        'order': 2,
+      },
+      {
+        'path': '/app/schedule',
+        'label': 'Events',
+        'icon': Icons.event,
+        'roles': [UserRole.ADMIN],
+        'order': 3,
+      },
+      {
+        'path': '/app/rooms',
+        'label': 'Rooms',
+        'icon': Icons.meeting_room,
+        'roles': [UserRole.ADMIN],
+        'order': 4,
+      },
+      {
+        'path': '/app/my-bookings',
+        'label': 'My Bookings',
+        'icon': Icons.event_note,
+        'roles': [UserRole.ADMIN],
+        'order': 5,
+      },
+      {
+        'path': '/app/agenda',
+        'label': 'Agenda',
+        'icon': Icons.view_timeline,
+        'roles': [UserRole.ADMIN],
+        'order': 6,
+      },
+      {
+        'path': '/app/users',
+        'label': 'Users',
+        'icon': Icons.people,
+        'roles': [UserRole.ADMIN],
+        'order': 7,
+      },
+      {
+        'path': '/app/audit',
+        'label': 'Audit',
+        'icon': Icons.history,
+        'roles': [UserRole.ADMIN],
+        'order': 8,
+      },
 
       // Support - available to all roles (last position)
-      {'path': '/app/support', 'label': 'Support', 'icon': Icons.support_agent, 'roles': [UserRole.ADMIN, UserRole.MANAGER, UserRole.USER], 'order': 999},
+      {
+        'path': '/app/support',
+        'label': 'Support',
+        'icon': Icons.support_agent,
+        'roles': [UserRole.ADMIN, UserRole.MANAGER, UserRole.USER],
+        'order': 999,
+      },
     ];
 
     final filteredItems = items.where((item) {
@@ -535,7 +672,9 @@ class _AppLayoutState extends State<AppLayout> {
     }).toList();
 
     // Sort by order to ensure correct display sequence
-    filteredItems.sort((a, b) => (a['order'] as int).compareTo(b['order'] as int));
+    filteredItems.sort(
+      (a, b) => (a['order'] as int).compareTo(b['order'] as int),
+    );
 
     return filteredItems;
   }

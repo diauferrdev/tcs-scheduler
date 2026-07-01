@@ -550,14 +550,14 @@ class _RoomBookingDetailsScreenState extends State<RoomBookingDetailsScreen>
     try {
       formattedDate =
           DateFormat('EEEE, MMM d, yyyy').format(DateTime.parse(date));
-    } catch (_) {}
+    } catch (_) { /* ignored: non-critical failure */ }
 
     String formattedCreated = '';
     if (createdAt != null) {
       try {
         formattedCreated = DateFormat('MMM d, yyyy \u2022 HH:mm')
             .format(DateTime.parse(createdAt));
-      } catch (_) {}
+      } catch (_) { /* ignored: non-critical failure */ }
     }
 
     final content = SingleChildScrollView(

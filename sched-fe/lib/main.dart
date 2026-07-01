@@ -56,8 +56,7 @@ Future<void> _requestPermissions() async {
     if (Platform.isAndroid) {
       await Permission.storage.request();
     }
-  } catch (e) {
-  }
+  } catch (e) { /* ignored: non-critical failure */ }
 }
 
 void main() async {

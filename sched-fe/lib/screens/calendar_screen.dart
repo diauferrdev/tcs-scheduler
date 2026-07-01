@@ -13,21 +13,19 @@ import '../services/realtime_service.dart';
 import '../services/navigation_service.dart';
 import '../models/booking.dart';
 import '../models/user.dart';
+import '../utils/adaptive_panel.dart';
 import '../utils/time_formatter.dart';
 import '../utils/toast_notification.dart';
 import 'booking_form_screen.dart';
 import '../services/booking_flow_service.dart';
 
-enum CalendarViewType {
-  month,
-  week,
-  day,
-}
+enum CalendarViewType { month, week, day }
 
 class CalendarScreen extends StatefulWidget {
   final bool skipLayout;
   final String? draftIdToEdit; // Optional draft ID to open for editing
-  final Function(DateTime)? onDaySelected; // Optional callback when a day is clicked (for reschedule drawer)
+  final Function(DateTime)?
+  onDaySelected; // Optional callback when a day is clicked (for reschedule drawer)
 
   const CalendarScreen({
     super.key,
@@ -40,7 +38,8 @@ class CalendarScreen extends StatefulWidget {
   State<CalendarScreen> createState() => _CalendarScreenState();
 }
 
-class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProviderStateMixin {
+class _CalendarScreenState extends State<CalendarScreen>
+    with SingleTickerProviderStateMixin {
   final ApiService _apiService = ApiService();
   final RealtimeService _realtimeService = RealtimeService();
 
@@ -59,7 +58,8 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
 
   // PageView state for year scrolling
   late PageController _yearPageController;
-  int _currentYearPage = 10; // Start at index 10 (allows scrolling back/forward)
+  int _currentYearPage =
+      10; // Start at index 10 (allows scrolling back/forward)
 
   // Availability state
   final Map<String, DayAvailability> _availabilityCache = {};
@@ -111,7 +111,10 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
       // Set the selected date to the draft's date
       setState(() {
         _selectedDate = draftBooking.date;
-        _currentMonth = DateTime(draftBooking.date.year, draftBooking.date.month);
+        _currentMonth = DateTime(
+          draftBooking.date.year,
+          draftBooking.date.month,
+        );
       });
 
       // Load availability for the draft's date
@@ -160,7 +163,8 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
           selectedDate: draft.date,
           startTime: startTime,
           duration: duration,
-          existingBooking: draft, // CRITICAL: Pass draft booking to prefill form
+          existingBooking:
+              draft, // CRITICAL: Pass draft booking to prefill form
         ),
         fullscreenDialog: true,
       ),
@@ -227,11 +231,11 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
 
       // ADMIN/MANAGER: Use availability-admin endpoint (shows PENDING + APPROVED)
       // USER: Use availability endpoint (shows only APPROVED bookings, not PENDING)
-      final response = (userRole == UserRole.ADMIN || userRole == UserRole.MANAGER)
+      final response =
+          (userRole == UserRole.ADMIN || userRole == UserRole.MANAGER)
           ? await _apiService.getBookingsAvailabilityForAdmins(null)
           : await _apiService.getBookingsAvailability(null);
       final bookingsData = response['bookings'] as List;
-
 
       // Check if still mounted before setState (WebSocket can trigger after navigation)
       if (!mounted) {
@@ -252,11 +256,9 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
         });
         if (showLoading) {
           _loading = false;
-        } else {
-        }
+        } else {}
       });
     } catch (e) {
-
       // Check if still mounted before setState
       if (!mounted) {
         return;
@@ -334,10 +336,13 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
 
     // Find all APPROVED Innovation Exchange bookings
     // Only APPROVED bookings block periods
-    final ieBookings = _bookings.where((b) =>
-      b.visitType == VisitType.INNOVATION_EXCHANGE &&
-      b.status == BookingStatus.APPROVED
-    ).toList();
+    final ieBookings = _bookings
+        .where(
+          (b) =>
+              b.visitType == VisitType.INNOVATION_EXCHANGE &&
+              b.status == BookingStatus.APPROVED,
+        )
+        .toList();
 
     for (final ie in ieBookings) {
       final eventDate = ie.date;
@@ -356,11 +361,13 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
         final prevDayStr = DateFormat('yyyy-MM-dd').format(prevDay);
 
         // Block previous day afternoon (prep)
-        blocks[prevDayStr] = blocks[prevDayStr] ?? {'morning': false, 'afternoon': false};
+        blocks[prevDayStr] =
+            blocks[prevDayStr] ?? {'morning': false, 'afternoon': false};
         blocks[prevDayStr]!['afternoon'] = true;
 
         // Block event day morning (event) and afternoon (teardown)
-        blocks[eventDateStr] = blocks[eventDateStr] ?? {'morning': false, 'afternoon': false};
+        blocks[eventDateStr] =
+            blocks[eventDateStr] ?? {'morning': false, 'afternoon': false};
         blocks[eventDateStr]!['morning'] = true;
         blocks[eventDateStr]!['afternoon'] = true;
       } else {
@@ -373,12 +380,14 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
         final nextDayStr = DateFormat('yyyy-MM-dd').format(nextDay);
 
         // Block event day morning (prep) and afternoon (event)
-        blocks[eventDateStr] = blocks[eventDateStr] ?? {'morning': false, 'afternoon': false};
+        blocks[eventDateStr] =
+            blocks[eventDateStr] ?? {'morning': false, 'afternoon': false};
         blocks[eventDateStr]!['morning'] = true;
         blocks[eventDateStr]!['afternoon'] = true;
 
         // Block next day morning (teardown)
-        blocks[nextDayStr] = blocks[nextDayStr] ?? {'morning': false, 'afternoon': false};
+        blocks[nextDayStr] =
+            blocks[nextDayStr] ?? {'morning': false, 'afternoon': false};
         blocks[nextDayStr]!['morning'] = true;
       }
     }
@@ -386,7 +395,10 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
     return blocks;
   }
 
-  List<Booking> _getBookingsForDay(DateTime date, {bool filterForAdminManager = false}) {
+  List<Booking> _getBookingsForDay(
+    DateTime date, {
+    bool filterForAdminManager = false,
+  }) {
     final dateStr = DateFormat('yyyy-MM-dd').format(date);
     final dayBookings = _bookings.where((b) {
       final bookingDate = DateFormat('yyyy-MM-dd').format(b.date);
@@ -399,7 +411,7 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
       // For ADMIN/MANAGER: when clicking a day, show only UNDER_REVIEW and APPROVED
       if (filterForAdminManager) {
         return b.status == BookingStatus.UNDER_REVIEW ||
-               b.status == BookingStatus.APPROVED;
+            b.status == BookingStatus.APPROVED;
       }
 
       // For other uses (calendar rendering, etc.): show all statuses
@@ -426,9 +438,9 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
           final bookingDate = DateFormat('yyyy-MM-dd').format(b.date);
           final eventHour = int.parse(b.startTime.split(':')[0]);
           return bookingDate == dayStr &&
-                 b.visitType == VisitType.INNOVATION_EXCHANGE &&
-                 eventHour < 13 &&
-                 b.status == BookingStatus.APPROVED;
+              b.visitType == VisitType.INNOVATION_EXCHANGE &&
+              eventHour < 13 &&
+              b.status == BookingStatus.APPROVED;
         });
 
         // Only add block if it's prep/teardown (NOT the actual IE event)
@@ -441,9 +453,9 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
             final bookingDate = DateFormat('yyyy-MM-dd').format(b.date);
             final eventHour = int.parse(b.startTime.split(':')[0]);
             return bookingDate == dayStr &&
-                   b.visitType == VisitType.INNOVATION_EXCHANGE &&
-                   eventHour >= 13 &&
-                   b.status == BookingStatus.APPROVED;
+                b.visitType == VisitType.INNOVATION_EXCHANGE &&
+                eventHour >= 13 &&
+                b.status == BookingStatus.APPROVED;
           });
 
           if (hasIEAfternoonSameDay) {
@@ -468,9 +480,9 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
           final bookingDate = DateFormat('yyyy-MM-dd').format(b.date);
           final eventHour = int.parse(b.startTime.split(':')[0]);
           return bookingDate == dayStr &&
-                 b.visitType == VisitType.INNOVATION_EXCHANGE &&
-                 eventHour >= 13 &&
-                 b.status == BookingStatus.APPROVED;
+              b.visitType == VisitType.INNOVATION_EXCHANGE &&
+              eventHour >= 13 &&
+              b.status == BookingStatus.APPROVED;
         });
 
         // Only add block if it's prep/teardown (NOT the actual IE event)
@@ -483,9 +495,9 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
             final bookingDate = DateFormat('yyyy-MM-dd').format(b.date);
             final eventHour = int.parse(b.startTime.split(':')[0]);
             return bookingDate == dayStr &&
-                   b.visitType == VisitType.INNOVATION_EXCHANGE &&
-                   eventHour < 13 &&
-                   b.status == BookingStatus.APPROVED;
+                b.visitType == VisitType.INNOVATION_EXCHANGE &&
+                eventHour < 13 &&
+                b.status == BookingStatus.APPROVED;
           });
 
           if (hasIEMorningSameDay) {
@@ -518,7 +530,10 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
         _selectedDayAvailability = null;
       });
 
-      final response = await _apiService.checkAvailability(dateStr, visitType: visitType);
+      final response = await _apiService.checkAvailability(
+        dateStr,
+        visitType: visitType,
+      );
 
       setState(() {
         final availability = DayAvailability.fromJson(response);
@@ -528,19 +543,24 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
         // Debug: Print API response
         // Availability data loaded successfully
       });
-    } catch (e) {
-    }
+    } catch (e) { /* ignored: non-critical failure */ }
   }
 
-  void _showSlotPickerDrawer(DateTime date, {Function(TimeOfDay, int)? onSlotSelected, VoidCallback? onBack}) {
+  void _showSlotPickerDrawer(
+    DateTime date, {
+    Function(TimeOfDay, int)? onSlotSelected,
+    VoidCallback? onBack,
+  }) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final visitTypeLabel = _selectedVisitType == 'PACE_TOUR' ? 'Pace Tour' : 'Innovation Exchange';
+    final visitTypeLabel = _selectedVisitType == 'PACE_TOUR'
+        ? 'Pace Tour'
+        : 'Innovation Exchange';
 
     // Check user role to determine if we should show block details
     final authProvider = context.read<AuthProvider>();
     final isUserRole = authProvider.user?.role == UserRole.USER;
 
-    showModalBottomSheet(
+    showAdaptivePanel(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
@@ -587,9 +607,18 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
       loadAvailability: (DateTime date, String visitType) {
         return _loadDayAvailability(date, visitType: visitType);
       },
-      showSlotPicker: (DateTime date, Function(TimeOfDay, int) onSlotSelected, VoidCallback? onBack) {
-        _showSlotPickerDrawer(date, onSlotSelected: onSlotSelected, onBack: onBack);
-      },
+      showSlotPicker:
+          (
+            DateTime date,
+            Function(TimeOfDay, int) onSlotSelected,
+            VoidCallback? onBack,
+          ) {
+            _showSlotPickerDrawer(
+              date,
+              onSlotSelected: onSlotSelected,
+              onBack: onBack,
+            );
+          },
     );
   }
 
@@ -612,8 +641,7 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
     final dateStr = DateFormat('yyyy-MM-dd').format(date);
     final activeBookings = _bookings.where((b) {
       final bookingDate = DateFormat('yyyy-MM-dd').format(b.date);
-      return bookingDate == dateStr &&
-             b.status == BookingStatus.APPROVED;
+      return bookingDate == dateStr && b.status == BookingStatus.APPROVED;
     }).toList();
 
     // Use period-based logic (MORNING: 9-13, AFTERNOON: 13-17)
@@ -624,14 +652,16 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
     // 1. Check actual bookings
     for (final booking in activeBookings) {
       final startHour = int.parse(booking.startTime.split(':')[0]);
-      final durationHours = {
-        VisitDuration.ONE_HOUR: 1,
-        VisitDuration.TWO_HOURS: 2,
-        VisitDuration.THREE_HOURS: 3,
-        VisitDuration.FOUR_HOURS: 4,
-        VisitDuration.FIVE_HOURS: 5,
-        VisitDuration.SIX_HOURS: 6,
-      }[booking.duration] ?? 2;
+      final durationHours =
+          {
+            VisitDuration.ONE_HOUR: 1,
+            VisitDuration.TWO_HOURS: 2,
+            VisitDuration.THREE_HOURS: 3,
+            VisitDuration.FOUR_HOURS: 4,
+            VisitDuration.FIVE_HOURS: 5,
+            VisitDuration.SIX_HOURS: 6,
+          }[booking.duration] ??
+          2;
 
       final endHour = startHour + durationHours;
 
@@ -736,81 +766,89 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
               ),
             )
           : _error != null
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.error_outline, size: 64, color: Colors.red.withValues(alpha: 0.5)),
-                      const SizedBox(height: 16),
-                      Text(_error!, style: const TextStyle(color: Colors.red)),
-                      const SizedBox(height: 16),
-                      ElevatedButton(
-                        onPressed: _loadBookings,
-                        child: const Text('Retry'),
-                      ),
-                    ],
+          ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.error_outline,
+                    size: 64,
+                    color: Colors.red.withValues(alpha: 0.5),
                   ),
-                )
-              : Column(
-                  children: [
-                    // Calendar container with fixed header and animated content
-                    Expanded(
-                      flex: _selectedTab == 'Year' ? 100 : 70,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: isDark ? Colors.black : Colors.white,
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        padding: EdgeInsets.only(left: _selectedTab == 'Year' ? 6 : 0, right: _selectedTab == 'Year' ? 6 : 12, top: 8, bottom: _selectedTab == 'Year' ? 0 : 12),
-                        child: Column(
-                          children: [
-                            // FIXED HEADER - stays the same for both views
-                            _buildCalendarHeader(isDark),
-                            SizedBox(height: _selectedTab == 'Year' ? 4 : 12),
-                            // CONTENT - cached views with smooth fade in
-                            Expanded(
-                              child: TweenAnimationBuilder<double>(
-                                key: ValueKey(_selectedTab),
-                                duration: const Duration(milliseconds: 250),
-                                curve: Curves.easeInOut,
-                                tween: Tween(begin: 0.0, end: 1.0),
-                                builder: (context, opacity, child) {
-                                  return Opacity(
-                                    opacity: opacity,
-                                    child: child,
-                                  );
-                                },
-                                child: IndexedStack(
-                                  index: _selectedTab == 'Month' ? 0 : 1,
-                                  children: [
-                                    _buildMonthContent(isDark, authProvider),
-                                    _buildYearContent(isDark, authProvider),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
+                  const SizedBox(height: 16),
+                  Text(_error!, style: const TextStyle(color: Colors.red)),
+                  const SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: _loadBookings,
+                    child: const Text('Retry'),
+                  ),
+                ],
+              ),
+            )
+          : Column(
+              children: [
+                // Calendar container with fixed header and animated content
+                Expanded(
+                  flex: _selectedTab == 'Year' ? 100 : 70,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: isDark ? Colors.black : Colors.white,
+                      borderRadius: BorderRadius.circular(16),
                     ),
-                    // Events section - only visible in Month view
-                    if (_selectedTab != 'Year') ...[
-                      const SizedBox(height: 12),
-                      Expanded(
-                        flex: 30,
-                        child: _buildEventsSection(isDark, isMobile, isUserRole),
-                      ),
-                    ],
-                  ],
+                    padding: EdgeInsets.only(
+                      left: _selectedTab == 'Year' ? 6 : 0,
+                      right: _selectedTab == 'Year' ? 6 : 12,
+                      top: 8,
+                      bottom: _selectedTab == 'Year' ? 0 : 12,
+                    ),
+                    child: Column(
+                      children: [
+                        // FIXED HEADER - stays the same for both views
+                        _buildCalendarHeader(isDark),
+                        SizedBox(height: _selectedTab == 'Year' ? 4 : 12),
+                        // CONTENT - cached views with smooth fade in
+                        Expanded(
+                          child: TweenAnimationBuilder<double>(
+                            key: ValueKey(_selectedTab),
+                            duration: const Duration(milliseconds: 250),
+                            curve: Curves.easeInOut,
+                            tween: Tween(begin: 0.0, end: 1.0),
+                            builder: (context, opacity, child) {
+                              return Opacity(opacity: opacity, child: child);
+                            },
+                            child: IndexedStack(
+                              index: _selectedTab == 'Month' ? 0 : 1,
+                              children: [
+                                _buildMonthContent(isDark, authProvider),
+                                _buildYearContent(isDark, authProvider),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
+                // Events section - only visible in Month view
+                if (_selectedTab != 'Year') ...[
+                  const SizedBox(height: 12),
+                  Expanded(
+                    flex: 30,
+                    child: _buildEventsSection(isDark, isMobile, isUserRole),
+                  ),
+                ],
+              ],
+            ),
     );
 
     final wrapped = widget.skipLayout ? content : AppLayout(child: content);
 
     // Determine if FAB should be shown
     final userRole = authProvider.user?.role;
-    final isManagerOrAdmin = userRole == UserRole.MANAGER || userRole == UserRole.ADMIN;
-    final canCreateBooking = widget.onDaySelected == null &&
+    final isManagerOrAdmin =
+        userRole == UserRole.MANAGER || userRole == UserRole.ADMIN;
+    final canCreateBooking =
+        widget.onDaySelected == null &&
         _selectedDate != null &&
         _isDateBookable(_selectedDate!) &&
         (isManagerOrAdmin || _getAvailableSlots(_selectedDate!).isNotEmpty) &&
@@ -820,8 +858,7 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
       children: [
         wrapped,
         // Cancel confirmation dialog
-        if (_showCancelDialog)
-          _buildCancelDialog(isDark),
+        if (_showCancelDialog) _buildCancelDialog(isDark),
         // Floating Action Button for creating new events - hidden in Year view
         if (canCreateBooking)
           Positioned(
@@ -852,113 +889,136 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-        // Calendar icon + date label with animated transition
-        Row(
-          children: [
-            Icon(
-              Icons.calendar_today,
-              size: 18,
-              color: isDark ? Colors.white : Colors.black,
-            ),
-            const SizedBox(width: 8),
-            AnimatedSwitcher(
-              duration: const Duration(milliseconds: 300),
-              transitionBuilder: (Widget child, Animation<double> animation) {
-                return FadeTransition(
-                  opacity: animation,
-                  child: SlideTransition(
-                    position: Tween<Offset>(
-                      begin: const Offset(0.0, -0.3),
-                      end: Offset.zero,
-                    ).animate(CurvedAnimation(
-                      parent: animation,
-                      curve: Curves.easeOutCubic,
-                    )),
-                    child: child,
-                  ),
-                );
-              },
-              child: Text(
-                _selectedTab == 'Year'
-                    ? DateFormat('yyyy').format(_currentMonth)
-                    : DateFormat('yyyy/MM').format(_currentMonth),
-                key: ValueKey('${_selectedTab}_${DateFormat(_selectedTab == 'Year' ? 'yyyy' : 'yyyy/MM').format(_currentMonth)}'),
-                style: TextStyle(
-                  fontFamily: 'BasisGrotesquePro',
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                  color: isDark ? Colors.white : Colors.black,
-                ),
+          // Calendar icon + date label with animated transition
+          Row(
+            children: [
+              Icon(
+                Icons.calendar_today,
+                size: 18,
+                color: isDark ? Colors.white : Colors.black,
               ),
-            ),
-          ],
-        ),
-        // Month/Year tabs
-        Row(
-          children: [
-            GestureDetector(
-              onTap: () => setState(() => _selectedTab = 'Month'),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                decoration: BoxDecoration(
-                  color: _selectedTab == 'Month'
-                      ? (isDark ? const Color(0xFF1F1F1F) : const Color(0xFFF5F5F5))
-                      : Colors.transparent,
-                  borderRadius: const BorderRadius.only(
-                    topLeft: Radius.circular(4),
-                    bottomLeft: Radius.circular(4),
-                  ),
-                  border: Border.all(
-                    color: isDark ? Colors.white.withValues(alpha: 0.2) : Colors.black.withValues(alpha: 0.2),
-                    width: 1,
-                  ),
-                ),
+              const SizedBox(width: 8),
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 300),
+                transitionBuilder: (Widget child, Animation<double> animation) {
+                  return FadeTransition(
+                    opacity: animation,
+                    child: SlideTransition(
+                      position:
+                          Tween<Offset>(
+                            begin: const Offset(0.0, -0.3),
+                            end: Offset.zero,
+                          ).animate(
+                            CurvedAnimation(
+                              parent: animation,
+                              curve: Curves.easeOutCubic,
+                            ),
+                          ),
+                      child: child,
+                    ),
+                  );
+                },
                 child: Text(
-                  'Month',
+                  _selectedTab == 'Year'
+                      ? DateFormat('yyyy').format(_currentMonth)
+                      : DateFormat('yyyy/MM').format(_currentMonth),
+                  key: ValueKey(
+                    '${_selectedTab}_${DateFormat(_selectedTab == 'Year' ? 'yyyy' : 'yyyy/MM').format(_currentMonth)}',
+                  ),
                   style: TextStyle(
                     fontFamily: 'BasisGrotesquePro',
-                    fontSize: 11,
+                    fontSize: 16,
                     fontWeight: FontWeight.w700,
+                    color: isDark ? Colors.white : Colors.black,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          // Month/Year tabs
+          Row(
+            children: [
+              GestureDetector(
+                onTap: () => setState(() => _selectedTab = 'Month'),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
                     color: _selectedTab == 'Month'
-                        ? (isDark ? Colors.white : Colors.black)
-                        : (isDark ? Colors.white.withValues(alpha: 0.5) : Colors.black.withValues(alpha: 0.5)),
+                        ? (isDark
+                              ? const Color(0xFF1F1F1F)
+                              : const Color(0xFFF5F5F5))
+                        : Colors.transparent,
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(4),
+                      bottomLeft: Radius.circular(4),
+                    ),
+                    border: Border.all(
+                      color: isDark
+                          ? Colors.white.withValues(alpha: 0.2)
+                          : Colors.black.withValues(alpha: 0.2),
+                      width: 1,
+                    ),
+                  ),
+                  child: Text(
+                    'Month',
+                    style: TextStyle(
+                      fontFamily: 'BasisGrotesquePro',
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: _selectedTab == 'Month'
+                          ? (isDark ? Colors.white : Colors.black)
+                          : (isDark
+                                ? Colors.white.withValues(alpha: 0.5)
+                                : Colors.black.withValues(alpha: 0.5)),
+                    ),
                   ),
                 ),
               ),
-            ),
-            GestureDetector(
-              onTap: () => setState(() => _selectedTab = 'Year'),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                decoration: BoxDecoration(
-                  color: _selectedTab == 'Year'
-                      ? (isDark ? const Color(0xFF1F1F1F) : const Color(0xFFF5F5F5))
-                      : Colors.transparent,
-                  borderRadius: const BorderRadius.only(
-                    topRight: Radius.circular(4),
-                    bottomRight: Radius.circular(4),
+              GestureDetector(
+                onTap: () => setState(() => _selectedTab = 'Year'),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 4,
                   ),
-                  border: Border.all(
-                    color: isDark ? Colors.white.withValues(alpha: 0.2) : Colors.black.withValues(alpha: 0.2),
-                    width: 1,
-                  ),
-                ),
-                child: Text(
-                  'Year',
-                  style: TextStyle(
-                    fontFamily: 'BasisGrotesquePro',
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
+                  decoration: BoxDecoration(
                     color: _selectedTab == 'Year'
-                        ? (isDark ? Colors.white : Colors.black)
-                        : (isDark ? Colors.white.withValues(alpha: 0.5) : Colors.black.withValues(alpha: 0.5)),
+                        ? (isDark
+                              ? const Color(0xFF1F1F1F)
+                              : const Color(0xFFF5F5F5))
+                        : Colors.transparent,
+                    borderRadius: const BorderRadius.only(
+                      topRight: Radius.circular(4),
+                      bottomRight: Radius.circular(4),
+                    ),
+                    border: Border.all(
+                      color: isDark
+                          ? Colors.white.withValues(alpha: 0.2)
+                          : Colors.black.withValues(alpha: 0.2),
+                      width: 1,
+                    ),
+                  ),
+                  child: Text(
+                    'Year',
+                    style: TextStyle(
+                      fontFamily: 'BasisGrotesquePro',
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: _selectedTab == 'Year'
+                          ? (isDark ? Colors.white : Colors.black)
+                          : (isDark
+                                ? Colors.white.withValues(alpha: 0.5)
+                                : Colors.black.withValues(alpha: 0.5)),
+                    ),
                   ),
                 ),
               ),
-            ),
-          ],
-        ),
-      ],
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -973,7 +1033,9 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
       child: PageView.builder(
         controller: _pageController,
         scrollDirection: Axis.vertical,
-        physics: const PageScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+        physics: const PageScrollPhysics(
+          parent: AlwaysScrollableScrollPhysics(),
+        ),
         padEnds: false,
         pageSnapping: true,
         allowImplicitScrolling: true,
@@ -1011,8 +1073,20 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
 
   /// Year view content (without header)
   Widget _buildYearContent(bool isDark, AuthProvider authProvider) {
-    final monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-                        'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    final monthNames = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
 
     return ScrollConfiguration(
       key: const ValueKey('year-content'),
@@ -1022,7 +1096,9 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
       child: PageView.builder(
         controller: _yearPageController,
         scrollDirection: Axis.vertical,
-        physics: const PageScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+        physics: const PageScrollPhysics(
+          parent: AlwaysScrollableScrollPhysics(),
+        ),
         padEnds: false,
         pageSnapping: true,
         allowImplicitScrolling: true,
@@ -1031,7 +1107,11 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
             _currentYearPage = page;
             final yearOffset = page - 10;
             final now = DateTime.now();
-            _currentMonth = DateTime(now.year + yearOffset, _currentMonth.month, 1);
+            _currentMonth = DateTime(
+              now.year + yearOffset,
+              _currentMonth.month,
+              1,
+            );
           });
         },
         itemBuilder: (context, index) {
@@ -1049,7 +1129,12 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
 
           return _KeepAlivePage(
             child: Padding(
-              padding: const EdgeInsets.only(top: 2, bottom: 0, left: 6, right: 6),
+              padding: const EdgeInsets.only(
+                top: 2,
+                bottom: 0,
+                left: 6,
+                right: 6,
+              ),
               child: _yearGridCache[cacheKey]!,
             ),
           );
@@ -1061,7 +1146,12 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
   /// Year view showing all 12 months in a grid with vertical scroll between years
 
   /// Build grid of 12 months for a specific year
-  Widget _buildYearGrid(int year, List<String> monthNames, bool isDark, AuthProvider authProvider) {
+  Widget _buildYearGrid(
+    int year,
+    List<String> monthNames,
+    bool isDark,
+    AuthProvider authProvider,
+  ) {
     return LayoutBuilder(
       builder: (context, constraints) {
         final isNarrow = constraints.maxWidth < 500;
@@ -1076,18 +1166,25 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
               child: Padding(
                 padding: EdgeInsets.symmetric(vertical: isNarrow ? 1.0 : 4.0),
                 child: Row(
-                children: List.generate(columns, (colIndex) {
-                  final monthIndex = rowIndex * columns + colIndex;
-                  if (monthIndex >= 12) return const Expanded(child: SizedBox());
-                  final month = DateTime(year, monthIndex + 1, 1);
-                  return Expanded(
-                    child: Padding(
-                      padding: EdgeInsets.symmetric(horizontal: hGap),
-                      child: _buildCompactMonthForYear(month, monthNames[monthIndex], isDark, authProvider),
-                    ),
-                  );
-                }),
-              ),
+                  children: List.generate(columns, (colIndex) {
+                    final monthIndex = rowIndex * columns + colIndex;
+                    if (monthIndex >= 12) {
+                      return const Expanded(child: SizedBox());
+                    }
+                    final month = DateTime(year, monthIndex + 1, 1);
+                    return Expanded(
+                      child: Padding(
+                        padding: EdgeInsets.symmetric(horizontal: hGap),
+                        child: _buildCompactMonthForYear(
+                          month,
+                          monthNames[monthIndex],
+                          isDark,
+                          authProvider,
+                        ),
+                      ),
+                    );
+                  }),
+                ),
               ),
             );
           }),
@@ -1097,13 +1194,19 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
   }
 
   /// Build a compact month calendar for year view
-  Widget _buildCompactMonthForYear(DateTime month, String monthName, bool isDark, AuthProvider authProvider) {
+  Widget _buildCompactMonthForYear(
+    DateTime month,
+    String monthName,
+    bool isDark,
+    AuthProvider authProvider,
+  ) {
     final today = DateTime.now();
     final firstDayOfMonth = DateTime(month.year, month.month, 1);
     final lastDayOfMonth = DateTime(month.year, month.month + 1, 0);
     final firstWeekday = firstDayOfMonth.weekday % 7; // 0 = Sunday
     final daysInMonth = lastDayOfMonth.day;
-    final isCurrentMonth = month.year == today.year && month.month == today.month;
+    final isCurrentMonth =
+        month.year == today.year && month.month == today.month;
 
     final isNarrow = MediaQuery.of(context).size.width < 500;
 
@@ -1142,8 +1245,13 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
                     }
 
                     final day = DateTime(month.year, month.month, dayNumber);
-                    final isToday = day.year == today.year && day.month == today.month && day.day == today.day;
-                    final isPast = day.isBefore(DateTime(today.year, today.month, today.day));
+                    final isToday =
+                        day.year == today.year &&
+                        day.month == today.month &&
+                        day.day == today.day;
+                    final isPast = day.isBefore(
+                      DateTime(today.year, today.month, today.day),
+                    );
                     final dayBookings = _getBookingsForDay(day);
                     final availableSlots = _getAvailableSlots(day);
                     final isBookable = _isDateBookable(day);
@@ -1152,43 +1260,63 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
                     bool morningOccupied = false;
                     bool afternoonOccupied = false;
 
-                    final confirmedBookings = dayBookings.where((b) => b.status == BookingStatus.APPROVED).toList();
+                    final confirmedBookings = dayBookings
+                        .where((b) => b.status == BookingStatus.APPROVED)
+                        .toList();
                     for (final booking in confirmedBookings) {
-                      final startHour = int.parse(booking.startTime.split(':')[0]);
+                      final startHour = int.parse(
+                        booking.startTime.split(':')[0],
+                      );
                       if (startHour < 13) morningOccupied = true;
                       if (startHour >= 13) afternoonOccupied = true;
                     }
 
                     final isFull = morningOccupied && afternoonOccupied;
-                    final isPartial = (morningOccupied || afternoonOccupied) && !isFull;
+                    final isPartial =
+                        (morningOccupied || afternoonOccupied) && !isFull;
                     final hasAvailableSlots = availableSlots.isNotEmpty;
 
                     Color? indicatorColor;
                     // Only show indicator for bookable future days with available slots
                     if (isBookable && !isPast && hasAvailableSlots) {
                       if (isPartial) {
-                        indicatorColor = const Color(0xFFF05E1B); // Ember for partial
+                        indicatorColor = const Color(
+                          0xFFF05E1B,
+                        ); // Ember for partial
                       } else {
-                        indicatorColor = const Color(0xFF10B981); // Green for fully available
+                        indicatorColor = const Color(
+                          0xFF10B981,
+                        ); // Green for fully available
                       }
                     }
 
                     return Expanded(
                       child: GestureDetector(
-                        onTap: (isBookable && !isPast && hasAvailableSlots) ? () {
-                          // Zoom in to this month and select this day - only if clickable
-                          setState(() {
-                            _selectedTab = 'Month';
-                            _selectedDate = day;
-                            _currentMonth = DateTime(day.year, day.month, 1);
-                            // Navigate PageView to this month
-                            final now = DateTime.now();
-                            final monthOffset = (day.year - now.year) * 12 + (day.month - now.month);
-                            _pageController.jumpToPage(12 + monthOffset);
-                          });
-                        } : null,
+                        onTap: (isBookable && !isPast && hasAvailableSlots)
+                            ? () {
+                                // Zoom in to this month and select this day - only if clickable
+                                setState(() {
+                                  _selectedTab = 'Month';
+                                  _selectedDate = day;
+                                  _currentMonth = DateTime(
+                                    day.year,
+                                    day.month,
+                                    1,
+                                  );
+                                  // Navigate PageView to this month
+                                  final now = DateTime.now();
+                                  final monthOffset =
+                                      (day.year - now.year) * 12 +
+                                      (day.month - now.month);
+                                  _pageController.jumpToPage(12 + monthOffset);
+                                });
+                              }
+                            : null,
                         child: Container(
-                          margin: EdgeInsets.symmetric(horizontal: isNarrow ? 2.5 : 1.5, vertical: isNarrow ? 3.5 : 1.5),
+                          margin: EdgeInsets.symmetric(
+                            horizontal: isNarrow ? 2.5 : 1.5,
+                            vertical: isNarrow ? 3.5 : 1.5,
+                          ),
                           child: LayoutBuilder(
                             builder: (context, constraints) {
                               return Stack(
@@ -1200,15 +1328,24 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
                                       '$dayNumber',
                                       style: TextStyle(
                                         fontFamily: 'BasisGrotesquePro',
-                                        fontSize: (constraints.maxHeight * 0.55).clamp(8.0, 11.0),
+                                        fontSize: (constraints.maxHeight * 0.55)
+                                            .clamp(8.0, 11.0),
                                         height: 1.0,
                                         letterSpacing: 0,
-                                        fontWeight: isToday ? FontWeight.w700 : FontWeight.w600,
+                                        fontWeight: isToday
+                                            ? FontWeight.w700
+                                            : FontWeight.w600,
                                         color: isToday
                                             ? const Color(0xFFF05E1B)
-                                            : !isBookable || isPast || !hasAvailableSlots
-                                                ? (isDark ? const Color(0xFF666666) : const Color(0xFFD1D5DB))
-                                                : (isDark ? Colors.white : Colors.black),
+                                            : !isBookable ||
+                                                  isPast ||
+                                                  !hasAvailableSlots
+                                            ? (isDark
+                                                  ? const Color(0xFF666666)
+                                                  : const Color(0xFFD1D5DB))
+                                            : (isDark
+                                                  ? Colors.white
+                                                  : Colors.black),
                                       ),
                                     ),
                                   ),
@@ -1217,14 +1354,18 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
                                     Positioned(
                                       left: 0,
                                       right: 0,
-                                      top: constraints.maxHeight / 2 + (isNarrow ? 7 : 6),
+                                      top:
+                                          constraints.maxHeight / 2 +
+                                          (isNarrow ? 7 : 6),
                                       child: Center(
                                         child: Container(
                                           width: isNarrow ? 7 : 10,
                                           height: isNarrow ? 1.0 : 1.5,
                                           decoration: BoxDecoration(
                                             color: indicatorColor,
-                                            borderRadius: BorderRadius.circular(0.75),
+                                            borderRadius: BorderRadius.circular(
+                                              0.75,
+                                            ),
                                           ),
                                         ),
                                       ),
@@ -1247,7 +1388,11 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
   }
 
   /// Helper method to build the month grid for a specific month
-  Widget _buildMonthGrid(DateTime month, bool isDark, AuthProvider authProvider) {
+  Widget _buildMonthGrid(
+    DateTime month,
+    bool isDark,
+    AuthProvider authProvider,
+  ) {
     final today = DateTime.now();
     final firstDayOfMonth = DateTime(month.year, month.month, 1);
     final lastDayOfMonth = DateTime(month.year, month.month + 1, 0);
@@ -1262,269 +1407,321 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
         SizedBox(
           height: 24,
           child: Row(
-            children: weekDays.map((day) => Expanded(
-              child: Center(
-                child: Text(
-                  day,
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: isDark ? Colors.white.withValues(alpha: 0.5) : Colors.black.withValues(alpha: 0.5),
-                    fontFamily: 'BasisGrotesquePro',
+            children: weekDays
+                .map(
+                  (day) => Expanded(
+                    child: Center(
+                      child: Text(
+                        day,
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: isDark
+                              ? Colors.white.withValues(alpha: 0.5)
+                              : Colors.black.withValues(alpha: 0.5),
+                          fontFamily: 'BasisGrotesquePro',
+                        ),
+                      ),
+                    ),
                   ),
-                ),
-              ),
-            )).toList(),
+                )
+                .toList(),
           ),
         ),
         const SizedBox(height: 8),
         // Calendar grid
         ...List.generate(5, (weekIndex) {
-        return Expanded(
-          child: Row(
-            children: List.generate(7, (dayIndex) {
-              final cellIndex = weekIndex * 7 + dayIndex;
-              final dayNumber = cellIndex - firstWeekday + 1;
+          return Expanded(
+            child: Row(
+              children: List.generate(7, (dayIndex) {
+                final cellIndex = weekIndex * 7 + dayIndex;
+                final dayNumber = cellIndex - firstWeekday + 1;
 
-              // Only show days from current month
-              if (dayNumber < 1 || dayNumber > daysInMonth) {
-                return const Expanded(child: SizedBox());
-              }
-
-              final day = DateTime(month.year, month.month, dayNumber);
-              final isToday = day.year == today.year && day.month == today.month && day.day == today.day;
-              final isSelected = _selectedDate != null &&
-                  _selectedDate!.year == day.year &&
-                  _selectedDate!.month == day.month &&
-                  _selectedDate!.day == day.day;
-
-              if (isSelected) {
-              }
-
-              final dayBookings = _getBookingsForDay(day);
-
-              // Check for pending vs confirmed bookings
-              final hasPendingBookings = dayBookings.any((b) => b.status == BookingStatus.UNDER_REVIEW || b.status == BookingStatus.CREATED || b.status == BookingStatus.NEED_EDIT || b.status == BookingStatus.NEED_RESCHEDULE);
-              final hasConfirmedBookings = dayBookings.any((b) => b.status == BookingStatus.APPROVED);
-
-              // Only APPROVED bookings block periods
-              final confirmedBookings = dayBookings.where((b) =>
-                b.status == BookingStatus.APPROVED
-              ).toList();
-
-              // Check if day is bookable (past or before minimum 7 business days)
-              final isBookable = _isDateBookable(day);
-
-              // Calculate period occupation for better color logic
-              // Only APPROVED bookings occupy periods
-              bool morningOccupied = false;
-              bool afternoonOccupied = false;
-
-              // 1. Check APPROVED bookings only
-              for (final booking in confirmedBookings) {
-                final startHour = int.parse(booking.startTime.split(':')[0]);
-                final durationHours = {
-                  VisitDuration.ONE_HOUR: 1,
-                  VisitDuration.TWO_HOURS: 2,
-                  VisitDuration.THREE_HOURS: 3,
-                  VisitDuration.FOUR_HOURS: 4,
-                  VisitDuration.FIVE_HOURS: 5,
-                  VisitDuration.SIX_HOURS: 6,
-                }[booking.duration] ?? 2;
-                final endHour = startHour + durationHours;
-
-                if (startHour < 13 && endHour > 9) morningOccupied = true;
-                if (startHour < 17 && endHour > 13) afternoonOccupied = true;
-              }
-
-              // 2. Check Innovation Exchange prep/teardown blocks
-              final ieBlocks = _calculateInnovationExchangeBlocks();
-              final dayStr = DateFormat('yyyy-MM-dd').format(day);
-              if (ieBlocks.containsKey(dayStr)) {
-                if (ieBlocks[dayStr]!['morning'] == true) morningOccupied = true;
-                if (ieBlocks[dayStr]!['afternoon'] == true) afternoonOccupied = true;
-              }
-
-              final isFull = morningOccupied && afternoonOccupied;
-              final hasAnyOccupation = morningOccupied || afternoonOccupied;
-
-              // Check if day is weekend (Saturday or Sunday)
-              final isWeekend = _isWeekend(day);
-
-              // Determine indicator color based on booking status and availability
-              // Show indicators for ALL days (even non-bookable) to visualize occupation
-              // BUT: Never show indicators on weekends (they're not countable days)
-              Color? indicatorColor;
-
-              // Only calculate indicator if NOT weekend
-              if (!isWeekend) {
-                // Calculate base color regardless of bookability
-                if (hasPendingBookings && !hasConfirmedBookings) {
-                  // Only pending bookings - orange
-                  indicatorColor = const Color(0xFFF59E0B); // Orange - pending approval
-                } else if (isFull) {
-                  // Both periods occupied (bookings OR IE blocks) - 100% full
-                  // NO DOT for full days - they will be greyed out via opacity below
-                  indicatorColor = null; // No indicator for full days
-                } else if (!hasAnyOccupation && dayBookings.isEmpty && isBookable) {
-                  // No bookings AND no IE blocks at all AND is bookable
-                  // Only show green dot on days that are actually available for booking
-                  indicatorColor = const Color(0xFF10B981); // Green - available, no bookings
-                } else if (hasAnyOccupation) {
-                  // Has bookings OR IE blocks but NOT full - Ember (partial)
-                  indicatorColor = const Color(0xFFF05E1B); // Ember - partial (has bookings/blocks but slots available)
+                // Only show days from current month
+                if (dayNumber < 1 || dayNumber > daysInMonth) {
+                  return const Expanded(child: SizedBox());
                 }
 
-                // If not bookable (disabled day), apply darker tone to other indicators
-                if (indicatorColor != null && !isBookable) {
-                  indicatorColor = indicatorColor.withValues(alpha: 0.4);
+                final day = DateTime(month.year, month.month, dayNumber);
+                final isToday =
+                    day.year == today.year &&
+                    day.month == today.month &&
+                    day.day == today.day;
+                final isSelected =
+                    _selectedDate != null &&
+                    _selectedDate!.year == day.year &&
+                    _selectedDate!.month == day.month &&
+                    _selectedDate!.day == day.day;
+
+                if (isSelected) {}
+
+                final dayBookings = _getBookingsForDay(day);
+
+                // Check for pending vs confirmed bookings
+                final hasPendingBookings = dayBookings.any(
+                  (b) =>
+                      b.status == BookingStatus.UNDER_REVIEW ||
+                      b.status == BookingStatus.CREATED ||
+                      b.status == BookingStatus.NEED_EDIT ||
+                      b.status == BookingStatus.NEED_RESCHEDULE,
+                );
+                final hasConfirmedBookings = dayBookings.any(
+                  (b) => b.status == BookingStatus.APPROVED,
+                );
+
+                // Only APPROVED bookings block periods
+                final confirmedBookings = dayBookings
+                    .where((b) => b.status == BookingStatus.APPROVED)
+                    .toList();
+
+                // Check if day is bookable (past or before minimum 7 business days)
+                final isBookable = _isDateBookable(day);
+
+                // Calculate period occupation for better color logic
+                // Only APPROVED bookings occupy periods
+                bool morningOccupied = false;
+                bool afternoonOccupied = false;
+
+                // 1. Check APPROVED bookings only
+                for (final booking in confirmedBookings) {
+                  final startHour = int.parse(booking.startTime.split(':')[0]);
+                  final durationHours =
+                      {
+                        VisitDuration.ONE_HOUR: 1,
+                        VisitDuration.TWO_HOURS: 2,
+                        VisitDuration.THREE_HOURS: 3,
+                        VisitDuration.FOUR_HOURS: 4,
+                        VisitDuration.FIVE_HOURS: 5,
+                        VisitDuration.SIX_HOURS: 6,
+                      }[booking.duration] ??
+                      2;
+                  final endHour = startHour + durationHours;
+
+                  if (startHour < 13 && endHour > 9) morningOccupied = true;
+                  if (startHour < 17 && endHour > 13) afternoonOccupied = true;
                 }
-              }
 
-              // Allow ADMIN/MANAGER to click on disabled days to view events
-              // But full days are unclickable for everyone (unless ADMIN/MANAGER)
-              final canClickDay = (isBookable && !isFull) ||
-                (authProvider.user?.role == UserRole.ADMIN ||
-                 authProvider.user?.role == UserRole.MANAGER);
-
-              // Determine availability label
-              String? availabilityLabel;
-              Color? availabilityColor;
-              if (!isWeekend && isBookable) {
-                if (hasPendingBookings && !hasConfirmedBookings) {
-                  availabilityLabel = 'Pending';
-                  availabilityColor = const Color(0xFFF05E1B);
-                } else if (!hasAnyOccupation && dayBookings.isEmpty) {
-                  availabilityLabel = 'Available';
-                  availabilityColor = const Color(0xFF10B981);
-                } else if (hasAnyOccupation && !isFull) {
-                  availabilityLabel = 'Partial';
-                  availabilityColor = const Color(0xFFF05E1B);
+                // 2. Check Innovation Exchange prep/teardown blocks
+                final ieBlocks = _calculateInnovationExchangeBlocks();
+                final dayStr = DateFormat('yyyy-MM-dd').format(day);
+                if (ieBlocks.containsKey(dayStr)) {
+                  if (ieBlocks[dayStr]!['morning'] == true) {
+                    morningOccupied = true;
+                  }
+                  if (ieBlocks[dayStr]!['afternoon'] == true) {
+                    afternoonOccupied = true;
+                  }
                 }
-              }
 
-              return Expanded(
-                child: GestureDetector(
-                  onTap: canClickDay ? () {
-                    if (widget.onDaySelected != null) {
-                      widget.onDaySelected!(day);
-                      return;
-                    }
-                    setState(() {
-                      _selectedDate = day;
-                      _monthGridCache.clear();
-                    });
-                  } : null,
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 180),
-                    curve: Curves.easeOutQuad,
-                    margin: const EdgeInsets.all(1),
-                    decoration: BoxDecoration(
-                      color: Colors.transparent, // No background color for today
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: LayoutBuilder(
-                      builder: (context, constraints) {
-                        return Stack(
-                          clipBehavior: Clip.none,
-                          children: [
-                            // Number - centered
-                            Positioned.fill(
-                              child: Align(
-                                alignment: Alignment.center,
-                                child: TweenAnimationBuilder<double>(
-                                  duration: const Duration(milliseconds: 180),
-                                  curve: Curves.easeOutQuad,
-                                  tween: Tween(begin: 1.0, end: isSelected ? 1.10 : 1.0),
-                                  builder: (context, scale, child) {
-                                    return Transform.scale(
-                                      scale: scale,
-                                      child: Text(
-                                        '$dayNumber',
-                                        style: TextStyle(
-                                          fontSize: 25,
-                                          fontWeight: FontWeight.bold,
-                                          color: !isBookable || isFull
-                                              ? (isDark ? const Color(0xFF666666) : const Color(0xFFD1D5DB))
-                                              : (isDark ? Colors.white : Colors.black),
-                                        ),
-                                      ),
-                                    );
-                                  },
-                                ),
-                              ),
-                            ),
-                            // Current day indicator - permanent line with lighter color
-                            if (isToday)
-                              Positioned(
-                                left: 0,
-                                right: 0,
-                                top: constraints.maxHeight / 2 + 6,
-                                child: Center(
-                                  child: Container(
-                                    width: 32,
-                                    height: 6.5,
-                                    color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.25),
-                                  ),
-                                ),
-                              ),
-                            // Selection indicator - animated line on top of current day indicator
-                            if (isSelected)
-                              Positioned(
-                                left: 0,
-                                right: 0,
-                                top: constraints.maxHeight / 2 + 6,
-                                child: Center(
-                                  child: SizedBox(
-                                    width: 32,
-                                    height: 6.5,
-                                    child: TweenAnimationBuilder<double>(
-                                      key: ValueKey('underline_$dayNumber'),
-                                      duration: const Duration(milliseconds: 300),
-                                      curve: Curves.easeOutCubic,
-                                      tween: Tween(begin: 0.0, end: 1.0),
-                                      builder: (context, progress, child) {
-                                        return Align(
-                                          alignment: Alignment.centerLeft,
-                                          child: Container(
-                                            width: 32 * progress,
-                                            height: 6.5,
-                                            color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.65 * progress),
+                final isFull = morningOccupied && afternoonOccupied;
+                final hasAnyOccupation = morningOccupied || afternoonOccupied;
+
+                // Check if day is weekend (Saturday or Sunday)
+                final isWeekend = _isWeekend(day);
+
+                // Determine indicator color based on booking status and availability
+                // Show indicators for ALL days (even non-bookable) to visualize occupation
+                // BUT: Never show indicators on weekends (they're not countable days)
+                Color? indicatorColor;
+
+                // Only calculate indicator if NOT weekend
+                if (!isWeekend) {
+                  // Calculate base color regardless of bookability
+                  if (hasPendingBookings && !hasConfirmedBookings) {
+                    // Only pending bookings - orange
+                    indicatorColor = const Color(
+                      0xFFF59E0B,
+                    ); // Orange - pending approval
+                  } else if (isFull) {
+                    // Both periods occupied (bookings OR IE blocks) - 100% full
+                    // NO DOT for full days - they will be greyed out via opacity below
+                    indicatorColor = null; // No indicator for full days
+                  } else if (!hasAnyOccupation &&
+                      dayBookings.isEmpty &&
+                      isBookable) {
+                    // No bookings AND no IE blocks at all AND is bookable
+                    // Only show green dot on days that are actually available for booking
+                    indicatorColor = const Color(
+                      0xFF10B981,
+                    ); // Green - available, no bookings
+                  } else if (hasAnyOccupation) {
+                    // Has bookings OR IE blocks but NOT full - Ember (partial)
+                    indicatorColor = const Color(
+                      0xFFF05E1B,
+                    ); // Ember - partial (has bookings/blocks but slots available)
+                  }
+
+                  // If not bookable (disabled day), apply darker tone to other indicators
+                  if (indicatorColor != null && !isBookable) {
+                    indicatorColor = indicatorColor.withValues(alpha: 0.4);
+                  }
+                }
+
+                // Allow ADMIN/MANAGER to click on disabled days to view events
+                // But full days are unclickable for everyone (unless ADMIN/MANAGER)
+                final canClickDay =
+                    (isBookable && !isFull) ||
+                    (authProvider.user?.role == UserRole.ADMIN ||
+                        authProvider.user?.role == UserRole.MANAGER);
+
+                // Determine availability label
+                String? availabilityLabel;
+                Color? availabilityColor;
+                if (!isWeekend && isBookable) {
+                  if (hasPendingBookings && !hasConfirmedBookings) {
+                    availabilityLabel = 'Pending';
+                    availabilityColor = const Color(0xFFF05E1B);
+                  } else if (!hasAnyOccupation && dayBookings.isEmpty) {
+                    availabilityLabel = 'Available';
+                    availabilityColor = const Color(0xFF10B981);
+                  } else if (hasAnyOccupation && !isFull) {
+                    availabilityLabel = 'Partial';
+                    availabilityColor = const Color(0xFFF05E1B);
+                  }
+                }
+
+                return Expanded(
+                  child: GestureDetector(
+                    onTap: canClickDay
+                        ? () {
+                            if (widget.onDaySelected != null) {
+                              widget.onDaySelected!(day);
+                              return;
+                            }
+                            setState(() {
+                              _selectedDate = day;
+                              _monthGridCache.clear();
+                            });
+                          }
+                        : null,
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 180),
+                      curve: Curves.easeOutQuad,
+                      margin: const EdgeInsets.all(1),
+                      decoration: BoxDecoration(
+                        color:
+                            Colors.transparent, // No background color for today
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: LayoutBuilder(
+                        builder: (context, constraints) {
+                          return Stack(
+                            clipBehavior: Clip.none,
+                            children: [
+                              // Number - centered
+                              Positioned.fill(
+                                child: Align(
+                                  alignment: Alignment.center,
+                                  child: TweenAnimationBuilder<double>(
+                                    duration: const Duration(milliseconds: 180),
+                                    curve: Curves.easeOutQuad,
+                                    tween: Tween(
+                                      begin: 1.0,
+                                      end: isSelected ? 1.10 : 1.0,
+                                    ),
+                                    builder: (context, scale, child) {
+                                      return Transform.scale(
+                                        scale: scale,
+                                        child: Text(
+                                          '$dayNumber',
+                                          style: TextStyle(
+                                            fontSize: 25,
+                                            fontWeight: FontWeight.bold,
+                                            color: !isBookable || isFull
+                                                ? (isDark
+                                                      ? const Color(0xFF666666)
+                                                      : const Color(0xFFD1D5DB))
+                                                : (isDark
+                                                      ? Colors.white
+                                                      : Colors.black),
                                           ),
-                                        );
-                                      },
-                                    ),
+                                        ),
+                                      );
+                                    },
                                   ),
                                 ),
                               ),
-                            // Availability label - absolute overlay, anchored below indicators
-                            if (availabilityLabel != null)
-                              Positioned(
-                                left: 0,
-                                right: 0,
-                                top: constraints.maxHeight / 2 + 16,
-                                child: Center(
-                                  child: Text(
-                                    availabilityLabel,
-                                    style: TextStyle(
-                                      fontSize: 8,
-                                      fontWeight: FontWeight.w600,
-                                      color: availabilityColor,
+                              // Current day indicator - permanent line with lighter color
+                              if (isToday)
+                                Positioned(
+                                  left: 0,
+                                  right: 0,
+                                  top: constraints.maxHeight / 2 + 6,
+                                  child: Center(
+                                    child: Container(
+                                      width: 32,
+                                      height: 6.5,
+                                      color:
+                                          (isDark ? Colors.white : Colors.black)
+                                              .withValues(alpha: 0.25),
                                     ),
                                   ),
                                 ),
-                              ),
-                          ],
-                        );
-                      },
+                              // Selection indicator - animated line on top of current day indicator
+                              if (isSelected)
+                                Positioned(
+                                  left: 0,
+                                  right: 0,
+                                  top: constraints.maxHeight / 2 + 6,
+                                  child: Center(
+                                    child: SizedBox(
+                                      width: 32,
+                                      height: 6.5,
+                                      child: TweenAnimationBuilder<double>(
+                                        key: ValueKey('underline_$dayNumber'),
+                                        duration: const Duration(
+                                          milliseconds: 300,
+                                        ),
+                                        curve: Curves.easeOutCubic,
+                                        tween: Tween(begin: 0.0, end: 1.0),
+                                        builder: (context, progress, child) {
+                                          return Align(
+                                            alignment: Alignment.centerLeft,
+                                            child: Container(
+                                              width: 32 * progress,
+                                              height: 6.5,
+                                              color:
+                                                  (isDark
+                                                          ? Colors.white
+                                                          : Colors.black)
+                                                      .withValues(
+                                                        alpha: 0.65 * progress,
+                                                      ),
+                                            ),
+                                          );
+                                        },
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              // Availability label - absolute overlay, anchored below indicators
+                              if (availabilityLabel != null)
+                                Positioned(
+                                  left: 0,
+                                  right: 0,
+                                  top: constraints.maxHeight / 2 + 16,
+                                  child: Center(
+                                    child: Text(
+                                      availabilityLabel,
+                                      style: TextStyle(
+                                        fontSize: 8,
+                                        fontWeight: FontWeight.w600,
+                                        color: availabilityColor,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          );
+                        },
+                      ),
                     ),
                   ),
-                ),
-              );
-            }),
-          ),
-        );
-      }),
+                );
+              }),
+            ),
+          );
+        }),
       ],
     );
   }
@@ -1532,24 +1729,28 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
   Widget _buildEventsSection(bool isDark, bool isMobile, bool isUserRole) {
     if (_selectedDate == null) {
       return Container(
-        color: isDark ? Colors.black : Colors.white,  // Same as calendar background
+        color: isDark
+            ? Colors.black
+            : Colors.white, // Same as calendar background
         child: Center(
           child: Text(
             'Select a date',
-            style: TextStyle(
-              fontSize: 14,
-              color: const Color(0xFF6B7280),
-            ),
+            style: TextStyle(fontSize: 14, color: const Color(0xFF6B7280)),
           ),
         ),
       );
     }
 
     // For ADMIN/MANAGER: show only UNDER_REVIEW and APPROVED in events section below calendar
-    final bookingsList = _getBookingsForDay(_selectedDate!, filterForAdminManager: !isUserRole);
+    final bookingsList = _getBookingsForDay(
+      _selectedDate!,
+      filterForAdminManager: !isUserRole,
+    );
     final ieBlocks = _getIEBlocksForDay(_selectedDate!);
     final today = DateTime.now();
-    final isPast = _selectedDate!.isBefore(DateTime(today.year, today.month, today.day));
+    final isPast = _selectedDate!.isBefore(
+      DateTime(today.year, today.month, today.day),
+    );
 
     // Create combined and sorted list of events
     final combinedEvents = <Map<String, dynamic>>[];
@@ -1566,7 +1767,9 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
     // Add bookings with sortOrder based on time
     for (final booking in bookingsList) {
       final startHour = int.parse(booking.startTime.split(':')[0]);
-      final sortOrder = startHour < 13 ? '0' : '1'; // Morning = 0, Afternoon = 1
+      final sortOrder = startHour < 13
+          ? '0'
+          : '1'; // Morning = 0, Afternoon = 1
       combinedEvents.add({
         'type': 'booking',
         'data': booking,
@@ -1590,7 +1793,9 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
     });
 
     return Container(
-      color: isDark ? Colors.black : Colors.white,  // Same as calendar background, no border
+      color: isDark
+          ? Colors.black
+          : Colors.white, // Same as calendar background, no border
       padding: const EdgeInsets.all(12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1620,7 +1825,10 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
                   return FadeTransition(
                     opacity: animation,
                     child: ScaleTransition(
-                      scale: Tween<double>(begin: 0.9, end: 1.0).animate(animation),
+                      scale: Tween<double>(
+                        begin: 0.9,
+                        end: 1.0,
+                      ).animate(animation),
                       child: child,
                     ),
                   );
@@ -1638,43 +1846,55 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
                 }
               },
               child: combinedEvents.isEmpty
-                ? Center(
-                    key: const ValueKey('empty'),  // Same key for all empty states - no animation
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.event_busy,
-                          size: 48,
-                          color: isDark ? const Color(0xFF3F3F46) : const Color(0xFFD1D5DB),
-                        ),
-                        const SizedBox(height: 12),
-                        Text(
-                          isPast
-                            ? 'Past date'
-                            : 'No events',
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(
-                            fontSize: 13,
-                            color: Color(0xFF6B7280),
+                  ? Center(
+                      key: const ValueKey(
+                        'empty',
+                      ), // Same key for all empty states - no animation
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.event_busy,
+                            size: 48,
+                            color: isDark
+                                ? const Color(0xFF3F3F46)
+                                : const Color(0xFFD1D5DB),
                           ),
-                        ),
-                      ],
+                          const SizedBox(height: 12),
+                          Text(
+                            isPast ? 'Past date' : 'No events',
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              color: Color(0xFF6B7280),
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  : ListView.builder(
+                      key: ValueKey(
+                        'events_${_selectedDate!.toIso8601String()}',
+                      ),
+                      padding: EdgeInsets.zero,
+                      itemCount: combinedEvents.length,
+                      itemBuilder: (context, index) {
+                        final event = combinedEvents[index];
+                        if (event['type'] == 'block') {
+                          return _buildIEBlockCard(
+                            event['data'] as Map<String, String>,
+                            isDark,
+                            isUserRole,
+                          );
+                        } else {
+                          return _buildColorfulEventCard(
+                            event['data'] as Booking,
+                            isDark,
+                            isUserRole,
+                          );
+                        }
+                      },
                     ),
-                  )
-                : ListView.builder(
-                    key: ValueKey('events_${_selectedDate!.toIso8601String()}'),
-                    padding: EdgeInsets.zero,
-                    itemCount: combinedEvents.length,
-                    itemBuilder: (context, index) {
-                      final event = combinedEvents[index];
-                      if (event['type'] == 'block') {
-                        return _buildIEBlockCard(event['data'] as Map<String, String>, isDark, isUserRole);
-                      } else {
-                        return _buildColorfulEventCard(event['data'] as Booking, isDark, isUserRole);
-                      }
-                    },
-                  ),
             ),
           ),
         ],
@@ -1683,7 +1903,11 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
   }
 
   /// Build card for Innovation Exchange prep/teardown blocks
-  Widget _buildIEBlockCard(Map<String, String> block, bool isDark, bool isUserRole) {
+  Widget _buildIEBlockCard(
+    Map<String, String> block,
+    bool isDark,
+    bool isUserRole,
+  ) {
     // Simplify label for normal users
     final displayLabel = isUserRole ? 'Reserved' : block['label']!;
 
@@ -1736,7 +1960,9 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
                             style: TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.bold,
-                              color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
+                              color: isDark
+                                  ? const Color(0xFF9CA3AF)
+                                  : const Color(0xFF6B7280),
                             ),
                           ),
                           const SizedBox(height: 4),
@@ -1745,7 +1971,9 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
                             style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w500,
-                              color: isDark ? const Color(0xFF6B7280) : const Color(0xFF9CA3AF),
+                              color: isDark
+                                  ? const Color(0xFF6B7280)
+                                  : const Color(0xFF9CA3AF),
                             ),
                           ),
                         ],
@@ -1755,7 +1983,9 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
                     Icon(
                       Icons.lock_clock,
                       size: 18,
-                      color: isDark ? const Color(0xFF6B7280) : const Color(0xFF9CA3AF),
+                      color: isDark
+                          ? const Color(0xFF6B7280)
+                          : const Color(0xFF9CA3AF),
                     ),
                   ],
                 ),
@@ -1767,7 +1997,11 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
     );
   }
 
-  Widget _buildColorfulEventCard(Booking booking, bool isDark, bool isUserRole) {
+  Widget _buildColorfulEventCard(
+    Booking booking,
+    bool isDark,
+    bool isUserRole,
+  ) {
     // Get status color and label
     Color statusColor;
     String statusLabel;
@@ -1843,7 +2077,8 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
                   // Row with two columns
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    crossAxisAlignment: CrossAxisAlignment.center, // Center vertically
+                    crossAxisAlignment:
+                        CrossAxisAlignment.center, // Center vertically
                     children: [
                       // Left column: Company name / "Reserved" for users
                       Expanded(
@@ -1866,7 +2101,9 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
                               style: TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w500,
-                                color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
+                                color: isDark
+                                    ? const Color(0xFF9CA3AF)
+                                    : const Color(0xFF6B7280),
                               ),
                             ),
                           ],
@@ -1876,7 +2113,10 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
                       if (!isUserRole) ...[
                         const SizedBox(width: 12),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
                           decoration: BoxDecoration(
                             color: statusColor.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(4),
@@ -1905,7 +2145,9 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
                             booking.interestArea!,
                             style: TextStyle(
                               fontSize: 11,
-                              color: isDark ? const Color(0xFF6B7280) : const Color(0xFF9CA3AF),
+                              color: isDark
+                                  ? const Color(0xFF6B7280)
+                                  : const Color(0xFF9CA3AF),
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
@@ -1916,14 +2158,18 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
                           Icon(
                             Icons.people,
                             size: 12,
-                            color: isDark ? const Color(0xFF6B7280) : const Color(0xFF9CA3AF),
+                            color: isDark
+                                ? const Color(0xFF6B7280)
+                                : const Color(0xFF9CA3AF),
                           ),
                           const SizedBox(width: 2),
                           Text(
                             '${booking.expectedAttendees}',
                             style: TextStyle(
                               fontSize: 11,
-                              color: isDark ? const Color(0xFF6B7280) : const Color(0xFF9CA3AF),
+                              color: isDark
+                                  ? const Color(0xFF6B7280)
+                                  : const Color(0xFF9CA3AF),
                             ),
                           ),
                         ],
@@ -1945,10 +2191,7 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
       return Container(
         width: 10,
         height: 10,
-        decoration: BoxDecoration(
-          color: color,
-          shape: BoxShape.circle,
-        ),
+        decoration: BoxDecoration(color: color, shape: BoxShape.circle),
       );
     }
 
@@ -1987,8 +2230,6 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
 
   // Legacy status badge widget (kept for compatibility but no longer used)
 
-
-
   Widget _buildCancelDialog(bool isDark) {
     return Container(
       color: Colors.black54,
@@ -2017,7 +2258,9 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
                 'Are you sure you want to cancel this booking? This action cannot be undone.',
                 style: TextStyle(
                   fontSize: 14,
-                  color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
+                  color: isDark
+                      ? const Color(0xFF9CA3AF)
+                      : const Color(0xFF6B7280),
                 ),
               ),
               const SizedBox(height: 24),
@@ -2029,7 +2272,9 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
                     child: Text(
                       'No, keep it',
                       style: TextStyle(
-                        color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
+                        color: isDark
+                            ? const Color(0xFF9CA3AF)
+                            : const Color(0xFF6B7280),
                       ),
                     ),
                   ),
@@ -2063,7 +2308,7 @@ const List<String> SECTORS = [
   'Telecommunications',
   'Government',
   'Education',
-  'Other'
+  'Other',
 ];
 
 const List<String> VERTICALS = [
@@ -2076,7 +2321,7 @@ const List<String> VERTICALS = [
   'Manufacturing',
   'Energy & Utilities',
   'Public Sector',
-  'Horizontal (Cross-industry)'
+  'Horizontal (Cross-industry)',
 ];
 
 const List<String> INTEREST_AREAS = [
@@ -2090,7 +2335,7 @@ const List<String> INTEREST_AREAS = [
   'Blockchain',
   'Automation',
   'Legacy Modernization',
-  'Other'
+  'Other',
 ];
 
 // Booking Form Widget
@@ -2142,7 +2387,7 @@ class _BookingFormWidgetState extends State<_BookingFormWidget> {
       'position': TextEditingController(),
       'email': TextEditingController(),
       'phone': TextEditingController(),
-    }
+    },
   ];
 
   @override
@@ -2163,34 +2408,111 @@ class _BookingFormWidgetState extends State<_BookingFormWidget> {
     final random = Random();
 
     final companiesData = [
-      {'name': 'Itaú Unibanco', 'sector': 'Financial Services', 'vertical': 'Banking'},
-      {'name': 'Bradesco', 'sector': 'Financial Services', 'vertical': 'Banking'},
-      {'name': 'Banco do Brasil', 'sector': 'Financial Services', 'vertical': 'Banking'},
-      {'name': 'Santander Brasil', 'sector': 'Financial Services', 'vertical': 'Banking'},
-      {'name': 'BTG Pactual', 'sector': 'Financial Services', 'vertical': 'Capital Markets'},
-      {'name': 'SulAmérica', 'sector': 'Financial Services', 'vertical': 'Insurance'},
-      {'name': 'Petrobras', 'sector': 'Energy', 'vertical': 'Energy & Utilities'},
-      {'name': 'Eletrobras', 'sector': 'Energy', 'vertical': 'Energy & Utilities'},
+      {
+        'name': 'Itaú Unibanco',
+        'sector': 'Financial Services',
+        'vertical': 'Banking',
+      },
+      {
+        'name': 'Bradesco',
+        'sector': 'Financial Services',
+        'vertical': 'Banking',
+      },
+      {
+        'name': 'Banco do Brasil',
+        'sector': 'Financial Services',
+        'vertical': 'Banking',
+      },
+      {
+        'name': 'Santander Brasil',
+        'sector': 'Financial Services',
+        'vertical': 'Banking',
+      },
+      {
+        'name': 'BTG Pactual',
+        'sector': 'Financial Services',
+        'vertical': 'Capital Markets',
+      },
+      {
+        'name': 'SulAmérica',
+        'sector': 'Financial Services',
+        'vertical': 'Insurance',
+      },
+      {
+        'name': 'Petrobras',
+        'sector': 'Energy',
+        'vertical': 'Energy & Utilities',
+      },
+      {
+        'name': 'Eletrobras',
+        'sector': 'Energy',
+        'vertical': 'Energy & Utilities',
+      },
       {'name': 'Vale', 'sector': 'Manufacturing', 'vertical': 'Manufacturing'},
-      {'name': 'Gerdau', 'sector': 'Manufacturing', 'vertical': 'Manufacturing'},
+      {
+        'name': 'Gerdau',
+        'sector': 'Manufacturing',
+        'vertical': 'Manufacturing',
+      },
       {'name': 'Ambev', 'sector': 'Manufacturing', 'vertical': 'Manufacturing'},
       {'name': 'JBS', 'sector': 'Manufacturing', 'vertical': 'Manufacturing'},
       {'name': 'Natura &Co', 'sector': 'Retail', 'vertical': 'Retail'},
       {'name': 'Magazine Luiza', 'sector': 'Retail', 'vertical': 'Retail'},
-      {'name': 'Telefônica Brasil (Vivo)', 'sector': 'Telecommunications', 'vertical': 'Horizontal (Cross-industry)'},
-      {'name': 'TIM Brasil', 'sector': 'Telecommunications', 'vertical': 'Horizontal (Cross-industry)'},
-      {'name': 'Hapvida', 'sector': 'Healthcare', 'vertical': 'Healthcare Provider'},
+      {
+        'name': 'Telefônica Brasil (Vivo)',
+        'sector': 'Telecommunications',
+        'vertical': 'Horizontal (Cross-industry)',
+      },
+      {
+        'name': 'TIM Brasil',
+        'sector': 'Telecommunications',
+        'vertical': 'Horizontal (Cross-industry)',
+      },
+      {
+        'name': 'Hapvida',
+        'sector': 'Healthcare',
+        'vertical': 'Healthcare Provider',
+      },
     ];
 
-    final firstNames = ['James', 'Mary', 'John', 'Patricia', 'Robert', 'Jennifer', 'Michael', 'Linda', 'William', 'Elizabeth'];
-    final lastNames = ['Smith', 'Johnson', 'Williams', 'Brown', 'Jones', 'Garcia', 'Miller', 'Davis'];
-    final positions = ['CEO', 'CTO', 'CFO', 'CIO', 'VP of Technology', 'VP of Innovation', 'IT Director', 'Innovation Director'];
+    final firstNames = [
+      'James',
+      'Mary',
+      'John',
+      'Patricia',
+      'Robert',
+      'Jennifer',
+      'Michael',
+      'Linda',
+      'William',
+      'Elizabeth',
+    ];
+    final lastNames = [
+      'Smith',
+      'Johnson',
+      'Williams',
+      'Brown',
+      'Jones',
+      'Garcia',
+      'Miller',
+      'Davis',
+    ];
+    final positions = [
+      'CEO',
+      'CTO',
+      'CFO',
+      'CIO',
+      'VP of Technology',
+      'VP of Innovation',
+      'IT Director',
+      'Innovation Director',
+    ];
     final goals = [
       'Accelerate digital transformation with AI and Cloud solutions',
       'Modernize legacy infrastructure and migrate to cloud',
       'Implement data strategy and advanced analytics',
       'Strengthen cybersecurity posture and compliance',
-      'Transform customer experience with digital'
+      'Transform customer experience with digital',
     ];
     final notes = [
       'Visit approved by executive committee. Interest in generative AI use cases.',
@@ -2217,9 +2539,11 @@ class _BookingFormWidgetState extends State<_BookingFormWidget> {
         final firstName = firstNames[random.nextInt(firstNames.length)];
         final lastName = lastNames[random.nextInt(lastNames.length)];
         final name = '$firstName $lastName';
-        final email = '${firstName.toLowerCase()}.${lastName.toLowerCase()}@${company['name']!.toLowerCase().replaceAll(RegExp(r'[^a-z]'), '')}.com';
+        final email =
+            '${firstName.toLowerCase()}.${lastName.toLowerCase()}@${company['name']!.toLowerCase().replaceAll(RegExp(r'[^a-z]'), '')}.com';
         final position = positions[random.nextInt(positions.length)];
-        final phone = '+55 11 ${random.nextInt(90000) + 10000}-${random.nextInt(9000) + 1000}';
+        final phone =
+            '+55 11 ${random.nextInt(90000) + 10000}-${random.nextInt(9000) + 1000}';
 
         _attendees.add({
           'name': TextEditingController(text: name),
@@ -2258,7 +2582,9 @@ class _BookingFormWidgetState extends State<_BookingFormWidget> {
     if (!_formKey.currentState!.validate()) return;
 
     // Validate required fields
-    if (_companySector == null || _companyVertical == null || _interestArea == null) {
+    if (_companySector == null ||
+        _companyVertical == null ||
+        _interestArea == null) {
       ToastNotification.show(
         context,
         message: 'Please select Sector, Vertical, and Interest Area',
@@ -2284,12 +2610,17 @@ class _BookingFormWidgetState extends State<_BookingFormWidget> {
       // Prepare attendees data
       final attendeesData = _attendees
           .where((a) => a['name']?.text.trim().isNotEmpty == true)
-          .map((a) => {
-                'name': a['name']?.text.trim() ?? '',
-                if (a['position']?.text.trim().isNotEmpty == true) 'position': a['position']!.text.trim(),
-                if (a['email']?.text.trim().isNotEmpty == true) 'email': a['email']!.text.trim(),
-                if (a['phone']?.text.trim().isNotEmpty == true) 'phone': a['phone']!.text.trim(),
-              })
+          .map(
+            (a) => {
+              'name': a['name']?.text.trim() ?? '',
+              if (a['position']?.text.trim().isNotEmpty == true)
+                'position': a['position']!.text.trim(),
+              if (a['email']?.text.trim().isNotEmpty == true)
+                'email': a['email']!.text.trim(),
+              if (a['phone']?.text.trim().isNotEmpty == true)
+                'phone': a['phone']!.text.trim(),
+            },
+          )
           .toList();
 
       // Convert duration to enum format
@@ -2330,13 +2661,16 @@ class _BookingFormWidgetState extends State<_BookingFormWidget> {
         'companyVertical': _companyVertical!,
         'contactName': firstAttendee['name']?.text.trim() ?? '',
         'contactEmail': firstAttendee['email']?.text.trim() ?? '',
-        if (firstAttendee['position']?.text.trim().isNotEmpty == true) 'contactPosition': firstAttendee['position']!.text.trim(),
+        if (firstAttendee['position']?.text.trim().isNotEmpty == true)
+          'contactPosition': firstAttendee['position']!.text.trim(),
         'contactPhone': firstAttendee['phone']?.text.trim() ?? '',
         'interestArea': _interestArea!,
         'expectedAttendees': _attendees.length,
         if (attendeesData.isNotEmpty) 'attendees': attendeesData,
-        if (_businessGoalController.text.trim().isNotEmpty) 'businessGoal': _businessGoalController.text.trim(),
-        if (_additionalNotesController.text.trim().isNotEmpty) 'additionalNotes': _additionalNotesController.text.trim(),
+        if (_businessGoalController.text.trim().isNotEmpty)
+          'businessGoal': _businessGoalController.text.trim(),
+        if (_additionalNotesController.text.trim().isNotEmpty)
+          'additionalNotes': _additionalNotesController.text.trim(),
       };
 
       // Call onSubmit without managing loading state after
@@ -2390,581 +2724,823 @@ class _BookingFormWidgetState extends State<_BookingFormWidget> {
                 ),
                 decoration: BoxDecoration(
                   color: widget.isDark ? const Color(0xFF18181B) : Colors.white,
-                  borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(20),
+                  ),
                 ),
                 child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Header
-                  Container(
-                    padding: const EdgeInsets.all(24),
-                    decoration: BoxDecoration(
-                      border: Border(
-                        bottom: BorderSide(
-                          color: widget.isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
-                        ),
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'New Booking',
-                              style: TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                                color: widget.isDark ? Colors.white : Colors.black,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              '${DateFormat('MMM d, yyyy').format(widget.selectedDate)} • ${_getSlotLabel()}',
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: widget.isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
-                              ),
-                            ),
-                          ],
-                        ),
-                        IconButton(
-                          onPressed: widget.onCancel,
-                          icon: Icon(
-                            Icons.close,
-                            color: widget.isDark ? Colors.white : Colors.black,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Header
+                    Container(
+                      padding: const EdgeInsets.all(24),
+                      decoration: BoxDecoration(
+                        border: Border(
+                          bottom: BorderSide(
+                            color: widget.isDark
+                                ? const Color(0xFF27272A)
+                                : const Color(0xFFE5E7EB),
                           ),
                         ),
-                      ],
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'New Booking',
+                                style: TextStyle(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.bold,
+                                  color: widget.isDark
+                                      ? Colors.white
+                                      : Colors.black,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                '${DateFormat('MMM d, yyyy').format(widget.selectedDate)} • ${_getSlotLabel()}',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: widget.isDark
+                                      ? const Color(0xFF9CA3AF)
+                                      : const Color(0xFF6B7280),
+                                ),
+                              ),
+                            ],
+                          ),
+                          IconButton(
+                            onPressed: widget.onCancel,
+                            icon: Icon(
+                              Icons.close,
+                              color: widget.isDark
+                                  ? Colors.white
+                                  : Colors.black,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
 
-                  // Form
-                  Expanded(
-                    child: Form(
-                      key: _formKey,
-                      child: SingleChildScrollView(
-                        padding: const EdgeInsets.all(24),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            // Generate Test Data Button
-                            Align(
-                              alignment: Alignment.centerRight,
-                              child: OutlinedButton.icon(
-                                onPressed: _generateFakeData,
-                                icon: const Icon(Icons.auto_awesome, size: 18),
-                                label: const Text('Generate Test Data'),
-                                style: OutlinedButton.styleFrom(
-                                  foregroundColor: widget.isDark ? Colors.white : Colors.black,
-                                  side: BorderSide(
-                                    color: widget.isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
+                    // Form
+                    Expanded(
+                      child: Form(
+                        key: _formKey,
+                        child: SingleChildScrollView(
+                          padding: const EdgeInsets.all(24),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // Generate Test Data Button
+                              Align(
+                                alignment: Alignment.centerRight,
+                                child: OutlinedButton.icon(
+                                  onPressed: _generateFakeData,
+                                  icon: const Icon(
+                                    Icons.auto_awesome,
+                                    size: 18,
                                   ),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 24),
-
-                            // Company Information Section
-                            Text(
-                              'Company Information',
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                color: widget.isDark ? Colors.white : Colors.black,
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-
-                            // Company Name
-                            TextFormField(
-                              controller: _companyNameController,
-                              decoration: InputDecoration(
-                                labelText: 'Company Name *',
-                                filled: true,
-                                fillColor: widget.isDark ? const Color(0xFF09090B) : const Color(0xFFF9FAFB),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                  borderSide: BorderSide(
-                                    color: widget.isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
-                                  ),
-                                ),
-                                enabledBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                  borderSide: BorderSide(
-                                    color: widget.isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
-                                  ),
-                                ),
-                                focusedBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                  borderSide: BorderSide(
-                                    color: widget.isDark ? Colors.white : Colors.black,
-                                    width: 2,
-                                  ),
-                                ),
-                                labelStyle: TextStyle(
-                                  color: widget.isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
-                                ),
-                              ),
-                              style: TextStyle(color: widget.isDark ? Colors.white : Colors.black),
-                              validator: (value) => value == null || value.trim().isEmpty ? 'Company name is required' : null,
-                            ),
-                            const SizedBox(height: 16),
-
-                            // Sector Dropdown
-                            DropdownButtonFormField<String>(
-                              initialValue: _companySector,
-                              decoration: InputDecoration(
-                                labelText: 'Sector *',
-                                filled: true,
-                                fillColor: widget.isDark ? const Color(0xFF09090B) : const Color(0xFFF9FAFB),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                  borderSide: BorderSide(
-                                    color: widget.isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
-                                  ),
-                                ),
-                                enabledBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                  borderSide: BorderSide(
-                                    color: widget.isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
-                                  ),
-                                ),
-                                focusedBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                  borderSide: BorderSide(
-                                    color: widget.isDark ? Colors.white : Colors.black,
-                                    width: 2,
-                                  ),
-                                ),
-                                labelStyle: TextStyle(
-                                  color: widget.isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
-                                ),
-                              ),
-                              dropdownColor: widget.isDark ? const Color(0xFF18181B) : Colors.white,
-                              style: TextStyle(color: widget.isDark ? Colors.white : Colors.black),
-                              items: SECTORS.map((sector) {
-                                return DropdownMenuItem(
-                                  value: sector,
-                                  child: Text(sector),
-                                );
-                              }).toList(),
-                              onChanged: (value) => setState(() => _companySector = value),
-                            ),
-                            const SizedBox(height: 16),
-
-                            // Vertical Dropdown
-                            DropdownButtonFormField<String>(
-                              initialValue: _companyVertical,
-                              decoration: InputDecoration(
-                                labelText: 'Vertical *',
-                                filled: true,
-                                fillColor: widget.isDark ? const Color(0xFF09090B) : const Color(0xFFF9FAFB),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                  borderSide: BorderSide(
-                                    color: widget.isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
-                                  ),
-                                ),
-                                enabledBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                  borderSide: BorderSide(
-                                    color: widget.isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
-                                  ),
-                                ),
-                                focusedBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                  borderSide: BorderSide(
-                                    color: widget.isDark ? Colors.white : Colors.black,
-                                    width: 2,
-                                  ),
-                                ),
-                                labelStyle: TextStyle(
-                                  color: widget.isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
-                                ),
-                              ),
-                              dropdownColor: widget.isDark ? const Color(0xFF18181B) : Colors.white,
-                              style: TextStyle(color: widget.isDark ? Colors.white : Colors.black),
-                              items: VERTICALS.map((vertical) {
-                                return DropdownMenuItem(
-                                  value: vertical,
-                                  child: Text(vertical),
-                                );
-                              }).toList(),
-                              onChanged: (value) => setState(() => _companyVertical = value),
-                            ),
-                            const SizedBox(height: 24),
-
-                            // Business Information Section
-                            Text(
-                              'Business Information',
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                color: widget.isDark ? Colors.white : Colors.black,
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-
-                            // Interest Area Dropdown
-                            DropdownButtonFormField<String>(
-                              initialValue: _interestArea,
-                              decoration: InputDecoration(
-                                labelText: 'Interest Area *',
-                                filled: true,
-                                fillColor: widget.isDark ? const Color(0xFF09090B) : const Color(0xFFF9FAFB),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                  borderSide: BorderSide(
-                                    color: widget.isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
-                                  ),
-                                ),
-                                enabledBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                  borderSide: BorderSide(
-                                    color: widget.isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
-                                  ),
-                                ),
-                                focusedBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                  borderSide: BorderSide(
-                                    color: widget.isDark ? Colors.white : Colors.black,
-                                    width: 2,
-                                  ),
-                                ),
-                                labelStyle: TextStyle(
-                                  color: widget.isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
-                                ),
-                              ),
-                              dropdownColor: widget.isDark ? const Color(0xFF18181B) : Colors.white,
-                              style: TextStyle(color: widget.isDark ? Colors.white : Colors.black),
-                              items: INTEREST_AREAS.map((area) {
-                                return DropdownMenuItem(
-                                  value: area,
-                                  child: Text(area),
-                                );
-                              }).toList(),
-                              onChanged: (value) => setState(() => _interestArea = value),
-                            ),
-                            const SizedBox(height: 24),
-
-                            // Attendees Section
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(
-                                  'Attendees * (${_attendees.length} ${_attendees.length == 1 ? 'person' : 'people'})',
-                                  style: TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
-                                    color: widget.isDark ? Colors.white : Colors.black,
-                                  ),
-                                ),
-                                OutlinedButton.icon(
-                                  onPressed: _addAttendee,
-                                  icon: const Icon(Icons.add, size: 18),
-                                  label: const Text('Add Person'),
+                                  label: const Text('Generate Test Data'),
                                   style: OutlinedButton.styleFrom(
-                                    foregroundColor: widget.isDark ? Colors.white : Colors.black,
+                                    foregroundColor: widget.isDark
+                                        ? Colors.white
+                                        : Colors.black,
                                     side: BorderSide(
-                                      color: widget.isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
+                                      color: widget.isDark
+                                          ? const Color(0xFF27272A)
+                                          : const Color(0xFFE5E7EB),
                                     ),
                                   ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 16),
-
-                            // Attendees List
-                            ..._attendees.asMap().entries.map((entry) {
-                              final index = entry.key;
-                              final attendee = entry.value;
-                              return Container(
-                                margin: const EdgeInsets.only(bottom: 16),
-                                padding: const EdgeInsets.all(16),
-                                decoration: BoxDecoration(
-                                  color: widget.isDark ? const Color(0xFF09090B) : const Color(0xFFF9FAFB),
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(
-                                    color: widget.isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
-                                  ),
-                                ),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        Text(
-                                          index == 0 ? 'Main Contact' : 'Attendee ${index + 1}',
-                                          style: TextStyle(
-                                            fontSize: 14,
-                                            fontWeight: FontWeight.w600,
-                                            color: widget.isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
-                                          ),
-                                        ),
-                                        if (_attendees.length > 1)
-                                          IconButton(
-                                            onPressed: () => _removeAttendee(index),
-                                            icon: const Icon(Icons.close, size: 20),
-                                            color: Colors.red,
-                                          ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 12),
-                                    TextFormField(
-                                      controller: attendee['name'],
-                                      decoration: InputDecoration(
-                                        labelText: 'Full Name *',
-                                        filled: true,
-                                        fillColor: widget.isDark ? const Color(0xFF18181B) : Colors.white,
-                                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                                        enabledBorder: OutlineInputBorder(
-                                          borderRadius: BorderRadius.circular(8),
-                                          borderSide: BorderSide(
-                                            color: widget.isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
-                                          ),
-                                        ),
-                                        focusedBorder: OutlineInputBorder(
-                                          borderRadius: BorderRadius.circular(8),
-                                          borderSide: BorderSide(
-                                            color: widget.isDark ? Colors.white : Colors.black,
-                                            width: 2,
-                                          ),
-                                        ),
-                                        labelStyle: TextStyle(
-                                          color: widget.isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
-                                        ),
-                                      ),
-                                      style: TextStyle(color: widget.isDark ? Colors.white : Colors.black),
-                                    ),
-                                    const SizedBox(height: 12),
-                                    TextFormField(
-                                      controller: attendee['position'],
-                                      decoration: InputDecoration(
-                                        labelText: 'Position/Title ${index == 0 ? '*' : '(Optional)'}',
-                                        filled: true,
-                                        fillColor: widget.isDark ? const Color(0xFF18181B) : Colors.white,
-                                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                                        enabledBorder: OutlineInputBorder(
-                                          borderRadius: BorderRadius.circular(8),
-                                          borderSide: BorderSide(
-                                            color: widget.isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
-                                          ),
-                                        ),
-                                        focusedBorder: OutlineInputBorder(
-                                          borderRadius: BorderRadius.circular(8),
-                                          borderSide: BorderSide(
-                                            color: widget.isDark ? Colors.white : Colors.black,
-                                            width: 2,
-                                          ),
-                                        ),
-                                        labelStyle: TextStyle(
-                                          color: widget.isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
-                                        ),
-                                      ),
-                                      style: TextStyle(color: widget.isDark ? Colors.white : Colors.black),
-                                    ),
-                                    const SizedBox(height: 12),
-                                    TextFormField(
-                                      controller: attendee['email'],
-                                      keyboardType: TextInputType.emailAddress,
-                                      decoration: InputDecoration(
-                                        labelText: 'Email ${index == 0 ? '*' : '(Optional)'}',
-                                        filled: true,
-                                        fillColor: widget.isDark ? const Color(0xFF18181B) : Colors.white,
-                                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                                        enabledBorder: OutlineInputBorder(
-                                          borderRadius: BorderRadius.circular(8),
-                                          borderSide: BorderSide(
-                                            color: widget.isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
-                                          ),
-                                        ),
-                                        focusedBorder: OutlineInputBorder(
-                                          borderRadius: BorderRadius.circular(8),
-                                          borderSide: BorderSide(
-                                            color: widget.isDark ? Colors.white : Colors.black,
-                                            width: 2,
-                                          ),
-                                        ),
-                                        labelStyle: TextStyle(
-                                          color: widget.isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
-                                        ),
-                                      ),
-                                      style: TextStyle(color: widget.isDark ? Colors.white : Colors.black),
-                                      validator: index == 0
-                                          ? (value) {
-                                              if (value == null || value.trim().isEmpty) {
-                                                return 'Email is required for main contact';
-                                              }
-                                              final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
-                                              if (!emailRegex.hasMatch(value)) {
-                                                return 'Invalid email format';
-                                              }
-                                              return null;
-                                            }
-                                          : null,
-                                    ),
-                                    const SizedBox(height: 12),
-                                    TextFormField(
-                                      controller: attendee['phone'],
-                                      keyboardType: TextInputType.phone,
-                                      decoration: InputDecoration(
-                                        labelText: 'Phone (Optional)',
-                                        filled: true,
-                                        fillColor: widget.isDark ? const Color(0xFF18181B) : Colors.white,
-                                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                                        enabledBorder: OutlineInputBorder(
-                                          borderRadius: BorderRadius.circular(8),
-                                          borderSide: BorderSide(
-                                            color: widget.isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
-                                          ),
-                                        ),
-                                        focusedBorder: OutlineInputBorder(
-                                          borderRadius: BorderRadius.circular(8),
-                                          borderSide: BorderSide(
-                                            color: widget.isDark ? Colors.white : Colors.black,
-                                            width: 2,
-                                          ),
-                                        ),
-                                        labelStyle: TextStyle(
-                                          color: widget.isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
-                                        ),
-                                      ),
-                                      style: TextStyle(color: widget.isDark ? Colors.white : Colors.black),
-                                    ),
-                                  ],
-                                ),
-                              );
-                            }),
-
-                            const SizedBox(height: 8),
-
-                            // Business Goal
-                            TextFormField(
-                              controller: _businessGoalController,
-                              maxLines: 3,
-                              decoration: InputDecoration(
-                                labelText: 'Business Goal (Optional)',
-                                filled: true,
-                                fillColor: widget.isDark ? const Color(0xFF09090B) : const Color(0xFFF9FAFB),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                  borderSide: BorderSide(
-                                    color: widget.isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
-                                  ),
-                                ),
-                                enabledBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                  borderSide: BorderSide(
-                                    color: widget.isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
-                                  ),
-                                ),
-                                focusedBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                  borderSide: BorderSide(
-                                    color: widget.isDark ? Colors.white : Colors.black,
-                                    width: 2,
-                                  ),
-                                ),
-                                labelStyle: TextStyle(
-                                  color: widget.isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
                                 ),
                               ),
-                              style: TextStyle(color: widget.isDark ? Colors.white : Colors.black),
-                            ),
-                            const SizedBox(height: 16),
+                              const SizedBox(height: 24),
 
-                            // Additional Notes
-                            TextFormField(
-                              controller: _additionalNotesController,
-                              maxLines: 3,
-                              decoration: InputDecoration(
-                                labelText: 'Additional Notes (Optional)',
-                                filled: true,
-                                fillColor: widget.isDark ? const Color(0xFF09090B) : const Color(0xFFF9FAFB),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                  borderSide: BorderSide(
-                                    color: widget.isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
-                                  ),
-                                ),
-                                enabledBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                  borderSide: BorderSide(
-                                    color: widget.isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
-                                  ),
-                                ),
-                                focusedBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                  borderSide: BorderSide(
-                                    color: widget.isDark ? Colors.white : Colors.black,
-                                    width: 2,
-                                  ),
-                                ),
-                                labelStyle: TextStyle(
-                                  color: widget.isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
+                              // Company Information Section
+                              Text(
+                                'Company Information',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: widget.isDark
+                                      ? Colors.white
+                                      : Colors.black,
                                 ),
                               ),
-                              style: TextStyle(color: widget.isDark ? Colors.white : Colors.black),
-                            ),
-                          ],
+                              const SizedBox(height: 16),
+
+                              // Company Name
+                              TextFormField(
+                                controller: _companyNameController,
+                                decoration: InputDecoration(
+                                  labelText: 'Company Name *',
+                                  filled: true,
+                                  fillColor: widget.isDark
+                                      ? const Color(0xFF09090B)
+                                      : const Color(0xFFF9FAFB),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                    borderSide: BorderSide(
+                                      color: widget.isDark
+                                          ? const Color(0xFF27272A)
+                                          : const Color(0xFFE5E7EB),
+                                    ),
+                                  ),
+                                  enabledBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                    borderSide: BorderSide(
+                                      color: widget.isDark
+                                          ? const Color(0xFF27272A)
+                                          : const Color(0xFFE5E7EB),
+                                    ),
+                                  ),
+                                  focusedBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                    borderSide: BorderSide(
+                                      color: widget.isDark
+                                          ? Colors.white
+                                          : Colors.black,
+                                      width: 2,
+                                    ),
+                                  ),
+                                  labelStyle: TextStyle(
+                                    color: widget.isDark
+                                        ? const Color(0xFF9CA3AF)
+                                        : const Color(0xFF6B7280),
+                                  ),
+                                ),
+                                style: TextStyle(
+                                  color: widget.isDark
+                                      ? Colors.white
+                                      : Colors.black,
+                                ),
+                                validator: (value) =>
+                                    value == null || value.trim().isEmpty
+                                    ? 'Company name is required'
+                                    : null,
+                              ),
+                              const SizedBox(height: 16),
+
+                              // Sector Dropdown
+                              DropdownButtonFormField<String>(
+                                initialValue: _companySector,
+                                decoration: InputDecoration(
+                                  labelText: 'Sector *',
+                                  filled: true,
+                                  fillColor: widget.isDark
+                                      ? const Color(0xFF09090B)
+                                      : const Color(0xFFF9FAFB),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                    borderSide: BorderSide(
+                                      color: widget.isDark
+                                          ? const Color(0xFF27272A)
+                                          : const Color(0xFFE5E7EB),
+                                    ),
+                                  ),
+                                  enabledBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                    borderSide: BorderSide(
+                                      color: widget.isDark
+                                          ? const Color(0xFF27272A)
+                                          : const Color(0xFFE5E7EB),
+                                    ),
+                                  ),
+                                  focusedBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                    borderSide: BorderSide(
+                                      color: widget.isDark
+                                          ? Colors.white
+                                          : Colors.black,
+                                      width: 2,
+                                    ),
+                                  ),
+                                  labelStyle: TextStyle(
+                                    color: widget.isDark
+                                        ? const Color(0xFF9CA3AF)
+                                        : const Color(0xFF6B7280),
+                                  ),
+                                ),
+                                dropdownColor: widget.isDark
+                                    ? const Color(0xFF18181B)
+                                    : Colors.white,
+                                style: TextStyle(
+                                  color: widget.isDark
+                                      ? Colors.white
+                                      : Colors.black,
+                                ),
+                                items: SECTORS.map((sector) {
+                                  return DropdownMenuItem(
+                                    value: sector,
+                                    child: Text(sector),
+                                  );
+                                }).toList(),
+                                onChanged: (value) =>
+                                    setState(() => _companySector = value),
+                              ),
+                              const SizedBox(height: 16),
+
+                              // Vertical Dropdown
+                              DropdownButtonFormField<String>(
+                                initialValue: _companyVertical,
+                                decoration: InputDecoration(
+                                  labelText: 'Vertical *',
+                                  filled: true,
+                                  fillColor: widget.isDark
+                                      ? const Color(0xFF09090B)
+                                      : const Color(0xFFF9FAFB),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                    borderSide: BorderSide(
+                                      color: widget.isDark
+                                          ? const Color(0xFF27272A)
+                                          : const Color(0xFFE5E7EB),
+                                    ),
+                                  ),
+                                  enabledBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                    borderSide: BorderSide(
+                                      color: widget.isDark
+                                          ? const Color(0xFF27272A)
+                                          : const Color(0xFFE5E7EB),
+                                    ),
+                                  ),
+                                  focusedBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                    borderSide: BorderSide(
+                                      color: widget.isDark
+                                          ? Colors.white
+                                          : Colors.black,
+                                      width: 2,
+                                    ),
+                                  ),
+                                  labelStyle: TextStyle(
+                                    color: widget.isDark
+                                        ? const Color(0xFF9CA3AF)
+                                        : const Color(0xFF6B7280),
+                                  ),
+                                ),
+                                dropdownColor: widget.isDark
+                                    ? const Color(0xFF18181B)
+                                    : Colors.white,
+                                style: TextStyle(
+                                  color: widget.isDark
+                                      ? Colors.white
+                                      : Colors.black,
+                                ),
+                                items: VERTICALS.map((vertical) {
+                                  return DropdownMenuItem(
+                                    value: vertical,
+                                    child: Text(vertical),
+                                  );
+                                }).toList(),
+                                onChanged: (value) =>
+                                    setState(() => _companyVertical = value),
+                              ),
+                              const SizedBox(height: 24),
+
+                              // Business Information Section
+                              Text(
+                                'Business Information',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: widget.isDark
+                                      ? Colors.white
+                                      : Colors.black,
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+
+                              // Interest Area Dropdown
+                              DropdownButtonFormField<String>(
+                                initialValue: _interestArea,
+                                decoration: InputDecoration(
+                                  labelText: 'Interest Area *',
+                                  filled: true,
+                                  fillColor: widget.isDark
+                                      ? const Color(0xFF09090B)
+                                      : const Color(0xFFF9FAFB),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                    borderSide: BorderSide(
+                                      color: widget.isDark
+                                          ? const Color(0xFF27272A)
+                                          : const Color(0xFFE5E7EB),
+                                    ),
+                                  ),
+                                  enabledBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                    borderSide: BorderSide(
+                                      color: widget.isDark
+                                          ? const Color(0xFF27272A)
+                                          : const Color(0xFFE5E7EB),
+                                    ),
+                                  ),
+                                  focusedBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                    borderSide: BorderSide(
+                                      color: widget.isDark
+                                          ? Colors.white
+                                          : Colors.black,
+                                      width: 2,
+                                    ),
+                                  ),
+                                  labelStyle: TextStyle(
+                                    color: widget.isDark
+                                        ? const Color(0xFF9CA3AF)
+                                        : const Color(0xFF6B7280),
+                                  ),
+                                ),
+                                dropdownColor: widget.isDark
+                                    ? const Color(0xFF18181B)
+                                    : Colors.white,
+                                style: TextStyle(
+                                  color: widget.isDark
+                                      ? Colors.white
+                                      : Colors.black,
+                                ),
+                                items: INTEREST_AREAS.map((area) {
+                                  return DropdownMenuItem(
+                                    value: area,
+                                    child: Text(area),
+                                  );
+                                }).toList(),
+                                onChanged: (value) =>
+                                    setState(() => _interestArea = value),
+                              ),
+                              const SizedBox(height: 24),
+
+                              // Attendees Section
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    'Attendees * (${_attendees.length} ${_attendees.length == 1 ? 'person' : 'people'})',
+                                    style: TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.bold,
+                                      color: widget.isDark
+                                          ? Colors.white
+                                          : Colors.black,
+                                    ),
+                                  ),
+                                  OutlinedButton.icon(
+                                    onPressed: _addAttendee,
+                                    icon: const Icon(Icons.add, size: 18),
+                                    label: const Text('Add Person'),
+                                    style: OutlinedButton.styleFrom(
+                                      foregroundColor: widget.isDark
+                                          ? Colors.white
+                                          : Colors.black,
+                                      side: BorderSide(
+                                        color: widget.isDark
+                                            ? const Color(0xFF27272A)
+                                            : const Color(0xFFE5E7EB),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 16),
+
+                              // Attendees List
+                              ..._attendees.asMap().entries.map((entry) {
+                                final index = entry.key;
+                                final attendee = entry.value;
+                                return Container(
+                                  margin: const EdgeInsets.only(bottom: 16),
+                                  padding: const EdgeInsets.all(16),
+                                  decoration: BoxDecoration(
+                                    color: widget.isDark
+                                        ? const Color(0xFF09090B)
+                                        : const Color(0xFFF9FAFB),
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(
+                                      color: widget.isDark
+                                          ? const Color(0xFF27272A)
+                                          : const Color(0xFFE5E7EB),
+                                    ),
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          Text(
+                                            index == 0
+                                                ? 'Main Contact'
+                                                : 'Attendee ${index + 1}',
+                                            style: TextStyle(
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.w600,
+                                              color: widget.isDark
+                                                  ? const Color(0xFF9CA3AF)
+                                                  : const Color(0xFF6B7280),
+                                            ),
+                                          ),
+                                          if (_attendees.length > 1)
+                                            IconButton(
+                                              onPressed: () =>
+                                                  _removeAttendee(index),
+                                              icon: const Icon(
+                                                Icons.close,
+                                                size: 20,
+                                              ),
+                                              color: Colors.red,
+                                            ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 12),
+                                      TextFormField(
+                                        controller: attendee['name'],
+                                        decoration: InputDecoration(
+                                          labelText: 'Full Name *',
+                                          filled: true,
+                                          fillColor: widget.isDark
+                                              ? const Color(0xFF18181B)
+                                              : Colors.white,
+                                          border: OutlineInputBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              8,
+                                            ),
+                                          ),
+                                          enabledBorder: OutlineInputBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              8,
+                                            ),
+                                            borderSide: BorderSide(
+                                              color: widget.isDark
+                                                  ? const Color(0xFF27272A)
+                                                  : const Color(0xFFE5E7EB),
+                                            ),
+                                          ),
+                                          focusedBorder: OutlineInputBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              8,
+                                            ),
+                                            borderSide: BorderSide(
+                                              color: widget.isDark
+                                                  ? Colors.white
+                                                  : Colors.black,
+                                              width: 2,
+                                            ),
+                                          ),
+                                          labelStyle: TextStyle(
+                                            color: widget.isDark
+                                                ? const Color(0xFF9CA3AF)
+                                                : const Color(0xFF6B7280),
+                                          ),
+                                        ),
+                                        style: TextStyle(
+                                          color: widget.isDark
+                                              ? Colors.white
+                                              : Colors.black,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 12),
+                                      TextFormField(
+                                        controller: attendee['position'],
+                                        decoration: InputDecoration(
+                                          labelText:
+                                              'Position/Title ${index == 0 ? '*' : '(Optional)'}',
+                                          filled: true,
+                                          fillColor: widget.isDark
+                                              ? const Color(0xFF18181B)
+                                              : Colors.white,
+                                          border: OutlineInputBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              8,
+                                            ),
+                                          ),
+                                          enabledBorder: OutlineInputBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              8,
+                                            ),
+                                            borderSide: BorderSide(
+                                              color: widget.isDark
+                                                  ? const Color(0xFF27272A)
+                                                  : const Color(0xFFE5E7EB),
+                                            ),
+                                          ),
+                                          focusedBorder: OutlineInputBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              8,
+                                            ),
+                                            borderSide: BorderSide(
+                                              color: widget.isDark
+                                                  ? Colors.white
+                                                  : Colors.black,
+                                              width: 2,
+                                            ),
+                                          ),
+                                          labelStyle: TextStyle(
+                                            color: widget.isDark
+                                                ? const Color(0xFF9CA3AF)
+                                                : const Color(0xFF6B7280),
+                                          ),
+                                        ),
+                                        style: TextStyle(
+                                          color: widget.isDark
+                                              ? Colors.white
+                                              : Colors.black,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 12),
+                                      TextFormField(
+                                        controller: attendee['email'],
+                                        keyboardType:
+                                            TextInputType.emailAddress,
+                                        decoration: InputDecoration(
+                                          labelText:
+                                              'Email ${index == 0 ? '*' : '(Optional)'}',
+                                          filled: true,
+                                          fillColor: widget.isDark
+                                              ? const Color(0xFF18181B)
+                                              : Colors.white,
+                                          border: OutlineInputBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              8,
+                                            ),
+                                          ),
+                                          enabledBorder: OutlineInputBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              8,
+                                            ),
+                                            borderSide: BorderSide(
+                                              color: widget.isDark
+                                                  ? const Color(0xFF27272A)
+                                                  : const Color(0xFFE5E7EB),
+                                            ),
+                                          ),
+                                          focusedBorder: OutlineInputBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              8,
+                                            ),
+                                            borderSide: BorderSide(
+                                              color: widget.isDark
+                                                  ? Colors.white
+                                                  : Colors.black,
+                                              width: 2,
+                                            ),
+                                          ),
+                                          labelStyle: TextStyle(
+                                            color: widget.isDark
+                                                ? const Color(0xFF9CA3AF)
+                                                : const Color(0xFF6B7280),
+                                          ),
+                                        ),
+                                        style: TextStyle(
+                                          color: widget.isDark
+                                              ? Colors.white
+                                              : Colors.black,
+                                        ),
+                                        validator: index == 0
+                                            ? (value) {
+                                                if (value == null ||
+                                                    value.trim().isEmpty) {
+                                                  return 'Email is required for main contact';
+                                                }
+                                                final emailRegex = RegExp(
+                                                  r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
+                                                );
+                                                if (!emailRegex.hasMatch(
+                                                  value,
+                                                )) {
+                                                  return 'Invalid email format';
+                                                }
+                                                return null;
+                                              }
+                                            : null,
+                                      ),
+                                      const SizedBox(height: 12),
+                                      TextFormField(
+                                        controller: attendee['phone'],
+                                        keyboardType: TextInputType.phone,
+                                        decoration: InputDecoration(
+                                          labelText: 'Phone (Optional)',
+                                          filled: true,
+                                          fillColor: widget.isDark
+                                              ? const Color(0xFF18181B)
+                                              : Colors.white,
+                                          border: OutlineInputBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              8,
+                                            ),
+                                          ),
+                                          enabledBorder: OutlineInputBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              8,
+                                            ),
+                                            borderSide: BorderSide(
+                                              color: widget.isDark
+                                                  ? const Color(0xFF27272A)
+                                                  : const Color(0xFFE5E7EB),
+                                            ),
+                                          ),
+                                          focusedBorder: OutlineInputBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              8,
+                                            ),
+                                            borderSide: BorderSide(
+                                              color: widget.isDark
+                                                  ? Colors.white
+                                                  : Colors.black,
+                                              width: 2,
+                                            ),
+                                          ),
+                                          labelStyle: TextStyle(
+                                            color: widget.isDark
+                                                ? const Color(0xFF9CA3AF)
+                                                : const Color(0xFF6B7280),
+                                          ),
+                                        ),
+                                        style: TextStyle(
+                                          color: widget.isDark
+                                              ? Colors.white
+                                              : Colors.black,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              }),
+
+                              const SizedBox(height: 8),
+
+                              // Business Goal
+                              TextFormField(
+                                controller: _businessGoalController,
+                                maxLines: 3,
+                                decoration: InputDecoration(
+                                  labelText: 'Business Goal (Optional)',
+                                  filled: true,
+                                  fillColor: widget.isDark
+                                      ? const Color(0xFF09090B)
+                                      : const Color(0xFFF9FAFB),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                    borderSide: BorderSide(
+                                      color: widget.isDark
+                                          ? const Color(0xFF27272A)
+                                          : const Color(0xFFE5E7EB),
+                                    ),
+                                  ),
+                                  enabledBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                    borderSide: BorderSide(
+                                      color: widget.isDark
+                                          ? const Color(0xFF27272A)
+                                          : const Color(0xFFE5E7EB),
+                                    ),
+                                  ),
+                                  focusedBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                    borderSide: BorderSide(
+                                      color: widget.isDark
+                                          ? Colors.white
+                                          : Colors.black,
+                                      width: 2,
+                                    ),
+                                  ),
+                                  labelStyle: TextStyle(
+                                    color: widget.isDark
+                                        ? const Color(0xFF9CA3AF)
+                                        : const Color(0xFF6B7280),
+                                  ),
+                                ),
+                                style: TextStyle(
+                                  color: widget.isDark
+                                      ? Colors.white
+                                      : Colors.black,
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+
+                              // Additional Notes
+                              TextFormField(
+                                controller: _additionalNotesController,
+                                maxLines: 3,
+                                decoration: InputDecoration(
+                                  labelText: 'Additional Notes (Optional)',
+                                  filled: true,
+                                  fillColor: widget.isDark
+                                      ? const Color(0xFF09090B)
+                                      : const Color(0xFFF9FAFB),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                    borderSide: BorderSide(
+                                      color: widget.isDark
+                                          ? const Color(0xFF27272A)
+                                          : const Color(0xFFE5E7EB),
+                                    ),
+                                  ),
+                                  enabledBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                    borderSide: BorderSide(
+                                      color: widget.isDark
+                                          ? const Color(0xFF27272A)
+                                          : const Color(0xFFE5E7EB),
+                                    ),
+                                  ),
+                                  focusedBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                    borderSide: BorderSide(
+                                      color: widget.isDark
+                                          ? Colors.white
+                                          : Colors.black,
+                                      width: 2,
+                                    ),
+                                  ),
+                                  labelStyle: TextStyle(
+                                    color: widget.isDark
+                                        ? const Color(0xFF9CA3AF)
+                                        : const Color(0xFF6B7280),
+                                  ),
+                                ),
+                                style: TextStyle(
+                                  color: widget.isDark
+                                      ? Colors.white
+                                      : Colors.black,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ),
-                  ),
 
-                  // Footer
-                  Container(
-                    padding: const EdgeInsets.all(24),
-                    decoration: BoxDecoration(
-                      border: Border(
-                        top: BorderSide(
-                          color: widget.isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
+                    // Footer
+                    Container(
+                      padding: const EdgeInsets.all(24),
+                      decoration: BoxDecoration(
+                        border: Border(
+                          top: BorderSide(
+                            color: widget.isDark
+                                ? const Color(0xFF27272A)
+                                : const Color(0xFFE5E7EB),
+                          ),
                         ),
                       ),
-                    ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: OutlinedButton(
-                            onPressed: _isSubmitting ? null : widget.onCancel,
-                            style: OutlinedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(vertical: 16),
-                              foregroundColor: widget.isDark ? Colors.white : Colors.black,
-                              side: BorderSide(
-                                color: widget.isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton(
+                              onPressed: _isSubmitting ? null : widget.onCancel,
+                              style: OutlinedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 16,
+                                ),
+                                foregroundColor: widget.isDark
+                                    ? Colors.white
+                                    : Colors.black,
+                                side: BorderSide(
+                                  color: widget.isDark
+                                      ? const Color(0xFF27272A)
+                                      : const Color(0xFFE5E7EB),
+                                ),
                               ),
+                              child: const Text('Cancel'),
                             ),
-                            child: const Text('Cancel'),
                           ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          flex: 2,
-                          child: ElevatedButton(
-                            onPressed: _isSubmitting ? null : _submitForm,
-                            style: ElevatedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(vertical: 16),
-                              backgroundColor: widget.isDark ? Colors.white : Colors.black,
-                              foregroundColor: widget.isDark ? Colors.black : Colors.white,
+                          const SizedBox(width: 12),
+                          Expanded(
+                            flex: 2,
+                            child: ElevatedButton(
+                              onPressed: _isSubmitting ? null : _submitForm,
+                              style: ElevatedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 16,
+                                ),
+                                backgroundColor: widget.isDark
+                                    ? Colors.white
+                                    : Colors.black,
+                                foregroundColor: widget.isDark
+                                    ? Colors.black
+                                    : Colors.white,
+                              ),
+                              child: _isSubmitting
+                                  ? const SizedBox(
+                                      height: 20,
+                                      width: 20,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    )
+                                  : const Text('Create Booking'),
                             ),
-                            child: _isSubmitting
-                                ? const SizedBox(
-                                    height: 20,
-                                    width: 20,
-                                    child: CircularProgressIndicator(strokeWidth: 2),
-                                  )
-                                : const Text('Create Booking'),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
             ),
           ),
         ),
@@ -2999,10 +3575,12 @@ class SlotPickerContentWithLoading extends StatefulWidget {
   });
 
   @override
-  State<SlotPickerContentWithLoading> createState() => _SlotPickerContentWithLoadingState();
+  State<SlotPickerContentWithLoading> createState() =>
+      _SlotPickerContentWithLoadingState();
 }
 
-class _SlotPickerContentWithLoadingState extends State<SlotPickerContentWithLoading> {
+class _SlotPickerContentWithLoadingState
+    extends State<SlotPickerContentWithLoading> {
   List<AvailablePeriod> _allPeriods = [];
 
   @override
@@ -3020,8 +3598,7 @@ class _SlotPickerContentWithLoadingState extends State<SlotPickerContentWithLoad
       final availability = widget.getAvailability();
 
       // Log first few polls to debug
-      if (i < 5 || (i % 10 == 0 && i < 50)) {
-      }
+      if (i < 5 || (i % 10 == 0 && i < 50)) {}
 
       if (availability != null && availability.allPeriods?.isNotEmpty == true) {
         setState(() {
@@ -3034,7 +3611,6 @@ class _SlotPickerContentWithLoadingState extends State<SlotPickerContentWithLoad
       await Future.delayed(const Duration(milliseconds: 100));
       // Poll count tracking removed
     }
-
   }
 
   @override
@@ -3115,7 +3691,9 @@ class _SlotPickerContentState extends State<SlotPickerContent> {
               decoration: BoxDecoration(
                 border: Border(
                   bottom: BorderSide(
-                    color: widget.isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
+                    color: widget.isDark
+                        ? const Color(0xFF27272A)
+                        : const Color(0xFFE5E7EB),
                   ),
                 ),
               ),
@@ -3142,7 +3720,9 @@ class _SlotPickerContentState extends State<SlotPickerContent> {
                           }
                         },
                         icon: Icon(
-                          widget.onBack != null ? Icons.arrow_back : Icons.close,
+                          widget.onBack != null
+                              ? Icons.arrow_back
+                              : Icons.close,
                           color: widget.isDark ? Colors.white : Colors.black,
                         ),
                         tooltip: widget.onBack != null ? 'Back' : 'Close',
@@ -3157,7 +3737,9 @@ class _SlotPickerContentState extends State<SlotPickerContent> {
                               style: TextStyle(
                                 fontSize: 20,
                                 fontWeight: FontWeight.bold,
-                                color: widget.isDark ? Colors.white : Colors.black,
+                                color: widget.isDark
+                                    ? Colors.white
+                                    : Colors.black,
                               ),
                             ),
                             const SizedBox(height: 4),
@@ -3165,7 +3747,9 @@ class _SlotPickerContentState extends State<SlotPickerContent> {
                               widget.visitTypeLabel,
                               style: TextStyle(
                                 fontSize: 14,
-                                color: widget.isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
+                                color: widget.isDark
+                                    ? const Color(0xFF9CA3AF)
+                                    : const Color(0xFF6B7280),
                               ),
                             ),
                           ],
@@ -3183,7 +3767,9 @@ class _SlotPickerContentState extends State<SlotPickerContent> {
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
-                          color: widget.isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
+                          color: widget.isDark
+                              ? const Color(0xFF9CA3AF)
+                              : const Color(0xFF6B7280),
                         ),
                       ),
                     ),
@@ -3205,7 +3791,9 @@ class _SlotPickerContentState extends State<SlotPickerContent> {
                           Text(
                             'Loading available periods...',
                             style: TextStyle(
-                              color: widget.isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
+                              color: widget.isDark
+                                  ? const Color(0xFF9CA3AF)
+                                  : const Color(0xFF6B7280),
                             ),
                           ),
                         ],
@@ -3227,7 +3815,9 @@ class _SlotPickerContentState extends State<SlotPickerContent> {
               decoration: BoxDecoration(
                 border: Border(
                   top: BorderSide(
-                    color: widget.isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
+                    color: widget.isDark
+                        ? const Color(0xFF27272A)
+                        : const Color(0xFFE5E7EB),
                   ),
                 ),
               ),
@@ -3243,10 +3833,7 @@ class _SlotPickerContentState extends State<SlotPickerContent> {
                 ),
                 child: const Text(
                   'Confirm',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                 ),
               ),
             ),
@@ -3265,31 +3852,45 @@ class _SlotPickerContentState extends State<SlotPickerContent> {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: isAvailable ? () {
-            setState(() {
-              _selectedPeriod = period;
-            });
-          } : null,
+          onTap: isAvailable
+              ? () {
+                  setState(() {
+                    _selectedPeriod = period;
+                  });
+                }
+              : null,
           borderRadius: BorderRadius.circular(12),
           child: Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
               color: isAvailable
                   ? (widget.isDark ? const Color(0xFF18181B) : Colors.white)
-                  : (widget.isDark ? const Color(0xFF09090B) : const Color(0xFFF3F4F6)),
+                  : (widget.isDark
+                        ? const Color(0xFF09090B)
+                        : const Color(0xFFF3F4F6)),
               border: Border.all(
                 color: isSelected
-                    ? (widget.isDark ? const Color(0xFF10B981) : const Color(0xFF059669))
+                    ? (widget.isDark
+                          ? const Color(0xFF10B981)
+                          : const Color(0xFF059669))
                     : (isAvailable
-                        ? (widget.isDark ? const Color(0xFF10B981) : const Color(0xFF059669))
-                        : (widget.isDark ? const Color(0xFF3F3F46) : const Color(0xFFD1D5DB))),
+                          ? (widget.isDark
+                                ? const Color(0xFF10B981)
+                                : const Color(0xFF059669))
+                          : (widget.isDark
+                                ? const Color(0xFF3F3F46)
+                                : const Color(0xFFD1D5DB))),
                 width: isSelected ? 3 : 2,
               ),
               borderRadius: BorderRadius.circular(12),
               boxShadow: isSelected
                   ? [
                       BoxShadow(
-                        color: (widget.isDark ? const Color(0xFF10B981) : const Color(0xFF059669)).withValues(alpha: 0.3),
+                        color:
+                            (widget.isDark
+                                    ? const Color(0xFF10B981)
+                                    : const Color(0xFF059669))
+                                .withValues(alpha: 0.3),
                         blurRadius: 8,
                         offset: const Offset(0, 2),
                       ),
@@ -3302,16 +3903,26 @@ class _SlotPickerContentState extends State<SlotPickerContent> {
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
                     color: isAvailable
-                        ? (widget.isDark ? const Color(0xFF10B981).withValues(alpha: 0.2) : const Color(0xFF10B981).withValues(alpha: 0.1))
-                        : (widget.isDark ? const Color(0xFF3F3F46) : const Color(0xFFE5E7EB)),
+                        ? (widget.isDark
+                              ? const Color(0xFF10B981).withValues(alpha: 0.2)
+                              : const Color(0xFF10B981).withValues(alpha: 0.1))
+                        : (widget.isDark
+                              ? const Color(0xFF3F3F46)
+                              : const Color(0xFFE5E7EB)),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Icon(
-                    period.period == 'MORNING' ? Icons.wb_sunny : Icons.nights_stay,
+                    period.period == 'MORNING'
+                        ? Icons.wb_sunny
+                        : Icons.nights_stay,
                     size: 24,
                     color: isAvailable
-                        ? (widget.isDark ? const Color(0xFF10B981) : const Color(0xFF059669))
-                        : (widget.isDark ? const Color(0xFF6B7280) : const Color(0xFF9CA3AF)),
+                        ? (widget.isDark
+                              ? const Color(0xFF10B981)
+                              : const Color(0xFF059669))
+                        : (widget.isDark
+                              ? const Color(0xFF6B7280)
+                              : const Color(0xFF9CA3AF)),
                   ),
                 ),
                 const SizedBox(width: 16),
@@ -3326,7 +3937,9 @@ class _SlotPickerContentState extends State<SlotPickerContent> {
                           fontWeight: FontWeight.bold,
                           color: isAvailable
                               ? (widget.isDark ? Colors.white : Colors.black)
-                              : (widget.isDark ? const Color(0xFF6B7280) : const Color(0xFF9CA3AF)),
+                              : (widget.isDark
+                                    ? const Color(0xFF6B7280)
+                                    : const Color(0xFF9CA3AF)),
                         ),
                       ),
                       if (!isAvailable && period.blockedBy != null) ...[
@@ -3335,7 +3948,9 @@ class _SlotPickerContentState extends State<SlotPickerContent> {
                           period.blockedBy!,
                           style: TextStyle(
                             fontSize: 12,
-                            color: widget.isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
+                            color: widget.isDark
+                                ? const Color(0xFF9CA3AF)
+                                : const Color(0xFF6B7280),
                           ),
                         ),
                       ],
@@ -3386,7 +4001,8 @@ class _KeepAlivePage extends StatefulWidget {
   State<_KeepAlivePage> createState() => _KeepAlivePageState();
 }
 
-class _KeepAlivePageState extends State<_KeepAlivePage> with AutomaticKeepAliveClientMixin {
+class _KeepAlivePageState extends State<_KeepAlivePage>
+    with AutomaticKeepAliveClientMixin {
   @override
   bool get wantKeepAlive => true;
 

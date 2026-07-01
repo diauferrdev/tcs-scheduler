@@ -316,7 +316,7 @@ class _UsersScreenState extends State<UsersScreen> {
                     if (currentUserRole == UserRole.ADMIN) ...[UserRole.ADMIN, UserRole.MANAGER],
                     UserRole.USER,
                   ].map((role) {
-                    final r = role is UserRole ? role : role as UserRole;
+                    final r = role;
                     final isSelected = selectedRoles.contains(r);
                     return CheckboxListTile(
                       value: isSelected,
@@ -387,7 +387,7 @@ class _UsersScreenState extends State<UsersScreen> {
       });
 
       // If multiple roles, update roles after creation
-      if (roles.length > 1 && response != null) {
+      if (roles.length > 1) {
         final userId = (response['user'] as Map<String, dynamic>?)?['id'] as String?;
         if (userId != null) {
           await _apiService.post('/api/auth/users/$userId/roles', {

@@ -83,8 +83,7 @@ void showBrowserNotification(String title, String body, {String? icon}) {
       );
     } else {
     }
-  } catch (e) {
-  }
+  } catch (e) { /* ignored: non-critical failure */ }
 }
 
 /// Get Service Worker registration
@@ -131,8 +130,7 @@ void injectBase64Helper() {
   try {
     // This will be injected once
     _injectBase64HelperScript();
-  } catch (e) {
-  }
+  } catch (e) { /* ignored: non-critical failure */ }
 }
 
 @JS('eval')
@@ -160,8 +158,7 @@ void _injectBase64HelperScript() {
 
   try {
     _eval(script);
-  } catch (e) {
-  }
+  } catch (e) { /* ignored: non-critical failure */ }
 }
 
 /// Subscribe with push manager options
@@ -217,8 +214,7 @@ void injectPushManagerHelper() {
 
   try {
     _eval(script);
-  } catch (e) {
-  }
+  } catch (e) { /* ignored: non-critical failure */ }
 }
 
 /// Setup listener for Service Worker messages (notification clicks)
@@ -257,8 +253,7 @@ void setupServiceWorkerMessageListener(void Function(String url, String? booking
     // Register Flutter callback
     _registerNavigationCallback(onNavigate);
 
-  } catch (e) {
-  }
+  } catch (e) { /* ignored: non-critical failure */ }
 }
 
 /// Register Flutter navigation callback
@@ -277,6 +272,5 @@ void _registerNavigationCallback(void Function(String url, String? bookingId, St
 
   try {
     _eval(callbackScript);
-  } catch (e) {
-  }
+  } catch (e) { /* ignored: non-critical failure */ }
 }

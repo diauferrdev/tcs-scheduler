@@ -182,8 +182,7 @@ class _TicketsAdminViewState extends State<TicketsAdminView> {
                   }
                 }
               });
-            } catch (e) {
-            }
+            } catch (e) { /* ignored: non-critical failure */ }
           }
         } else if (type == 'mark_as_read_success') {
           // Just log success, no action needed in admin view

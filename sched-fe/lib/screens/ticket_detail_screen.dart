@@ -6,6 +6,7 @@ import '../models/user.dart';
 import '../providers/auth_provider.dart';
 import '../providers/theme_provider.dart';
 import '../services/api_service.dart';
+import '../utils/adaptive_panel.dart';
 import '../widgets/ticket_chat_widget.dart';
 
 class TicketDetailScreen extends StatefulWidget {
@@ -64,7 +65,7 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
     final isDark = themeProvider.isDark;
     final textColor = isDark ? Colors.white : Colors.black;
 
-    showModalBottomSheet(
+    showAdaptivePanel(
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
@@ -183,6 +184,100 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
               ),
             ],
           ),
+        ),
+      ),
+      desktopBuilder: (context) => DialogScrollBody(
+        builder: (scrollController) => Column(
+          children: [
+            // Header
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              child: Row(
+                children: [
+                  Icon(Icons.info_outline, color: textColor, size: 24),
+                  const SizedBox(width: 12),
+                  Text(
+                    'Ticket Details',
+                    style: TextStyle(
+                      color: textColor,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    icon: Icon(Icons.close, color: textColor),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
+            ),
+            Divider(
+              color: isDark ? Colors.white.withValues(alpha: 0.1) : Colors.black.withValues(alpha: 0.1),
+              height: 1,
+            ),
+            // Content
+            Expanded(
+              child: ListView(
+                controller: scrollController,
+                padding: const EdgeInsets.all(20),
+                children: [
+                  // Title
+                  Text(
+                    'Title',
+                    style: TextStyle(
+                      color: textColor.withValues(alpha: 0.6),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    _ticket!.title,
+                    style: TextStyle(
+                      color: textColor,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+
+                  // Description
+                  Text(
+                    'Description',
+                    style: TextStyle(
+                      color: textColor.withValues(alpha: 0.6),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    _ticket!.description,
+                    style: TextStyle(
+                      color: textColor,
+                      fontSize: 14,
+                      height: 1.5,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+
+                  // Metadata chips
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      _buildInfoChip('Status', _getStatusLabel(_ticket!.status), isDark, textColor),
+                      _buildInfoChip('Priority', _ticket!.priority.toString().split('.').last, isDark, textColor),
+                      _buildInfoChip('Category', _ticket!.category.toString().split('.').last, isDark, textColor),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );

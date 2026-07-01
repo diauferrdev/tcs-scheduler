@@ -417,9 +417,7 @@ class BookingFormScreenState extends State<BookingFormScreen> {
 
     setState(() {
       // Step 1: Set engagement type randomly
-      if (_engagementType == null) {
-        _engagementType = ['PACE_VISIT', 'INNOVATION_EXCHANGE', 'HACKATHON'][random.nextInt(3)];
-      }
+      _engagementType ??= ['PACE_VISIT', 'INNOVATION_EXCHANGE', 'HACKATHON'][random.nextInt(3)];
 
       // Step 2: If PACE_VISIT, set visit type
       if (_engagementType == 'PACE_VISIT' && _visitType == null) {
@@ -433,20 +431,16 @@ class BookingFormScreenState extends State<BookingFormScreen> {
       if (_employeeIdController.text.isEmpty) {
         _employeeIdController.text = '${random.nextInt(900000) + 100000}';
       }
-      if (_vertical == null) {
-        _vertical = [
+      _vertical ??= [
           'BFSI', 'RETAIL_CPG', 'LIFE_SCIENCES_HEALTHCARE', 'MANUFACTURING',
           'HI_TECH', 'CMT', 'ERU'
         ][random.nextInt(7)];
-      }
       if (_organizationNameController.text.isEmpty) {
         _organizationNameController.text = mockCompanies[random.nextInt(mockCompanies.length)];
       }
-      if (_organizationType == null) {
-        _organizationType = [
+      _organizationType ??= [
           'EXISTING_CUSTOMER', 'PROSPECT', 'PARTNER'
         ][random.nextInt(3)];
-      }
       if (_organizationDescriptionController.text.isEmpty) {
         _organizationDescriptionController.text = 'Leading company in their sector';
       }

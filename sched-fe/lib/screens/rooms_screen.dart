@@ -2,11 +2,9 @@ import 'dart:async';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:provider/provider.dart';
 import '../models/room_booking.dart';
-import '../models/user.dart';
-import '../providers/auth_provider.dart';
 import '../services/api_service.dart';
+import '../utils/adaptive_panel.dart';
 
 class RoomsScreen extends StatefulWidget {
   const RoomsScreen({super.key});
@@ -57,7 +55,9 @@ class _RoomsScreenState extends State<RoomsScreen> {
 
     try {
       final dateStr = DateFormat('yyyy-MM-dd').format(_selectedDate);
-      final response = await _apiService.get('/api/rooms/availability/$dateStr');
+      final response = await _apiService.get(
+        '/api/rooms/availability/$dateStr',
+      );
 
       // Parse availability data — extract booked slots per room
       final availability = response['availability'] as List? ?? [];
@@ -89,7 +89,9 @@ class _RoomsScreenState extends State<RoomsScreen> {
   List<DateTime> _getWeekDates([int offset = 0]) {
     final now = DateTime.now();
     // Start on Sunday (weekday 7), end on Saturday
-    final startOfWeek = now.subtract(Duration(days: now.weekday % 7)).add(Duration(days: offset * 7));
+    final startOfWeek = now
+        .subtract(Duration(days: now.weekday % 7))
+        .add(Duration(days: offset * 7));
     return List.generate(7, (i) => startOfWeek.add(Duration(days: i)));
   }
 
@@ -104,7 +106,6 @@ class _RoomsScreenState extends State<RoomsScreen> {
   List<Map<String, dynamic>> _slotsForRoom(RoomType room) {
     return _roomAvailability[room.name] ?? [];
   }
-
 
   int _parseHour(String time) {
     final parts = time.split(':');
@@ -163,7 +164,7 @@ class _RoomsScreenState extends State<RoomsScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final slots = _slotsForRoom(room);
 
-    showModalBottomSheet(
+    showAdaptivePanel(
       context: context,
       isScrollControlled: true,
       isDismissible: true,
@@ -179,13 +180,25 @@ class _RoomsScreenState extends State<RoomsScreen> {
           _showBookingForm(room);
         },
       ),
+      desktopBuilder: (context) => DialogScrollBody(
+        builder: (scrollController) => _RoomDetailSheet(
+          room: room,
+          slots: slots,
+          selectedDate: _selectedDate,
+          isDark: isDark,
+          onBook: () {
+            Navigator.pop(context);
+            _showBookingForm(room);
+          },
+        ).buildDesktopContent(context, scrollController),
+      ),
     );
   }
 
   void _showBookingForm(RoomType room) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    showModalBottomSheet(
+    showAdaptivePanel(
       context: context,
       isScrollControlled: true,
       isDismissible: true,
@@ -199,6 +212,18 @@ class _RoomsScreenState extends State<RoomsScreen> {
           Navigator.pop(context);
           await _submitBooking(data);
         },
+      ),
+      desktopBuilder: (context) => DialogScrollBody(
+        builder: (scrollController) => _BookingFormSheet(
+          room: room,
+          selectedDate: _selectedDate,
+          isDark: isDark,
+          desktopScrollController: scrollController,
+          onSubmit: (data) async {
+            Navigator.pop(context);
+            await _submitBooking(data);
+          },
+        ),
       ),
     );
   }
@@ -217,9 +242,9 @@ class _RoomsScreenState extends State<RoomsScreen> {
     } catch (e) {
       if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to book room: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to book room: $e')));
     }
   }
 
@@ -279,8 +304,10 @@ class _RoomsScreenState extends State<RoomsScreen> {
                         ? Colors.white.withValues(alpha: 0.3)
                         : Colors.black.withValues(alpha: 0.3),
                   ),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
                 ),
               ),
             ],
@@ -298,7 +325,10 @@ class _RoomsScreenState extends State<RoomsScreen> {
                   }
                   // Auto-select first weekday of new week
                   final newWeek = _getWeekDates(_weekOffset);
-                  final firstWeekday = newWeek.firstWhere((d) => !_isWeekend(d), orElse: () => newWeek.first);
+                  final firstWeekday = newWeek.firstWhere(
+                    (d) => !_isWeekend(d),
+                    orElse: () => newWeek.first,
+                  );
                   _selectedDate = firstWeekday;
                 });
                 _loadAvailability();
@@ -312,86 +342,117 @@ class _RoomsScreenState extends State<RoomsScreen> {
                     setState(() {
                       _weekOffset--;
                       final newWeek = _getWeekDates(_weekOffset);
-                      _selectedDate = newWeek.firstWhere((d) => !_isWeekend(d), orElse: () => newWeek.first);
+                      _selectedDate = newWeek.firstWhere(
+                        (d) => !_isWeekend(d),
+                        orElse: () => newWeek.first,
+                      );
                     });
                     _loadAvailability();
                   },
-                  child: Icon(Icons.chevron_left, size: 20, color: isDark ? Colors.white : Colors.black),
+                  child: Icon(
+                    Icons.chevron_left,
+                    size: 20,
+                    color: isDark ? Colors.white : Colors.black,
+                  ),
                 ),
                 ...weekDates.map((date) {
-              final isSelected = _isSameDay(date, _selectedDate);
-              final isToday = _isSameDay(date, today);
-              final isPast = date.isBefore(DateTime(today.year, today.month, today.day));
-              final isWeekendDay = _isWeekend(date);
-              final isCurrent = _isSameDay(date, today);
-              final isDisabled = isCurrent ? false : (isPast || isWeekendDay);
+                  final isSelected = _isSameDay(date, _selectedDate);
+                  final isToday = _isSameDay(date, today);
+                  final isPast = date.isBefore(
+                    DateTime(today.year, today.month, today.day),
+                  );
+                  final isWeekendDay = _isWeekend(date);
+                  final isCurrent = _isSameDay(date, today);
+                  final isDisabled = isCurrent
+                      ? false
+                      : (isPast || isWeekendDay);
 
-              return Expanded(child: IgnorePointer(
-                ignoring: isDisabled,
-                child: GestureDetector(
-                onTap: () {
-                  setState(() => _selectedDate = date);
-                  _loadAvailability();
-                },
-                child: Opacity(
-                  opacity: isDisabled ? 0.35 : isWeekendDay ? 0.5 : 1.0,
-                  child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: isSelected && !isDisabled
-                        ? (isDark ? Colors.white : Colors.black)
-                        : Colors.transparent,
-                    borderRadius: BorderRadius.circular(12),
-                    border: isToday && !isSelected
-                        ? Border.all(
-                            color: isDark
-                                ? Colors.white.withValues(alpha: 0.3)
-                                : Colors.black.withValues(alpha: 0.3),
-                          )
-                        : null,
-                  ),
-                  child: Column(
-                    children: [
-                      Text(
-                        DateFormat('EEE').format(date).toUpperCase(),
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w600,
-                          color: isSelected
-                              ? (isDark ? Colors.black : Colors.white)
-                              : (isDark ? Colors.white60 : Colors.black45),
+                  return Expanded(
+                    child: IgnorePointer(
+                      ignoring: isDisabled,
+                      child: GestureDetector(
+                        onTap: () {
+                          setState(() => _selectedDate = date);
+                          _loadAvailability();
+                        },
+                        child: Opacity(
+                          opacity: isDisabled
+                              ? 0.35
+                              : isWeekendDay
+                              ? 0.5
+                              : 1.0,
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 200),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 8,
+                            ),
+                            decoration: BoxDecoration(
+                              color: isSelected && !isDisabled
+                                  ? (isDark ? Colors.white : Colors.black)
+                                  : Colors.transparent,
+                              borderRadius: BorderRadius.circular(12),
+                              border: isToday && !isSelected
+                                  ? Border.all(
+                                      color: isDark
+                                          ? Colors.white.withValues(alpha: 0.3)
+                                          : Colors.black.withValues(alpha: 0.3),
+                                    )
+                                  : null,
+                            ),
+                            child: Column(
+                              children: [
+                                Text(
+                                  DateFormat('EEE').format(date).toUpperCase(),
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w600,
+                                    color: isSelected
+                                        ? (isDark ? Colors.black : Colors.white)
+                                        : (isDark
+                                              ? Colors.white60
+                                              : Colors.black45),
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  date.day.toString(),
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    color: isSelected
+                                        ? (isDark ? Colors.black : Colors.white)
+                                        : (isDark
+                                              ? Colors.white
+                                              : Colors.black),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
                         ),
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        date.day.toString(),
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: isSelected
-                              ? (isDark ? Colors.black : Colors.white)
-                              : (isDark ? Colors.white : Colors.black),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                ),
-              )));
-            }).toList(),
+                    ),
+                  );
+                }),
                 // Next week arrow
                 GestureDetector(
                   onTap: () {
                     setState(() {
                       _weekOffset++;
                       final newWeek = _getWeekDates(_weekOffset);
-                      _selectedDate = newWeek.firstWhere((d) => !_isWeekend(d), orElse: () => newWeek.first);
+                      _selectedDate = newWeek.firstWhere(
+                        (d) => !_isWeekend(d),
+                        orElse: () => newWeek.first,
+                      );
                     });
                     _loadAvailability();
                   },
-                  child: Icon(Icons.chevron_right, size: 20, color: isDark ? Colors.white : Colors.black),
+                  child: Icon(
+                    Icons.chevron_right,
+                    size: 20,
+                    color: isDark ? Colors.white : Colors.black,
+                  ),
                 ),
               ],
             ),
@@ -490,7 +551,9 @@ class _RoomsScreenState extends State<RoomsScreen> {
           crossAxisCount: MediaQuery.of(context).size.width > 900 ? 4 : 2,
           crossAxisSpacing: 12,
           mainAxisSpacing: 12,
-          childAspectRatio: MediaQuery.of(context).size.width > 900 ? 1.3 : 0.95,
+          childAspectRatio: MediaQuery.of(context).size.width > 900
+              ? 1.3
+              : 0.95,
         ),
         itemCount: RoomBooking.displayOrder.length,
         itemBuilder: (context, index) {
@@ -536,163 +599,209 @@ class _RoomsScreenState extends State<RoomsScreen> {
             // Cover image — expands to fill available space
             Expanded(
               child: ClipRRect(
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(11)),
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  Image.asset(
-                    'assets/images/paceport-saopaulo.jpg',
-                    width: double.infinity,
-                    fit: BoxFit.cover,
-                  ),
-                  // Dark overlay
-                  Container(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [Colors.black.withValues(alpha: 0.1), Colors.black.withValues(alpha: 0.6)],
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(11),
+                ),
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    Image.asset(
+                      'assets/images/paceport-saopaulo.jpg',
+                      width: double.infinity,
+                      fit: BoxFit.cover,
+                    ),
+                    // Dark overlay
+                    Container(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            Colors.black.withValues(alpha: 0.1),
+                            Colors.black.withValues(alpha: 0.6),
+                          ],
+                        ),
                       ),
                     ),
-                  ),
-                  // Status badge on image
-                  Positioned(
-                    top: 8,
-                    right: 8,
-                    child: isBusy
-                        ? Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                            decoration: BoxDecoration(
-                              color: Colors.red.withValues(alpha: 0.9),
-                              borderRadius: BorderRadius.circular(6),
+                    // Status badge on image
+                    Positioned(
+                      top: 8,
+                      right: 8,
+                      child: isBusy
+                          ? Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 3,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.red.withValues(alpha: 0.9),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: const Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.circle,
+                                    size: 6,
+                                    color: Colors.white,
+                                  ),
+                                  SizedBox(width: 4),
+                                  Text(
+                                    'BUSY',
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w700,
+                                      color: Colors.white,
+                                      letterSpacing: 0.5,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            )
+                          : Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 3,
+                              ),
+                              decoration: BoxDecoration(
+                                color:
+                                    (available > 6
+                                            ? Colors.green
+                                            : available > 0
+                                            ? Colors.orange
+                                            : Colors.red)
+                                        .withValues(alpha: 0.9),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                available == 12
+                                    ? 'Available'
+                                    : '${available}h free',
+                                style: const TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.white,
+                                ),
+                              ),
                             ),
-                            child: const Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(Icons.circle, size: 6, color: Colors.white),
-                                SizedBox(width: 4),
-                                Text('BUSY', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Colors.white, letterSpacing: 0.5)),
+                    ),
+                    // Room icon + name on image
+                    Positioned(
+                      bottom: 8,
+                      left: 10,
+                      child: Row(
+                        children: [
+                          Icon(
+                            RoomBooking.roomIcon(room),
+                            size: 16,
+                            color: Colors.white,
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            RoomBooking.roomLabel(room),
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                              shadows: [
+                                Shadow(blurRadius: 4, color: Colors.black54),
                               ],
                             ),
-                          )
-                        : Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                            decoration: BoxDecoration(
-                              color: (available > 6 ? Colors.green : available > 0 ? Colors.orange : Colors.red).withValues(alpha: 0.9),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Text(
-                              available == 12 ? 'Available' : '${available}h free',
-                              style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Colors.white),
-                            ),
                           ),
-                  ),
-                  // Room icon + name on image
-                  Positioned(
-                    bottom: 8,
-                    left: 10,
-                    child: Row(
-                      children: [
-                        Icon(RoomBooking.roomIcon(room), size: 16, color: Colors.white),
-                        const SizedBox(width: 6),
-                        Text(
-                          RoomBooking.roomLabel(room),
-                          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white, shadows: [Shadow(blurRadius: 4, color: Colors.black54)]),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
             ),
             Padding(
               padding: const EdgeInsets.all(8),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-            Text(
-              'Capacity: ${RoomBooking.roomCapacity(room)}',
-              style: TextStyle(
-                fontSize: 11,
-                color: isDark ? Colors.white60 : Colors.black45,
-              ),
-            ),
-            const SizedBox(height: 6),
-            // Usage bar
-            ClipRRect(
-              borderRadius: BorderRadius.circular(3),
-              child: LinearProgressIndicator(
-                value: usage,
-                minHeight: 4,
-                backgroundColor: isDark
-                    ? Colors.white.withValues(alpha: 0.1)
-                    : Colors.black.withValues(alpha: 0.08),
-                valueColor: AlwaysStoppedAnimation<Color>(
-                  usage > 0.75
-                      ? Colors.red
-                      : usage > 0.5
-                          ? Colors.orange
-                          : Colors.green,
-                ),
-              ),
-            ),
-            const SizedBox(height: 4),
-            Row(
-              children: [
-                Text(
-                  '${(usage * 100).round()}% used',
-                  style: TextStyle(
-                    fontSize: 10,
-                    color: isDark ? Colors.white38 : Colors.black38,
-                  ),
-                ),
-                const Spacer(),
-                if (approvedCount > 0) ...[
-                  Container(
-                    width: 6,
-                    height: 6,
-                    decoration: const BoxDecoration(
-                      color: Colors.green,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                  const SizedBox(width: 3),
                   Text(
-                    '$approvedCount',
+                    'Capacity: ${RoomBooking.roomCapacity(room)}',
                     style: TextStyle(
-                      fontSize: 10,
+                      fontSize: 11,
                       color: isDark ? Colors.white60 : Colors.black45,
                     ),
                   ),
-                  const SizedBox(width: 6),
-                ],
-                if (pendingCount > 0) ...[
-                  Container(
-                    width: 6,
-                    height: 6,
-                    decoration: const BoxDecoration(
-                      color: Colors.orange,
-                      shape: BoxShape.circle,
+                  const SizedBox(height: 6),
+                  // Usage bar
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(3),
+                    child: LinearProgressIndicator(
+                      value: usage,
+                      minHeight: 4,
+                      backgroundColor: isDark
+                          ? Colors.white.withValues(alpha: 0.1)
+                          : Colors.black.withValues(alpha: 0.08),
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        usage > 0.75
+                            ? Colors.red
+                            : usage > 0.5
+                            ? Colors.orange
+                            : Colors.green,
+                      ),
                     ),
                   ),
-                  const SizedBox(width: 3),
-                  Text(
-                    '$pendingCount',
-                    style: TextStyle(
-                      fontSize: 10,
-                      color: isDark ? Colors.white60 : Colors.black45,
-                    ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Text(
+                        '${(usage * 100).round()}% used',
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: isDark ? Colors.white38 : Colors.black38,
+                        ),
+                      ),
+                      const Spacer(),
+                      if (approvedCount > 0) ...[
+                        Container(
+                          width: 6,
+                          height: 6,
+                          decoration: const BoxDecoration(
+                            color: Colors.green,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        const SizedBox(width: 3),
+                        Text(
+                          '$approvedCount',
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: isDark ? Colors.white60 : Colors.black45,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                      ],
+                      if (pendingCount > 0) ...[
+                        Container(
+                          width: 6,
+                          height: 6,
+                          decoration: const BoxDecoration(
+                            color: Colors.orange,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        const SizedBox(width: 3),
+                        Text(
+                          '$pendingCount',
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: isDark ? Colors.white60 : Colors.black45,
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                 ],
-              ],
+              ),
             ),
           ],
         ),
       ),
-    ],
-  ),
-),
     );
   }
 }
@@ -718,94 +827,118 @@ class _RoomDetailSheet extends StatelessWidget {
       initialChildSize: 0.7,
       minChildSize: 0.4,
       maxChildSize: 0.9,
-      builder: (context, scrollController) {
-        return Container(
-          decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF18181B) : Colors.white,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+      builder: (context, scrollController) =>
+          _buildContent(context, scrollController, isMobile: true),
+    );
+  }
+
+  /// Flat content for the desktop dialog path (no drag handle, no rounded
+  /// top chrome — the [DialogScrollBody]/[Dialog] already provide those).
+  Widget buildDesktopContent(
+    BuildContext context,
+    ScrollController scrollController,
+  ) {
+    return _buildContent(context, scrollController, isMobile: false);
+  }
+
+  Widget _buildContent(
+    BuildContext context,
+    ScrollController scrollController, {
+    required bool isMobile,
+  }) {
+    final content = Column(
+      children: [
+        if (isMobile) ...[
+          const SizedBox(height: 8),
+          Container(
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
+              borderRadius: BorderRadius.circular(2),
+            ),
           ),
-          clipBehavior: Clip.antiAlias,
-          child: Column(
+        ],
+        Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
             children: [
-              const SizedBox(height: 8),
-              Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
-                  borderRadius: BorderRadius.circular(2),
-                ),
+              Icon(
+                RoomBooking.roomIcon(room),
+                size: 24,
+                color: isDark ? Colors.white : Colors.black,
               ),
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Row(
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(
-                      RoomBooking.roomIcon(room),
-                      size: 24,
-                      color: isDark ? Colors.white : Colors.black,
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            RoomBooking.roomLabel(room),
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: isDark ? Colors.white : Colors.black,
-                            ),
-                          ),
-                          Text(
-                            'Capacity: ${RoomBooking.roomCapacity(room)} | ${DateFormat('EEE, MMM d').format(selectedDate)}',
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: isDark ? Colors.white60 : Colors.black45,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    ElevatedButton.icon(
-                      onPressed: onBook,
-                      icon: const Icon(Icons.add, size: 18),
-                      label: const Text('Book'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: isDark ? Colors.white : Colors.black,
-                        foregroundColor: isDark ? Colors.black : Colors.white,
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 16, vertical: 10),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    IconButton(
-                      onPressed: () => Navigator.pop(context),
-                      icon: Icon(
-                        Icons.close,
+                    Text(
+                      RoomBooking.roomLabel(room),
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
                         color: isDark ? Colors.white : Colors.black,
                       ),
-                      tooltip: 'Close',
+                    ),
+                    Text(
+                      'Capacity: ${RoomBooking.roomCapacity(room)} | ${DateFormat('EEE, MMM d').format(selectedDate)}',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: isDark ? Colors.white60 : Colors.black45,
+                      ),
                     ),
                   ],
                 ),
               ),
-              Divider(
-                color: isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
-                height: 1,
-              ),
-              Expanded(
-                child: ListView(
-                  controller: scrollController,
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  children: _buildTimelineItems(),
+              ElevatedButton.icon(
+                onPressed: onBook,
+                icon: const Icon(Icons.add, size: 18),
+                label: const Text('Book'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: isDark ? Colors.white : Colors.black,
+                  foregroundColor: isDark ? Colors.black : Colors.white,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 10,
+                  ),
                 ),
+              ),
+              const SizedBox(width: 8),
+              IconButton(
+                onPressed: () => Navigator.pop(context),
+                icon: Icon(
+                  Icons.close,
+                  color: isDark ? Colors.white : Colors.black,
+                ),
+                tooltip: 'Close',
               ),
             ],
           ),
-        );
-      },
+        ),
+        Divider(
+          color: isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
+          height: 1,
+        ),
+        Expanded(
+          child: ListView(
+            controller: scrollController,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            children: _buildTimelineItems(),
+          ),
+        ),
+      ],
+    );
+
+    if (!isMobile) return content;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF18181B) : Colors.white,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: content,
     );
   }
 
@@ -823,7 +956,10 @@ class _RoomDetailSheet extends StatelessWidget {
   /// Build timeline: free 30-min slots are individual, bookings span their exact duration
   List<Widget> _buildTimelineItems() {
     final sorted = List<Map<String, dynamic>>.from(slots)
-      ..sort((a, b) => (a['startTime'] as String).compareTo(b['startTime'] as String));
+      ..sort(
+        (a, b) =>
+            (a['startTime'] as String).compareTo(b['startTime'] as String),
+      );
 
     final items = <Widget>[];
     int cursor = 8 * 60; // 08:00 in minutes
@@ -867,13 +1003,18 @@ class _RoomDetailSheet extends StatelessWidget {
             width: 50,
             child: Text(
               _fromMinutes(minutes),
-              style: TextStyle(fontSize: 10, color: isDark ? Colors.white30 : Colors.black26),
+              style: TextStyle(
+                fontSize: 10,
+                color: isDark ? Colors.white30 : Colors.black26,
+              ),
             ),
           ),
           Expanded(
             child: Container(
               decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF27272A).withValues(alpha: 0.2) : const Color(0xFFF5F5F5),
+                color: isDark
+                    ? const Color(0xFF27272A).withValues(alpha: 0.2)
+                    : const Color(0xFFF5F5F5),
                 borderRadius: BorderRadius.circular(4),
               ),
             ),
@@ -883,7 +1024,11 @@ class _RoomDetailSheet extends StatelessWidget {
     );
   }
 
-  Widget _buildBookedBlock(Map<String, dynamic> slot, int durationSlots, bool isApproved) {
+  Widget _buildBookedBlock(
+    Map<String, dynamic> slot,
+    int durationSlots,
+    bool isApproved,
+  ) {
     final startTime = slot['startTime'] as String;
     final endTime = slot['endTime'] as String;
     final purpose = slot['purpose'] as String? ?? '';
@@ -897,7 +1042,14 @@ class _RoomDetailSheet extends StatelessWidget {
         children: [
           SizedBox(
             width: 50,
-            child: Text(startTime, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: isApproved ? Colors.green : Colors.orange)),
+            child: Text(
+              startTime,
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
+                color: isApproved ? Colors.green : Colors.orange,
+              ),
+            ),
           ),
           Expanded(
             child: Builder(
@@ -905,11 +1057,20 @@ class _RoomDetailSheet extends StatelessWidget {
                 onTap: () => _showBookingDetail(context, slot),
                 child: Container(
                   decoration: BoxDecoration(
-                    color: isApproved ? Colors.green.withValues(alpha: 0.12) : Colors.orange.withValues(alpha: 0.12),
+                    color: isApproved
+                        ? Colors.green.withValues(alpha: 0.12)
+                        : Colors.orange.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: isApproved ? Colors.green.withValues(alpha: 0.35) : Colors.orange.withValues(alpha: 0.35)),
+                    border: Border.all(
+                      color: isApproved
+                          ? Colors.green.withValues(alpha: 0.35)
+                          : Colors.orange.withValues(alpha: 0.35),
+                    ),
                   ),
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -917,27 +1078,66 @@ class _RoomDetailSheet extends StatelessWidget {
                     children: [
                       Row(
                         children: [
-                          Icon(isApproved ? Icons.check_circle : Icons.schedule, size: 12, color: isApproved ? Colors.green : Colors.orange),
+                          Icon(
+                            isApproved ? Icons.check_circle : Icons.schedule,
+                            size: 12,
+                            color: isApproved ? Colors.green : Colors.orange,
+                          ),
                           const SizedBox(width: 4),
                           Expanded(
-                            child: Text('$startTime – $endTime', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: isDark ? Colors.white : Colors.black87)),
+                            child: Text(
+                              '$startTime – $endTime',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                color: isDark ? Colors.white : Colors.black87,
+                              ),
+                            ),
                           ),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 5,
+                              vertical: 1,
+                            ),
                             decoration: BoxDecoration(
-                              color: isApproved ? Colors.green.withValues(alpha: 0.2) : Colors.orange.withValues(alpha: 0.2),
+                              color: isApproved
+                                  ? Colors.green.withValues(alpha: 0.2)
+                                  : Colors.orange.withValues(alpha: 0.2),
                               borderRadius: BorderRadius.circular(3),
                             ),
-                            child: Text(isApproved ? 'Confirmed' : 'Pending', style: TextStyle(fontSize: 8, fontWeight: FontWeight.w700, color: isApproved ? Colors.green : Colors.orange)),
+                            child: Text(
+                              isApproved ? 'Confirmed' : 'Pending',
+                              style: TextStyle(
+                                fontSize: 8,
+                                fontWeight: FontWeight.w700,
+                                color: isApproved
+                                    ? Colors.green
+                                    : Colors.orange,
+                              ),
+                            ),
                           ),
                         ],
                       ),
                       if (purpose.isNotEmpty && durationSlots >= 2) ...[
                         const SizedBox(height: 2),
-                        Text(purpose, style: TextStyle(fontSize: 11, color: isDark ? Colors.white60 : Colors.black54), maxLines: 1, overflow: TextOverflow.ellipsis),
+                        Text(
+                          purpose,
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: isDark ? Colors.white60 : Colors.black54,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ],
                       if (durationSlots >= 2)
-                        Text(bookedBy, style: TextStyle(fontSize: 9, color: isDark ? Colors.white30 : Colors.black26)),
+                        Text(
+                          bookedBy,
+                          style: TextStyle(
+                            fontSize: 9,
+                            color: isDark ? Colors.white30 : Colors.black26,
+                          ),
+                        ),
                     ],
                   ),
                 ),
@@ -961,15 +1161,15 @@ class _RoomDetailSheet extends StatelessWidget {
     final statusColor = isApproved
         ? Colors.green
         : isPending
-            ? Colors.orange
-            : Colors.red;
+        ? Colors.orange
+        : Colors.red;
     final statusLabel = isApproved
         ? 'Approved'
         : isPending
-            ? 'Pending'
-            : 'Rejected';
+        ? 'Pending'
+        : 'Rejected';
 
-    showModalBottomSheet(
+    showAdaptivePanel(
       context: context,
       isDismissible: true,
       enableDrag: true,
@@ -987,7 +1187,9 @@ class _RoomDetailSheet extends StatelessWidget {
               width: 40,
               height: 4,
               decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB),
+                color: isDark
+                    ? const Color(0xFF27272A)
+                    : const Color(0xFFE5E7EB),
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -1011,7 +1213,10 @@ class _RoomDetailSheet extends StatelessWidget {
                   ),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: statusColor.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(6),
@@ -1028,11 +1233,19 @@ class _RoomDetailSheet extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 20),
-            _detailRow(Icons.calendar_today, 'Date', DateFormat('EEE, MMM d, yyyy').format(selectedDate)),
+            _detailRow(
+              Icons.calendar_today,
+              'Date',
+              DateFormat('EEE, MMM d, yyyy').format(selectedDate),
+            ),
             const SizedBox(height: 12),
             _detailRow(Icons.access_time, 'Time', '$startTime - $endTime'),
             const SizedBox(height: 12),
-            _detailRow(Icons.subject, 'Purpose', purpose.isNotEmpty ? purpose : '-'),
+            _detailRow(
+              Icons.subject,
+              'Purpose',
+              purpose.isNotEmpty ? purpose : '-',
+            ),
             const SizedBox(height: 12),
             _detailRow(Icons.person_outline, 'Booked by', bookedBy),
             const SizedBox(height: 20),
@@ -1079,11 +1292,16 @@ class _BookingFormSheet extends StatefulWidget {
   final bool isDark;
   final Future<void> Function(Map<String, dynamic> data) onSubmit;
 
+  /// When provided, renders flat desktop content using this controller
+  /// instead of wrapping in a [DraggableScrollableSheet] (mobile behavior).
+  final ScrollController? desktopScrollController;
+
   const _BookingFormSheet({
     required this.room,
     required this.selectedDate,
     required this.isDark,
     required this.onSubmit,
+    this.desktopScrollController,
   });
 
   @override
@@ -1105,14 +1323,17 @@ class _BookingFormSheetState extends State<_BookingFormSheet> {
     super.initState();
     // If today, start from next 30-min slot; otherwise 09:00
     final now = TimeOfDay.now();
-    final isToday = widget.selectedDate.year == DateTime.now().year &&
+    final isToday =
+        widget.selectedDate.year == DateTime.now().year &&
         widget.selectedDate.month == DateTime.now().month &&
         widget.selectedDate.day == DateTime.now().day;
     if (isToday) {
       // Round up to next 30-min slot
       final mins = now.hour * 60 + now.minute;
       final nextSlot = ((mins / 30).ceil()) * 30;
-      final startMins = nextSlot < 8 * 60 ? 8 * 60 : (nextSlot >= 19 * 60 + 30 ? 19 * 60 + 30 : nextSlot);
+      final startMins = nextSlot < 8 * 60
+          ? 8 * 60
+          : (nextSlot >= 19 * 60 + 30 ? 19 * 60 + 30 : nextSlot);
       _startTime = TimeOfDay(hour: startMins ~/ 60, minute: startMins % 60);
       final endMins = startMins + 30;
       _endTime = TimeOfDay(hour: endMins ~/ 60, minute: endMins % 60);
@@ -1149,13 +1370,16 @@ class _BookingFormSheetState extends State<_BookingFormSheet> {
 
     // Build available hours and minutes
     final now = DateTime.now();
-    final isToday = widget.selectedDate.year == now.year &&
+    final isToday =
+        widget.selectedDate.year == now.year &&
         widget.selectedDate.month == now.month &&
         widget.selectedDate.day == now.day;
     final nowMins = now.hour * 60 + now.minute;
 
     // Min time: for start=08:00 (or now if today), for end=startTime+30min
-    int minMinutes = isStart ? 8 * 60 : (_startTime.hour * 60 + _startTime.minute + 30);
+    int minMinutes = isStart
+        ? 8 * 60
+        : (_startTime.hour * 60 + _startTime.minute + 30);
     if (isToday && isStart) {
       final nextSlot = ((nowMins / 30).ceil()) * 30;
       if (nextSlot > minMinutes) minMinutes = nextSlot;
@@ -1185,7 +1409,7 @@ class _BookingFormSheetState extends State<_BookingFormSheet> {
       selectedMinute = maxMinutes % 60;
     }
 
-    showModalBottomSheet(
+    showAdaptivePanel(
       context: context,
       isDismissible: true,
       enableDrag: true,
@@ -1205,12 +1429,19 @@ class _BookingFormSheetState extends State<_BookingFormSheet> {
                   children: [
                     Text(
                       isStart ? 'Start Time' : 'End Time',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: isDark ? Colors.white : Colors.black),
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: isDark ? Colors.white : Colors.black,
+                      ),
                     ),
                     const Spacer(),
                     TextButton(
                       onPressed: () {
-                        final picked = TimeOfDay(hour: selectedHour, minute: selectedMinute);
+                        final picked = TimeOfDay(
+                          hour: selectedHour,
+                          minute: selectedMinute,
+                        );
                         setState(() {
                           if (isStart) {
                             _startTime = picked;
@@ -1218,7 +1449,10 @@ class _BookingFormSheetState extends State<_BookingFormSheet> {
                             final eMin = _endTime.hour * 60 + _endTime.minute;
                             if (eMin <= sMin) {
                               final ne = sMin + 30;
-                              _endTime = TimeOfDay(hour: ne ~/ 60, minute: ne % 60);
+                              _endTime = TimeOfDay(
+                                hour: ne ~/ 60,
+                                minute: ne % 60,
+                              );
                             }
                           } else {
                             _endTime = picked;
@@ -1226,7 +1460,14 @@ class _BookingFormSheetState extends State<_BookingFormSheet> {
                         });
                         Navigator.pop(ctx);
                       },
-                      child: Text('Done', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: isDark ? Colors.white : Colors.black)),
+                      child: Text(
+                        'Done',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: isDark ? Colors.white : Colors.black,
+                        ),
+                      ),
                     ),
                   ],
                 ),
@@ -1237,8 +1478,13 @@ class _BookingFormSheetState extends State<_BookingFormSheet> {
                     // Build filtered hour list
                     final minH = minMinutes ~/ 60;
                     final maxH = maxMinutes ~/ 60;
-                    final hours = List.generate(maxH - minH + 1, (i) => minH + i);
-                    final hourIndex = hours.indexOf(selectedHour).clamp(0, hours.length - 1);
+                    final hours = List.generate(
+                      maxH - minH + 1,
+                      (i) => minH + i,
+                    );
+                    final hourIndex = hours
+                        .indexOf(selectedHour)
+                        .clamp(0, hours.length - 1);
 
                     return Row(
                       children: [
@@ -1246,31 +1492,63 @@ class _BookingFormSheetState extends State<_BookingFormSheet> {
                         // Hour picker (only available hours)
                         Expanded(
                           child: CupertinoPicker(
-                            scrollController: FixedExtentScrollController(initialItem: hourIndex),
+                            scrollController: FixedExtentScrollController(
+                              initialItem: hourIndex,
+                            ),
                             itemExtent: 40,
                             onSelectedItemChanged: (index) {
                               setSheetState(() => selectedHour = hours[index]);
                             },
-                            children: hours.map((h) => Center(
-                              child: Text(
-                                h.toString().padLeft(2, '0'),
-                                style: TextStyle(fontSize: 22, color: isDark ? Colors.white : Colors.black),
-                              ),
-                            )).toList(),
+                            children: hours
+                                .map(
+                                  (h) => Center(
+                                    child: Text(
+                                      h.toString().padLeft(2, '0'),
+                                      style: TextStyle(
+                                        fontSize: 22,
+                                        color: isDark
+                                            ? Colors.white
+                                            : Colors.black,
+                                      ),
+                                    ),
+                                  ),
+                                )
+                                .toList(),
                           ),
                         ),
-                        Text(':', style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: isDark ? Colors.white60 : Colors.black54)),
+                        Text(
+                          ':',
+                          style: TextStyle(
+                            fontSize: 28,
+                            fontWeight: FontWeight.bold,
+                            color: isDark ? Colors.white60 : Colors.black54,
+                          ),
+                        ),
                         // Minute picker (00 and 30)
                         Expanded(
                           child: CupertinoPicker(
-                            scrollController: FixedExtentScrollController(initialItem: selectedMinute == 30 ? 1 : 0),
+                            scrollController: FixedExtentScrollController(
+                              initialItem: selectedMinute == 30 ? 1 : 0,
+                            ),
                             itemExtent: 40,
                             onSelectedItemChanged: (index) {
-                              setSheetState(() => selectedMinute = index == 0 ? 0 : 30);
+                              setSheetState(
+                                () => selectedMinute = index == 0 ? 0 : 30,
+                              );
                             },
                             children: const [
-                              Center(child: Text('00', style: TextStyle(fontSize: 22))),
-                              Center(child: Text('30', style: TextStyle(fontSize: 22))),
+                              Center(
+                                child: Text(
+                                  '00',
+                                  style: TextStyle(fontSize: 22),
+                                ),
+                              ),
+                              Center(
+                                child: Text(
+                                  '30',
+                                  style: TextStyle(fontSize: 22),
+                                ),
+                              ),
                             ],
                           ),
                         ),
@@ -1305,7 +1583,8 @@ class _BookingFormSheetState extends State<_BookingFormSheet> {
 
     // Block past times if booking today
     final now = DateTime.now();
-    final isToday = widget.selectedDate.year == now.year &&
+    final isToday =
+        widget.selectedDate.year == now.year &&
         widget.selectedDate.month == now.month &&
         widget.selectedDate.day == now.day;
     if (isToday && startMin <= now.hour * 60 + now.minute) {
@@ -1320,7 +1599,8 @@ class _BookingFormSheetState extends State<_BookingFormSheet> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-              'Attendees exceeds room capacity of ${RoomBooking.roomCapacity(widget.room)}'),
+            'Attendees exceeds room capacity of ${RoomBooking.roomCapacity(widget.room)}',
+          ),
         ),
       );
       return;
@@ -1335,7 +1615,8 @@ class _BookingFormSheetState extends State<_BookingFormSheet> {
       'endTime': _formatTime(_endTime),
       'purpose': _purposeController.text.trim(),
       'attendees': attendees,
-      if (_selectedVertical != null && _selectedVertical!.isNotEmpty) 'vertical': _selectedVertical,
+      if (_selectedVertical != null && _selectedVertical!.isNotEmpty)
+        'vertical': _selectedVertical,
     });
 
     if (mounted) setState(() => _submitting = false);
@@ -1343,225 +1624,244 @@ class _BookingFormSheetState extends State<_BookingFormSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = widget.isDark;
+    final desktopScrollController = widget.desktopScrollController;
 
+    // Desktop: flat content inside the dialog (no drag handle/rounded
+    // chrome — the DialogScrollBody/Dialog already provide those).
+    if (desktopScrollController != null) {
+      return _buildContent(context, desktopScrollController, isMobile: false);
+    }
+
+    // Mobile: draggable bottom sheet (unchanged).
     return DraggableScrollableSheet(
       initialChildSize: 0.75,
       minChildSize: 0.5,
       maxChildSize: 0.9,
-      builder: (context, scrollController) {
-        return Container(
-          decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF18181B) : Colors.white,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-          ),
-          child: SingleChildScrollView(
-            controller: scrollController,
-            padding: const EdgeInsets.all(20),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Center(
-                    child: Container(
-                      width: 40,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: isDark
-                            ? const Color(0xFF27272A)
-                            : const Color(0xFFE5E7EB),
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Book ${RoomBooking.roomLabel(widget.room)}',
-                              style: TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                                color: isDark ? Colors.white : Colors.black,
-                              ),
-                            ),
-                            Text(
-                              DateFormat('EEEE, MMMM d, yyyy').format(widget.selectedDate),
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: isDark ? Colors.white60 : Colors.black45,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      IconButton(
-                        onPressed: () => Navigator.pop(context),
-                        icon: Icon(
-                          Icons.close,
-                          color: isDark ? Colors.white : Colors.black,
-                        ),
-                        tooltip: 'Close',
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 24),
+      builder: (context, scrollController) =>
+          _buildContent(context, scrollController, isMobile: true),
+    );
+  }
 
-                  // Time pickers
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _buildTimeField(
-                          'Start Time',
-                          _startTime,
-                          () => _pickTime(true),
-                          isDark,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: _buildTimeField(
-                          'End Time',
-                          _endTime,
-                          () => _pickTime(false),
-                          isDark,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
+  Widget _buildContent(
+    BuildContext context,
+    ScrollController scrollController, {
+    required bool isMobile,
+  }) {
+    final isDark = widget.isDark;
 
-                  // Purpose
-                  Text(
-                    'Purpose',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: isDark ? Colors.white70 : Colors.black54,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  TextFormField(
-                    controller: _purposeController,
-                    maxLines: 2,
-                    style: TextStyle(
-                      color: isDark ? Colors.white : Colors.black,
-                    ),
-                    decoration: InputDecoration(
-                      hintText: 'What is the meeting about?',
-                      hintStyle: TextStyle(
-                        color: isDark ? Colors.white38 : Colors.black38,
-                      ),
-                    ),
-                    validator: (v) =>
-                        (v == null || v.trim().isEmpty) ? 'Required' : null,
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Attendees
-                  Text(
-                    'Number of Attendees',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: isDark ? Colors.white70 : Colors.black54,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  TextFormField(
-                    controller: _attendeesController,
-                    keyboardType: TextInputType.number,
-                    style: TextStyle(
-                      color: isDark ? Colors.white : Colors.black,
-                    ),
-                    decoration: InputDecoration(
-                      hintText: 'Max: ${RoomBooking.roomCapacity(widget.room)}',
-                      hintStyle: TextStyle(
-                        color: isDark ? Colors.white38 : Colors.black38,
-                      ),
-                    ),
-                    validator: (v) {
-                      if (v == null || v.isEmpty) return 'Required';
-                      final n = int.tryParse(v);
-                      if (n == null || n < 1) return 'Must be at least 1';
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Vertical (optional)
-                  Text(
-                    'Vertical (optional)',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: isDark ? Colors.white70 : Colors.black54,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  DropdownButtonFormField<String>(
-                    initialValue: _selectedVertical,
-                    dropdownColor:
-                        isDark ? const Color(0xFF18181B) : Colors.white,
-                    style: TextStyle(
-                      color: isDark ? Colors.white : Colors.black,
-                    ),
-                    decoration: const InputDecoration(
-                      hintText: 'Select vertical',
-                    ),
-                    items: _verticals
-                        .map((v) => DropdownMenuItem(
-                              value: v,
-                              child: Text(v.replaceAll('_', ' ')),
-                            ))
-                        .toList(),
-                    onChanged: (v) => setState(() => _selectedVertical = v),
-                  ),
-                  const SizedBox(height: 24),
-
-                  // Submit
-                  SizedBox(
-                    width: double.infinity,
-                    height: 48,
-                    child: ElevatedButton(
-                      onPressed: _submitting ? null : _submit,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: isDark ? Colors.white : Colors.black,
-                        foregroundColor: isDark ? Colors.black : Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      ),
-                      child: _submitting
-                          ? SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: isDark ? Colors.black : Colors.white,
-                              ),
-                            )
-                          : const Text(
-                              'Submit Booking',
-                              style: TextStyle(
-                                fontSize: 15,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                ],
+    final form = Form(
+      key: _formKey,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (isMobile) ...[
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: isDark
+                      ? const Color(0xFF27272A)
+                      : const Color(0xFFE5E7EB),
+                  borderRadius: BorderRadius.circular(2),
+                ),
               ),
             ),
+            const SizedBox(height: 16),
+          ],
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Book ${RoomBooking.roomLabel(widget.room)}',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: isDark ? Colors.white : Colors.black,
+                      ),
+                    ),
+                    Text(
+                      DateFormat(
+                        'EEEE, MMMM d, yyyy',
+                      ).format(widget.selectedDate),
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: isDark ? Colors.white60 : Colors.black45,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              IconButton(
+                onPressed: () => Navigator.pop(context),
+                icon: Icon(
+                  Icons.close,
+                  color: isDark ? Colors.white : Colors.black,
+                ),
+                tooltip: 'Close',
+              ),
+            ],
           ),
-        );
-      },
+          const SizedBox(height: 24),
+
+          // Time pickers
+          Row(
+            children: [
+              Expanded(
+                child: _buildTimeField(
+                  'Start Time',
+                  _startTime,
+                  () => _pickTime(true),
+                  isDark,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildTimeField(
+                  'End Time',
+                  _endTime,
+                  () => _pickTime(false),
+                  isDark,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          // Purpose
+          Text(
+            'Purpose',
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: isDark ? Colors.white70 : Colors.black54,
+            ),
+          ),
+          const SizedBox(height: 6),
+          TextFormField(
+            controller: _purposeController,
+            maxLines: 2,
+            style: TextStyle(color: isDark ? Colors.white : Colors.black),
+            decoration: InputDecoration(
+              hintText: 'What is the meeting about?',
+              hintStyle: TextStyle(
+                color: isDark ? Colors.white38 : Colors.black38,
+              ),
+            ),
+            validator: (v) =>
+                (v == null || v.trim().isEmpty) ? 'Required' : null,
+          ),
+          const SizedBox(height: 16),
+
+          // Attendees
+          Text(
+            'Number of Attendees',
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: isDark ? Colors.white70 : Colors.black54,
+            ),
+          ),
+          const SizedBox(height: 6),
+          TextFormField(
+            controller: _attendeesController,
+            keyboardType: TextInputType.number,
+            style: TextStyle(color: isDark ? Colors.white : Colors.black),
+            decoration: InputDecoration(
+              hintText: 'Max: ${RoomBooking.roomCapacity(widget.room)}',
+              hintStyle: TextStyle(
+                color: isDark ? Colors.white38 : Colors.black38,
+              ),
+            ),
+            validator: (v) {
+              if (v == null || v.isEmpty) return 'Required';
+              final n = int.tryParse(v);
+              if (n == null || n < 1) return 'Must be at least 1';
+              return null;
+            },
+          ),
+          const SizedBox(height: 16),
+
+          // Vertical (optional)
+          Text(
+            'Vertical (optional)',
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: isDark ? Colors.white70 : Colors.black54,
+            ),
+          ),
+          const SizedBox(height: 6),
+          DropdownButtonFormField<String>(
+            initialValue: _selectedVertical,
+            dropdownColor: isDark ? const Color(0xFF18181B) : Colors.white,
+            style: TextStyle(color: isDark ? Colors.white : Colors.black),
+            decoration: const InputDecoration(hintText: 'Select vertical'),
+            items: _verticals
+                .map(
+                  (v) => DropdownMenuItem(
+                    value: v,
+                    child: Text(v.replaceAll('_', ' ')),
+                  ),
+                )
+                .toList(),
+            onChanged: (v) => setState(() => _selectedVertical = v),
+          ),
+          const SizedBox(height: 24),
+
+          // Submit
+          SizedBox(
+            width: double.infinity,
+            height: 48,
+            child: ElevatedButton(
+              onPressed: _submitting ? null : _submit,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: isDark ? Colors.white : Colors.black,
+                foregroundColor: isDark ? Colors.black : Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              child: _submitting
+                  ? SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: isDark ? Colors.black : Colors.white,
+                      ),
+                    )
+                  : const Text(
+                      'Submit Booking',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+            ),
+          ),
+          const SizedBox(height: 20),
+        ],
+      ),
+    );
+
+    final scrollView = SingleChildScrollView(
+      controller: scrollController,
+      padding: const EdgeInsets.all(20),
+      child: form,
+    );
+
+    if (!isMobile) return scrollView;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF18181B) : Colors.white,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      child: scrollView,
     );
   }
 

@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import '../models/bug_report.dart';
 import '../providers/theme_provider.dart';
 import '../services/api_service.dart';
+import '../utils/adaptive_panel.dart';
 import '../utils/toast_notification.dart';
 
 class EditBugReportScreen extends StatefulWidget {
@@ -47,7 +48,9 @@ class _EditBugReportScreenState extends State<EditBugReportScreen> {
   }
 
   int get _totalAttachments =>
-      _existingAttachments.length - _attachmentsToDelete.length + _newAttachments.length;
+      _existingAttachments.length -
+      _attachmentsToDelete.length +
+      _newAttachments.length;
 
   Future<void> _showAttachmentOptions() async {
     if (_totalAttachments >= 6) {
@@ -60,7 +63,7 @@ class _EditBugReportScreenState extends State<EditBugReportScreen> {
     final backgroundColor = isDark ? const Color(0xFF18181B) : Colors.white;
     final textColor = isDark ? Colors.white : Colors.black;
 
-    showModalBottomSheet(
+    showAdaptivePanel(
       context: context,
       backgroundColor: backgroundColor,
       builder: (context) => Container(
@@ -73,13 +76,18 @@ class _EditBugReportScreenState extends State<EditBugReportScreen> {
               height: 4,
               margin: const EdgeInsets.only(bottom: 20),
               decoration: BoxDecoration(
-                color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.3),
+                color: (isDark ? Colors.white : Colors.black).withValues(
+                  alpha: 0.3,
+                ),
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
             ListTile(
               leading: Icon(Icons.photo_library, color: textColor),
-              title: Text('Choose from Gallery', style: TextStyle(color: textColor)),
+              title: Text(
+                'Choose from Gallery',
+                style: TextStyle(color: textColor),
+              ),
               subtitle: Text(
                 'Images and videos',
                 style: TextStyle(color: textColor.withValues(alpha: 0.6)),
@@ -122,12 +130,14 @@ class _EditBugReportScreenState extends State<EditBugReportScreen> {
       if (image != null) {
         final bytes = await image.readAsBytes();
         setState(() {
-          _newAttachments.add(NewAttachment(
-            name: image.name,
-            path: image.path,
-            bytes: bytes,
-            type: 'image/${image.path.split('.').last}',
-          ));
+          _newAttachments.add(
+            NewAttachment(
+              name: image.name,
+              path: image.path,
+              bytes: bytes,
+              type: 'image/${image.path.split('.').last}',
+            ),
+          );
         });
       }
     } catch (e) {
@@ -142,7 +152,16 @@ class _EditBugReportScreenState extends State<EditBugReportScreen> {
     try {
       final result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
-        allowedExtensions: ['jpg', 'jpeg', 'png', 'gif', 'webp', 'mp4', 'mov', 'avi'],
+        allowedExtensions: [
+          'jpg',
+          'jpeg',
+          'png',
+          'gif',
+          'webp',
+          'mp4',
+          'mov',
+          'avi',
+        ],
         allowMultiple: false,
       );
 
@@ -150,22 +169,31 @@ class _EditBugReportScreenState extends State<EditBugReportScreen> {
         final file = result.files.first;
         final bytes = file.bytes ?? await File(file.path!).readAsBytes();
 
-        final isVideo = ['mp4', 'mov', 'avi'].contains(file.extension?.toLowerCase());
+        final isVideo = [
+          'mp4',
+          'mov',
+          'avi',
+        ].contains(file.extension?.toLowerCase());
         final maxSize = isVideo ? 300 * 1024 * 1024 : 30 * 1024 * 1024;
 
         if (bytes.length > maxSize) {
           if (!mounted) return;
-          ToastNotification.show(context, message: 'File must be less than ${isVideo ? "300MB" : "30MB"}');
+          ToastNotification.show(
+            context,
+            message: 'File must be less than ${isVideo ? "300MB" : "30MB"}',
+          );
           return;
         }
 
         setState(() {
-          _newAttachments.add(NewAttachment(
-            name: file.name,
-            path: file.path ?? '',
-            bytes: bytes,
-            type: _getFileType(file.extension ?? ''),
-          ));
+          _newAttachments.add(
+            NewAttachment(
+              name: file.name,
+              path: file.path ?? '',
+              bytes: bytes,
+              type: _getFileType(file.extension ?? ''),
+            ),
+          );
         });
       }
     } catch (e) {
@@ -243,7 +271,10 @@ class _EditBugReportScreenState extends State<EditBugReportScreen> {
       await _api.updateBugReport(widget.bug.id, updateData);
 
       if (mounted) {
-        ToastNotification.show(context, message: 'Bug report updated successfully');
+        ToastNotification.show(
+          context,
+          message: 'Bug report updated successfully',
+        );
         Navigator.pop(context, true);
       }
     } catch (e) {
@@ -262,8 +293,12 @@ class _EditBugReportScreenState extends State<EditBugReportScreen> {
     final isDark = themeProvider.isDark;
     final backgroundColor = isDark ? Colors.black : const Color(0xFFF9FAFB);
     final textColor = isDark ? Colors.white : Colors.black;
-    final borderColor = isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB);
-    final inputFillColor = isDark ? const Color(0xFF18181B) : const Color(0xFFF9FAFB);
+    final borderColor = isDark
+        ? const Color(0xFF27272A)
+        : const Color(0xFFE5E7EB);
+    final inputFillColor = isDark
+        ? const Color(0xFF18181B)
+        : const Color(0xFFF9FAFB);
 
     return Scaffold(
       backgroundColor: backgroundColor,
@@ -363,7 +398,8 @@ class _EditBugReportScreenState extends State<EditBugReportScreen> {
               decoration: InputDecoration(
                 labelText: 'Description *',
                 labelStyle: TextStyle(color: textColor.withValues(alpha: 0.7)),
-                hintText: 'Detailed description of the bug...\n\nSteps to reproduce:\n1. ...\n2. ...',
+                hintText:
+                    'Detailed description of the bug...\n\nSteps to reproduce:\n1. ...\n2. ...',
                 hintStyle: TextStyle(color: textColor.withValues(alpha: 0.5)),
                 filled: true,
                 fillColor: inputFillColor,
@@ -442,18 +478,27 @@ class _EditBugReportScreenState extends State<EditBugReportScreen> {
 
                   // Add Attachment Button
                   OutlinedButton.icon(
-                    onPressed: _totalAttachments < 6 ? _showAttachmentOptions : null,
+                    onPressed: _totalAttachments < 6
+                        ? _showAttachmentOptions
+                        : null,
                     icon: const Icon(Icons.attach_file),
-                    label: Text(_totalAttachments == 0 ? 'Add Attachment' : 'Add Another'),
+                    label: Text(
+                      _totalAttachments == 0 ? 'Add Attachment' : 'Add Another',
+                    ),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: textColor,
                       side: BorderSide(color: borderColor),
-                      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 12,
+                        horizontal: 16,
+                      ),
                     ),
                   ),
 
                   // Existing Attachments
-                  if (_existingAttachments.where((a) => !_attachmentsToDelete.contains(a.id)).isNotEmpty) ...[
+                  if (_existingAttachments
+                      .where((a) => !_attachmentsToDelete.contains(a.id))
+                      .isNotEmpty) ...[
                     const SizedBox(height: 16),
                     Text(
                       'Current Attachments',
@@ -466,7 +511,10 @@ class _EditBugReportScreenState extends State<EditBugReportScreen> {
                     const SizedBox(height: 8),
                     ...(_existingAttachments
                         .where((a) => !_attachmentsToDelete.contains(a.id))
-                        .map((attachment) => _buildExistingAttachmentTile(attachment))),
+                        .map(
+                          (attachment) =>
+                              _buildExistingAttachmentTile(attachment),
+                        )),
                   ],
 
                   // New Attachments
@@ -482,7 +530,10 @@ class _EditBugReportScreenState extends State<EditBugReportScreen> {
                     ),
                     const SizedBox(height: 8),
                     ...List.generate(_newAttachments.length, (index) {
-                      return _buildNewAttachmentTile(_newAttachments[index], index);
+                      return _buildNewAttachmentTile(
+                        _newAttachments[index],
+                        index,
+                      );
                     }),
                   ],
                 ],
@@ -549,7 +600,9 @@ class _EditBugReportScreenState extends State<EditBugReportScreen> {
     final isDark = themeProvider.isDark;
     final textColor = isDark ? Colors.white : Colors.black;
     final cardColor = isDark ? const Color(0xFF18181B) : Colors.white;
-    final borderColor = isDark ? const Color(0xFF27272A) : const Color(0xFFE5E7EB);
+    final borderColor = isDark
+        ? const Color(0xFF27272A)
+        : const Color(0xFFE5E7EB);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
@@ -557,9 +610,7 @@ class _EditBugReportScreenState extends State<EditBugReportScreen> {
       decoration: BoxDecoration(
         color: cardColor,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: borderColor,
-        ),
+        border: Border.all(color: borderColor),
       ),
       child: Row(
         children: [
@@ -585,7 +636,9 @@ class _EditBugReportScreenState extends State<EditBugReportScreen> {
               width: 56,
               height: 56,
               decoration: BoxDecoration(
-                color: (isVideo ? Colors.red : Colors.orange).withValues(alpha: 0.2),
+                color: (isVideo ? Colors.red : Colors.orange).withValues(
+                  alpha: 0.2,
+                ),
                 borderRadius: BorderRadius.circular(6),
               ),
               child: Icon(
@@ -612,15 +665,32 @@ class _EditBugReportScreenState extends State<EditBugReportScreen> {
                 Row(
                   children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 4,
+                        vertical: 2,
+                      ),
                       decoration: BoxDecoration(
-                        color: (isImage ? Colors.green : isVideo ? Colors.red : Colors.orange).withValues(alpha: 0.2),
+                        color:
+                            (isImage
+                                    ? Colors.green
+                                    : isVideo
+                                    ? Colors.red
+                                    : Colors.orange)
+                                .withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(3),
                       ),
                       child: Text(
-                        isImage ? 'IMAGE' : isVideo ? 'VIDEO' : 'DOC',
+                        isImage
+                            ? 'IMAGE'
+                            : isVideo
+                            ? 'VIDEO'
+                            : 'DOC',
                         style: TextStyle(
-                          color: isImage ? Colors.green : isVideo ? Colors.red : Colors.orange,
+                          color: isImage
+                              ? Colors.green
+                              : isVideo
+                              ? Colors.red
+                              : Colors.orange,
                           fontSize: 9,
                           fontWeight: FontWeight.bold,
                         ),
@@ -663,9 +733,7 @@ class _EditBugReportScreenState extends State<EditBugReportScreen> {
       decoration: BoxDecoration(
         color: Colors.green.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: Colors.green.withValues(alpha: 0.3),
-        ),
+        border: Border.all(color: Colors.green.withValues(alpha: 0.3)),
       ),
       child: Row(
         children: [
@@ -682,7 +750,11 @@ class _EditBugReportScreenState extends State<EditBugReportScreen> {
                   width: 56,
                   height: 56,
                   color: Colors.green.withValues(alpha: 0.2),
-                  child: const Icon(Icons.broken_image, color: Colors.green, size: 24),
+                  child: const Icon(
+                    Icons.broken_image,
+                    color: Colors.green,
+                    size: 24,
+                  ),
                 ),
               ),
             )
@@ -691,7 +763,9 @@ class _EditBugReportScreenState extends State<EditBugReportScreen> {
               width: 56,
               height: 56,
               decoration: BoxDecoration(
-                color: (isVideo ? Colors.red : Colors.orange).withValues(alpha: 0.2),
+                color: (isVideo ? Colors.red : Colors.orange).withValues(
+                  alpha: 0.2,
+                ),
                 borderRadius: BorderRadius.circular(6),
               ),
               child: Icon(
@@ -718,7 +792,10 @@ class _EditBugReportScreenState extends State<EditBugReportScreen> {
                 Row(
                   children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 4,
+                        vertical: 2,
+                      ),
                       decoration: BoxDecoration(
                         color: Colors.green.withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(3),
@@ -734,15 +811,32 @@ class _EditBugReportScreenState extends State<EditBugReportScreen> {
                     ),
                     const SizedBox(width: 6),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 4,
+                        vertical: 2,
+                      ),
                       decoration: BoxDecoration(
-                        color: (isImage ? Colors.blue : isVideo ? Colors.red : Colors.orange).withValues(alpha: 0.2),
+                        color:
+                            (isImage
+                                    ? Colors.blue
+                                    : isVideo
+                                    ? Colors.red
+                                    : Colors.orange)
+                                .withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(3),
                       ),
                       child: Text(
-                        isImage ? 'IMAGE' : isVideo ? 'VIDEO' : 'DOC',
+                        isImage
+                            ? 'IMAGE'
+                            : isVideo
+                            ? 'VIDEO'
+                            : 'DOC',
                         style: TextStyle(
-                          color: isImage ? Colors.blue : isVideo ? Colors.red : Colors.orange,
+                          color: isImage
+                              ? Colors.blue
+                              : isVideo
+                              ? Colors.red
+                              : Colors.orange,
                           fontSize: 9,
                           fontWeight: FontWeight.bold,
                         ),

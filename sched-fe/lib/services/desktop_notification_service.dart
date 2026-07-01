@@ -22,8 +22,7 @@ class DesktopNotificationService {
       );
 
       _initialized = true;
-    } catch (e) {
-    }
+    } catch (e) { /* ignored: non-critical failure */ }
   }
 
   /// Show a simple notification
@@ -44,8 +43,7 @@ class DesktopNotificationService {
       );
 
       await notification.show();
-    } catch (e) {
-    }
+    } catch (e) { /* ignored: non-critical failure */ }
   }
 
   /// Show booking notification with details

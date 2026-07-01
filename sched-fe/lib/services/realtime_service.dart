@@ -264,8 +264,7 @@ class RealtimeService {
           }
           break;
       }
-    } catch (e) {
-    }
+    } catch (e) { /* ignored: non-critical failure */ }
   }
 
   /// Start ping timer to keep connection alive
@@ -282,8 +281,7 @@ class RealtimeService {
   void _sendPing() {
     try {
       _channel?.sink.add(jsonEncode({'type': 'ping'}));
-    } catch (e) {
-    }
+    } catch (e) { /* ignored: non-critical failure */ }
   }
 
   /// Handle disconnection
@@ -323,7 +321,6 @@ class RealtimeService {
         'type': type,
         'data': data,
       }));
-    } catch (e) {
-    }
+    } catch (e) { /* ignored: non-critical failure */ }
   }
 }

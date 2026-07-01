@@ -2338,8 +2338,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       if (mounted) {
         try {
           Navigator.of(context, rootNavigator: true).pop();
-        } catch (e) {
-        }
+        } catch (e) { /* ignored: non-critical failure */ }
       }
 
       // Show success message
@@ -2354,8 +2353,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       if (mounted) {
         try {
           Navigator.of(context, rootNavigator: true).pop();
-        } catch (navError) {
-        }
+        } catch (navError) { /* ignored: non-critical failure */ }
       }
 
       // Show error message

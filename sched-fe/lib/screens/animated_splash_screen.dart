@@ -57,15 +57,6 @@ class _AnimatedSplashScreenState extends State<AnimatedSplashScreen> {
     });
   }
 
-  /// Play sound effect for the splash screen
-  Future<void> _playSound() async {
-    try {
-      await _audioPlayer.play(audio.AssetSource('sounds/splash.mp3'));
-    } catch (e) {
-      // Silently fail if sound doesn't play
-    }
-  }
-
   @override
   void dispose() {
     _audioPlayer.dispose();

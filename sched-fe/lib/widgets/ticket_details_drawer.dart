@@ -69,7 +69,7 @@ class _TicketDetailsDrawerState extends State<TicketDetailsDrawer> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Status updated successfully'),
-          backgroundColor: const Color(0xFF2563EB),
+          backgroundColor: Color(0xFF2563EB),
           duration: Duration(seconds: 2),
         ),
       );

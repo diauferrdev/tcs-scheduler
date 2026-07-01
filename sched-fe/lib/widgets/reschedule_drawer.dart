@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import '../models/booking.dart';
 import '../services/api_service.dart';
 import '../screens/calendar_screen.dart';
+import '../utils/adaptive_panel.dart';
 import '../utils/toast_notification.dart';
 
 /// Drawer for USER to reschedule booking when status is NEED_RESCHEDULE
@@ -69,7 +70,7 @@ class _RescheduleDrawerState extends State<RescheduleDrawer> {
     };
     final visitTypeLabel = durationMap[widget.booking.visitType] ?? widget.booking.visitType.name;
 
-    await showModalBottomSheet(
+    await showAdaptivePanel(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,

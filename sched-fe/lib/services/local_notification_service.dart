@@ -134,8 +134,7 @@ class LocalNotificationService {
         ),
       );
 
-    } catch (e) {
-    }
+    } catch (e) { /* ignored: non-critical failure */ }
   }
 
   /// Request notification permissions (Android 13+ / iOS)
@@ -277,8 +276,7 @@ class LocalNotificationService {
                 ),
               );
             }
-          } catch (e) {
-          }
+          } catch (e) { /* ignored: non-critical failure */ }
         }
         break;
 
@@ -475,8 +473,7 @@ class LocalNotificationService {
         payload: payload,
       );
 
-    } catch (e) {
-    }
+    } catch (e) { /* ignored: non-critical failure */ }
   }
 
   /// Show notification for booking update
@@ -1001,8 +998,7 @@ class LocalNotificationService {
         payload: payload,
       );
 
-    } catch (e) {
-    }
+    } catch (e) { /* ignored: non-critical failure */ }
   }
 
   /// Test notification (for debug button)
@@ -1091,8 +1087,7 @@ class LocalNotificationService {
         details,
         payload: 'test',
       );
-    } catch (e) {
-    }
+    } catch (e) { /* ignored: non-critical failure */ }
   }
 
   /// Cancel all notifications

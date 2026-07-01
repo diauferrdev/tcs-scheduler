@@ -140,7 +140,7 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
         roomBookings = ((roomResponse['bookings'] as List?) ?? [])
             .map((b) => b as Map<String, dynamic>)
             .toList();
-      } catch (_) {}
+      } catch (_) { /* ignored: non-critical failure */ }
 
       if (mounted) {
         setState(() {

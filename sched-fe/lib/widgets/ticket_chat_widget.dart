@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:provider/provider.dart';
@@ -21,6 +20,7 @@ import '../widgets/ticket_details_drawer.dart';
 import '../widgets/audio_message_player.dart';
 import '../widgets/video_message_player.dart' as video_player;
 import '../widgets/audio_recording_button.dart';
+import '../utils/adaptive_panel.dart';
 import '../utils/toast_notification.dart';
 import '../widgets/blob_helper_stub.dart'
     if (dart.library.html) '../widgets/blob_helper_web.dart';
@@ -147,8 +147,7 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
               if (newMessage.author.id != authProvider.user?.id) {
                 _markSingleMessageAsRead(newMessage.id);
               }
-            } catch (e) {
-            }
+            } catch (e) { /* ignored: non-critical failure */ }
           } else {
           }
         } else if (type == 'message_read') {
@@ -346,8 +345,7 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
       await _api.post('/api/tickets/${widget.ticketId}/read', {
         'messageIds': [messageId],
       });
-    } catch (e) {
-    }
+    } catch (e) { /* ignored: non-critical failure */ }
   }
 
   Future<void> _markAllMessagesAsRead() async {
@@ -374,8 +372,7 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
         'messageIds': unreadMessages.map((m) => m.id).toList(),
       });
 
-    } catch (e) {
-    }
+    } catch (e) { /* ignored: non-critical failure */ }
   }
 
   Future<void> _sendTypingIndicator(bool isTyping) async {
@@ -383,8 +380,7 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
       await _api.post('/api/tickets/${widget.ticketId}/typing', {
         'isTyping': isTyping,
       });
-    } catch (e) {
-    }
+    } catch (e) { /* ignored: non-critical failure */ }
   }
 
   Future<void> _sendRecordingIndicator(bool isRecording) async {
@@ -392,8 +388,7 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
       await _api.post('/api/tickets/${widget.ticketId}/recording', {
         'isRecording': isRecording,
       });
-    } catch (e) {
-    }
+    } catch (e) { /* ignored: non-critical failure */ }
   }
 
   void _onTextChanged() {
@@ -665,6 +660,7 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
           bytes = await file.readAsBytes();
         }
 
+        if (!mounted) return;
         final authProvider = Provider.of<AuthProvider>(context, listen: false);
         final tempId = 'temp_${DateTime.now().millisecondsSinceEpoch}';
 
@@ -729,8 +725,7 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
           try {
             final file = File(path);
             await file.delete();
-          } catch (e) {
-          }
+          } catch (e) { /* ignored: non-critical failure */ }
         }
       }
     } catch (e) {
@@ -814,8 +809,7 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
           }
         }
       }
-    } catch (e) {
-    }
+    } catch (e) { /* ignored: non-critical failure */ }
   }
 
   @override
@@ -909,7 +903,7 @@ class _TicketChatWidgetState extends State<TicketChatWidget> {
                     IconButton(
                       icon: Icon(Icons.info_outline, color: isDark ? Colors.white : Colors.black, size: 24),
                       onPressed: () {
-                        showModalBottomSheet(
+                        showAdaptivePanel(
                           context: context,
                           isScrollControlled: true,
                           backgroundColor: Colors.transparent,

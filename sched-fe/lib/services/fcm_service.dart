@@ -86,8 +86,7 @@ class FCMService {
       }
 
       _initialized = true;
-    } catch (e) {
-    }
+    } catch (e) { /* ignored: non-critical failure */ }
   }
 
   /// Get and send FCM token to backend
@@ -99,8 +98,7 @@ class FCMService {
         await _sendTokenToBackend(token);
       } else {
       }
-    } catch (e) {
-    }
+    } catch (e) { /* ignored: non-critical failure */ }
   }
 
   /// Send FCM token to backend for targeted push
@@ -123,8 +121,7 @@ class FCMService {
 
       await _apiService.registerFCMToken(token, deviceInfo: deviceInfo);
 
-    } catch (e) {
-    }
+    } catch (e) { /* ignored: non-critical failure */ }
   }
 
   /// Handle foreground push notification (app is OPEN)
@@ -171,8 +168,7 @@ class FCMService {
           // No bookingId and no specific screen - just open app
         }
 
-      } catch (e) {
-      }
+      } catch (e) { /* ignored: non-critical failure */ }
     });
   }
 
@@ -181,8 +177,7 @@ class FCMService {
     try {
       await _messaging.deleteToken();
       _fcmToken = null;
-    } catch (e) {
-    }
+    } catch (e) { /* ignored: non-critical failure */ }
   }
 
   /// Cleanup on logout

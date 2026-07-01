@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:path/path.dart' as path;
+import '../utils/adaptive_panel.dart';
 
 // Global storage for web file bytes (path -> bytes)
 // This is needed because on web, File objects don't have real filesystem access
@@ -51,7 +52,7 @@ class AttachmentPicker extends StatelessWidget {
     bool allowImages = true,
     bool allowDocuments = true,
   }) {
-    return showModalBottomSheet(
+    return showAdaptivePanel(
       context: context,
       backgroundColor: Colors.transparent,
       builder: (context) => AttachmentPicker(
@@ -388,8 +389,7 @@ class AttachmentPicker extends StatelessWidget {
             files.add(File(platformFile.path!));
           }
         }
-      } catch (e) {
-      }
+      } catch (e) { /* ignored: non-critical failure */ }
     }
 
     return files;

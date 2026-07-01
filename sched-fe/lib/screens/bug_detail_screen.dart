@@ -108,8 +108,7 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
           _bug = updatedBug;
         });
       }
-    } catch (e) {
-    }
+    } catch (e) { /* ignored: non-critical failure */ }
   }
 
   void _handleLikeChanged(dynamic data, String? type) {
@@ -134,8 +133,7 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
           });
         }
       }
-    } catch (e) {
-    }
+    } catch (e) { /* ignored: non-critical failure */ }
   }
 
   void _handleCommentCreated(dynamic data) {
@@ -159,8 +157,7 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
           }
         });
       }
-    } catch (e) {
-    }
+    } catch (e) { /* ignored: non-critical failure */ }
   }
 
   void _handleCommentUpdated(dynamic data) {
@@ -176,8 +173,7 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
           }
         });
       }
-    } catch (e) {
-    }
+    } catch (e) { /* ignored: non-critical failure */ }
   }
 
   void _handleCommentDeleted(dynamic data) {
@@ -192,8 +188,7 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
           );
         });
       }
-    } catch (e) {
-    }
+    } catch (e) { /* ignored: non-critical failure */ }
   }
 
   Future<void> _loadBugDetails() async {
@@ -343,8 +338,7 @@ class _BugDetailScreenState extends State<BugDetailScreen> {
             // ROLLBACK: Delete the comment since attachments failed
             try {
               await _api.deleteBugComment(commentId);
-            } catch (deleteError) {
-            }
+            } catch (deleteError) { /* ignored: non-critical failure */ }
 
             // Rethrow to show error to user
             throw Exception('Failed to upload attachments. Comment not created.');

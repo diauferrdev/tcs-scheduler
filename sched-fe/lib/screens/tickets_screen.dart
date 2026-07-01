@@ -219,8 +219,7 @@ class _TicketsUserViewState extends State<TicketsUserView> {
                   }
                 }
               });
-            } catch (e) {
-            }
+            } catch (e) { /* ignored: non-critical failure */ }
           }
         }
       });

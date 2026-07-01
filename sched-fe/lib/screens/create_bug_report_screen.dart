@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import '../models/bug_report.dart' as model;
 import '../providers/theme_provider.dart';
 import '../services/api_service.dart';
+import '../utils/adaptive_panel.dart';
 import '../utils/device_info_helper.dart';
 import 'bug_detail_screen.dart';
 import '../utils/toast_notification.dart';
@@ -70,7 +71,7 @@ class _CreateBugReportScreenState extends State<CreateBugReportScreen> {
     final backgroundColor = isDark ? const Color(0xFF18181B) : Colors.white;
     final textColor = isDark ? Colors.white : Colors.black;
 
-    showModalBottomSheet(
+    showAdaptivePanel(
       context: context,
       backgroundColor: backgroundColor,
       builder: (context) => Container(
@@ -83,16 +84,25 @@ class _CreateBugReportScreenState extends State<CreateBugReportScreen> {
               height: 4,
               margin: const EdgeInsets.only(bottom: 20),
               decoration: BoxDecoration(
-                color: (isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280)).withValues(alpha: 0.5),
+                color:
+                    (isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280))
+                        .withValues(alpha: 0.5),
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
             ListTile(
               leading: Icon(Icons.photo_library, color: textColor),
-              title: Text('Choose from Gallery', style: TextStyle(color: textColor)),
+              title: Text(
+                'Choose from Gallery',
+                style: TextStyle(color: textColor),
+              ),
               subtitle: Text(
                 'Images and videos',
-                style: TextStyle(color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280)),
+                style: TextStyle(
+                  color: isDark
+                      ? const Color(0xFF9CA3AF)
+                      : const Color(0xFF6B7280),
+                ),
               ),
               onTap: () {
                 Navigator.pop(context);
@@ -104,7 +114,11 @@ class _CreateBugReportScreenState extends State<CreateBugReportScreen> {
               title: Text('Record Video', style: TextStyle(color: textColor)),
               subtitle: Text(
                 'Up to 300MB',
-                style: TextStyle(color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280)),
+                style: TextStyle(
+                  color: isDark
+                      ? const Color(0xFF9CA3AF)
+                      : const Color(0xFF6B7280),
+                ),
               ),
               onTap: () {
                 Navigator.pop(context);
@@ -116,7 +130,11 @@ class _CreateBugReportScreenState extends State<CreateBugReportScreen> {
               title: Text('Choose File', style: TextStyle(color: textColor)),
               subtitle: Text(
                 'Images, videos, documents',
-                style: TextStyle(color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280)),
+                style: TextStyle(
+                  color: isDark
+                      ? const Color(0xFF9CA3AF)
+                      : const Color(0xFF6B7280),
+                ),
               ),
               onTap: () {
                 Navigator.pop(context);
@@ -151,17 +169,25 @@ class _CreateBugReportScreenState extends State<CreateBugReportScreen> {
         final mimeType = 'image/$extension';
 
         setState(() {
-          _attachments.add(AttachmentFile(
-            name: image.name,
-            path: kIsWeb ? '' : image.path, // path only available on native platforms
-            bytes: bytes,
-            type: mimeType,
-          ));
+          _attachments.add(
+            AttachmentFile(
+              name: image.name,
+              path: kIsWeb
+                  ? ''
+                  : image.path, // path only available on native platforms
+              bytes: bytes,
+              type: mimeType,
+            ),
+          );
         });
       }
     } catch (e) {
       if (mounted) {
-        ToastNotification.show(context, message: 'Error picking image: ${e.toString()}', type: ToastType.error);
+        ToastNotification.show(
+          context,
+          message: 'Error picking image: ${e.toString()}',
+          type: ToastType.error,
+        );
       }
     }
   }
@@ -173,7 +199,9 @@ class _CreateBugReportScreenState extends State<CreateBugReportScreen> {
     }
 
     try {
-      final XFile? video = await _imagePicker.pickVideo(source: ImageSource.gallery);
+      final XFile? video = await _imagePicker.pickVideo(
+        source: ImageSource.gallery,
+      );
 
       if (video != null) {
         final bytes = await video.readAsBytes();
@@ -181,7 +209,10 @@ class _CreateBugReportScreenState extends State<CreateBugReportScreen> {
         // Check file size (max 300MB)
         if (bytes.length > 300 * 1024 * 1024) {
           if (mounted) {
-            ToastNotification.show(context, message: 'Video must be less than 300MB');
+            ToastNotification.show(
+              context,
+              message: 'Video must be less than 300MB',
+            );
           }
           return;
         }
@@ -191,17 +222,25 @@ class _CreateBugReportScreenState extends State<CreateBugReportScreen> {
         final mimeType = 'video/$extension';
 
         setState(() {
-          _attachments.add(AttachmentFile(
-            name: video.name,
-            path: kIsWeb ? '' : video.path, // path only available on native platforms
-            bytes: bytes,
-            type: mimeType,
-          ));
+          _attachments.add(
+            AttachmentFile(
+              name: video.name,
+              path: kIsWeb
+                  ? ''
+                  : video.path, // path only available on native platforms
+              bytes: bytes,
+              type: mimeType,
+            ),
+          );
         });
       }
     } catch (e) {
       if (mounted) {
-        ToastNotification.show(context, message: 'Error picking video: ${e.toString()}', type: ToastType.error);
+        ToastNotification.show(
+          context,
+          message: 'Error picking video: ${e.toString()}',
+          type: ToastType.error,
+        );
       }
     }
   }
@@ -209,7 +248,10 @@ class _CreateBugReportScreenState extends State<CreateBugReportScreen> {
   Future<void> _pickFile() async {
     if (_attachments.length >= 6) {
       if (mounted) {
-        ToastNotification.show(context, message: 'Maximum 6 attachments allowed');
+        ToastNotification.show(
+          context,
+          message: 'Maximum 6 attachments allowed',
+        );
       }
       return;
     }
@@ -217,7 +259,19 @@ class _CreateBugReportScreenState extends State<CreateBugReportScreen> {
     try {
       final result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
-        allowedExtensions: ['jpg', 'jpeg', 'png', 'gif', 'webp', 'mp4', 'mov', 'avi', 'pdf', 'doc', 'docx'],
+        allowedExtensions: [
+          'jpg',
+          'jpeg',
+          'png',
+          'gif',
+          'webp',
+          'mp4',
+          'mov',
+          'avi',
+          'pdf',
+          'doc',
+          'docx',
+        ],
         allowMultiple: false,
         withData: true, // Important - loads file as bytes on all platforms
       );
@@ -233,12 +287,19 @@ class _CreateBugReportScreenState extends State<CreateBugReportScreen> {
         final bytes = file.bytes!;
 
         // Check file size limits
-        final isVideo = ['mp4', 'mov', 'avi'].contains(file.extension?.toLowerCase());
+        final isVideo = [
+          'mp4',
+          'mov',
+          'avi',
+        ].contains(file.extension?.toLowerCase());
         final maxSize = isVideo ? 300 * 1024 * 1024 : 30 * 1024 * 1024;
 
         if (bytes.length > maxSize) {
           if (mounted) {
-            ToastNotification.show(context, message: 'File must be less than ${isVideo ? "300MB" : "30MB"}');
+            ToastNotification.show(
+              context,
+              message: 'File must be less than ${isVideo ? "300MB" : "30MB"}',
+            );
           }
           return;
         }
@@ -250,17 +311,26 @@ class _CreateBugReportScreenState extends State<CreateBugReportScreen> {
         }
 
         setState(() {
-          _attachments.add(AttachmentFile(
-            name: file.name,
-            path: kIsWeb ? '' : (file.path ?? ''), // Don't access path on web - it throws an error
-            bytes: bytes,
-            type: _getFileType(extension),
-          ));
+          _attachments.add(
+            AttachmentFile(
+              name: file.name,
+              path: kIsWeb
+                  ? ''
+                  : (file.path ??
+                        ''), // Don't access path on web - it throws an error
+              bytes: bytes,
+              type: _getFileType(extension),
+            ),
+          );
         });
       }
     } catch (e) {
       if (mounted) {
-        ToastNotification.show(context, message: 'Error picking file: ${e.toString()}', type: ToastType.error);
+        ToastNotification.show(
+          context,
+          message: 'Error picking file: ${e.toString()}',
+          type: ToastType.error,
+        );
       }
     }
   }
@@ -284,7 +354,9 @@ class _CreateBugReportScreenState extends State<CreateBugReportScreen> {
     // Document types
     if (ext == 'pdf') return 'application/pdf';
     if (ext == 'doc') return 'application/msword';
-    if (ext == 'docx') return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+    if (ext == 'docx') {
+      return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+    }
     if (ext == 'txt') return 'text/plain';
     if (ext == 'csv') return 'text/csv';
 
@@ -341,7 +413,10 @@ class _CreateBugReportScreenState extends State<CreateBugReportScreen> {
       );
 
       if (mounted) {
-        ToastNotification.show(context, message: 'Bug report submitted successfully');
+        ToastNotification.show(
+          context,
+          message: 'Bug report submitted successfully',
+        );
         // Navigate to bug detail screen instead of going back to list
         Navigator.pushReplacement(
           context,
@@ -386,9 +461,7 @@ class _CreateBugReportScreenState extends State<CreateBugReportScreen> {
         ),
       ),
       body: _isAutoDetectingPlatform
-          ? Center(
-              child: CircularProgressIndicator(color: textColor),
-            )
+          ? Center(child: CircularProgressIndicator(color: textColor))
           : Form(
               key: _formKey,
               child: ListView(
@@ -400,18 +473,36 @@ class _CreateBugReportScreenState extends State<CreateBugReportScreen> {
                     style: TextStyle(color: textColor),
                     decoration: InputDecoration(
                       labelText: 'Title *',
-                      labelStyle: TextStyle(color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280)),
+                      labelStyle: TextStyle(
+                        color: isDark
+                            ? const Color(0xFF9CA3AF)
+                            : const Color(0xFF6B7280),
+                      ),
                       hintText: 'Brief description of the bug',
-                      hintStyle: TextStyle(color: isDark ? const Color(0xFF6B7280) : const Color(0xFF9CA3AF)),
+                      hintStyle: TextStyle(
+                        color: isDark
+                            ? const Color(0xFF6B7280)
+                            : const Color(0xFF9CA3AF),
+                      ),
                       filled: true,
-                      fillColor: isDark ? const Color(0xFF27272A) : const Color(0xFFF3F4F6),
+                      fillColor: isDark
+                          ? const Color(0xFF27272A)
+                          : const Color(0xFFF3F4F6),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(color: isDark ? const Color(0xFF3F3F46) : const Color(0xFFD1D5DB)),
+                        borderSide: BorderSide(
+                          color: isDark
+                              ? const Color(0xFF3F3F46)
+                              : const Color(0xFFD1D5DB),
+                        ),
                       ),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(color: isDark ? const Color(0xFF3F3F46) : const Color(0xFFD1D5DB)),
+                        borderSide: BorderSide(
+                          color: isDark
+                              ? const Color(0xFF3F3F46)
+                              : const Color(0xFFD1D5DB),
+                        ),
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
@@ -441,18 +532,37 @@ class _CreateBugReportScreenState extends State<CreateBugReportScreen> {
                     maxLines: 8,
                     decoration: InputDecoration(
                       labelText: 'Description *',
-                      labelStyle: TextStyle(color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280)),
-                      hintText: 'Detailed description of the bug...\n\nSteps to reproduce:\n1. ...\n2. ...',
-                      hintStyle: TextStyle(color: isDark ? const Color(0xFF6B7280) : const Color(0xFF9CA3AF)),
+                      labelStyle: TextStyle(
+                        color: isDark
+                            ? const Color(0xFF9CA3AF)
+                            : const Color(0xFF6B7280),
+                      ),
+                      hintText:
+                          'Detailed description of the bug...\n\nSteps to reproduce:\n1. ...\n2. ...',
+                      hintStyle: TextStyle(
+                        color: isDark
+                            ? const Color(0xFF6B7280)
+                            : const Color(0xFF9CA3AF),
+                      ),
                       filled: true,
-                      fillColor: isDark ? const Color(0xFF27272A) : const Color(0xFFF3F4F6),
+                      fillColor: isDark
+                          ? const Color(0xFF27272A)
+                          : const Color(0xFFF3F4F6),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(color: isDark ? const Color(0xFF3F3F46) : const Color(0xFFD1D5DB)),
+                        borderSide: BorderSide(
+                          color: isDark
+                              ? const Color(0xFF3F3F46)
+                              : const Color(0xFFD1D5DB),
+                        ),
                       ),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(color: isDark ? const Color(0xFF3F3F46) : const Color(0xFFD1D5DB)),
+                        borderSide: BorderSide(
+                          color: isDark
+                              ? const Color(0xFF3F3F46)
+                              : const Color(0xFFD1D5DB),
+                        ),
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
@@ -480,9 +590,15 @@ class _CreateBugReportScreenState extends State<CreateBugReportScreen> {
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: isDark ? const Color(0xFF27272A) : const Color(0xFFF3F4F6),
+                      color: isDark
+                          ? const Color(0xFF27272A)
+                          : const Color(0xFFF3F4F6),
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: isDark ? const Color(0xFF3F3F46) : const Color(0xFFD1D5DB)),
+                      border: Border.all(
+                        color: isDark
+                            ? const Color(0xFF3F3F46)
+                            : const Color(0xFFD1D5DB),
+                      ),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -492,13 +608,18 @@ class _CreateBugReportScreenState extends State<CreateBugReportScreen> {
                             Text(
                               'Platform *',
                               style: TextStyle(
-                                color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
+                                color: isDark
+                                    ? const Color(0xFF9CA3AF)
+                                    : const Color(0xFF6B7280),
                                 fontSize: 14,
                               ),
                             ),
                             const SizedBox(width: 8),
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
                               decoration: BoxDecoration(
                                 color: Colors.green.withValues(alpha: 0.2),
                                 borderRadius: BorderRadius.circular(4),
@@ -506,7 +627,10 @@ class _CreateBugReportScreenState extends State<CreateBugReportScreen> {
                               ),
                               child: const Text(
                                 'Auto-detected',
-                                style: TextStyle(color: Colors.green, fontSize: 10),
+                                style: TextStyle(
+                                  color: Colors.green,
+                                  fontSize: 10,
+                                ),
                               ),
                             ),
                           ],
@@ -523,15 +647,25 @@ class _CreateBugReportScreenState extends State<CreateBugReportScreen> {
                               onSelected: (selected) {
                                 setState(() => _selectedPlatform = platform);
                               },
-                              backgroundColor: isDark ? const Color(0xFF3F3F46) : const Color(0xFFE5E7EB),
-                              selectedColor: Colors.green.withValues(alpha: 0.15),
+                              backgroundColor: isDark
+                                  ? const Color(0xFF3F3F46)
+                                  : const Color(0xFFE5E7EB),
+                              selectedColor: Colors.green.withValues(
+                                alpha: 0.15,
+                              ),
                               checkmarkColor: Colors.green,
                               labelStyle: TextStyle(
                                 color: isSelected ? Colors.green : textColor,
-                                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                fontWeight: isSelected
+                                    ? FontWeight.bold
+                                    : FontWeight.normal,
                               ),
                               side: BorderSide(
-                                color: isSelected ? Colors.green : (isDark ? const Color(0xFF52525B) : const Color(0xFFD1D5DB)),
+                                color: isSelected
+                                    ? Colors.green
+                                    : (isDark
+                                          ? const Color(0xFF52525B)
+                                          : const Color(0xFFD1D5DB)),
                                 width: isSelected ? 2 : 1,
                               ),
                             );
@@ -547,9 +681,15 @@ class _CreateBugReportScreenState extends State<CreateBugReportScreen> {
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: isDark ? const Color(0xFF27272A) : const Color(0xFFF3F4F6),
+                      color: isDark
+                          ? const Color(0xFF27272A)
+                          : const Color(0xFFF3F4F6),
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: isDark ? const Color(0xFF3F3F46) : const Color(0xFFD1D5DB)),
+                      border: Border.all(
+                        color: isDark
+                            ? const Color(0xFF3F3F46)
+                            : const Color(0xFFD1D5DB),
+                      ),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -559,7 +699,9 @@ class _CreateBugReportScreenState extends State<CreateBugReportScreen> {
                             Text(
                               'Attachments',
                               style: TextStyle(
-                                color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
+                                color: isDark
+                                    ? const Color(0xFF9CA3AF)
+                                    : const Color(0xFF6B7280),
                                 fontSize: 14,
                                 fontWeight: FontWeight.bold,
                               ),
@@ -568,7 +710,9 @@ class _CreateBugReportScreenState extends State<CreateBugReportScreen> {
                             Text(
                               '${_attachments.length}/6 files',
                               style: TextStyle(
-                                color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
+                                color: isDark
+                                    ? const Color(0xFF9CA3AF)
+                                    : const Color(0xFF6B7280),
                                 fontSize: 13,
                                 fontWeight: FontWeight.w500,
                               ),
@@ -579,7 +723,9 @@ class _CreateBugReportScreenState extends State<CreateBugReportScreen> {
                         Text(
                           'Supported: Images, Videos, Documents\nMax size: 30MB per image, 300MB per video',
                           style: TextStyle(
-                            color: isDark ? const Color(0xFF6B7280) : const Color(0xFF9CA3AF),
+                            color: isDark
+                                ? const Color(0xFF6B7280)
+                                : const Color(0xFF9CA3AF),
                             fontSize: 12,
                             height: 1.4,
                           ),
@@ -588,13 +734,26 @@ class _CreateBugReportScreenState extends State<CreateBugReportScreen> {
 
                         // Single Add Attachment Button
                         OutlinedButton.icon(
-                          onPressed: _attachments.length < 6 ? _showAttachmentOptions : null,
+                          onPressed: _attachments.length < 6
+                              ? _showAttachmentOptions
+                              : null,
                           icon: const Icon(Icons.attach_file),
-                          label: Text(_attachments.isEmpty ? 'Add Attachment' : 'Add Another'),
+                          label: Text(
+                            _attachments.isEmpty
+                                ? 'Add Attachment'
+                                : 'Add Another',
+                          ),
                           style: OutlinedButton.styleFrom(
                             foregroundColor: textColor,
-                            side: BorderSide(color: isDark ? const Color(0xFF6B7280) : const Color(0xFF9CA3AF)),
-                            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                            side: BorderSide(
+                              color: isDark
+                                  ? const Color(0xFF6B7280)
+                                  : const Color(0xFF9CA3AF),
+                            ),
+                            padding: const EdgeInsets.symmetric(
+                              vertical: 12,
+                              horizontal: 16,
+                            ),
                           ),
                         ),
 
@@ -602,7 +761,12 @@ class _CreateBugReportScreenState extends State<CreateBugReportScreen> {
                         if (_attachments.isNotEmpty) ...[
                           const SizedBox(height: 16),
                           ..._attachments.asMap().entries.map((entry) {
-                            return _buildAttachmentTile(entry.value, entry.key, isDark, textColor);
+                            return _buildAttachmentTile(
+                              entry.value,
+                              entry.key,
+                              isDark,
+                              textColor,
+                            );
                           }),
                         ],
                       ],
@@ -661,7 +825,12 @@ class _CreateBugReportScreenState extends State<CreateBugReportScreen> {
     );
   }
 
-  Widget _buildAttachmentTile(AttachmentFile attachment, int index, bool isDark, Color textColor) {
+  Widget _buildAttachmentTile(
+    AttachmentFile attachment,
+    int index,
+    bool isDark,
+    Color textColor,
+  ) {
     final isImage = attachment.type.startsWith('image/');
     final isVideo = attachment.type.startsWith('video/');
     final size = _formatBytes(attachment.bytes.length);
@@ -690,7 +859,9 @@ class _CreateBugReportScreenState extends State<CreateBugReportScreen> {
                 errorBuilder: (context, error, stack) => Container(
                   width: 56,
                   height: 56,
-                  color: isDark ? const Color(0xFF27272A) : const Color(0xFFF3F4F6),
+                  color: isDark
+                      ? const Color(0xFF27272A)
+                      : const Color(0xFFF3F4F6),
                   child: Icon(Icons.broken_image, color: textColor, size: 24),
                 ),
               ),
@@ -700,7 +871,9 @@ class _CreateBugReportScreenState extends State<CreateBugReportScreen> {
               width: 56,
               height: 56,
               decoration: BoxDecoration(
-                color: (isVideo ? Colors.red : Colors.orange).withValues(alpha: 0.2),
+                color: (isVideo ? Colors.red : Colors.orange).withValues(
+                  alpha: 0.2,
+                ),
                 borderRadius: BorderRadius.circular(6),
               ),
               child: Icon(
@@ -727,15 +900,32 @@ class _CreateBugReportScreenState extends State<CreateBugReportScreen> {
                 Row(
                   children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 4,
+                        vertical: 2,
+                      ),
                       decoration: BoxDecoration(
-                        color: (isImage ? Colors.blue : isVideo ? Colors.red : Colors.orange).withValues(alpha: 0.2),
+                        color:
+                            (isImage
+                                    ? Colors.blue
+                                    : isVideo
+                                    ? Colors.red
+                                    : Colors.orange)
+                                .withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(3),
                       ),
                       child: Text(
-                        isImage ? 'IMAGE' : isVideo ? 'VIDEO' : 'DOC',
+                        isImage
+                            ? 'IMAGE'
+                            : isVideo
+                            ? 'VIDEO'
+                            : 'DOC',
                         style: TextStyle(
-                          color: isImage ? Colors.blue : isVideo ? Colors.red : Colors.orange,
+                          color: isImage
+                              ? Colors.blue
+                              : isVideo
+                              ? Colors.red
+                              : Colors.orange,
                           fontSize: 9,
                           fontWeight: FontWeight.bold,
                         ),
@@ -745,7 +935,9 @@ class _CreateBugReportScreenState extends State<CreateBugReportScreen> {
                     Text(
                       size,
                       style: TextStyle(
-                        color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
+                        color: isDark
+                            ? const Color(0xFF9CA3AF)
+                            : const Color(0xFF6B7280),
                         fontSize: 11,
                       ),
                     ),

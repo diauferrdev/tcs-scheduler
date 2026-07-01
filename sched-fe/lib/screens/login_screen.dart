@@ -101,6 +101,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
         return;
       }
 
+      if (!mounted) return;
       final authProvider = context.read<AuthProvider>();
       await authProvider.login(credentials['nickname']!, credentials['password']!);
 
@@ -169,6 +170,8 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
             await bio.enable(_emailController.text.trim(), _passwordController.text);
           }
         }
+
+        if (!mounted) return;
 
         // If user must change password, redirect to change password screen
         if (authProvider.mustChangePassword) {

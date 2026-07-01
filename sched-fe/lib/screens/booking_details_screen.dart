@@ -13,6 +13,7 @@ import '../widgets/booking_form_fields.dart';
 import '../widgets/access_badge.dart';
 import '../widgets/reschedule_drawer.dart';
 import '../widgets/edit_booking_drawer.dart';
+import '../utils/adaptive_panel.dart';
 import '../utils/file_utils.dart';
 import '../utils/document_opener.dart';
 import '../utils/toast_notification.dart';
@@ -111,8 +112,7 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
           }
         });
       }
-    } catch (e) {
-    }
+    } catch (e) { /* ignored: non-critical failure */ }
   }
 
   @override
@@ -182,7 +182,7 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
     if (!_canEdit()) return;
 
     // Open edit drawer (following app pattern)
-    showModalBottomSheet(
+    showAdaptivePanel(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
@@ -750,7 +750,7 @@ Enterprise Office Visit Management
     if (_booking == null) return;
 
     // Open reschedule drawer
-    showModalBottomSheet(
+    showAdaptivePanel(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,

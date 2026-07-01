@@ -74,7 +74,6 @@ class UniversalUpdateService {
         );
       } else {
       }
-    } catch (e) {
     } finally {
       _isChecking = false;
     }
@@ -375,7 +374,6 @@ class UniversalUpdateService {
         await launchUrl(uri, mode: LaunchMode.externalApplication);
       } else {
       }
-    } catch (e) {
-    }
+    } catch (e) { /* ignored: non-critical failure */ }
   }
 }

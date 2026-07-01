@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:async';
 import '../services/unified_notification_service.dart';
 import '../screens/notifications_screen.dart';
+import '../utils/adaptive_panel.dart';
 
 class NotificationBell extends StatefulWidget {
   const NotificationBell({super.key});
@@ -11,7 +12,8 @@ class NotificationBell extends StatefulWidget {
 }
 
 class _NotificationBellState extends State<NotificationBell> {
-  final UnifiedNotificationService _notificationService = UnifiedNotificationService();
+  final UnifiedNotificationService _notificationService =
+      UnifiedNotificationService();
   int _unreadCount = 0;
   StreamSubscription? _badgeSubscription;
 
@@ -30,7 +32,6 @@ class _NotificationBellState extends State<NotificationBell> {
         });
       }
     });
-
   }
 
   @override
@@ -40,14 +41,11 @@ class _NotificationBellState extends State<NotificationBell> {
   }
 
   void _navigateToNotifications() {
-    // Open notifications drawer from the bottom
-    showModalBottomSheet(
+    // Open notifications drawer from the bottom (mobile) or side (desktop).
+    showAdaptiveSideSheet(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      constraints: BoxConstraints(
-        maxWidth: MediaQuery.of(context).size.width,
-      ),
+      side: AdaptiveSide.right,
+      width: 400,
       builder: (context) => DraggableScrollableSheet(
         initialChildSize: 0.75,
         minChildSize: 0.5,
@@ -61,6 +59,10 @@ class _NotificationBellState extends State<NotificationBell> {
           ),
           child: NotificationsDrawer(scrollController: scrollController),
         ),
+      ),
+      desktopBuilder: (context) => DialogScrollBody(
+        builder: (scrollController) =>
+            NotificationsDrawer(scrollController: scrollController),
       ),
     );
   }
@@ -91,10 +93,7 @@ class _NotificationBellState extends State<NotificationBell> {
                   color: Colors.red,
                   shape: BoxShape.circle,
                 ),
-                constraints: const BoxConstraints(
-                  minWidth: 16,
-                  minHeight: 16,
-                ),
+                constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
                 child: Text(
                   _unreadCount > 99 ? '99+' : _unreadCount.toString(),
                   style: const TextStyle(

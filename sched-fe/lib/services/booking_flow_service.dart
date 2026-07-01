@@ -10,6 +10,7 @@ import '../providers/auth_provider.dart';
 import '../models/user.dart';
 import 'package:intl/intl.dart';
 import '../utils/toast_notification.dart';
+import '../utils/adaptive_panel.dart';
 
 /// Service to manage the multi-step booking flow through separate drawers
 class BookingFlowService {
@@ -81,22 +82,12 @@ class BookingFlowService {
     BuildContext context,
     Function(TimeOfDay startTime) onPeriodSelected,
   ) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      isDismissible: true,
-      enableDrag: true,
-      builder: (context) => DraggableScrollableSheet(
-        initialChildSize: 0.85,
-        minChildSize: 0.5,
-        maxChildSize: 0.95,
-        builder: (context, scrollController) => EngagementTypeDrawer(
+    Widget content(BuildContext ctx) => EngagementTypeDrawer(
           selectedDate: _selectedDate,
           bypassPrepDays: _bypassPrepDays,
           onNext: (engagementType) {
             _engagementType = engagementType;
-            Navigator.pop(context);
+            Navigator.pop(ctx);
 
             if (engagementType == 'PACE_VISIT') {
               _showVisitTypeDrawerForPeriodFlow(context, onPeriodSelected);
@@ -112,14 +103,9 @@ class BookingFlowService {
               }
             }
           },
-        ),
-      ),
-    );
-  }
+        );
 
-  /// Step 1: Show Engagement Type drawer
-  void _showEngagementTypeDrawer(BuildContext context) {
-    showModalBottomSheet(
+    showAdaptivePanel(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
@@ -129,12 +115,22 @@ class BookingFlowService {
         initialChildSize: 0.85,
         minChildSize: 0.5,
         maxChildSize: 0.95,
-        builder: (context, scrollController) => EngagementTypeDrawer(
+        builder: (context, scrollController) => content(context),
+      ),
+      desktopBuilder: (context) => DialogScrollBody(
+        builder: (scrollController) => content(context),
+      ),
+    );
+  }
+
+  /// Step 1: Show Engagement Type drawer
+  void _showEngagementTypeDrawer(BuildContext context) {
+    Widget content(BuildContext ctx) => EngagementTypeDrawer(
           selectedDate: _selectedDate,
           bypassPrepDays: _bypassPrepDays,
           onNext: (engagementType) {
             _engagementType = engagementType;
-            Navigator.pop(context);
+            Navigator.pop(ctx);
 
             if (engagementType == 'PACE_VISIT') {
               _showVisitTypeDrawer(context);
@@ -142,7 +138,22 @@ class BookingFlowService {
               _showBaseInfoDrawer(context);
             }
           },
-        ),
+        );
+
+    showAdaptivePanel(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      isDismissible: true,
+      enableDrag: true,
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.85,
+        minChildSize: 0.5,
+        maxChildSize: 0.95,
+        builder: (context, scrollController) => content(context),
+      ),
+      desktopBuilder: (context) => DialogScrollBody(
+        builder: (scrollController) => content(context),
       ),
     );
   }
@@ -152,20 +163,10 @@ class BookingFlowService {
     BuildContext context,
     Function(TimeOfDay startTime) onPeriodSelected,
   ) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      isDismissible: true,
-      enableDrag: true,
-      builder: (context) => DraggableScrollableSheet(
-        initialChildSize: 0.75,
-        minChildSize: 0.5,
-        maxChildSize: 0.9,
-        builder: (context, scrollController) => VisitTypeDrawer(
+    Widget content(BuildContext ctx) => VisitTypeDrawer(
           onNext: (visitType) {
             _visitType = visitType;
-            Navigator.pop(context);
+            Navigator.pop(ctx);
 
             if (visitType == 'PACE_TOUR') {
               // Pace Tour needs period selection (morning/afternoon)
@@ -180,17 +181,12 @@ class BookingFlowService {
             }
           },
           onBack: () {
-            Navigator.pop(context);
+            Navigator.pop(ctx);
             _showEngagementTypeDrawerForPeriodFlow(context, onPeriodSelected);
           },
-        ),
-      ),
-    );
-  }
+        );
 
-  /// Step 2 (Conditional): Show Visit Type drawer
-  void _showVisitTypeDrawer(BuildContext context) {
-    showModalBottomSheet(
+    showAdaptivePanel(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
@@ -200,17 +196,42 @@ class BookingFlowService {
         initialChildSize: 0.75,
         minChildSize: 0.5,
         maxChildSize: 0.9,
-        builder: (context, scrollController) => VisitTypeDrawer(
+        builder: (context, scrollController) => content(context),
+      ),
+      desktopBuilder: (context) => DialogScrollBody(
+        builder: (scrollController) => content(context),
+      ),
+    );
+  }
+
+  /// Step 2 (Conditional): Show Visit Type drawer
+  void _showVisitTypeDrawer(BuildContext context) {
+    Widget content(BuildContext ctx) => VisitTypeDrawer(
           onNext: (visitType) {
             _visitType = visitType;
-            Navigator.pop(context);
+            Navigator.pop(ctx);
             _showBaseInfoDrawer(context);
           },
           onBack: () {
-            Navigator.pop(context);
+            Navigator.pop(ctx);
             _showEngagementTypeDrawer(context);
           },
-        ),
+        );
+
+    showAdaptivePanel(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      isDismissible: true,
+      enableDrag: true,
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.75,
+        minChildSize: 0.5,
+        maxChildSize: 0.9,
+        builder: (context, scrollController) => content(context),
+      ),
+      desktopBuilder: (context) => DialogScrollBody(
+        builder: (scrollController) => content(context),
       ),
     );
   }
@@ -259,20 +280,10 @@ class BookingFlowService {
 
   /// Step 3: Show Base Info drawer
   void _showBaseInfoDrawer(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      isDismissible: true,
-      enableDrag: true,
-      builder: (context) => DraggableScrollableSheet(
-        initialChildSize: 0.75,
-        minChildSize: 0.5,
-        maxChildSize: 0.9,
-        builder: (context, scrollController) => BaseInfoDrawer(
+    Widget content(BuildContext ctx) => BaseInfoDrawer(
           onNext: (data) {
             _baseInfo = data;
-            Navigator.pop(context);
+            Navigator.pop(ctx);
 
             // Check if questionnaire is needed
             if (_requiresQuestionnaire()) {
@@ -283,7 +294,7 @@ class BookingFlowService {
             }
           },
           onBack: () {
-            Navigator.pop(context);
+            Navigator.pop(ctx);
             // Go back to previous drawer
             if (_engagementType == 'PACE_VISIT') {
               _showVisitTypeDrawer(context);
@@ -291,14 +302,9 @@ class BookingFlowService {
               _showEngagementTypeDrawer(context);
             }
           },
-        ),
-      ),
-    );
-  }
+        );
 
-  /// Step 4 (Conditional): Show Questionnaire drawer
-  void _showQuestionnaireDrawer(BuildContext context) {
-    showModalBottomSheet(
+    showAdaptivePanel(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
@@ -308,19 +314,44 @@ class BookingFlowService {
         initialChildSize: 0.75,
         minChildSize: 0.5,
         maxChildSize: 0.9,
-        builder: (context, scrollController) => QuestionnaireDrawer(
+        builder: (context, scrollController) => content(context),
+      ),
+      desktopBuilder: (context) => DialogScrollBody(
+        builder: (scrollController) => content(context),
+      ),
+    );
+  }
+
+  /// Step 4 (Conditional): Show Questionnaire drawer
+  void _showQuestionnaireDrawer(BuildContext context) {
+    Widget content(BuildContext ctx) => QuestionnaireDrawer(
           eventType: _engagementType,
           onSubmit: (answers) {
             _questionnaireAnswers = answers;
-            Navigator.pop(context);
+            Navigator.pop(ctx);
             // Don't await - let it run in background
             _submitBooking(context);
           },
           onBack: () {
-            Navigator.pop(context);
+            Navigator.pop(ctx);
             _showBaseInfoDrawer(context);
           },
-        ),
+        );
+
+    showAdaptivePanel(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      isDismissible: true,
+      enableDrag: true,
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.75,
+        minChildSize: 0.5,
+        maxChildSize: 0.9,
+        builder: (context, scrollController) => content(context),
+      ),
+      desktopBuilder: (context) => DialogScrollBody(
+        builder: (scrollController) => content(context),
       ),
     );
   }
@@ -393,8 +424,7 @@ class BookingFlowService {
         try {
           navigator.pop();
           dialogShown = false;
-        } catch (popError) {
-        }
+        } catch (popError) { /* ignored: non-critical failure */ }
       }
 
       // Try to show success message if context is still mounted
@@ -427,8 +457,7 @@ class BookingFlowService {
         if (navContext != null) {
           try {
             navContext.go(navigationRoute);
-          } catch (navError) {
-          }
+          } catch (navError) { /* ignored: non-critical failure */ }
         }
       });
 
@@ -440,8 +469,7 @@ class BookingFlowService {
         try {
           navigator.pop();
           dialogShown = false;
-        } catch (popError) {
-        }
+        } catch (popError) { /* ignored: non-critical failure */ }
       }
 
       if (context.mounted) {
@@ -459,8 +487,7 @@ class BookingFlowService {
       if (dialogShown) {
         try {
           navigator.pop();
-        } catch (finalError) {
-        }
+        } catch (finalError) { /* ignored: non-critical failure */ }
       }
 
     }

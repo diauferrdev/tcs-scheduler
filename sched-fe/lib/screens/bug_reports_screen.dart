@@ -6,6 +6,7 @@ import '../providers/auth_provider.dart';
 import '../providers/theme_provider.dart';
 import '../services/api_service.dart';
 import '../services/websocket_service.dart';
+import '../utils/adaptive_panel.dart';
 import '../utils/url_helper.dart';
 import 'bug_detail_screen.dart';
 import 'create_bug_report_screen.dart';
@@ -45,7 +46,6 @@ class _BugReportsScreenState extends State<BugReportsScreen> {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final userId = authProvider.user?.id;
 
-
     if (userId != null) {
       _ws.connect(userId);
 
@@ -79,13 +79,10 @@ class _BugReportsScreenState extends State<BugReportsScreen> {
             default:
           }
         },
-        onError: (error) {
-        },
-        onDone: () {
-        },
+        onError: (error) {},
+        onDone: () {},
       );
-    } else {
-    }
+    } else {}
   }
 
   @override
@@ -103,9 +100,7 @@ class _BugReportsScreenState extends State<BugReportsScreen> {
         _bugReports.add(newBug);
         _sortBugReports();
       });
-
-    } catch (e) {
-    }
+    } catch (e) { /* ignored: non-critical failure */ }
   }
 
   void _handleBugUpdated(dynamic data) {
@@ -123,12 +118,10 @@ class _BugReportsScreenState extends State<BugReportsScreen> {
           _sortBugReports();
         }
       });
-    } catch (e) {
-    }
+    } catch (e) { /* ignored: non-critical failure */ }
   }
 
   void _sortBugReports() {
-
     switch (_sortBy) {
       case 'likeCount':
         _bugReports.sort((a, b) {
@@ -149,7 +142,6 @@ class _BugReportsScreenState extends State<BugReportsScreen> {
         });
         break;
     }
-
   }
 
   void _handleBugDeleted(dynamic data) {
@@ -159,8 +151,7 @@ class _BugReportsScreenState extends State<BugReportsScreen> {
       setState(() {
         _bugReports.removeWhere((b) => b.id == bugId);
       });
-    } catch (e) {
-    }
+    } catch (e) { /* ignored: non-critical failure */ }
   }
 
   void _handleBugLikeChanged(dynamic data) {
@@ -171,7 +162,9 @@ class _BugReportsScreenState extends State<BugReportsScreen> {
       setState(() {
         final index = _bugReports.indexWhere((b) => b.id == bugId);
         if (index != -1) {
-          _bugReports[index] = _bugReports[index].copyWith(likeCount: likeCount);
+          _bugReports[index] = _bugReports[index].copyWith(
+            likeCount: likeCount,
+          );
 
           // Reorder if sorting by likeCount
           if (_sortBy == 'likeCount') {
@@ -179,22 +172,21 @@ class _BugReportsScreenState extends State<BugReportsScreen> {
           }
         }
       });
-    } catch (e) {
-    }
+    } catch (e) { /* ignored: non-critical failure */ }
   }
 
   void _handleCommentChanged(dynamic data) {
     // Reload the specific bug to get updated comment count
     // For now, we'll just trigger a refresh of that specific bug
     try {
-      final bugReportId = data['bugReportId'] as String? ?? data['bugId'] as String?;
+      final bugReportId =
+          data['bugReportId'] as String? ?? data['bugId'] as String?;
       if (bugReportId != null) {
         // We could either refetch the entire list or just update comment count
         // For simplicity, let's just refetch
         _loadBugReports();
       }
-    } catch (e) {
-    }
+    } catch (e) { /* ignored: non-critical failure */ }
   }
 
   Future<void> _loadBugReports() async {
@@ -215,7 +207,9 @@ class _BugReportsScreenState extends State<BugReportsScreen> {
       final bugsList = response['bugs'] as List<dynamic>;
       if (mounted) {
         setState(() {
-          _bugReports = bugsList.map((json) => BugReport.fromJson(json)).toList();
+          _bugReports = bugsList
+              .map((json) => BugReport.fromJson(json))
+              .toList();
           _isLoading = false;
         });
       }
@@ -263,155 +257,171 @@ class _BugReportsScreenState extends State<BugReportsScreen> {
   Widget build(BuildContext context) {
     final themeProvider = Provider.of<ThemeProvider>(context);
 
-    final backgroundColor = themeProvider.isDark ? AppTheme.primaryBlack : const Color(0xFFF9FAFB);
-    final textColor = themeProvider.isDark ? AppTheme.primaryWhite : Colors.black;
+    final backgroundColor = themeProvider.isDark
+        ? AppTheme.primaryBlack
+        : const Color(0xFFF9FAFB);
+    final textColor = themeProvider.isDark
+        ? AppTheme.primaryWhite
+        : Colors.black;
 
     final bodyContent = Column(
       children: [
-          // Search Bar
-          Container(
-            padding: const EdgeInsets.all(16),
-            color: backgroundColor,
-            child: Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _searchController,
-                    style: TextStyle(color: textColor),
-                    decoration: InputDecoration(
-                      hintText: 'Search by title or description...',
-                      hintStyle: TextStyle(color: textColor.withValues(alpha: 0.5)),
-                      prefixIcon: Icon(Icons.search, color: textColor),
-                suffixIcon: _searchController.text.isNotEmpty
-                    ? IconButton(
-                        icon: Icon(Icons.clear, color: textColor),
-                        onPressed: () {
-                          _searchController.clear();
-                          _loadBugReports();
-                        },
-                      )
-                    : null,
-                filled: true,
-                fillColor: AppTheme.primaryWhite.withValues(alpha: 0.1),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide.none,
-                      ),
+        // Search Bar
+        Container(
+          padding: const EdgeInsets.all(16),
+          color: backgroundColor,
+          child: Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _searchController,
+                  style: TextStyle(color: textColor),
+                  decoration: InputDecoration(
+                    hintText: 'Search by title or description...',
+                    hintStyle: TextStyle(
+                      color: textColor.withValues(alpha: 0.5),
                     ),
-                    onSubmitted: (_) => _loadBugReports(),
-                  ),
-                ),
-                if (_selectedStatus != null || _selectedPlatform != null)
-                  const SizedBox(width: 8),
-                if (_selectedStatus != null || _selectedPlatform != null)
-                  IconButton(
-                    icon: Icon(Icons.filter_alt_off, color: textColor),
-                    onPressed: _clearFilters,
-                    tooltip: 'Clear Filters',
-                  ),
-              ],
-            ),
-          ),
-
-          // Filter Chips
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            height: 50,
-            child: ListView(
-              scrollDirection: Axis.horizontal,
-              children: [
-                // Status Filter
-                _buildFilterChip(
-                  label: _selectedStatus == null ? 'All Status' : _selectedStatus!,
-                  isActive: _selectedStatus != null,
-                  onTap: () => _showStatusFilter(),
-                  isDark: themeProvider.isDark,
-                ),
-                const SizedBox(width: 8),
-
-                // Platform Filter
-                _buildFilterChip(
-                  label: _selectedPlatform == null ? 'All Platforms' : _selectedPlatform!,
-                  isActive: _selectedPlatform != null,
-                  onTap: () => _showPlatformFilter(),
-                  isDark: themeProvider.isDark,
-                ),
-                const SizedBox(width: 8),
-
-                // Sort Filter
-                _buildFilterChip(
-                  label: _sortBy == 'likeCount' ? 'Most Liked' : _sortBy == 'createdAt' ? 'Newest' : 'Recent',
-                  isActive: true,
-                  onTap: () => _showSortOptions(),
-                  isDark: themeProvider.isDark,
-                ),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 8),
-
-          // Bug Reports List
-          Expanded(
-            child: _isLoading
-                ? const Center(
-                    child: CircularProgressIndicator(color: AppTheme.primaryWhite),
-                  )
-                : _errorMessage != null
-                    ? Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              _errorMessage!,
-                              style: const TextStyle(color: Colors.red),
-                              textAlign: TextAlign.center,
-                            ),
-                            const SizedBox(height: 16),
-                            ElevatedButton(
-                              onPressed: _loadBugReports,
-                              child: const Text('Retry'),
-                            ),
-                          ],
-                        ),
-                      )
-                    : _bugReports.isEmpty
-                        ? Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  Icons.bug_report_outlined,
-                                  size: 64,
-                                  color: AppTheme.primaryWhite.withValues(alpha: 0.3),
-                                ),
-                                const SizedBox(height: 16),
-                                Text(
-                                  'No bug reports found',
-                                  style: TextStyle(
-                                    color: AppTheme.primaryWhite.withValues(alpha: 0.5),
-                                    fontSize: 16,
-                                  ),
-                                ),
-                              ],
-                            ),
+                    prefixIcon: Icon(Icons.search, color: textColor),
+                    suffixIcon: _searchController.text.isNotEmpty
+                        ? IconButton(
+                            icon: Icon(Icons.clear, color: textColor),
+                            onPressed: () {
+                              _searchController.clear();
+                              _loadBugReports();
+                            },
                           )
-                        : RefreshIndicator(
-                            onRefresh: _loadBugReports,
-                            color: AppTheme.primaryWhite,
-                            backgroundColor: AppTheme.primaryBlack,
-                            child: ListView.builder(
-                              padding: const EdgeInsets.all(16),
-                              itemCount: _bugReports.length,
-                              itemBuilder: (context, index) {
-                                final bug = _bugReports[index];
-                                return _buildBugCard(bug, themeProvider.isDark);
-                              },
-                            ),
-                          ),
+                        : null,
+                    filled: true,
+                    fillColor: AppTheme.primaryWhite.withValues(alpha: 0.1),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide.none,
+                    ),
+                  ),
+                  onSubmitted: (_) => _loadBugReports(),
+                ),
+              ),
+              if (_selectedStatus != null || _selectedPlatform != null)
+                const SizedBox(width: 8),
+              if (_selectedStatus != null || _selectedPlatform != null)
+                IconButton(
+                  icon: Icon(Icons.filter_alt_off, color: textColor),
+                  onPressed: _clearFilters,
+                  tooltip: 'Clear Filters',
+                ),
+            ],
           ),
-        ],
-      );
+        ),
+
+        // Filter Chips
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          height: 50,
+          child: ListView(
+            scrollDirection: Axis.horizontal,
+            children: [
+              // Status Filter
+              _buildFilterChip(
+                label: _selectedStatus == null
+                    ? 'All Status'
+                    : _selectedStatus!,
+                isActive: _selectedStatus != null,
+                onTap: () => _showStatusFilter(),
+                isDark: themeProvider.isDark,
+              ),
+              const SizedBox(width: 8),
+
+              // Platform Filter
+              _buildFilterChip(
+                label: _selectedPlatform == null
+                    ? 'All Platforms'
+                    : _selectedPlatform!,
+                isActive: _selectedPlatform != null,
+                onTap: () => _showPlatformFilter(),
+                isDark: themeProvider.isDark,
+              ),
+              const SizedBox(width: 8),
+
+              // Sort Filter
+              _buildFilterChip(
+                label: _sortBy == 'likeCount'
+                    ? 'Most Liked'
+                    : _sortBy == 'createdAt'
+                    ? 'Newest'
+                    : 'Recent',
+                isActive: true,
+                onTap: () => _showSortOptions(),
+                isDark: themeProvider.isDark,
+              ),
+            ],
+          ),
+        ),
+
+        const SizedBox(height: 8),
+
+        // Bug Reports List
+        Expanded(
+          child: _isLoading
+              ? const Center(
+                  child: CircularProgressIndicator(
+                    color: AppTheme.primaryWhite,
+                  ),
+                )
+              : _errorMessage != null
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        _errorMessage!,
+                        style: const TextStyle(color: Colors.red),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 16),
+                      ElevatedButton(
+                        onPressed: _loadBugReports,
+                        child: const Text('Retry'),
+                      ),
+                    ],
+                  ),
+                )
+              : _bugReports.isEmpty
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.bug_report_outlined,
+                        size: 64,
+                        color: AppTheme.primaryWhite.withValues(alpha: 0.3),
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        'No bug reports found',
+                        style: TextStyle(
+                          color: AppTheme.primaryWhite.withValues(alpha: 0.5),
+                          fontSize: 16,
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              : RefreshIndicator(
+                  onRefresh: _loadBugReports,
+                  color: AppTheme.primaryWhite,
+                  backgroundColor: AppTheme.primaryBlack,
+                  child: ListView.builder(
+                    padding: const EdgeInsets.all(16),
+                    itemCount: _bugReports.length,
+                    itemBuilder: (context, index) {
+                      final bug = _bugReports[index];
+                      return _buildBugCard(bug, themeProvider.isDark);
+                    },
+                  ),
+                ),
+        ),
+      ],
+    );
 
     return Scaffold(
       backgroundColor: backgroundColor,
@@ -472,11 +482,19 @@ class _BugReportsScreenState extends State<BugReportsScreen> {
     final timeAgo = _formatTimeAgo(bug.createdAt);
 
     // Theme-aware colors
-    final cardColor = isDark ? AppTheme.primaryWhite.withValues(alpha: 0.05) : Colors.white;
+    final cardColor = isDark
+        ? AppTheme.primaryWhite.withValues(alpha: 0.05)
+        : Colors.white;
     final textColor = isDark ? AppTheme.primaryWhite : Colors.black87;
-    final subtextColor = isDark ? AppTheme.primaryWhite.withValues(alpha: 0.6) : Colors.black54;
-    final borderColor = isDark ? AppTheme.primaryWhite.withValues(alpha: 0.1) : Colors.grey.shade200;
-    final badgeBgColor = isDark ? AppTheme.primaryWhite.withValues(alpha: 0.1) : Colors.grey.shade100;
+    final subtextColor = isDark
+        ? AppTheme.primaryWhite.withValues(alpha: 0.6)
+        : Colors.black54;
+    final borderColor = isDark
+        ? AppTheme.primaryWhite.withValues(alpha: 0.1)
+        : Colors.grey.shade200;
+    final badgeBgColor = isDark
+        ? AppTheme.primaryWhite.withValues(alpha: 0.1)
+        : Colors.grey.shade100;
 
     return Card(
       color: cardColor,
@@ -506,7 +524,10 @@ class _BugReportsScreenState extends State<BugReportsScreen> {
                       children: [
                         _buildStatusBadge(bug.status),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
                           decoration: BoxDecoration(
                             color: badgeBgColor,
                             borderRadius: BorderRadius.circular(6),
@@ -515,7 +536,11 @@ class _BugReportsScreenState extends State<BugReportsScreen> {
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(_getPlatformIcon(bug.platform), size: 12, color: textColor),
+                              Icon(
+                                _getPlatformIcon(bug.platform),
+                                size: 12,
+                                color: textColor,
+                              ),
                               const SizedBox(width: 4),
                               Text(
                                 bug.platformDisplay,
@@ -529,16 +554,25 @@ class _BugReportsScreenState extends State<BugReportsScreen> {
                         ),
                         if (hasAttachments)
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
                             decoration: BoxDecoration(
                               color: Colors.blue.withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(6),
-                              border: Border.all(color: Colors.blue.withValues(alpha: 0.3)),
+                              border: Border.all(
+                                color: Colors.blue.withValues(alpha: 0.3),
+                              ),
                             ),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                const Icon(Icons.attach_file, size: 12, color: Colors.blue),
+                                const Icon(
+                                  Icons.attach_file,
+                                  size: 12,
+                                  color: Colors.blue,
+                                ),
                                 const SizedBox(width: 2),
                                 Text(
                                   '${bug.attachments.length}',
@@ -572,13 +606,12 @@ class _BugReportsScreenState extends State<BugReportsScreen> {
 
                     // Description preview (single line, remove line breaks)
                     Text(
-                      bug.description.replaceAll('\n', ' ').replaceAll('\r', ' '),
+                      bug.description
+                          .replaceAll('\n', ' ')
+                          .replaceAll('\r', ' '),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: subtextColor,
-                        fontSize: 13,
-                      ),
+                      style: TextStyle(color: subtextColor, fontSize: 13),
                     ),
 
                     const SizedBox(height: 10),
@@ -588,12 +621,19 @@ class _BugReportsScreenState extends State<BugReportsScreen> {
                       children: [
                         // Upvote counter (first)
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 5,
+                            vertical: 2,
+                          ),
                           decoration: BoxDecoration(
-                            color: bug.likeCount > 0 ? Colors.orange.withValues(alpha: 0.15) : badgeBgColor,
+                            color: bug.likeCount > 0
+                                ? Colors.orange.withValues(alpha: 0.15)
+                                : badgeBgColor,
                             borderRadius: BorderRadius.circular(4),
                             border: bug.likeCount > 0
-                                ? Border.all(color: Colors.orange.withValues(alpha: 0.3))
+                                ? Border.all(
+                                    color: Colors.orange.withValues(alpha: 0.3),
+                                  )
                                 : null,
                           ),
                           child: Row(
@@ -604,7 +644,11 @@ class _BugReportsScreenState extends State<BugReportsScreen> {
                                 size: 13,
                                 color: bug.likeCount > 0
                                     ? Colors.orange
-                                    : (isDark ? AppTheme.primaryWhite.withValues(alpha: 0.5) : Colors.grey.shade600),
+                                    : (isDark
+                                          ? AppTheme.primaryWhite.withValues(
+                                              alpha: 0.5,
+                                            )
+                                          : Colors.grey.shade600),
                               ),
                               const SizedBox(width: 3),
                               Text(
@@ -612,7 +656,11 @@ class _BugReportsScreenState extends State<BugReportsScreen> {
                                 style: TextStyle(
                                   color: bug.likeCount > 0
                                       ? Colors.orange
-                                      : (isDark ? AppTheme.primaryWhite.withValues(alpha: 0.7) : Colors.grey.shade700),
+                                      : (isDark
+                                            ? AppTheme.primaryWhite.withValues(
+                                                alpha: 0.7,
+                                              )
+                                            : Colors.grey.shade700),
                                   fontSize: 12,
                                   fontWeight: FontWeight.w600,
                                 ),
@@ -623,7 +671,10 @@ class _BugReportsScreenState extends State<BugReportsScreen> {
                         const SizedBox(width: 6),
                         // Comment count (second)
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 5,
+                            vertical: 2,
+                          ),
                           decoration: BoxDecoration(
                             color: badgeBgColor,
                             borderRadius: BorderRadius.circular(4),
@@ -634,13 +685,21 @@ class _BugReportsScreenState extends State<BugReportsScreen> {
                               Icon(
                                 Icons.chat_bubble_outline,
                                 size: 13,
-                                color: isDark ? AppTheme.primaryWhite.withValues(alpha: 0.7) : Colors.grey.shade700,
+                                color: isDark
+                                    ? AppTheme.primaryWhite.withValues(
+                                        alpha: 0.7,
+                                      )
+                                    : Colors.grey.shade700,
                               ),
                               const SizedBox(width: 3),
                               Text(
                                 '$commentCount',
                                 style: TextStyle(
-                                  color: isDark ? AppTheme.primaryWhite.withValues(alpha: 0.8) : Colors.black87,
+                                  color: isDark
+                                      ? AppTheme.primaryWhite.withValues(
+                                          alpha: 0.8,
+                                        )
+                                      : Colors.black87,
                                   fontSize: 12,
                                   fontWeight: FontWeight.w600,
                                 ),
@@ -654,11 +713,15 @@ class _BugReportsScreenState extends State<BugReportsScreen> {
                           width: 20,
                           height: 20,
                           decoration: BoxDecoration(
-                            color: isDark ? AppTheme.primaryWhite.withValues(alpha: 0.2) : Colors.grey.shade200,
+                            color: isDark
+                                ? AppTheme.primaryWhite.withValues(alpha: 0.2)
+                                : Colors.grey.shade200,
                             borderRadius: BorderRadius.circular(6),
                             image: bug.reportedBy.avatarUrl != null
                                 ? DecorationImage(
-                                    image: NetworkImage(getAbsoluteUrl(bug.reportedBy.avatarUrl!)),
+                                    image: NetworkImage(
+                                      getAbsoluteUrl(bug.reportedBy.avatarUrl!),
+                                    ),
                                     fit: BoxFit.cover,
                                   )
                                 : null,
@@ -668,7 +731,9 @@ class _BugReportsScreenState extends State<BugReportsScreen> {
                                   child: Text(
                                     bug.reportedBy.name[0].toUpperCase(),
                                     style: TextStyle(
-                                      color: isDark ? AppTheme.primaryWhite : Colors.grey.shade700,
+                                      color: isDark
+                                          ? AppTheme.primaryWhite
+                                          : Colors.grey.shade700,
                                       fontSize: 9,
                                       fontWeight: FontWeight.bold,
                                     ),
@@ -681,10 +746,7 @@ class _BugReportsScreenState extends State<BugReportsScreen> {
                         Flexible(
                           child: Text(
                             '${_abbreviateName(bug.reportedBy.name)} • $timeAgo',
-                            style: TextStyle(
-                              color: subtextColor,
-                              fontSize: 11,
-                            ),
+                            style: TextStyle(color: subtextColor, fontSize: 11),
                             overflow: TextOverflow.ellipsis,
                             maxLines: 1,
                           ),
@@ -698,7 +760,9 @@ class _BugReportsScreenState extends State<BugReportsScreen> {
               // Right: Thumbnail preview (if has image/video)
               if (hasAttachments && bug.attachments.isNotEmpty) ...[
                 const SizedBox(width: 12),
-                _buildThumbnail(_getPreferredThumbnailAttachment(bug.attachments)),
+                _buildThumbnail(
+                  _getPreferredThumbnailAttachment(bug.attachments),
+                ),
               ],
             ],
           ),
@@ -709,7 +773,9 @@ class _BugReportsScreenState extends State<BugReportsScreen> {
 
   /// Get the preferred attachment for thumbnail preview
   /// Priority: image > video > first attachment
-  BugAttachment _getPreferredThumbnailAttachment(List<BugAttachment> attachments) {
+  BugAttachment _getPreferredThumbnailAttachment(
+    List<BugAttachment> attachments,
+  ) {
     // Try to find an image first
     try {
       return attachments.firstWhere((a) => a.fileType.startsWith('image/'));
@@ -749,7 +815,8 @@ class _BugReportsScreenState extends State<BugReportsScreen> {
                   return Center(
                     child: CircularProgressIndicator(
                       value: loadingProgress.expectedTotalBytes != null
-                          ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
+                          ? loadingProgress.cumulativeBytesLoaded /
+                                loadingProgress.expectedTotalBytes!
                           : null,
                       strokeWidth: 2,
                       color: AppTheme.primaryWhite.withValues(alpha: 0.5),
@@ -767,28 +834,26 @@ class _BugReportsScreenState extends State<BugReportsScreen> {
                 },
               )
             : isVideo
-                ? Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      Container(
-                        color: Colors.black87,
-                      ),
-                      Center(
-                        child: Icon(
-                          Icons.play_circle_filled,
-                          size: 36,
-                          color: AppTheme.primaryWhite.withValues(alpha: 0.9),
-                        ),
-                      ),
-                    ],
-                  )
-                : Center(
+            ? Stack(
+                fit: StackFit.expand,
+                children: [
+                  Container(color: Colors.black87),
+                  Center(
                     child: Icon(
-                      Icons.attach_file,
-                      color: AppTheme.primaryWhite.withValues(alpha: 0.5),
-                      size: 32,
+                      Icons.play_circle_filled,
+                      size: 36,
+                      color: AppTheme.primaryWhite.withValues(alpha: 0.9),
                     ),
                   ),
+                ],
+              )
+            : Center(
+                child: Icon(
+                  Icons.attach_file,
+                  color: AppTheme.primaryWhite.withValues(alpha: 0.5),
+                  size: 32,
+                ),
+              ),
       ),
     );
   }
@@ -887,8 +952,10 @@ class _BugReportsScreenState extends State<BugReportsScreen> {
   }
 
   void _showStatusFilter() {
-    showModalBottomSheet(
+    showAdaptiveSideSheet(
       context: context,
+      side: AdaptiveSide.right,
+      width: 320,
       backgroundColor: AppTheme.primaryBlack,
       builder: (context) => Container(
         padding: const EdgeInsets.all(16),
@@ -922,11 +989,15 @@ class _BugReportsScreenState extends State<BugReportsScreen> {
       title: Text(
         label,
         style: TextStyle(
-          color: isSelected ? AppTheme.primaryWhite : AppTheme.primaryWhite.withValues(alpha: 0.7),
+          color: isSelected
+              ? AppTheme.primaryWhite
+              : AppTheme.primaryWhite.withValues(alpha: 0.7),
           fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
         ),
       ),
-      trailing: isSelected ? const Icon(Icons.check, color: AppTheme.primaryWhite) : null,
+      trailing: isSelected
+          ? const Icon(Icons.check, color: AppTheme.primaryWhite)
+          : null,
       onTap: () {
         setState(() => _selectedStatus = value);
         Navigator.pop(context);
@@ -936,8 +1007,10 @@ class _BugReportsScreenState extends State<BugReportsScreen> {
   }
 
   void _showPlatformFilter() {
-    showModalBottomSheet(
+    showAdaptiveSideSheet(
       context: context,
+      side: AdaptiveSide.right,
+      width: 320,
       backgroundColor: AppTheme.primaryBlack,
       builder: (context) => Container(
         padding: const EdgeInsets.all(16),
@@ -973,11 +1046,15 @@ class _BugReportsScreenState extends State<BugReportsScreen> {
       title: Text(
         label,
         style: TextStyle(
-          color: isSelected ? AppTheme.primaryWhite : AppTheme.primaryWhite.withValues(alpha: 0.7),
+          color: isSelected
+              ? AppTheme.primaryWhite
+              : AppTheme.primaryWhite.withValues(alpha: 0.7),
           fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
         ),
       ),
-      trailing: isSelected ? const Icon(Icons.check, color: AppTheme.primaryWhite) : null,
+      trailing: isSelected
+          ? const Icon(Icons.check, color: AppTheme.primaryWhite)
+          : null,
       onTap: () {
         setState(() => _selectedPlatform = value);
         Navigator.pop(context);
@@ -987,8 +1064,10 @@ class _BugReportsScreenState extends State<BugReportsScreen> {
   }
 
   void _showSortOptions() {
-    showModalBottomSheet(
+    showAdaptiveSideSheet(
       context: context,
+      side: AdaptiveSide.right,
+      width: 320,
       backgroundColor: AppTheme.primaryBlack,
       builder: (context) => Container(
         padding: const EdgeInsets.all(16),
@@ -1021,11 +1100,15 @@ class _BugReportsScreenState extends State<BugReportsScreen> {
       title: Text(
         label,
         style: TextStyle(
-          color: isSelected ? AppTheme.primaryWhite : AppTheme.primaryWhite.withValues(alpha: 0.7),
+          color: isSelected
+              ? AppTheme.primaryWhite
+              : AppTheme.primaryWhite.withValues(alpha: 0.7),
           fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
         ),
       ),
-      trailing: isSelected ? const Icon(Icons.check, color: AppTheme.primaryWhite) : null,
+      trailing: isSelected
+          ? const Icon(Icons.check, color: AppTheme.primaryWhite)
+          : null,
       onTap: () {
         setState(() {
           _sortBy = sortBy;

@@ -49,7 +49,7 @@ class BiometricService {
       await prefs.setBool(_enabledKey, true);
       await _storage.write(key: _nicknameKey, value: nickname);
       await _storage.write(key: _passwordKey, value: password);
-    } catch (_) {}
+    } catch (_) { /* ignored: non-critical failure */ }
   }
 
   Future<void> disable() async {
@@ -58,7 +58,7 @@ class BiometricService {
       await prefs.remove(_enabledKey);
       await _storage.delete(key: _nicknameKey);
       await _storage.delete(key: _passwordKey);
-    } catch (_) {}
+    } catch (_) { /* ignored: non-critical failure */ }
   }
 
   /// Get stored credentials for re-login.

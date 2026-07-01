@@ -6,8 +6,7 @@ import 'dart:js' as js;
 void signalAppReady() {
   try {
     html.window.dispatchEvent(html.CustomEvent('app-ready'));
-  } catch (e) {
-  }
+  } catch (e) { /* ignored: non-critical failure */ }
 }
 
 bool pwaCanInstall() {

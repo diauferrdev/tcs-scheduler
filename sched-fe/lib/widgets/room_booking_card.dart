@@ -127,7 +127,7 @@ class _RoomBookingCardState extends State<RoomBookingCard>
     String formattedDate = date;
     try {
       formattedDate = DateFormat('MMM d').format(DateTime.parse(date));
-    } catch (_) {}
+    } catch (_) { /* ignored: non-critical failure */ }
 
     final titleParts = <String>[roomName];
     if (purpose.isNotEmpty) titleParts.add(purpose);

@@ -116,8 +116,7 @@ class WebSocketService {
             }
 
             _reconnectAttempts = 0; // Reset on successful message
-          } catch (e) {
-          }
+          } catch (e) { /* ignored: non-critical failure */ }
         },
         onError: (error) {
           _handleDisconnect();

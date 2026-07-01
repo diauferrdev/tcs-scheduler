@@ -33,8 +33,7 @@ class AuthProvider with ChangeNotifier {
       // If user is already logged in, request permissions and connect WebSocket
       try {
         await UnifiedNotificationService().requestPermissionsAfterLogin();
-      } catch (e) {
-      }
+      } catch (e) { /* ignored: non-critical failure */ }
     } catch (e) {
       _user = null;
       _apiService.setSessionCookie(null);
@@ -53,8 +52,7 @@ class AuthProvider with ChangeNotifier {
       Future.delayed(const Duration(milliseconds: 300), () {
         WebHelper.signalAppReady();
       });
-    } catch (e) {
-    }
+    } catch (e) { /* ignored: non-critical failure */ }
   }
 
   Future<void> login(String email, String password) async {
@@ -83,8 +81,7 @@ class AuthProvider with ChangeNotifier {
       // Request notification permissions after successful login
       try {
         await UnifiedNotificationService().requestPermissionsAfterLogin();
-      } catch (e) {
-      }
+      } catch (e) { /* ignored: non-critical failure */ }
 
       notifyListeners();
     } catch (e) {
@@ -120,8 +117,7 @@ class AuthProvider with ChangeNotifier {
 
       try {
         await UnifiedNotificationService().disconnectWebSocket();
-      } catch (e) {
-      }
+      } catch (e) { /* ignored: non-critical failure */ }
 
       notifyListeners();
     }

@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../services/api_service.dart';
 import '../services/unified_notification_service.dart';
 import '../models/notification.dart';
+import '../utils/adaptive_panel.dart';
 import '../utils/toast_notification.dart';
 
 class NotificationsScreen extends StatefulWidget {
@@ -17,7 +18,8 @@ class NotificationsScreen extends StatefulWidget {
 
 class _NotificationsScreenState extends State<NotificationsScreen> {
   final ApiService _apiService = ApiService();
-  final UnifiedNotificationService _notificationService = UnifiedNotificationService();
+  final UnifiedNotificationService _notificationService =
+      UnifiedNotificationService();
   List<AppNotification> _notifications = [];
   bool _isLoading = true;
   String? _error;
@@ -34,35 +36,29 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
   /// Setup real-time listener for new notifications
   void _setupRealtimeListener() {
+    _notificationSubscription = _notificationService.notificationStream.listen((
+      notificationData,
+    ) {
+      if (!mounted) return;
 
-    _notificationSubscription = _notificationService.notificationStream.listen(
-      (notificationData) {
+      try {
+        // Convert Map to AppNotification
+        final newNotification = AppNotification.fromJson(notificationData);
 
-        if (!mounted) return;
+        setState(() {
+          // Add to top of list (newest first)
+          _notifications.insert(0, newNotification);
+        });
 
-        try {
-          // Convert Map to AppNotification
-          final newNotification = AppNotification.fromJson(notificationData);
-
-          setState(() {
-            // Add to top of list (newest first)
-            _notifications.insert(0, newNotification);
-          });
-
-          // Show toast feedback
-          ToastNotification.show(
-            context,
-            message: 'New notification: ${newNotification.title}',
-            type: ToastType.success,
-            duration: const Duration(seconds: 2),
-          );
-
-        } catch (e) {
-        }
-      },
-      onError: (error) {
-      },
-    );
+        // Show toast feedback
+        ToastNotification.show(
+          context,
+          message: 'New notification: ${newNotification.title}',
+          type: ToastType.success,
+          duration: const Duration(seconds: 2),
+        );
+      } catch (e) { /* ignored: non-critical failure */ }
+    }, onError: (error) {});
   }
 
   @override
@@ -78,7 +74,10 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     });
 
     try {
-      final response = await _apiService.getNotifications(limit: 100, offset: 0);
+      final response = await _apiService.getNotifications(
+        limit: 100,
+        offset: 0,
+      );
       final notificationsList = response['notifications'] as List?;
 
       if (notificationsList == null) {
@@ -117,7 +116,6 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       return;
     }
 
-
     // Optimistic update - update UI immediately
     if (mounted) {
       setState(() {
@@ -147,7 +145,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       // Rollback on error
       if (mounted) {
         setState(() {
-          final index = _notifications.indexWhere((n) => n.id == notification.id);
+          final index = _notifications.indexWhere(
+            (n) => n.id == notification.id,
+          );
           if (index != -1) {
             _notifications[index] = notification; // Restore original
           }
@@ -161,19 +161,23 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     final originalNotifications = List<AppNotification>.from(_notifications);
     if (mounted) {
       setState(() {
-        _notifications = _notifications.map((n) => AppNotification(
-          id: n.id,
-          type: n.type,
-          title: n.title,
-          message: n.message,
-          userId: n.userId,
-          bookingId: n.bookingId,
-          isRead: true,
-          readAt: DateTime.now(),
-          actionUrl: n.actionUrl,
-          metadata: n.metadata,
-          createdAt: n.createdAt,
-        )).toList();
+        _notifications = _notifications
+            .map(
+              (n) => AppNotification(
+                id: n.id,
+                type: n.type,
+                title: n.title,
+                message: n.message,
+                userId: n.userId,
+                bookingId: n.bookingId,
+                isRead: true,
+                readAt: DateTime.now(),
+                actionUrl: n.actionUrl,
+                metadata: n.metadata,
+                createdAt: n.createdAt,
+              ),
+            )
+            .toList();
       });
     }
 
@@ -227,10 +231,10 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   }
 
   void _showNotificationMenu() {
-    showModalBottomSheet(
+    showAdaptiveSideSheet(
       context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
+      side: AdaptiveSide.right,
+      width: 360,
       builder: (context) => DraggableScrollableSheet(
         initialChildSize: 0.75,
         minChildSize: 0.5,
@@ -254,144 +258,162 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
-
-              // Title
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-                child: Text(
-                  'Test Push Notifications',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: Theme.of(context).brightness == Brightness.dark
-                        ? Colors.white
-                        : Colors.black,
-                  ),
-                ),
-              ),
-
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 24),
-                child: Text(
-                  'Send real-time push notifications to all admin/manager devices',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 12, color: Colors.grey),
-                ),
-              ),
-
-              const Divider(),
-
-              // Notification options (scrollable)
               Expanded(
-                child: ListView(
-                  controller: scrollController,
-                  children: [
-                    _buildNotificationOption(
-                      icon: Icons.add_circle,
-                      color: Colors.green,
-                      title: 'New Booking',
-                      subtitle: 'Send to all admins/managers',
-                      onTap: () => _sendPushNotification(
-                        type: 'BOOKING_CONFIRMED',
-                        title: 'New Booking Confirmed',
-                        message: 'Acme Corp scheduled a visit for Oct 15, 2025 at 14:00',
-                        metadata: {
-                          'companyName': 'Acme Corp',
-                          'date': '15/10/2025',
-                          'time': '14:00',
-                          'sector': 'Technology & Innovation',
-                          'expectedAttendees': 15,
-                          'eventType': 'Innovation Day',
-                        },
-                      ),
-                    ),
-                    _buildNotificationOption(
-                      icon: Icons.update,
-                      color: Colors.blue,
-                      title: 'Booking Updated',
-                      subtitle: 'Notify changes to all',
-                      onTap: () => _sendPushNotification(
-                        type: 'BOOKING_UPDATED',
-                        title: 'Booking Updated',
-                        message: 'Accenture booking updated: attendees increased',
-                        metadata: {
-                          'companyName': 'Accenture',
-                          'previousDate': 'Oct 18, 2025',
-                          'newDate': 'Oct 20, 2025',
-                          'previousTime': '10:00 AM',
-                          'newTime': '2:00 PM',
-                        },
-                      ),
-                    ),
-                    _buildNotificationOption(
-                      icon: Icons.cancel,
-                      color: Colors.red,
-                      title: 'Booking Cancelled',
-                      subtitle: 'Alert cancellation',
-                      onTap: () => _sendPushNotification(
-                        type: 'BOOKING_CANCELLED',
-                        title: 'Booking Cancelled',
-                        message: 'IBM Brasil cancelled their visit due to schedule conflict',
-                        metadata: {
-                          'companyName': 'IBM Brasil',
-                          'date': 'Oct 18, 2025',
-                          'time': '9:00 AM',
-                          'reason': 'Client schedule conflict',
-                        },
-                      ),
-                    ),
-                    _buildNotificationOption(
-                      icon: Icons.check_circle,
-                      color: Colors.green,
-                      title: 'Booking Approved',
-                      subtitle: 'Confirm approval',
-                      onTap: () => _sendPushNotification(
-                        type: 'BOOKING_APPROVED',
-                        title: 'Booking Approved',
-                        message: 'Microsoft visit approved by John Silva',
-                        metadata: {
-                          'companyName': 'Microsoft',
-                          'date': 'Oct 22, 2025',
-                          'time': '10:30 AM',
-                          'approvedBy': 'John Silva (Manager)',
-                        },
-                      ),
-                    ),
-                    _buildNotificationOption(
-                      icon: Icons.event_repeat,
-                      color: Colors.blue,
-                      title: 'Booking Rescheduled',
-                      subtitle: 'Notify time change',
-                      onTap: () => _sendPushNotification(
-                        type: 'BOOKING_RESCHEDULED',
-                        title: 'Booking Rescheduled',
-                        message: 'SAP visit moved to a new date',
-                        metadata: {
-                          'companyName': 'SAP',
-                          'previousDate': 'Nov 1, 2025',
-                          'newDate': 'Nov 5, 2025',
-                        },
-                      ),
-                    ),
-                    _buildNotificationOption(
-                      icon: Icons.science,
-                      color: Colors.deepPurple,
-                      title: 'Generic Test',
-                      subtitle: 'Simple test notification',
-                      onTap: () => _sendPushNotification(
-                        type: 'BOOKING_UPDATED',
-                        title: 'Test Notification',
-                        message: 'This is a test push notification from Flutter app',
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                  ],
-                ),
+                child: _buildNotificationMenuBody(context, scrollController),
               ),
             ],
           ),
         ),
       ),
+      desktopBuilder: (context) => DialogScrollBody(
+        builder: (scrollController) =>
+            _buildNotificationMenuBody(context, scrollController),
+      ),
+    );
+  }
+
+  Widget _buildNotificationMenuBody(
+    BuildContext context,
+    ScrollController scrollController,
+  ) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Title
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+          child: Text(
+            'Test Push Notifications',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: isDark ? Colors.white : Colors.black,
+            ),
+          ),
+        ),
+
+        const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 24),
+          child: Text(
+            'Send real-time push notifications to all admin/manager devices',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 12, color: Colors.grey),
+          ),
+        ),
+
+        const Divider(),
+
+        // Notification options (scrollable)
+        Flexible(
+          child: ListView(
+            controller: scrollController,
+            children: [
+              _buildNotificationOption(
+                icon: Icons.add_circle,
+                color: Colors.green,
+                title: 'New Booking',
+                subtitle: 'Send to all admins/managers',
+                onTap: () => _sendPushNotification(
+                  type: 'BOOKING_CONFIRMED',
+                  title: 'New Booking Confirmed',
+                  message:
+                      'Acme Corp scheduled a visit for Oct 15, 2025 at 14:00',
+                  metadata: {
+                    'companyName': 'Acme Corp',
+                    'date': '15/10/2025',
+                    'time': '14:00',
+                    'sector': 'Technology & Innovation',
+                    'expectedAttendees': 15,
+                    'eventType': 'Innovation Day',
+                  },
+                ),
+              ),
+              _buildNotificationOption(
+                icon: Icons.update,
+                color: Colors.blue,
+                title: 'Booking Updated',
+                subtitle: 'Notify changes to all',
+                onTap: () => _sendPushNotification(
+                  type: 'BOOKING_UPDATED',
+                  title: 'Booking Updated',
+                  message: 'Accenture booking updated: attendees increased',
+                  metadata: {
+                    'companyName': 'Accenture',
+                    'previousDate': 'Oct 18, 2025',
+                    'newDate': 'Oct 20, 2025',
+                    'previousTime': '10:00 AM',
+                    'newTime': '2:00 PM',
+                  },
+                ),
+              ),
+              _buildNotificationOption(
+                icon: Icons.cancel,
+                color: Colors.red,
+                title: 'Booking Cancelled',
+                subtitle: 'Alert cancellation',
+                onTap: () => _sendPushNotification(
+                  type: 'BOOKING_CANCELLED',
+                  title: 'Booking Cancelled',
+                  message:
+                      'IBM Brasil cancelled their visit due to schedule conflict',
+                  metadata: {
+                    'companyName': 'IBM Brasil',
+                    'date': 'Oct 18, 2025',
+                    'time': '9:00 AM',
+                    'reason': 'Client schedule conflict',
+                  },
+                ),
+              ),
+              _buildNotificationOption(
+                icon: Icons.check_circle,
+                color: Colors.green,
+                title: 'Booking Approved',
+                subtitle: 'Confirm approval',
+                onTap: () => _sendPushNotification(
+                  type: 'BOOKING_APPROVED',
+                  title: 'Booking Approved',
+                  message: 'Microsoft visit approved by John Silva',
+                  metadata: {
+                    'companyName': 'Microsoft',
+                    'date': 'Oct 22, 2025',
+                    'time': '10:30 AM',
+                    'approvedBy': 'John Silva (Manager)',
+                  },
+                ),
+              ),
+              _buildNotificationOption(
+                icon: Icons.event_repeat,
+                color: Colors.blue,
+                title: 'Booking Rescheduled',
+                subtitle: 'Notify time change',
+                onTap: () => _sendPushNotification(
+                  type: 'BOOKING_RESCHEDULED',
+                  title: 'Booking Rescheduled',
+                  message: 'SAP visit moved to a new date',
+                  metadata: {
+                    'companyName': 'SAP',
+                    'previousDate': 'Nov 1, 2025',
+                    'newDate': 'Nov 5, 2025',
+                  },
+                ),
+              ),
+              _buildNotificationOption(
+                icon: Icons.science,
+                color: Colors.deepPurple,
+                title: 'Generic Test',
+                subtitle: 'Simple test notification',
+                onTap: () => _sendPushNotification(
+                  type: 'BOOKING_UPDATED',
+                  title: 'Test Notification',
+                  message: 'This is a test push notification from Flutter app',
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
@@ -404,7 +426,6 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     Navigator.pop(context); // Close menu
 
     try {
-
       await _apiService.sendTestNotification(
         type: type,
         title: title,
@@ -425,7 +446,6 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       await Future.delayed(const Duration(seconds: 2));
       await _loadNotifications();
     } catch (e) {
-
       if (mounted) {
         ToastNotification.show(
           context,
@@ -487,9 +507,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             ),
             Icon(
               Icons.chevron_right,
-              color: isDark
-                  ? const Color(0xFF9CA3AF)
-                  : const Color(0xFF6B7280),
+              color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
             ),
           ],
         ),
@@ -698,9 +716,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                       notification.message,
                       style: TextStyle(
                         fontSize: 14,
-                        color: isDark
-                            ? Colors.grey[400]
-                            : Colors.grey[600],
+                        color: isDark ? Colors.grey[400] : Colors.grey[600],
                       ),
                     ),
                     const SizedBox(height: 8),
@@ -708,9 +724,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                       _formatTimestamp(notification.createdAt),
                       style: TextStyle(
                         fontSize: 12,
-                        color: isDark
-                            ? Colors.grey[500]
-                            : Colors.grey[500],
+                        color: isDark ? Colors.grey[500] : Colors.grey[500],
                       ),
                     ),
                   ],
@@ -822,7 +836,8 @@ class NotificationsDrawer extends StatefulWidget {
 
 class _NotificationsDrawerState extends State<NotificationsDrawer> {
   final ApiService _apiService = ApiService();
-  final UnifiedNotificationService _notificationService = UnifiedNotificationService();
+  final UnifiedNotificationService _notificationService =
+      UnifiedNotificationService();
   List<AppNotification> _notifications = [];
   bool _isLoading = true;
   bool _isLoadingMore = false;
@@ -840,18 +855,17 @@ class _NotificationsDrawerState extends State<NotificationsDrawer> {
   }
 
   void _setupRealtimeListener() {
-    _notificationSubscription = _notificationService.notificationStream.listen(
-      (notificationData) {
-        if (!mounted) return;
-        try {
-          final newNotification = AppNotification.fromJson(notificationData);
-          setState(() {
-            _notifications.insert(0, newNotification);
-          });
-        } catch (e) {
-        }
-      },
-    );
+    _notificationSubscription = _notificationService.notificationStream.listen((
+      notificationData,
+    ) {
+      if (!mounted) return;
+      try {
+        final newNotification = AppNotification.fromJson(notificationData);
+        setState(() {
+          _notifications.insert(0, newNotification);
+        });
+      } catch (e) { /* ignored: non-critical failure */ }
+    });
   }
 
   @override
@@ -869,7 +883,10 @@ class _NotificationsDrawerState extends State<NotificationsDrawer> {
     });
 
     try {
-      final response = await _apiService.getNotifications(limit: _limit, offset: 0);
+      final response = await _apiService.getNotifications(
+        limit: _limit,
+        offset: 0,
+      );
       final notificationsList = response['notifications'] as List?;
 
       if (notificationsList == null) {
@@ -976,7 +993,9 @@ class _NotificationsDrawerState extends State<NotificationsDrawer> {
       // Rollback on error
       if (mounted) {
         setState(() {
-          final index = _notifications.indexWhere((n) => n.id == notification.id);
+          final index = _notifications.indexWhere(
+            (n) => n.id == notification.id,
+          );
           if (index != -1) {
             _notifications[index] = notification; // Restore original
           }
@@ -990,19 +1009,23 @@ class _NotificationsDrawerState extends State<NotificationsDrawer> {
     final originalNotifications = List<AppNotification>.from(_notifications);
     if (mounted) {
       setState(() {
-        _notifications = _notifications.map((n) => AppNotification(
-          id: n.id,
-          type: n.type,
-          title: n.title,
-          message: n.message,
-          userId: n.userId,
-          bookingId: n.bookingId,
-          isRead: true,
-          readAt: DateTime.now(),
-          actionUrl: n.actionUrl,
-          metadata: n.metadata,
-          createdAt: n.createdAt,
-        )).toList();
+        _notifications = _notifications
+            .map(
+              (n) => AppNotification(
+                id: n.id,
+                type: n.type,
+                title: n.title,
+                message: n.message,
+                userId: n.userId,
+                bookingId: n.bookingId,
+                isRead: true,
+                readAt: DateTime.now(),
+                actionUrl: n.actionUrl,
+                metadata: n.metadata,
+                createdAt: n.createdAt,
+              ),
+            )
+            .toList();
       });
     }
 
@@ -1026,8 +1049,7 @@ class _NotificationsDrawerState extends State<NotificationsDrawer> {
           _notifications.removeWhere((n) => n.id == id);
         });
       }
-    } catch (e) {
-    }
+    } catch (e) { /* ignored: non-critical failure */ }
   }
 
   List<AppNotification> _sortNotifications() {
@@ -1077,7 +1099,10 @@ class _NotificationsDrawerState extends State<NotificationsDrawer> {
           // Close button
           IconButton(
             onPressed: () => Navigator.of(context).pop(),
-            icon: Icon(Icons.close, color: isDark ? Colors.white : Colors.black),
+            icon: Icon(
+              Icons.close,
+              color: isDark ? Colors.white : Colors.black,
+            ),
             tooltip: 'Close',
           ),
           const SizedBox(width: 8),
@@ -1098,7 +1123,10 @@ class _NotificationsDrawerState extends State<NotificationsDrawer> {
           if (_notifications.any((n) => !n.isRead))
             IconButton(
               onPressed: _markAllAsRead,
-              icon: Icon(Icons.done_all, color: isDark ? Colors.white : Colors.black),
+              icon: Icon(
+                Icons.done_all,
+                color: isDark ? Colors.white : Colors.black,
+              ),
               tooltip: 'Mark all read',
             ),
         ],
@@ -1199,7 +1227,9 @@ class _NotificationsDrawerState extends State<NotificationsDrawer> {
       child: Column(
         children: [
           // Notification cards
-          ...sortedNotifications.map((notification) => _buildNotificationCard(notification, isDark)),
+          ...sortedNotifications.map(
+            (notification) => _buildNotificationCard(notification, isDark),
+          ),
 
           // Load more section
           if (_isLoadingMore)
@@ -1322,9 +1352,7 @@ class _NotificationsDrawerState extends State<NotificationsDrawer> {
                       notification.message,
                       style: TextStyle(
                         fontSize: 14,
-                        color: isDark
-                            ? Colors.grey[400]
-                            : Colors.grey[600],
+                        color: isDark ? Colors.grey[400] : Colors.grey[600],
                       ),
                     ),
                     const SizedBox(height: 8),
@@ -1332,9 +1360,7 @@ class _NotificationsDrawerState extends State<NotificationsDrawer> {
                       _formatTimestamp(notification.createdAt),
                       style: TextStyle(
                         fontSize: 12,
-                        color: isDark
-                            ? Colors.grey[500]
-                            : Colors.grey[500],
+                        color: isDark ? Colors.grey[500] : Colors.grey[500],
                       ),
                     ),
                   ],

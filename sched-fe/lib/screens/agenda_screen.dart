@@ -115,8 +115,7 @@ class _AgendaScreenState extends State<AgendaScreen> {
           }
         });
       }
-    } catch (e) {
-    }
+    } catch (e) { /* ignored: non-critical failure */ }
   }
 
   /// Handle realtime booking deletion

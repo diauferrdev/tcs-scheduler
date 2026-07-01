@@ -95,8 +95,7 @@ class UnifiedNotificationService {
       _setupRealtimeListeners();
 
       _initialized = true;
-    } catch (e) {
-    }
+    } catch (e) { /* ignored: non-critical failure */ }
   }
 
   /// Request notification permissions after user logs in
@@ -275,8 +274,7 @@ class UnifiedNotificationService {
         },
       );
 
-    } catch (e) {
-    }
+    } catch (e) { /* ignored: non-critical failure */ }
   }
 
   /// Show desktop notification (Windows/Linux)
@@ -307,8 +305,7 @@ class UnifiedNotificationService {
         body: body,
       );
 
-    } catch (e) {
-    }
+    } catch (e) { /* ignored: non-critical failure */ }
   }
 
   /// Refresh unread count from API
@@ -331,8 +328,7 @@ class UnifiedNotificationService {
           _badgeController.add(_unreadCount);
         }
       }
-    } catch (e) {
-    }
+    } catch (e) { /* ignored: non-critical failure */ }
   }
 
   /// Mark notification as read (via Native WebSocket)
@@ -391,8 +387,7 @@ class UnifiedNotificationService {
     if (_fcmService != null) {
       try {
         await _fcmService!.dispose();
-      } catch (e) {
-      }
+      } catch (e) { /* ignored: non-critical failure */ }
     }
 
     // Clear badge count
